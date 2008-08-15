@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 24;
+use Test::More tests => 25;
 
 use IO::Socket;
 use MIME::Base64;
@@ -54,6 +54,11 @@ smtp_check(qr/^250 /, "ehlo");
 
 TODO: {
 	local $TODO = "pipelining not implemented yet";
+
+	smtp_send('INVALID COMMAND WITH ARGUMENTS' . CRLF
+		. 'RSET');
+	smtp_read();
+	smtp_ok('rset after invalid command');
 
 	smtp_send('AUTH PLAIN '
 		. encode_base64("test\@example.com\0\0bad", '') . CRLF

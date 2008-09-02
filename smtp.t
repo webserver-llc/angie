@@ -9,14 +9,15 @@
 use warnings;
 use strict;
 
-use Test::More tests => 25;
+use Test::More tests => 26;
 
 use IO::Socket;
 use MIME::Base64;
 
 use constant CRLF => "\x0D\x0A";
 
-$| = 1;
+select STDERR; $| = 1;
+select STDOUT; $| = 1;
 
 my $s = smtp_connect();
 smtp_check(qr/^220 /, "greeting");
@@ -52,26 +53,22 @@ smtp_check(qr/^220 /, "greeting");
 smtp_send('EHLO example.com');
 smtp_check(qr/^250 /, "ehlo");
 
-TODO: {
-	local $TODO = "pipelining not implemented yet";
+smtp_send('INVALID COMMAND WITH ARGUMENTS' . CRLF
+	. 'RSET');
+smtp_read();
+smtp_ok('pipelined rset after invalid command');
 
-	smtp_send('INVALID COMMAND WITH ARGUMENTS' . CRLF
-		. 'RSET');
-	smtp_read();
-	smtp_ok('rset after invalid command');
+smtp_send('AUTH PLAIN '
+	. encode_base64("test\@example.com\0\0bad", '') . CRLF
+	. 'MAIL FROM:<test@example.com> SIZE=100');
+smtp_read();
+smtp_ok('mail from after failed pipelined auth');
 
-	smtp_send('AUTH PLAIN '
-		. encode_base64("test\@example.com\0\0bad", '') . CRLF
-		. 'MAIL FROM:<test@example.com> SIZE=100');
-	smtp_read();
-	smtp_ok('mail from after failed pipelined auth');
-
-	smtp_send('AUTH PLAIN '
-		. encode_base64("test\@example.com\0\0secret", '') . CRLF
-		. 'MAIL FROM:<test@example.com> SIZE=100');
-	smtp_read();
-	smtp_ok('mail from after pipelined auth');
-}
+smtp_send('AUTH PLAIN '
+	. encode_base64("test\@example.com\0\0secret", '') . CRLF
+	. 'MAIL FROM:<test@example.com> SIZE=100');
+smtp_read();
+smtp_ok('mail from after pipelined auth');
 
 # Try auth none
 
@@ -98,18 +95,14 @@ smtp_check(qr/^220 /, "greeting");
 smtp_send('EHLO example.com');
 smtp_check(qr/^250 /, "ehlo");
 
-TODO: {
-	smtp_send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
-		. 'RCPT TO:<test@example.com>' . CRLF
-		. 'RSET');
+smtp_send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
+	. 'RCPT TO:<test@example.com>' . CRLF
+	. 'RSET');
 
-	smtp_ok('pipelined mail from');
+smtp_ok('pipelined mail from');
 
-	local $TODO = "pipelining not implemented yet";
-
-	smtp_ok('pipelined rcpt to');
-	smtp_ok('pipelined rset');
-}
+smtp_ok('pipelined rcpt to');
+smtp_ok('pipelined rset');
 
 # Connection must stay even if error returned to rcpt to command
 
@@ -128,6 +121,15 @@ smtp_check(qr/^5.. /, "bad rcpt to");
 smtp_send('RCPT TO:<test@example.com>');
 smtp_ok('good rcpt to');
 
+# Make sure command splitted into many packets processed correctly
+
+$s = smtp_connect();
+smtp_read();
+
+log_out('HEL');
+$s->print('HEL');
+smtp_send('O example.com');
+smtp_ok('splitted command');
 
 ###############################################################################
 

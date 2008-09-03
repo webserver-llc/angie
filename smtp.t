@@ -9,8 +9,9 @@
 use warnings;
 use strict;
 
-use Test::More tests => 26;
+use Test::More tests => 28;
 
+use File::Temp qw/ tempdir /;
 use IO::Socket;
 use MIME::Base64;
 
@@ -18,6 +19,35 @@ use constant CRLF => "\x0D\x0A";
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
+
+###############################################################################
+
+# Create temp directory and run nginx instance.
+
+my $tempdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1)
+	or die "Can't create temp directory: $!\n";
+
+my $pid = fork();
+die "Unable to fork(): $!\n" unless defined $pid;
+
+if ($pid == 0) {
+	exec('../nginx/objs/nginx', '-c', 'smtp.conf', '-g',
+		"pid $tempdir/nginx.pid; error_log $tempdir/nginx-error.log info;")
+		or die "Unable to exec(): $!\n";
+	print "# child after exec - not reached\n";
+}
+
+END {
+	# terminate nginx by SIGTERM
+	kill 15, $pid;
+	wait;
+}
+
+# Give nginx some time to start.
+
+sleep 1;
+
+###############################################################################
 
 my $s = smtp_connect();
 smtp_check(qr/^220 /, "greeting");

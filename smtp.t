@@ -131,6 +131,15 @@ $s->print('HEL');
 smtp_send('O example.com');
 smtp_ok('splitted command');
 
+# With smtp_greeting_delay session expected to be closed after first error
+# message if client sent something before greeting.  Use 10026 port
+# configured with smtp_greeting_delay 0.1s to check this.
+
+$s = smtp_connect(PeerPort => 10026);
+smtp_send('HELO example.com');
+smtp_check(qr/^5.. /, "command before greeting - session must be rejected");
+ok($s->eof(), "session have to be closed");
+
 ###############################################################################
 
 sub log_out {
@@ -152,6 +161,7 @@ sub smtp_connect {
 		Proto => "tcp",
 		PeerAddr => "localhost",
 		PeerPort => 10025,
+		@_
 	)
 		or die "Can't connect to nginx: $!\n";
 

@@ -11,41 +11,16 @@ use strict;
 
 use Test::More tests => 28;
 
-use File::Temp qw/ tempdir /;
-use IO::Socket;
 use MIME::Base64;
 
-use constant CRLF => "\x0D\x0A";
+use _common;
+
+###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-###############################################################################
-
-# Create temp directory and run nginx instance.
-
-my $tempdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1)
-	or die "Can't create temp directory: $!\n";
-
-my $pid = fork();
-die "Unable to fork(): $!\n" unless defined $pid;
-
-if ($pid == 0) {
-	exec('../nginx/objs/nginx', '-c', 'smtp.conf', '-g',
-		"pid $tempdir/nginx.pid; error_log $tempdir/nginx-error.log info;")
-		or die "Unable to exec(): $!\n";
-	print "# child after exec - not reached\n";
-}
-
-END {
-	# terminate nginx by SIGTERM
-	kill 15, $pid;
-	wait;
-}
-
-# Give nginx some time to start.
-
-sleep 1;
+start_nginx('smtp.conf');
 
 ###############################################################################
 
@@ -169,69 +144,5 @@ $s = smtp_connect(PeerPort => 10026);
 smtp_send('HELO example.com');
 smtp_check(qr/^5.. /, "command before greeting - session must be rejected");
 ok($s->eof(), "session have to be closed");
-
-###############################################################################
-
-sub log_out {
-	my ($msg) = @_;
-	$msg =~ s/^/# >> /gm;
-	$msg .= "\n" unless $msg =~ /\n\Z/;
-	print $msg;
-}
-
-sub log_in {
-	my ($msg) = @_;
-	$msg =~ s/\x0d/\\x0d/gm;
-	$msg =~ s/\x0a/\\x0a/gm;
-	print '# << ' . $msg . "\n";
-}
-
-sub smtp_connect {
-	my $s = IO::Socket::INET->new(
-		Proto => "tcp",
-		PeerAddr => "localhost",
-		PeerPort => 10025,
-		@_
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	$s->autoflush(1);
-
-	return $s;
-}
-
-sub smtp_send {
-	my ($cmd) = @_;
-	log_out($cmd);
-	$s->print($cmd . CRLF);
-}
-
-sub smtp_read {
-	my ($regex, $name) = @_;
-	eval {
-		alarm(2);
-		local $SIG{ALRM} = sub { die "alarm\n" };
-		while (<$s>) {
-			log_in($_);
-			next if m/^\d\d\d-/;
-			last;
-		}
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		return undef;
-	}
-	return $_;
-}
-
-sub smtp_check {
-	my ($regex, $name) = @_;
-	like(smtp_read(), $regex, $name);
-}
-
-sub smtp_ok {
-	smtp_check(qr/^2\d\d /, @_);
-}
 
 ###############################################################################

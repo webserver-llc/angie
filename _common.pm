@@ -75,7 +75,7 @@ sub log_out {
 sub log_in {
 	my ($msg) = @_;
 	$msg =~ s/^/# << /gm;
-	$msg =~ s/([\x00-\x1f\x7f-])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;
+	$msg =~ s/([^\x20-\x7e])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;
 	$msg .= "\n" unless $msg =~ /\n\Z/;
 	print $msg;
 }

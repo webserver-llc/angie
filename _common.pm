@@ -12,15 +12,14 @@ use strict;
 use base qw/ Exporter /;
 
 our @EXPORT = qw/ start_nginx smtp_connect smtp_send smtp_read smtp_check
-	smtp_ok log_in log_out CRLF http /;
+	smtp_ok log_in log_out http /;
 
 ###############################################################################
 
 use Test::More;
 use File::Temp qw/ tempdir /;
 use IO::Socket;
-
-use constant CRLF => "\x0D\x0A";
+use Socket qw/ CRLF /;
 
 our $testdir;
 our $s;

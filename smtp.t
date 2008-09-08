@@ -12,6 +12,7 @@ use strict;
 use Test::More tests => 28;
 
 use MIME::Base64;
+use Socket qw/ CRLF /;
 
 use _common;
 

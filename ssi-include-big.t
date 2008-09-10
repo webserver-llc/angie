@@ -11,6 +11,8 @@ use strict;
 
 use Test::More tests => 3;
 
+BEGIN { use FindBin; chdir($FindBin::Bin); }
+
 use _common;
 
 ###############################################################################

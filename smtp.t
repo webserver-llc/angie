@@ -14,6 +14,8 @@ use Test::More tests => 28;
 use MIME::Base64;
 use Socket qw/ CRLF /;
 
+BEGIN { use FindBin; chdir($FindBin::Bin); }
+
 use _common;
 
 ###############################################################################

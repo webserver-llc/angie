@@ -31,7 +31,8 @@ our $s;
 sub start_nginx {
 	my ($conf) = @_;
 
-	$testdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1)
+	$testdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1,
+		CLEANUP => not $ENV{LEAVE})
 		or die "Can't create temp directory: $!\n";
 
 	system("cat $conf | sed 's!%%TESTDIR%%!$testdir!g' "

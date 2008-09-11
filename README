@@ -1,0 +1,10 @@
+Test suit for nginx.
+
+Use prove to run tests as one usually do for perl tests.  Individual tests
+may be run as well.
+
+Note: some tests may fail since they are for bugs not fixed in public code.
+
+Currently each test creates it's own temporary directory and uses it for
+logs etc.  One may instruct tests not to remove the temp directory (e.g.
+for analysis of failed test) by setting LEAVE environment variable.

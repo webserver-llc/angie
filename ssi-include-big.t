@@ -56,13 +56,4 @@ Accept-Encoding: gzip
 EOF
 }
 
-sub write_file {
-	my ($name, $content) = @_;
-
-	open F, '>' . $_common::testdir . '/' . $name
-		or die "Can't create $name: $!";
-	print F $content;
-	close F;
-}
-
 ###############################################################################

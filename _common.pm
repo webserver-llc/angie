@@ -11,8 +11,8 @@ use strict;
 
 use base qw/ Exporter /;
 
-our @EXPORT = qw/ start_nginx smtp_connect smtp_send smtp_read smtp_check
-	smtp_ok log_in log_out http /;
+our @EXPORT = qw/ start_nginx write_file smtp_connect smtp_send smtp_read
+	smtp_check smtp_ok log_in log_out http /;
 
 ###############################################################################
 
@@ -61,6 +61,15 @@ sub stop_nginx {
 
 END {
 	stop_nginx();
+}
+
+sub write_file {
+	my ($name, $content) = @_;
+
+	open F, '>' . $testdir . '/' . $name
+		or die "Can't create $name: $!";
+	print F $content;
+	close F;
 }
 
 ###############################################################################

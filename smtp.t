@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 28;
+use Test::More tests => 26;
 
 use MIME::Base64;
 use Socket qw/ CRLF /;
@@ -25,7 +25,54 @@ use Test::Nginx::SMTP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->run('smtp.conf');
+my $t = Test::Nginx->new()->write_file_expand('nginx.conf', <<'EOF')->run();
+
+master_process off;
+daemon         off;
+
+events {
+    worker_connections  1024;
+}
+
+mail {
+    proxy_pass_error_message  on;
+    auth_http  http://localhost:8080/mail/auth;
+    xclient    off;
+
+    server {
+        listen     localhost:10025;
+        protocol   smtp;
+        smtp_auth  login plain none;
+    }
+}
+
+http {
+    access_log    off;
+
+    server {
+        listen       localhost:8080;
+        server_name  localhost;
+
+        location = /mail/auth {
+            set $reply ERROR;
+
+            if ($http_auth_smtp_to ~ example.com) {
+                set $reply OK;
+            }
+            if ($http_auth_pass ~ secret) {
+                set $reply OK;
+            }
+
+            add_header Auth-Status $reply;
+            add_header Auth-Server 127.0.0.1;
+            add_header Auth-Port 25;
+            add_header Auth-Wait 1;
+            return 204;
+        }
+    }
+}
+
+EOF
 
 ###############################################################################
 
@@ -140,14 +187,5 @@ log_out('HEL');
 $s->print('HEL');
 $s->send('O example.com');
 $s->ok('splitted command');
-
-# With smtp_greeting_delay session expected to be closed after first error
-# message if client sent something before greeting.  Use 10026 port
-# configured with smtp_greeting_delay 0.1s to check this.
-
-$s = Test::Nginx::SMTP->new(PeerPort => 10026);
-$s->send('HELO example.com');
-$s->check(qr/^5.. /, "command before greeting - session must be rejected");
-ok($s->eof(), "session have to be closed");
 
 ###############################################################################

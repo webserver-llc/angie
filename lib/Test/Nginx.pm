@@ -24,6 +24,14 @@ use Socket qw/ CRLF /;
 sub new {
 	my $self = {};
 	bless $self;
+
+	$self->{_testdir} = tempdir(
+		'nginx-test-XXXXXXXXXX',
+		TMPDIR => 1,
+		CLEANUP => not $ENV{LEAVE}
+	)
+		or die "Can't create temp directory: $!\n";
+
 	return $self;
 }
 
@@ -32,19 +40,15 @@ sub DESTROY {
 	$self->stop();
 }
 
-# Create temp directory and run nginx instance.
-
 sub run {
 	my ($self, $conf) = @_;
 
-	my $testdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1,
-		CLEANUP => not $ENV{LEAVE})
-		or die "Can't create temp directory: $!\n";
+	my $testdir = $self->{_testdir};
 
-	$self->{_testdir} = $testdir;
-
-	system("cat $conf | sed 's!%%TESTDIR%%!$testdir!g' "
-		. "> $testdir/nginx.conf");
+	if (defined $conf) {
+		my $c = `cat $conf`;
+		$self->write_file_expand('nginx.conf', $c);
+	}
 
 	my $pid = fork();
 	die "Unable to fork(): $!\n" unless defined $pid;
@@ -63,7 +67,7 @@ sub run {
 	return $self;
 }
 
-sub stop {
+sub stop() {
 	my ($self) = @_;
 
 	# terminate nginx by SIGTERM
@@ -73,7 +77,7 @@ sub stop {
 	return $self;
 }
 
-sub write_file {
+sub write_file($$) {
 	my ($self, $name, $content) = @_;
 
 	open F, '>' . $self->{_testdir} . '/' . $name
@@ -82,6 +86,14 @@ sub write_file {
 	close F;
 
 	return $self;
+}
+
+sub write_file_expand($$) {
+	my ($self, $name, $content) = @_;
+
+	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
+
+	return $self->write_file($name, $content);
 }
 
 ###############################################################################

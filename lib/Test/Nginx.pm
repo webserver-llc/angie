@@ -1,4 +1,4 @@
-package _common;
+package Test::Nginx;
 
 # (C) Maxim Dounin
 
@@ -11,29 +11,37 @@ use strict;
 
 use base qw/ Exporter /;
 
-our @EXPORT = qw/ start_nginx write_file smtp_connect smtp_send smtp_read
-	smtp_check smtp_ok log_in log_out http /;
+our @EXPORT = qw/ log_in log_out http /;
 
 ###############################################################################
 
-use Test::More;
 use File::Temp qw/ tempdir /;
 use IO::Socket;
 use Socket qw/ CRLF /;
 
-our $testdir;
-our $s;
-
 ###############################################################################
+
+sub new {
+	my $self = {};
+	bless $self;
+	return $self;
+}
+
+sub DESTROY {
+	my ($self) = @_;
+	$self->stop();
+}
 
 # Create temp directory and run nginx instance.
 
-sub start_nginx {
-	my ($conf) = @_;
+sub run {
+	my ($self, $conf) = @_;
 
-	$testdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1,
+	my $testdir = tempdir('nginx-test-XXXXXXXXXX', TMPDIR => 1,
 		CLEANUP => not $ENV{LEAVE})
 		or die "Can't create temp directory: $!\n";
+
+	$self->{_testdir} = $testdir;
 
 	system("cat $conf | sed 's!%%TESTDIR%%!$testdir!g' "
 		. "> $testdir/nginx.conf");
@@ -51,25 +59,29 @@ sub start_nginx {
 	# wait for nginx to start
 
 	sleep 1;
+
+	return $self;
 }
 
-sub stop_nginx {
+sub stop {
+	my ($self) = @_;
+
 	# terminate nginx by SIGTERM
-	kill 15, `cat $testdir/nginx.pid`;
+	kill 15, `cat $self->{_testdir}/nginx.pid`;
 	wait;
-}
 
-END {
-	stop_nginx();
+	return $self;
 }
 
 sub write_file {
-	my ($name, $content) = @_;
+	my ($self, $name, $content) = @_;
 
-	open F, '>' . $testdir . '/' . $name
+	open F, '>' . $self->{_testdir} . '/' . $name
 		or die "Can't create $name: $!";
 	print F $content;
 	close F;
+
+	return $self;
 }
 
 ###############################################################################
@@ -114,56 +126,6 @@ sub http {
 		return undef;
 	}
 	return $reply;
-}
-
-###############################################################################
-
-sub smtp_connect {
-	$s = IO::Socket::INET->new(
-		Proto => "tcp",
-		PeerAddr => "localhost",
-		PeerPort => 10025,
-		@_
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	$s->autoflush(1);
-
-	return $s;
-}
-
-sub smtp_send {
-	my ($cmd) = @_;
-	log_out($cmd);
-	$s->print($cmd . CRLF);
-}
-
-sub smtp_read {
-	my ($regex, $name) = @_;
-	eval {
-		alarm(2);
-		local $SIG{ALRM} = sub { die "alarm\n" };
-		while (<$s>) {
-			log_in($_);
-			next if m/^\d\d\d-/;
-			last;
-		}
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		return undef;
-	}
-	return $_;
-}
-
-sub smtp_check {
-	my ($regex, $name) = @_;
-	like(smtp_read(), $regex, $name);
-}
-
-sub smtp_ok {
-	smtp_check(qr/^2\d\d /, @_);
 }
 
 ###############################################################################

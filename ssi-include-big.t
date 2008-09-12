@@ -13,23 +13,24 @@ use Test::More tests => 3;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
-use _common;
+use lib 'lib';
+use Test::Nginx;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-start_nginx('ssi-include-big.conf');
+my $t = Test::Nginx->new()->run('ssi-include-big.conf');
 
-write_file('c1.html', 'X' x 1023);
-write_file('c2.html', 'X' x 1024);
-write_file('c3.html', 'X' x 1025);
-write_file('test1.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
+$t->write_file('c1.html', 'X' x 1023);
+$t->write_file('c2.html', 'X' x 1024);
+$t->write_file('c3.html', 'X' x 1025);
+$t->write_file('test1.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
 	. '<!--#include virtual="/c1.html" -->');
-write_file('test2.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
+$t->write_file('test2.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
 	. '<!--#include virtual="/c2.html" -->');
-write_file('test3.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
+$t->write_file('test3.html', '<!--#include virtual="/proxy/blah" -->' . "\n"
 	. '<!--#include virtual="/c3.html" -->');
 
 ###############################################################################

@@ -6,7 +6,7 @@ may be run as well.
 Note: some tests may fail since they are for bugs not fixed in public code.
 
 Note: tests run nginx listening on localhost, and currently this includes
-following ports: 8080, 10025, 10026.
+following ports: 8080, 10025.
 
 Currently each test creates it's own temporary directory and uses it for
 logs etc.  One may instruct tests not to remove the temp directory (e.g.

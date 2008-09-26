@@ -75,8 +75,13 @@ ok(defined $t1, 'small included file (less than output_buffers)');
 my $t2 = http_gzip_request('/test2.html');
 ok(defined $t2, 'small included file (equal to output_buffers)');
 
+TODO: {
+local $TODO = 'not fixed yet, patch under review';
+
 my $t3 = http_gzip_request('/test3.html');
 ok(defined $t3, 'big included file (more than output_buffers)');
+
+}
 
 ###############################################################################
 

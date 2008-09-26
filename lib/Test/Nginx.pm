@@ -64,15 +64,25 @@ sub run {
 
 	sleep 1;
 
+	$self->{_started} = 1;
 	return $self;
 }
 
 sub stop() {
 	my ($self) = @_;
 
-	# terminate nginx by SIGTERM
-	kill 15, `cat $self->{_testdir}/nginx.pid`;
+	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
+		my $p = shift @{$self->{_daemons}};
+		kill 'TERM', $p;
+		wait;
+	}
+
+	return $self unless $self->{_started};
+
+	kill 'TERM', `cat $self->{_testdir}/nginx.pid`;
 	wait;
+
+	$self->{_started} = 0;
 
 	return $self;
 }
@@ -94,6 +104,23 @@ sub write_file_expand($$) {
 	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
 
 	return $self->write_file($name, $content);
+}
+
+sub run_daemon($) {
+	my ($self, $code) = @_;
+
+	my $pid = fork();
+	die "Can't fork daemon: $!\n" unless defined $pid;
+
+	if ($pid == 0) {
+		$code->();
+		exit 0;
+	}
+
+	$self->{_daemons} = [] unless defined $self->{_daemons};
+	push @{$self->{_daemons}}, $pid;
+
+	return $self;
 }
 
 ###############################################################################

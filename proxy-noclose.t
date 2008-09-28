@@ -94,7 +94,7 @@ sub http_noclose_daemon {
 
         	print $client <<'EOF';
 HTTP/1.1 200 OK
-Content-Length: 23
+Content-Length: 24
 Connection: close
 
 TEST-OK-IF-YOU-SEE-THIS

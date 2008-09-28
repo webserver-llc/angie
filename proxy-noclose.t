@@ -11,7 +11,9 @@
 use warnings;
 use strict;
 
-use Test::More tests => 1;
+use Test::More tests => 2;
+
+use IO::Select;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -59,8 +61,8 @@ $t->run();
 TODO: {
 local $TODO = 'not fixed yet, submit patches';
 
-my $t1 = http_request('/');
-like($t1, qr/TEST-OK-IF-YOU-SEE-THIS/, 'request to bad backend');
+like(http_request('/'), qr/TEST-OK-IF-YOU-SEE-THIS/, 'request to bad backend');
+like(http_request('/multi'), qr/AND-THIS/, 'bad backend - multiple packets');
 
 }
 
@@ -88,18 +90,30 @@ sub http_noclose_daemon {
 	while (my $client = $server->accept()) {
         	$client->autoflush(1);
 
+		my $multi = 0;
+
         	while (<$client>) {
+			$multi = 1 if /multi/;
                 	last if (/^\x0d?\x0a?$/);
         	}
 
-        	print $client <<'EOF';
+		my $length = $multi ? 32 : 24;
+
+        	print $client <<"EOF";
 HTTP/1.1 200 OK
-Content-Length: 24
+Content-Length: $length
 Connection: close
 
 TEST-OK-IF-YOU-SEE-THIS
 EOF
-        	sleep 2;
+
+		if ($multi) {
+			select undef, undef, undef, 0.1;
+			print $client 'AND-THIS';
+		}
+
+		my $select = IO::Select->new($client);
+        	$select->can_read(2);
         	close $client;
 	}
 }

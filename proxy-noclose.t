@@ -6,12 +6,19 @@
 # reply.  This is in fact backend bug, but it seems common, and anyway
 # correct handling is required to support persistent connections.
 
+# There are actually 2 nginx problems here:
+#
+# 1. It doesn't send reply in-time even if got Content-Length and all the data.
+#
+# 2. If upstream times out some data may be left in input buffer and won't be
+#    sent to downstream.
+
 ###############################################################################
 
 use warnings;
 use strict;
 
-use Test::More tests => 2;
+use Test::More tests => 4;
 
 use IO::Select;
 
@@ -48,6 +55,15 @@ http {
             proxy_pass http://localhost:8081;
             proxy_read_timeout 1s;
         }
+
+        location /uselen {
+            proxy_pass http://localhost:8081;
+
+            # test will wait only 2s for reply, we it will fail if
+            # Content-Length not used as a hint
+ 
+            proxy_read_timeout 10s;
+        }
     }
 }
 
@@ -59,10 +75,12 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not fixed yet, submit patches';
+local $TODO = 'not fixed yet, patches under review';
 
-like(http_request('/'), qr/TEST-OK-IF-YOU-SEE-THIS/, 'request to bad backend');
+like(http_request('/'), qr/SEE-THIS/, 'request to bad backend');
 like(http_request('/multi'), qr/AND-THIS/, 'bad backend - multiple packets');
+like(http_request('/nolen'), qr/SEE-THIS/, 'bad backend - no content length');
+like(http_request('/uselen'), qr/SEE-THIS/, 'content-length actually used');
 
 }
 
@@ -91,29 +109,48 @@ sub http_noclose_daemon {
         	$client->autoflush(1);
 
 		my $multi = 0;
+		my $nolen = 0;
 
         	while (<$client>) {
 			$multi = 1 if /multi/;
+			$nolen = 1 if /nolen/;
                 	last if (/^\x0d?\x0a?$/);
         	}
 
-		my $length = $multi ? 32 : 24;
+		if ($nolen) {
 
-        	print $client <<"EOF";
+			print $client <<'EOF';
 HTTP/1.1 200 OK
-Content-Length: $length
+Connection: close
+
+TEST-OK-IF-YOU-SEE-THIS
+EOF
+		} elsif ($multi) {
+
+        		print $client <<"EOF";
+HTTP/1.1 200 OK
+Content-Length: 32
 Connection: close
 
 TEST-OK-IF-YOU-SEE-THIS
 EOF
 
-		if ($multi) {
 			select undef, undef, undef, 0.1;
 			print $client 'AND-THIS';
+
+		} else {
+
+        		print $client <<"EOF";
+HTTP/1.1 200 OK
+Content-Length: 24
+Connection: close
+
+TEST-OK-IF-YOU-SEE-THIS
+EOF
 		}
 
 		my $select = IO::Select->new($client);
-        	$select->can_read(2);
+        	$select->can_read(10);
         	close $client;
 	}
 }

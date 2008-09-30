@@ -56,7 +56,7 @@ sub run {
 	if ($pid == 0) {
 		exec('../nginx/objs/nginx', '-c', "$testdir/nginx.conf", '-g',
 			"pid $testdir/nginx.pid; "
-			. "error_log $testdir/nginx-error.log debug;")
+			. "error_log $testdir/error.log debug;")
 			or die "Unable to exec(): $!\n";
 	}
 

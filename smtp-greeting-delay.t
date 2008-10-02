@@ -38,7 +38,7 @@ mail {
     xclient    off;
 
     server {
-        listen     localhost:10025;
+        listen     localhost:8025;
         protocol   smtp;
         smtp_greeting_delay  100ms;
     }

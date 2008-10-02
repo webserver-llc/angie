@@ -3,10 +3,14 @@ Test suit for nginx.
 Use prove to run tests as one usually do for perl tests.  Individual tests
 may be run as well.
 
+Tests assume that nginx sources are in directory nginx at the same level
+as directory with tests, and nginx was already configured and built (i.e.
+nginx binary available as ../nginx/objs/nginx from test directory).
+
 Note: some tests may fail since they are for bugs not fixed in public code.
 
 Note: tests run nginx listening on localhost, and currently this includes
-following ports: 8080, 10025.
+following ports: 8025, 8026, 8080, 8081.
 
 Currently each test creates it's own temporary directory and uses it for
 logs etc.  One may instruct tests not to remove the temp directory (e.g.

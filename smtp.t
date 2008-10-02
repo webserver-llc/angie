@@ -25,7 +25,9 @@ use Test::Nginx::SMTP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->write_file_expand('nginx.conf', <<'EOF')->run();
+my $t = Test::Nginx->new()
+	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
+	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 master_process off;
 daemon         off;
@@ -40,7 +42,7 @@ mail {
     xclient    off;
 
     server {
-        listen     localhost:10025;
+        listen     localhost:8025;
         protocol   smtp;
         smtp_auth  login plain none;
     }
@@ -65,7 +67,7 @@ http {
 
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port 25;
+            add_header Auth-Port 8026;
             add_header Auth-Wait 1;
             return 204;
         }

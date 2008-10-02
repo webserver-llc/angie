@@ -23,7 +23,7 @@ sub new {
 	my $self = return $class->SUPER::new(
 		Proto => "tcp",
 		PeerAddr => "localhost",
-		PeerPort => 10025,
+		PeerPort => 8025,
 		@_
 	)
 		or die "Can't connect to nginx: $!\n";
@@ -66,6 +66,45 @@ sub check {
 sub ok {
 	my $self = shift; 
 	$self->check(qr/^2\d\d /, @_);
+}
+
+###############################################################################
+
+sub smtp_test_daemon {
+	my $server = IO::Socket::INET->new(
+		Proto => 'tcp',
+		LocalPort => 8026,
+		Listen => 5,
+		Reuse => 1
+	)
+		or die "Can't create listening socket: $!\n";
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+		print $client "220 fake esmtp server ready" . CRLF;
+
+		while (<$client>) {
+			if (/^quit/i) {
+				print $client '221 quit ok' . CRLF;
+			} elsif (/^(ehlo|helo)/i) {
+				print $client '250 hello ok' . CRLF;
+			} elsif (/^rset/i) {
+				print $client '250 rset ok' . CRLF;
+			} elsif (/^mail from:[^@]+$/i) {
+				print $client '500 mail from error' . CRLF;
+			} elsif (/^mail from:/i) {
+				print $client '250 mail from ok' . CRLF;
+			} elsif (/^rcpt to:[^@]+$/i) {
+				print $client '500 rcpt to error' . CRLF;
+			} elsif (/^rcpt to:/i) {
+				print $client '250 rcpt to ok' . CRLF;
+			} else {
+				print $client "500 unknown command" . CRLF;
+			}
+                }
+
+		close $client;
+	}
 }
 
 ###############################################################################

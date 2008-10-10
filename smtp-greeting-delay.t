@@ -7,7 +7,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 2;
+use Test::More;
 
 use MIME::Base64;
 use Socket qw/ CRLF /;
@@ -23,7 +23,8 @@ use Test::Nginx::SMTP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->write_file_expand('nginx.conf', <<'EOF')->run();
+my $t = Test::Nginx->new()->has('mail', plan => 2)
+	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 master_process off;
 daemon         off;

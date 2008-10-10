@@ -18,8 +18,11 @@ our @EXPORT = qw/ log_in log_out http /;
 use File::Temp qw/ tempdir /;
 use IO::Socket;
 use Socket qw/ CRLF /;
+use Test::More qw//;
 
 ###############################################################################
+
+our $NGINX = '../nginx/objs/nginx';
 
 sub new {
 	my $self = {};
@@ -40,6 +43,13 @@ sub DESTROY {
 	$self->stop();
 }
 
+sub has {
+	my ($self, $feature, %options) = @_;
+	Test::More::plan(skip_all => "$feature not compiled in")
+		unless `$NGINX -V 2>&1` =~ $feature;
+	Test::More::plan($options{plan}) if defined $options{plan};
+}
+
 sub run {
 	my ($self, $conf) = @_;
 
@@ -54,7 +64,7 @@ sub run {
 	die "Unable to fork(): $!\n" unless defined $pid;
 
 	if ($pid == 0) {
-		exec('../nginx/objs/nginx', '-c', "$testdir/nginx.conf", '-g',
+		exec($NGINX, '-c', "$testdir/nginx.conf", '-g',
 			"pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;")
 			or die "Unable to exec(): $!\n";

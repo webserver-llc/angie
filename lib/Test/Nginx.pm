@@ -44,10 +44,26 @@ sub DESTROY {
 }
 
 sub has {
-	my ($self, $feature, %options) = @_;
+	my ($self, $feature) = @_;
+
+	my %regex = (
+		mail	=> '--with-mail',
+		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
+		static	=> '(?s)^(?!.*--without-http_static_module)',
+	);
+
 	Test::More::plan(skip_all => "$feature not compiled in")
-		unless `$NGINX -V 2>&1` =~ $feature;
-	Test::More::plan($options{plan}) if defined $options{plan};
+		unless `$NGINX -V 2>&1` =~ $regex{$feature};
+
+	return $self;
+}
+
+sub plan {
+	my ($self, $plan) = @_;
+
+	Test::More::plan(tests => $plan);
+
+	return $self;
 }
 
 sub run {

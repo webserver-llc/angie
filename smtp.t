@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has('mail', plan => 26)
+	->has('mail')->plan(26)
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 

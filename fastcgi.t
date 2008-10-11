@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 eval { require FCGI; };
-plain(skip_all => 'FCGI not installed') if $@;
+plan(skip_all => 'FCGI not installed') if $@;
 
 my $t = Test::Nginx->new()->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');

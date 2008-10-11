@@ -77,24 +77,14 @@ $t->run();
 TODO: {
 local $TODO = 'not fixed yet, patches under review';
 
-like(http_request('/'), qr/SEE-THIS/, 'request to bad backend');
-like(http_request('/multi'), qr/AND-THIS/, 'bad backend - multiple packets');
-like(http_request('/nolen'), qr/SEE-THIS/, 'bad backend - no content length');
-like(http_request('/uselen'), qr/SEE-THIS/, 'content-length actually used');
+like(http_get('/'), qr/SEE-THIS/, 'request to bad backend');
+like(http_get('/multi'), qr/AND-THIS/, 'bad backend - multiple packets');
+like(http_get('/nolen'), qr/SEE-THIS/, 'bad backend - no content length');
+like(http_get('/uselen'), qr/SEE-THIS/, 'content-length actually used');
 
 }
 
 ###############################################################################
-
-sub http_request {
-	my ($url) = @_;
-	my $r = http(<<EOF);
-GET $url HTTP/1.1
-Host: localhost
-Connection: close
-
-EOF
-}
 
 sub http_noclose_daemon {
 	my $server = IO::Socket::INET->new(

@@ -11,7 +11,7 @@ use strict;
 
 use base qw/ Exporter /;
 
-our @EXPORT = qw/ log_in log_out http /;
+our @EXPORT = qw/ log_in log_out http http_get /;
 
 ###############################################################################
 
@@ -58,7 +58,16 @@ sub has {
 	return $self;
 }
 
-sub plan {
+sub has_daemon($) {
+	my ($self, $daemon) = @_;
+
+	Test::More::plan(skip_all => "$daemon not found")
+		unless `which $daemon`;
+
+	return $self;
+}
+
+sub plan($) {
 	my ($self, $plan) = @_;
 
 	Test::More::plan(tests => $plan);
@@ -66,7 +75,7 @@ sub plan {
 	return $self;
 }
 
-sub run {
+sub run(;$) {
 	my ($self, $conf) = @_;
 
 	my $testdir = $self->{_testdir};
@@ -89,6 +98,8 @@ sub run {
 	# wait for nginx to start
 
 	sleep 1;
+
+	die "Can't start nginx" unless -e "$self->{_testdir}/nginx.pid";
 
 	$self->{_started} = 1;
 	return $self;
@@ -132,15 +143,19 @@ sub write_file_expand($$) {
 	return $self->write_file($name, $content);
 }
 
-sub run_daemon($) {
-	my ($self, $code) = @_;
+sub run_daemon($;@) {
+	my ($self, $code, @args) = @_;
 
 	my $pid = fork();
 	die "Can't fork daemon: $!\n" unless defined $pid;
 
 	if ($pid == 0) {
-		$code->();
-		exit 0;
+		if (ref($code) eq 'CODE') {
+			$code->(@args);
+			exit 0;
+		} else {
+			exec($code, @args);
+		}
 	}
 
 	$self->{_daemons} = [] unless defined $self->{_daemons};
@@ -168,7 +183,16 @@ sub log_in {
 
 ###############################################################################
 
-sub http {
+sub http_get($) {
+	my ($url) = @_;
+	return http(<<EOF);
+GET $url HTTP/1.0
+Host: localhost
+
+EOF
+}
+
+sub http($) {
 	my ($request) = @_;
 	my $reply;
 	eval {

@@ -9,8 +9,11 @@ nginx binary available as ../nginx/objs/nginx from test directory).
 
 Note: some tests may fail since they are for bugs not fixed in public code.
 
-Note: tests run nginx listening on localhost, and currently this includes
-following ports: 8025, 8026, 8080, 8081.
+Note: tests run nginx (and backend daemons if needed) listening on localhost.
+Currently this includes following ports: 8025, 8026, 8080, 8081.
+
+Tests for memcached required memcached itself and Cache::Memcached to be
+installed.
 
 Currently each test creates it's own temporary directory and uses it for
 logs etc.  One may instruct tests not to remove the temp directory (e.g.

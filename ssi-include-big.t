@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->has('rewrite')->plan(3)->new();
+my $t = Test::Nginx->new()->has('rewrite')->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

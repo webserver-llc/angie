@@ -48,8 +48,8 @@ sub has {
 
 	my %regex = (
 		mail	=> '--with-mail',
+		flv	=> '--with-http_flv_module',
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
-		static	=> '(?s)^(?!.*--without-http_static_module)',
 	);
 
 	Test::More::plan(skip_all => "$feature not compiled in")

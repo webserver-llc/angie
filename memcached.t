@@ -39,6 +39,10 @@ events {
 http {
     access_log    off;
 
+    client_body_temp_path  %%TESTDIR%%/client_body_temp;
+    fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
+    proxy_temp_path        %%TESTDIR%%/proxy_temp;
+
     server {
         listen       localhost:8080;
         server_name  localhost;

@@ -36,6 +36,10 @@ http {
     access_log    off;
     root          %%TESTDIR%%;
 
+    client_body_temp_path  %%TESTDIR%%/client_body_temp;
+    fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
+    proxy_temp_path        %%TESTDIR%%/proxy_temp;
+
     charset_map B A {
         58 59; # X -> Y
     }

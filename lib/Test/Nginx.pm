@@ -97,7 +97,10 @@ sub run(;$) {
 
 	# wait for nginx to start
 
-	sleep 1;
+	for (1 .. 30) {
+		select undef, undef, undef, 0.05;
+		last if -e "$self->{_testdir}/nginx.pid";
+	}
 
 	die "Can't start nginx" unless -e "$self->{_testdir}/nginx.pid";
 

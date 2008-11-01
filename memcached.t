@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require Cache::Memcached; };
 plain(skip_all => 'Cache::Memcached not installed') if $@;
 
-my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(3)
+my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 master_process off;
@@ -71,5 +71,7 @@ $memd->set('/', 'SEE-THIS');
 like(http_get('/'), qr/SEE-THIS/, 'memcached request');
 like(http_get('/notfound'), qr/404/, 'memcached not found');
 like(http_get('/next'), qr/404/, 'not found with memcached_next_upstream');
+
+unlike(http_head('/'), qr/SEE-THIS/, 'memcached no data in HEAD');
 
 ###############################################################################

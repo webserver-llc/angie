@@ -11,7 +11,7 @@ use strict;
 
 use base qw/ Exporter /;
 
-our @EXPORT = qw/ log_in log_out http http_get /;
+our @EXPORT = qw/ log_in log_out http http_get http_head /;
 
 ###############################################################################
 
@@ -190,6 +190,15 @@ sub http_get($) {
 	my ($url) = @_;
 	return http(<<EOF);
 GET $url HTTP/1.0
+Host: localhost
+
+EOF
+}
+
+sub http_head($) {
+	my ($url) = @_;
+	return http(<<EOF);
+HEAD $url HTTP/1.0
 Host: localhost
 
 EOF

@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->plan(3)
+my $t = Test::Nginx->new()->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 master_process off;
@@ -61,6 +61,8 @@ $t->run();
 like(http_get('/'), qr/SEE-THIS/, 'fastcgi request');
 like(http_get('/redir'), qr/302/, 'fastcgi redirect');
 like(http_get('/'), qr/^3$/m, 'fastcgi third request');
+
+unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 
 ###############################################################################
 

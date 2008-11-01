@@ -11,8 +11,6 @@ use strict;
 
 use Test::More tests => 3;
 
-use IO::Select;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';

@@ -71,11 +71,14 @@ sub fastcgi_daemon {
 
 	my $count;
 	while( $request->Accept() >= 0 ) {
-		print "Location: http://localhost:8080/redirect\r\n";
-		print "Content-type: text/html\r\n";
-		print "\r\n";
-		print "SEE-THIS\n";
-		print ++$count;
+		$count++;
+		print <<EOF;
+Location: http://localhost:8080/redirect
+Content-Type: text/html
+
+SEE-THIS
+$count
+EOF
 	}
 
 	FCGI::CloseSocket($socket);

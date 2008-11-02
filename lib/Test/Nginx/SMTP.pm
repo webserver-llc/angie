@@ -22,8 +22,7 @@ sub new {
 
 	my $self = return $class->SUPER::new(
 		Proto => "tcp",
-		PeerAddr => "localhost",
-		PeerPort => 8025,
+		PeerAddr => "127.0.0.1:8025",
 		@_
 	)
 		or die "Can't connect to nginx: $!\n";

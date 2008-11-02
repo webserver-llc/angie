@@ -41,11 +41,11 @@ http {
     proxy_temp_path        %%TESTDIR%%/proxy_temp;
 
     server {
-        listen       localhost:8080;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://localhost:8081;
+            proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
         }
     }

@@ -212,7 +212,7 @@ sub http($) {
 		alarm(2);
 		my $s = IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerHost => 'localhost:8080'
+			PeerAddr => '127.0.0.1:8080'
 		);
 		log_out($request);
 		$s->print($request);

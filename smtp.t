@@ -39,11 +39,11 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://localhost:8080/mail/auth;
+    auth_http  http://127.0.0.1:8080/mail/auth;
     xclient    off;
 
     server {
-        listen     localhost:8025;
+        listen     127.0.0.1:8025;
         protocol   smtp;
         smtp_auth  login plain none;
     }
@@ -57,7 +57,7 @@ http {
     proxy_temp_path        %%TESTDIR%%/proxy_temp;
 
     server {
-        listen       localhost:8080;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location = /mail/auth {

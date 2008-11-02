@@ -42,7 +42,7 @@ http {
     proxy_temp_path        %%TESTDIR%%/proxy_temp;
 
     server {
-        listen       localhost:8080;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -75,7 +75,7 @@ sub fastcgi_daemon {
 	while( $request->Accept() >= 0 ) {
 		$count++;
 		print <<EOF;
-Location: http://localhost:8080/redirect
+Location: http://127.0.0.1:8080/redirect
 Content-Type: text/html
 
 SEE-THIS

@@ -67,7 +67,7 @@ unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket(':8081', 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:8081', 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

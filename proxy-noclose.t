@@ -93,7 +93,7 @@ like(http_get('/uselen'), qr/SEE-THIS/, 'content-length actually used');
 sub http_noclose_daemon {
 	my $server = IO::Socket::INET->new(
         	Proto => 'tcp',
-        	LocalPort => 8081,
+        	LocalAddr => '127.0.0.1:8081',
         	Listen => 5,
         	Reuse => 1
 	)

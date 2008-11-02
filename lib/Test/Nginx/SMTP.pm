@@ -73,7 +73,7 @@ sub ok {
 sub smtp_test_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalPort => 8026,
+		LocalAddr => '127.0.0.1:8026',
 		Listen => 5,
 		Reuse => 1
 	)

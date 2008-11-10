@@ -167,6 +167,11 @@ sub run_daemon($;@) {
 	return $self;
 }
 
+sub testdir() {
+	my ($self) = @_;
+	return $self->{_testdir};
+}
+
 ###############################################################################
 
 sub log_out {

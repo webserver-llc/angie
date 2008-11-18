@@ -114,7 +114,8 @@ sub stop() {
 
 	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
 		my $p = shift @{$self->{_daemons}};
-		kill 'TERM', $p;
+		# SIGTERM to process group
+		kill -15, $p;
 		wait;
 	}
 
@@ -154,6 +155,7 @@ sub run_daemon($;@) {
 	die "Can't fork daemon: $!\n" unless defined $pid;
 
 	if ($pid == 0) {
+		setpgrp(0, 0);
 		if (ref($code) eq 'CODE') {
 			$code->(@args);
 			exit 0;

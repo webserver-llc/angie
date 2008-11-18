@@ -22,7 +22,8 @@ use Test::More qw//;
 
 ###############################################################################
 
-our $NGINX = '../nginx/objs/nginx';
+our $NGINX = defined $ENV{TEST_NGINX_BINARY} ? $ENV{TEST_NGINX_BINARY}
+	: '../nginx/objs/nginx';
 
 sub new {
 	my $self = {};

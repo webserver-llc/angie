@@ -63,6 +63,9 @@ EOF
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081');
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Can't start memcached";
+
 ###############################################################################
 
 my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ]);

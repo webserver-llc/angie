@@ -98,15 +98,43 @@ sub run(;$) {
 
 	# wait for nginx to start
 
-	for (1 .. 30) {
-		select undef, undef, undef, 0.05;
-		last if -e "$self->{_testdir}/nginx.pid";
-	}
-
-	die "Can't start nginx" unless -e "$self->{_testdir}/nginx.pid";
+	$self->waitforfile("$testdir/nginx.pid")
+		or die "Can't start nginx";
 
 	$self->{_started} = 1;
 	return $self;
+}
+
+sub waitforfile($) {
+	my ($self, $file) = @_;
+
+	# wait for file to appear
+
+	for (1 .. 30) {
+		return 1 if -e $file;
+		select undef, undef, undef, 0.1;
+	}
+
+	return undef;
+}
+
+sub waitforsocket($) {
+	my ($self, $peer) = @_;
+
+	# wait for socket to accept connections
+
+	for (1 .. 30) {
+		my $s = IO::Socket::INET->new(
+			Proto => 'tcp',
+			PeerAddr => $peer
+		);
+
+		return 1 if defined $s;
+
+		select undef, undef, undef, 0.1;
+	}
+
+	return undef;
 }
 
 sub stop() {

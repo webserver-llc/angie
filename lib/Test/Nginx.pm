@@ -42,6 +42,9 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	$self->stop();
+	if ($ENV{TEST_NGINX_CATLOG}) {
+		system("cat $self->{_testdir}/error.log");
+	}
 }
 
 sub has {

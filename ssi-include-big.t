@@ -83,14 +83,9 @@ my $t2 = http_gzip_request('/test2.html');
 ok(defined $t2, 'small included file (equal to output_buffers)');
 http_gzip_like($t2, qr/^X{1024}\Z/, 'small included file content');
 
-TODO: {
-local $TODO = 'not fixed yet, patch under review';
-
 my $t3 = http_gzip_request('/test3.html');
 ok(defined $t3, 'big included file (more than output_buffers)');
 http_gzip_like($t3, qr/^X{1025}\Z/, 'big included file content');
-
-}
 
 my $t4 = http_gzip_request('/test4.html');
 ok(defined $t4, 'big ssi main file');

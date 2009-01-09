@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 eval { require Cache::Memcached; };
-plain(skip_all => 'Cache::Memcached not installed') if $@;
+plan(skip_all => 'Cache::Memcached not installed') if $@;
 
 my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');

@@ -54,9 +54,6 @@ $t->run();
 
 like(http_100_request('/', '1.1'), qr/100/, 'expect 100 continue');
 
-TODO: {
-local $TODO = 'patch under review';
-
 # From RFC 2616, 8.2.3 Use of the 100 (Continue) Status:
 #
 #      - An origin server SHOULD NOT send a 100 (Continue) response if
@@ -66,8 +63,6 @@ local $TODO = 'patch under review';
 #        (or earlier) client.
 
 unlike(http_100_request('/', '1.0'), qr/100/, 'no 100 continue via http 1.0');
-
-}
 
 ###############################################################################
 

@@ -66,7 +66,9 @@ http {
             if ($http_auth_smtp_to ~ example.com) {
                 set $reply OK;
             }
-            if ($http_auth_pass ~ secret) {
+
+            set $userpass "$http_auth_user:$http_auth_pass";
+            if ($userpass ~ '^test@example.com:secret$') {
                 set $reply OK;
             }
 
@@ -89,10 +91,10 @@ $s->check(qr/^220 /, "greeting");
 $s->send('EHLO example.com');
 $s->check(qr/^250 /, "ehlo");
 
-$s->send('AUTH PLAIN ' . encode_base64("test\@example.com\0\0bad", ''));
+$s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0bad", ''));
 $s->check(qr/^5.. /, 'auth plain with bad password');
 
-$s->send('AUTH PLAIN ' . encode_base64("test\@example.com\0\0secret", ''));
+$s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
 $s->ok('auth plain');
 
 # We are talking to backend from this point
@@ -123,13 +125,13 @@ $s->read();
 $s->ok('pipelined rset after invalid command');
 
 $s->send('AUTH PLAIN '
-	. encode_base64("test\@example.com\0\0bad", '') . CRLF
+	. encode_base64("\0test\@example.com\0bad", '') . CRLF
 	. 'MAIL FROM:<test@example.com> SIZE=100');
 $s->read();
 $s->ok('mail from after failed pipelined auth');
 
 $s->send('AUTH PLAIN '
-	. encode_base64("test\@example.com\0\0secret", '') . CRLF
+	. encode_base64("\0test\@example.com\0secret", '') . CRLF
 	. 'MAIL FROM:<test@example.com> SIZE=100');
 $s->read();
 $s->ok('mail from after pipelined auth');

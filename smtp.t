@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has('mail')->plan(26)
+	->has('mail')->plan(20)
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
@@ -113,11 +113,13 @@ $s->ok("quit");
 
 # Try auth plain with pipelining
 
-$s = Test::Nginx::SMTP->new();
-$s->check(qr/^220 /, "greeting");
+TODO: {
+local $TODO = 'pipelining not in official nginx';
 
+$s = Test::Nginx::SMTP->new();
+$s->read();
 $s->send('EHLO example.com');
-$s->check(qr/^250 /, "ehlo");
+$s->read();
 
 $s->send('INVALID COMMAND WITH ARGUMENTS' . CRLF
 	. 'RSET');
@@ -136,13 +138,14 @@ $s->send('AUTH PLAIN '
 $s->read();
 $s->ok('mail from after pipelined auth');
 
+}
+
 # Try auth none
 
 $s = Test::Nginx::SMTP->new();
-$s->check(qr/^220 /, "greeting");
-
+$s->read();
 $s->send('EHLO example.com');
-$s->check(qr/^250 /, "ehlo");
+$s->read();
 
 $s->send('MAIL FROM:<test@example.com> SIZE=100');
 $s->ok('auth none - mail from');
@@ -156,10 +159,9 @@ $s->ok('auth none - rset, should go to backend');
 # Auth none with pipelining
 
 $s = Test::Nginx::SMTP->new();
-$s->check(qr/^220 /, "greeting");
-
+$s->read();
 $s->send('EHLO example.com');
-$s->check(qr/^250 /, "ehlo");
+$s->read();
 
 $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 	. 'RCPT TO:<test@example.com>' . CRLF
@@ -167,16 +169,20 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 
 $s->ok('pipelined mail from');
 
+TODO: {
+local $TODO = 'pipelining not in official nginx';
+
 $s->ok('pipelined rcpt to');
 $s->ok('pipelined rset');
+
+}
 
 # Connection must stay even if error returned to rcpt to command
 
 $s = Test::Nginx::SMTP->new();
-$s->read(); # skip greeting
-
+$s->read();
 $s->send('EHLO example.com');
-$s->read(); # skip ehlo reply
+$s->read();
 
 $s->send('MAIL FROM:<test@example.com> SIZE=100');
 $s->read(); # skip mail from reply

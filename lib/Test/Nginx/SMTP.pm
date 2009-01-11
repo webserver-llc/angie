@@ -59,12 +59,12 @@ sub read {
 
 sub check {
 	my ($self, $regex, $name) = @_;
-	Test::More::like($self->read(), $regex, $name);
+	Test::More->builder->like($self->read(), $regex, $name);
 }
 
 sub ok {
 	my $self = shift; 
-	$self->check(qr/^2\d\d /, @_);
+	Test::More->builder->like($self->read(), qr/^2\d\d /, @_);
 }
 
 ###############################################################################

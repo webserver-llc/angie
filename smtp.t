@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has('mail')->plan(20)
+	->has('mail')->plan(25)
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
@@ -110,6 +110,40 @@ $s->ok("idn mail from (example.test in russian)");
 
 $s->send('QUIT');
 $s->ok("quit");
+
+# Try auth login in simple form
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('AUTH LOGIN');
+$s->check(qr/^334 VXNlcm5hbWU6/, 'auth login simple username challenge');
+$s->send(encode_base64('test@example.com', ''));
+$s->check(qr/^334 UGFzc3dvcmQ6/, 'auth login simple password challenge');
+$s->send(encode_base64('secret', ''));
+$s->ok('auth login simple');
+
+# Try auth plain with username.  Details:
+#
+# [MS-XLOGIN]: SMTP Protocol AUTH LOGIN Extension Specification
+# http://download.microsoft.com/download/5/D/D/5DD33FDF-91F5-496D-9884-0A0B0EE698BB/%5BMS-XLOGIN%5D.pdf
+
+TODO: {
+local $TODO = 'not supported yet';
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('AUTH LOGIN ' . encode_base64('test@example.com', ''));
+$s->check(qr/^334 UGFzc3dvcmQ6/, 'auth login with username password challenge');
+$s->send(encode_base64('secret', ''));
+$s->ok('auth login with username');
+
+}
 
 # Try auth plain with pipelining
 

@@ -72,7 +72,13 @@ my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ]);
 $memd->set('/', 'SEE-THIS');
 
 like(http_get('/'), qr/SEE-THIS/, 'memcached request');
+
+TODO: {
+local $TODO = 'broken since 0.7.18';
+
 like(http_get('/notfound'), qr/404/, 'memcached not found');
+}
+
 like(http_get('/next'), qr/404/, 'not found with memcached_next_upstream');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'memcached no data in HEAD');

@@ -67,6 +67,11 @@ sub ok {
 	Test::More->builder->like($self->read(), qr/^2\d\d /, @_);
 }
 
+sub authok {
+	my $self = shift; 
+	Test::More->builder->like($self->read(), qr/^235 /, @_);
+}
+
 ###############################################################################
 
 sub smtp_test_daemon {

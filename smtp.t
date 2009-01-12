@@ -141,7 +141,7 @@ $s->read();
 $s->send('AUTH LOGIN ' . encode_base64('test@example.com', ''));
 $s->check(qr/^334 UGFzc3dvcmQ6/, 'auth login with username password challenge');
 $s->send(encode_base64('secret', ''));
-$s->ok('auth login with username');
+$s->authok('auth login with username');
 
 }
 

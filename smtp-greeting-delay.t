@@ -41,6 +41,10 @@ mail {
     }
 }
 
+http {
+    # stub to avoid SIGSEGV when perl module compiled in, <= 0.7.30
+}
+
 EOF
 
 ###############################################################################
@@ -51,6 +55,12 @@ EOF
 my $s = Test::Nginx::SMTP->new();
 $s->send('HELO example.com');
 $s->check(qr/^5.. /, "command before greeting - session must be rejected");
+
+TODO: {
+local $TODO = 'not in official nginx yet';
+
 ok($s->eof(), "session have to be closed");
+
+}
 
 ###############################################################################

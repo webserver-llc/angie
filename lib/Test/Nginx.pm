@@ -209,6 +209,7 @@ sub testdir() {
 ###############################################################################
 
 sub log_out {
+	return unless $ENV{TEST_NGINX_VERBOSE};
 	my ($msg) = @_;
 	$msg =~ s/^/# >> /gm;
 	$msg .= "\n" unless $msg =~ /\n\Z/;
@@ -216,6 +217,7 @@ sub log_out {
 }
 
 sub log_in {
+	return unless $ENV{TEST_NGINX_VERBOSE};
 	my ($msg) = @_;
 	$msg =~ s/^/# << /gm;
 	$msg =~ s/([^\x20-\x7e])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;

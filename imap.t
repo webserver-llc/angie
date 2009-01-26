@@ -35,7 +35,6 @@ master_process off;
 daemon         off;
 
 events {
-    worker_connections  1024;
 }
 
 mail {

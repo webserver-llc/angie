@@ -208,21 +208,24 @@ sub testdir() {
 
 ###############################################################################
 
-sub log_out {
+sub log_core {
 	return unless $ENV{TEST_NGINX_VERBOSE};
-	my ($msg) = @_;
-	$msg =~ s/^/# >> /gm;
+	my ($prefix, $msg) = @_;
+	($prefix, $msg) = ('', $prefix) unless defined $msg;
+	$prefix .= ' ' if length($prefix) > 0;
+ 
+	$msg =~ s/^/# $prefix/gm;
+	$msg =~ s/([^\x20-\x7e])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;
 	$msg .= "\n" unless $msg =~ /\n\Z/;
 	print $msg;
 }
 
+sub log_out {
+	log_core('>>', @_);
+}
+
 sub log_in {
-	return unless $ENV{TEST_NGINX_VERBOSE};
-	my ($msg) = @_;
-	$msg =~ s/^/# << /gm;
-	$msg =~ s/([^\x20-\x7e])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;
-	$msg .= "\n" unless $msg =~ /\n\Z/;
-	print $msg;
+	log_core('<<', @_);
 }
 
 ###############################################################################

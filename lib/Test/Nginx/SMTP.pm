@@ -88,6 +88,8 @@ sub smtp_test_daemon {
 		print $client "220 fake esmtp server ready" . CRLF;
 
 		while (<$client>) {
+			Test::Nginx::log_core('||', $_);
+
 			if (/^quit/i) {
 				print $client '221 quit ok' . CRLF;
 			} elsif (/^(ehlo|helo)/i) {
@@ -102,6 +104,8 @@ sub smtp_test_daemon {
 				print $client '500 rcpt to error' . CRLF;
 			} elsif (/^rcpt to:/i) {
 				print $client '250 rcpt to ok' . CRLF;
+			} elsif (/^xclient/i) {
+				print $client '220 xclient ok' . CRLF;
 			} else {
 				print $client "500 unknown command" . CRLF;
 			}

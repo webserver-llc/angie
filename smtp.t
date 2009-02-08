@@ -94,7 +94,7 @@ $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0bad", ''));
 $s->check(qr/^5.. /, 'auth plain with bad password');
 
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
-$s->ok('auth plain');
+$s->authok('auth plain');
 
 # We are talking to backend from this point
 
@@ -122,7 +122,7 @@ $s->check(qr/^334 VXNlcm5hbWU6/, 'auth login simple username challenge');
 $s->send(encode_base64('test@example.com', ''));
 $s->check(qr/^334 UGFzc3dvcmQ6/, 'auth login simple password challenge');
 $s->send(encode_base64('secret', ''));
-$s->ok('auth login simple');
+$s->authok('auth login simple');
 
 # Try auth plain with username.  Details:
 #

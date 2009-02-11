@@ -111,9 +111,6 @@ $s->ok('auth login simple');
 
 # auth login with username
 
-TODO: {
-local $TODO = 'not supported yet';
-
 $s = Test::Nginx::POP3->new();
 $s->read();
 
@@ -122,7 +119,5 @@ $s->check(qr/\+ UGFzc3dvcmQ6/, 'auth login with username password challenge');
 
 $s->send(encode_base64('secret', ''));
 $s->ok('auth login with username');
-
-}
 
 ###############################################################################

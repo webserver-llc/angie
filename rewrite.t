@@ -67,13 +67,8 @@ like(http_get('/?a=b'), qr!^Location: http://example.com/\?a=b\x0d?$!ms,
 like(http_get('/add'), qr!^Location: http://example.com/\?c=d\x0d?$!ms,
 	'add args');
 
-TODO: {
-local $TODO = 'broken since 0.1.18';
-
 like(http_get('/add?a=b'), qr!^Location: http://example.com/\?c=d&a=b\x0d?$!ms,
 	'add args with args');
-
-}
 
 like(http_get('/no?a=b'), qr!^Location: http://example.com/\?c=d\x0d?$!ms,
 	'no args with args');

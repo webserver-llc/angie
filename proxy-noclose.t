@@ -79,6 +79,7 @@ $t->run();
 
 TODO: {
 local $TODO = 'not fixed yet, patches under review';
+local $SIG{__WARN__} = sub {};
 
 like(http_get('/'), qr/SEE-THIS/, 'request to bad backend');
 like(http_get('/multi'), qr/AND-THIS/, 'bad backend - multiple packets');

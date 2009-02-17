@@ -143,6 +143,7 @@ $s->authok('auth login with username');
 
 TODO: {
 local $TODO = 'pipelining not in official nginx';
+local $SIG{__WARN__} = sub {};
 
 $s = Test::Nginx::SMTP->new();
 $s->read();
@@ -199,6 +200,7 @@ $s->ok('pipelined mail from');
 
 TODO: {
 local $TODO = 'pipelining not in official nginx';
+local $SIG{__WARN__} = sub {};
 
 $s->ok('pipelined rcpt to');
 $s->ok('pipelined rset');

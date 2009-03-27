@@ -44,7 +44,6 @@ mail {
     server {
         listen     127.0.0.1:8143;
         protocol   imap;
-        smtp_auth  login plain;
     }
 }
 

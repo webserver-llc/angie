@@ -44,7 +44,6 @@ mail {
     server {
         listen     127.0.0.1:8110;
         protocol   pop3;
-        smtp_auth  login plain;
     }
 }
 

@@ -228,26 +228,26 @@ sub log_in {
 
 ###############################################################################
 
-sub http_get($) {
-	my ($url) = @_;
-	return http(<<EOF);
+sub http_get($;%) {
+	my ($url, %extra) = @_;
+	return http(<<EOF, %extra);
 GET $url HTTP/1.0
 Host: localhost
 
 EOF
 }
 
-sub http_head($) {
-	my ($url) = @_;
-	return http(<<EOF);
+sub http_head($;%) {
+	my ($url, %extra) = @_;
+	return http(<<EOF, %extra);
 HEAD $url HTTP/1.0
 Host: localhost
 
 EOF
 }
 
-sub http($) {
-	my ($request) = @_;
+sub http($;%) {
+	my ($request, %extra) = @_;
 	my $reply;
 	eval {
 		local $SIG{ALRM} = sub { die "alarm\n" };
@@ -259,6 +259,7 @@ sub http($) {
 		log_out($request);
 		$s->print($request);
 		local $/;
+		select undef, undef, undef, $extra{sleep} if $extra{sleep};
 		$reply = $s->getline();
 		log_in($reply);
 		alarm(0);

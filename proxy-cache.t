@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 2;
+use Test::More tests => 5;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -40,8 +40,7 @@ http {
     proxy_temp_path        %%TESTDIR%%/proxy_temp;
 
     proxy_cache_path   %%TESTDIR%%/cache  levels=1:2
-                       keys_zone=NAME:10m
-                       inactive=5m     clean_time=2h00m;
+                       keys_zone=NAME:10m;
 
     server {
         listen       127.0.0.1:8080;
@@ -73,6 +72,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
+$t->write_file('t2.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
@@ -81,5 +81,9 @@ like(http_get('/t.html'), qr/SEE-THIS/, 'proxy request');
 
 $t->write_file('t.html', 'NOOP');
 like(http_get('/t.html'), qr/SEE-THIS/, 'proxy request cached');
+
+unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head request');
+like(http_get('/t2.html'), qr/SEE-THIS/, 'get after head');
+unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head after get');
 
 ###############################################################################

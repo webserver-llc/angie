@@ -92,24 +92,24 @@ like(http_get('/uselen'), qr/SEE-THIS/, 'content-length actually used');
 
 sub http_noclose_daemon {
 	my $server = IO::Socket::INET->new(
-        	Proto => 'tcp',
-        	LocalAddr => '127.0.0.1:8081',
-        	Listen => 5,
-        	Reuse => 1
+		Proto => 'tcp',
+		LocalAddr => '127.0.0.1:8081',
+		Listen => 5,
+		Reuse => 1
 	)
-        	or die "Can't create listening socket: $!\n";
+		or die "Can't create listening socket: $!\n";
 
 	while (my $client = $server->accept()) {
-        	$client->autoflush(1);
+		$client->autoflush(1);
 
 		my $multi = 0;
 		my $nolen = 0;
 
-        	while (<$client>) {
+		while (<$client>) {
 			$multi = 1 if /multi/;
 			$nolen = 1 if /nolen/;
-                	last if (/^\x0d?\x0a?$/);
-        	}
+			last if (/^\x0d?\x0a?$/);
+		}
 
 		if ($nolen) {
 
@@ -121,7 +121,7 @@ TEST-OK-IF-YOU-SEE-THIS
 EOF
 		} elsif ($multi) {
 
-        		print $client <<"EOF";
+			print $client <<"EOF";
 HTTP/1.1 200 OK
 Content-Length: 32
 Connection: close
@@ -134,7 +134,7 @@ EOF
 
 		} else {
 
-        		print $client <<"EOF";
+			print $client <<"EOF";
 HTTP/1.1 200 OK
 Content-Length: 24
 Connection: close
@@ -144,8 +144,8 @@ EOF
 		}
 
 		my $select = IO::Select->new($client);
-        	$select->can_read(10);
-        	close $client;
+		$select->can_read(10);
+		close $client;
 	}
 }
 

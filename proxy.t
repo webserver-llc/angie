@@ -66,23 +66,23 @@ unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
-        	Proto => 'tcp',
+		Proto => 'tcp',
 		LocalHost => '127.0.0.1:8081',
-        	Listen => 5,
-        	Reuse => 1
+		Listen => 5,
+		Reuse => 1
 	)
-        	or die "Can't create listening socket: $!\n";
+		or die "Can't create listening socket: $!\n";
 
 	while (my $client = $server->accept()) {
-        	$client->autoflush(1);
+		$client->autoflush(1);
 
 		my $headers = '';
 		my $uri = '';
 
-        	while (<$client>) {
+		while (<$client>) {
 			$headers .= $_;
-                	last if (/^\x0d?\x0a?$/);
-        	}
+			last if (/^\x0d?\x0a?$/);
+		}
 
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
@@ -97,7 +97,7 @@ EOF
 
 		} elsif ($uri eq '/multi') {
 
-        		print $client <<"EOF";
+			print $client <<"EOF";
 HTTP/1.1 200 OK
 Connection: close
 
@@ -109,7 +109,7 @@ EOF
 
 		} else {
 
-        		print $client <<"EOF";
+			print $client <<"EOF";
 HTTP/1.1 404 Not Found
 Connection: close
 
@@ -117,7 +117,7 @@ Oops, '$uri' not found
 EOF
 		}
 
-        	close $client;
+		close $client;
 	}
 }
 

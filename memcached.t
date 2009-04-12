@@ -68,7 +68,8 @@ $t->waitforsocket('127.0.0.1:8081')
 ###############################################################################
 
 my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ]);
-$memd->set('/', 'SEE-THIS');
+$memd->set('/', 'SEE-THIS')
+	or die "can't put value into memcached: $!";
 
 like(http_get('/'), qr/SEE-THIS/, 'memcached request');
 

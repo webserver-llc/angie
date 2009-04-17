@@ -32,6 +32,7 @@ events {
 }
 
 http {
+    access_log    off;
     root          %%TESTDIR%%;
 
     client_body_temp_path  %%TESTDIR%%/client_body_temp;

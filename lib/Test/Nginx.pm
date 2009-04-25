@@ -260,6 +260,7 @@ sub http($;%) {
 		$s->print($request);
 		local $/;
 		select undef, undef, undef, $extra{sleep} if $extra{sleep};
+		return '' if $extra{aborted};
 		$reply = $s->getline();
 		log_in($reply);
 		alarm(0);

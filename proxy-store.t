@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -51,8 +51,15 @@ http {
             proxy_pass http://127.0.0.1:8080/index-nostore.html;
             proxy_store on;
         }
+        location /big {
+            proxy_pass http://127.0.0.1:8080/index-big.html;
+            proxy_store on;
+        }
         location /index-nostore.html {
             add_header  X-Accel-Expires  0;
+        }
+        location /index-big.html {
+            limit_rate  200k;
         }
     }
 }
@@ -61,6 +68,7 @@ EOF
 
 $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('index-nostore.html', 'SEE-THIS');
+$t->write_file('index-big.html', 'x' x (100 << 10));
 $t->run();
 
 ###############################################################################
@@ -77,5 +85,15 @@ ok(!-e $t->testdir() . '/nostore', 'result not stored');
 }
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0, 'no temp files');
+
+TODO: {
+local $TODO = 'patch under review';
+
+http_get('/big', aborted => 1, sleep => 0.1);
+sleep(1);
+
+ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0,
+	'no temp files after aborted request');
+}
 
 ###############################################################################

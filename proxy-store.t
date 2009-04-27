@@ -86,14 +86,10 @@ ok(!-e $t->testdir() . '/nostore', 'result not stored');
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0, 'no temp files');
 
-TODO: {
-local $TODO = 'patch under review';
-
 http_get('/big', aborted => 1, sleep => 0.1);
 sleep(1);
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0,
 	'no temp files after aborted request');
-}
 
 ###############################################################################

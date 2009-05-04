@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -47,6 +47,9 @@ http {
             proxy_pass http://127.0.0.1:8080/;
             proxy_store on;
         }
+        location /ssi.html {
+            ssi on;
+        }
         location /index-nostore.html {
             add_header  X-Accel-Expires  0;
         }
@@ -61,6 +64,10 @@ EOF
 $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('index-nostore.html', 'SEE-THIS');
 $t->write_file('index-big.html', 'x' x (100 << 10));
+$t->write_file('ssi.html',
+	'<!--#include virtual="/store-index-big.html?1" -->' .
+	'<!--#include virtual="/store-index-big.html?2" -->'
+);
 $t->run();
 
 ###############################################################################
@@ -84,5 +91,16 @@ sleep(1);
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0,
 	'no temp files after aborted request');
+
+TODO: {
+local $TODO = 'not fixed yet';
+
+http_get('/ssi.html', aborted => 1, sleep => 0.1);
+sleep(1);
+
+ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0,
+	'no temp files after aborted ssi');
+
+}
 
 ###############################################################################

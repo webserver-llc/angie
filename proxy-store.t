@@ -43,16 +43,8 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /store {
-            proxy_pass http://127.0.0.1:8080/index.html;
-            proxy_store on;
-        }
-        location /nostore {
-            proxy_pass http://127.0.0.1:8080/index-nostore.html;
-            proxy_store on;
-        }
-        location /big {
-            proxy_pass http://127.0.0.1:8080/index-big.html;
+        location /store- {
+            proxy_pass http://127.0.0.1:8080/;
             proxy_store on;
         }
         location /index-nostore.html {
@@ -73,20 +65,21 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/store'), qr/SEE-THIS/, 'proxy request');
-ok(-e $t->testdir() . '/store', 'result stored');
+like(http_get('/store-index.html'), qr/SEE-THIS/, 'proxy request');
+ok(-e $t->testdir() . '/store-index.html', 'result stored');
 
-like(http_get('/nostore'), qr/SEE-THIS/, 'proxy request with x-accel-expires');
+like(http_get('/store-index-nostore.html'), qr/SEE-THIS/,
+	'proxy request with x-accel-expires');
 
 TODO: {
 local $TODO = 'patch under review';
 
-ok(!-e $t->testdir() . '/nostore', 'result not stored');
+ok(!-e $t->testdir() . '/store-index-nostore.html', 'result not stored');
 }
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0, 'no temp files');
 
-http_get('/big', aborted => 1, sleep => 0.1);
+http_get('/store-index-big.html', aborted => 1, sleep => 0.1);
 sleep(1);
 
 ok(scalar @{[ glob $t->testdir() . '/proxy_temp/*' ]} == 0,

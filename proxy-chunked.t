@@ -13,7 +13,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 1;
+use Test::More tests => 3;
 
 use IO::Select;
 
@@ -53,10 +53,21 @@ http {
             proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
         }
+        location /nobuffering {
+            proxy_pass http://127.0.0.1:8081;
+            proxy_read_timeout 1s;
+            proxy_buffering off;
+        }
+        location /inmemory.html {
+            ssi on;
+        }
     }
 }
 
 EOF
+
+$t->write_file('inmemory.html',
+	'<!--#include virtual="/" set="one" --><!--#echo var="one" -->');
 
 $t->run_daemon(\&http_chunked_daemon);
 $t->run();
@@ -67,6 +78,8 @@ $t->run();
 local $TODO = 'not yet';
 
 like(http_get('/'), qr/\x0d\x0aSEE-THIS$/s, 'chunked');
+like(http_get('/nobuffering'), qr/\x0d\x0aSEE-THIS$/s, 'chunked nobuffering');
+like(http_get('/inmemory.html'), qr/\x0d\x0aSEE-THIS$/s, 'chunked inmemory');
 }
 
 ###############################################################################

@@ -29,7 +29,6 @@ master_process off;
 daemon         off;
 
 events {
-    use select;
 }
 
 http {

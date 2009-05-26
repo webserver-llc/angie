@@ -14,7 +14,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT :gzip /;
 
 ###############################################################################
 
@@ -89,60 +89,5 @@ http_gzip_like($t3, qr/^X{1025}\Z/, 'big included file content');
 my $t4 = http_gzip_request('/test4.html');
 ok(defined $t4, 'big ssi main file');
 http_gzip_like($t4, qr/^X{1025}\Z/, 'big ssi main file content');
-
-
-###############################################################################
-
-sub http_gzip_request {
-	my ($url) = @_;
-	my $r = http(<<EOF);
-GET $url HTTP/1.1
-Host: localhost
-Connection: close
-Accept-Encoding: gzip
-
-EOF
-}
-
-sub http_content {
-	my ($text) = @_;
-
-	return undef if !defined $text;
-
-	if ($text !~ /(.*?)\x0d\x0a?\x0d\x0a?(.*)/ms) {
-		return undef;
-	}
-
-	my ($headers, $body) = ($1, $2);
-
-	if ($headers !~ /Transfer-Encoding: chunked/i) {
-		return $body;
-	}
-
-	my $content = '';
-	while ($body =~ /\G\x0d?\x0a?([0-9a-f]+)\x0d\x0a?/gcmsi) {
-		my $len = hex($1);
-		$content .= substr($body, pos($body), $len);
-		pos($body) += $len;
-	}
-
-	return $content;
-}
-
-sub http_gzip_like {
-	my ($text, $re, $name) = @_;
-
-	SKIP: {
-		eval { require IO::Uncompress::Gunzip; };
-		skip "IO::Uncompress::Gunzip not installed", 1 if $@;
-
-		my $in = http_content($text);
-		my $out;
-
-		IO::Uncompress::Gunzip::gunzip(\$in => \$out);
-
-		like($out, $re, $name);
-	}
-}
 
 ###############################################################################

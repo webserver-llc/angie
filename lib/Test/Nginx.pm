@@ -254,7 +254,8 @@ sub http($;%) {
 	my ($request, %extra) = @_;
 	my $reply;
 	eval {
-		local $SIG{ALRM} = sub { die "alarm\n" };
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(2);
 		my $s = IO::Socket::INET->new(
 			Proto => 'tcp',
@@ -271,7 +272,7 @@ sub http($;%) {
 	};
 	alarm(0);
 	if ($@) {
-		log_in('(timeout)');
+		log_in("died: $@");
 		return undef;
 	}
 	return $reply;

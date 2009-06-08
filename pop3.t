@@ -26,6 +26,8 @@ use Test::Nginx::POP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+local $SIG{PIPE} = 'IGNORE';
+
 my $t = Test::Nginx->new()
 	->has('mail')->plan(8)
 	->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon)

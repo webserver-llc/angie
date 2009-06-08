@@ -26,6 +26,8 @@ use Test::Nginx::IMAP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+local $SIG{PIPE} = 'IGNORE';
+
 my $t = Test::Nginx->new()
 	->has('mail')->plan(8)
 	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)

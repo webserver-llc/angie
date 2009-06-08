@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(9);
+my $t = Test::Nginx->new()->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -42,7 +42,17 @@ http {
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
-        ssi on;
+        location / {
+            ssi on;
+        }
+        location /proxy/ {
+            ssi on;
+            proxy_pass http://127.0.0.1:8080/local/;
+        }
+        location /local/ {
+            ssi off;
+            alias %%TESTDIR%%/;
+        }
     }
 }
 
@@ -70,5 +80,18 @@ like(http_get('/test1.html?atest=a&testb=b&ctestc=c&test=test'), qr/^XtestX$/m,
 like(http_get('/test2.html'), qr/^XXtestXX$/m, 'argument via include');
 
 like(http_get('/test3.html'), qr/^XtestX$/m, 'set');
+
+# Last-Modified and Accept-Ranges headers should be cleared
+
+unlike(http_get('/test1.html'), qr/Last-Modified|Accept-Ranges/im,
+	'cleared headers');
+
+TODO: {
+local $TODO = 'broken since 0.7.44';
+
+unlike(http_get('/proxy/test1.html'), qr/Last-Modified|Accept-Ranges/im,
+	'cleared headers from proxy');
+
+}
 
 ###############################################################################

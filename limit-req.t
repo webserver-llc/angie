@@ -66,9 +66,6 @@ like(http_get('/test1.html'), qr/^HTTP\/1.. 200 /m, 'request');
 http_get('/test1.html');
 like(http_get('/test1.html'), qr/^HTTP\/1.. 503 /m, 'request rejected');
 
-TODO: {
-local $TODO = "patch under review";
-
 # Second request will be delayed by limit_req, make sure it isn't truncated.
 # The bug only manifests itself if buffer will be filled, so sleep for a while
 # before reading response.
@@ -76,7 +73,5 @@ local $TODO = "patch under review";
 my $l1 = length(http_get('/long.html'));
 my $l2 = length(http_get('/long.html', sleep => 1.1));
 is($l2, $l1, 'delayed big request not truncated');
-
-}
 
 ###############################################################################

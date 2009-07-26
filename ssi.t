@@ -85,13 +85,7 @@ like(http_get('/test3.html'), qr/^XtestX$/m, 'set');
 
 unlike(http_get('/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 	'cleared headers');
-
-TODO: {
-local $TODO = 'broken since 0.7.44';
-
 unlike(http_get('/proxy/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 	'cleared headers from proxy');
-
-}
 
 ###############################################################################

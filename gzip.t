@@ -77,13 +77,7 @@ http_gzip_like($r, qr/^X{64}\Z/, 'gzip proxied content');
 # Accept-Ranges headers should be cleared
 
 unlike(http_gzip_request('/'), qr/Accept-Ranges/im, 'cleared accept-ranges');
-
-TODO: {
-local $TODO = 'broken since 0.7.44';
-
 unlike(http_gzip_request('/proxy/'), qr/Accept-Ranges/im,
 	'cleared headers from proxy');
-
-}
 
 ###############################################################################

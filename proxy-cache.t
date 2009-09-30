@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -73,6 +73,7 @@ EOF
 
 $t->write_file('t.html', 'SEE-THIS');
 $t->write_file('t2.html', 'SEE-THIS');
+$t->write_file('empty.html', '');
 $t->run();
 
 ###############################################################################
@@ -85,5 +86,11 @@ like(http_get('/t.html'), qr/SEE-THIS/, 'proxy request cached');
 unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head request');
 like(http_get('/t2.html'), qr/SEE-THIS/, 'get after head');
 unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head after get');
+
+like(http_get('/empty.html'), qr/HTTP/, 'empty get first');
+{
+local $TODO = 'not fixed yet';
+like(http_get('/empty.html'), qr/HTTP/, 'empty get second');
+}
 
 ###############################################################################

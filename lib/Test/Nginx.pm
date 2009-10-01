@@ -60,8 +60,11 @@ sub has {
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
 	);
 
+	my $re = $regex{$feature};
+	$re = $feature if !defined $re;
+
 	Test::More::plan(skip_all => "$feature not compiled in")
-		unless `$NGINX -V 2>&1` =~ $regex{$feature};
+		unless `$NGINX -V 2>&1` =~ $re;
 
 	return $self;
 }

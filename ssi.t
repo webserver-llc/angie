@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(11);
+my $t = Test::Nginx->new()->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -63,6 +63,10 @@ $t->write_file('test2.html',
 	'X<!--#include virtual="/test1.html?test=test" -->X');
 $t->write_file('test3.html',
 	'X<!--#set var="blah" value="test" --><!--#echo var="blah" -->X');
+$t->write_file('test-empty1.html', 'X<!--#include virtual="/empty.html" -->X');
+$t->write_file('test-empty2.html',
+	'X<!--#include virtual="/local/empty.html" -->X');
+$t->write_file('empty.html', '');
 
 $t->run();
 
@@ -87,5 +91,8 @@ unlike(http_get('/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 	'cleared headers');
 unlike(http_get('/proxy/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 	'cleared headers from proxy');
+
+like(http_get('/test-empty1.html'), qr/HTTP/, 'empty with ssi');
+like(http_get('/test-empty2.html'), qr/HTTP/, 'empty without ssi');
 
 ###############################################################################

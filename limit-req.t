@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(3);
+my $t = Test::Nginx->new()->plan(5);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -39,8 +39,9 @@ http {
     fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
     proxy_temp_path        %%TESTDIR%%/proxy_temp;
 
-    limit_req_zone  $binary_remote_addr  zone=one:10m   rate=1r/m;
-    limit_req_zone  $binary_remote_addr  zone=long:10m   rate=1r/m;
+    limit_req_zone  $binary_remote_addr  zone=one:10m   rate=1r/s;
+    limit_req_zone  $binary_remote_addr  zone=long:10m  rate=1r/m;
+    limit_req_zone  $binary_remote_addr  zone=fast:10m  rate=1000r/s;
 
     server {
         listen       127.0.0.1:8080;
@@ -51,6 +52,9 @@ http {
         location /long {
             limit_req    zone=long  burst=5;
         }
+        location /fast {
+            limit_req    zone=fast  burst=1;
+        }
     }
 }
 
@@ -58,6 +62,7 @@ EOF
 
 $t->write_file('test1.html', 'XtestX');
 $t->write_file('long.html', "1234567890\n" x (1 << 16));
+$t->write_file('fast.html', 'XtestX');
 $t->run();
 
 ###############################################################################
@@ -65,6 +70,8 @@ $t->run();
 like(http_get('/test1.html'), qr/^HTTP\/1.. 200 /m, 'request');
 http_get('/test1.html');
 like(http_get('/test1.html'), qr/^HTTP\/1.. 503 /m, 'request rejected');
+http_get('/test1.html');
+http_get('/test1.html');
 
 # Second request will be delayed by limit_req, make sure it isn't truncated.
 # The bug only manifests itself if buffer will be filled, so sleep for a while
@@ -73,5 +80,16 @@ like(http_get('/test1.html'), qr/^HTTP\/1.. 503 /m, 'request rejected');
 my $l1 = length(http_get('/long.html'));
 my $l2 = length(http_get('/long.html', sleep => 1.1));
 is($l2, $l1, 'delayed big request not truncated');
+
+# make sure rejected requests are not counted, and access is again allowed
+# after 1/rate seconds
+
+like(http_get('/test1.html'), qr/^HTTP\/1.. 200 /m, 'rejects not counted');
+
+# make sure negative excess values are handled properly
+ 
+http_get('/fast.html');
+select undef, undef, undef, 0.1;
+like(http_get('/fast.html'), qr/^HTTP\/1.. 200 /m, 'negative excess');
 
 ###############################################################################

@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 9;
+use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new();
+my $t = Test::Nginx->new()->has('gzip')->plan(9);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

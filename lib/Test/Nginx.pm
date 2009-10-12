@@ -58,6 +58,7 @@ sub has {
 		mail	=> '--with-mail',
 		flv	=> '--with-http_flv_module',
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
+		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 	);
 
 	my $re = $regex{$feature};

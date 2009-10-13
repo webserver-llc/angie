@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(16);
+my $t = Test::Nginx->new()->has('cache')->plan(16);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

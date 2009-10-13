@@ -51,7 +51,16 @@ sub DESTROY {
 	}
 }
 
-sub has {
+sub has($) {
+	my ($self, $feature) = @_;
+
+	Test::More::plan(skip_all => "$feature not compiled in")
+		unless $self->has_module($feature);
+
+	return $self;
+}
+
+sub has_module($) {
 	my ($self, $feature) = @_;
 
 	my %regex = (
@@ -60,15 +69,17 @@ sub has {
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		cache	=> '(?s)^(?!.*--without-http-cache)',
+		fastcgi	=> '(?s)^(?!.*--without-http_fastcgi_module)',
+		proxy	=> '(?s)^(?!.*--without-http_proxy_module)',
 	);
 
 	my $re = $regex{$feature};
 	$re = $feature if !defined $re;
 
-	Test::More::plan(skip_all => "$feature not compiled in")
-		unless `$NGINX -V 2>&1` =~ $re;
+	$self->{_configure_args} = `$NGINX -V 2>&1`
+		if !defined $self->{_configure_args};
 
-	return $self;
+	return ($self->{_configure_args} =~ $re) ? 1 : 0;
 }
 
 sub has_daemon($) {
@@ -102,9 +113,10 @@ sub run(;$) {
 	die "Unable to fork(): $!\n" unless defined $pid;
 
 	if ($pid == 0) {
-		exec($NGINX, '-c', "$testdir/nginx.conf", '-g',
-			"pid $testdir/nginx.pid; "
-			. "error_log $testdir/error.log debug;")
+		my @globals = $self->{_test_globals} ?
+			() : ('-g', "pid $testdir/nginx.pid; "
+			. "error_log $testdir/error.log debug;");
+		exec($NGINX, '-c', "$testdir/nginx.conf", @globals)
 			or die "Unable to exec(): $!\n";
 	}
 
@@ -182,6 +194,8 @@ sub write_file($$) {
 sub write_file_expand($$) {
 	my ($self, $name, $content) = @_;
 
+	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals()/gmse;
+	$content =~ s/%%TEST_GLOBALS_HTTP%%/$self->test_globals_http()/gmse;
 	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
 
 	return $self->write_file($name, $content);
@@ -211,6 +225,41 @@ sub run_daemon($;@) {
 sub testdir() {
 	my ($self) = @_;
 	return $self->{_testdir};
+}
+
+sub test_globals() {
+	my ($self) = @_;
+
+	return $self->{_test_globals}
+		if defined $self->{_test_globals};
+
+	my $s = '';
+
+	$s .= "pid $self->{_testdir}/nginx.pid;\n";
+	$s .= "error_log $self->{_testdir}/error.log debug;\n";
+
+	$self->{_test_globals} = $s;
+}
+
+sub test_globals_http() {
+	my ($self) = @_;
+
+	return $self->{_test_globals_http}
+		if defined $self->{_test_globals_http};
+
+	my $s = '';
+
+	$s .= "root $self->{_testdir};\n";
+	$s .= "access_log $self->{_testdir}/access.log;\n";
+	$s .= "client_body_temp_path $self->{_testdir}/client_body_temp;\n";
+
+	$s .= "fastcgi_temp_path $self->{_testdir}/fastcgi_temp;\n" 
+		if $self->has_module('fastcgi');
+
+	$s .= "proxy_temp_path $self->{_testdir}/proxy_temp;\n"
+		if $self->has_module('proxy');
+
+	$self->{_test_globals_http} = $s;
 }
 
 ###############################################################################

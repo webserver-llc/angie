@@ -23,6 +23,8 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has('mail')->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
+%%TEST_GLOBALS%%
+
 master_process off;
 daemon         off;
 

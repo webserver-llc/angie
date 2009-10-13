@@ -25,6 +25,8 @@ my $t = Test::Nginx->new()->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
+%%TEST_GLOBALS%%
+
 master_process off;
 daemon         off;
 
@@ -32,12 +34,7 @@ events {
 }
 
 http {
-    access_log    off;
-    root          %%TESTDIR%%;
-
-    client_body_temp_path  %%TESTDIR%%/client_body_temp;
-    fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
-    proxy_temp_path        %%TESTDIR%%/proxy_temp;
+    %%TEST_GLOBALS_HTTP%%
 
     server {
         listen       127.0.0.1:8080;

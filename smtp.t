@@ -32,6 +32,8 @@ my $t = Test::Nginx->new()
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
+%%TEST_GLOBALS%%
+
 master_process off;
 daemon         off;
 
@@ -51,11 +53,7 @@ mail {
 }
 
 http {
-    access_log    off;
-
-    client_body_temp_path  %%TESTDIR%%/client_body_temp;
-    fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
-    proxy_temp_path        %%TESTDIR%%/proxy_temp;
+    %%TEST_GLOBALS_HTTP%%
 
     server {
         listen       127.0.0.1:8080;

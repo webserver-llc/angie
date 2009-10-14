@@ -64,12 +64,6 @@ my $r = http_get('/');
 like($r, qr!href="test-file"!ms, 'file');
 like($r, qr!href="test-file-link"!ms, 'symlink to file');
 like($r, qr!href="test-dir/"!ms, 'directory');
-
-TODO: {
-local $TODO = 'patch under review';
-
 like($r, qr!href="test-dir-link/"!ms, 'symlink to directory');
-
-}
 
 ###############################################################################

@@ -55,14 +55,8 @@ $t->run();
 
 like(http_get_ims('/t', 'Wed, 08 Jul 2037 22:53:52 GMT'), qr/304/,
 	'0x7F000000');
-
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get_ims('/t', 'Tue, 19 Jan 2038 03:14:07 GMT'), qr/304/,
 	'0x7FFFFFFF');
-
-}
 
 SKIP: {
 	skip "only for 32-bit time_t", 2 if (gmtime(0xFFFFFFFF))[5] == 206;

@@ -61,7 +61,7 @@ http {
 
             # test will wait only 2s for reply, we it will fail if
             # Content-Length not used as a hint
- 
+
             proxy_read_timeout 10s;
         }
     }

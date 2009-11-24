@@ -84,7 +84,7 @@ is($l2, $l1, 'delayed big request not truncated');
 like(http_get('/test1.html'), qr/^HTTP\/1.. 200 /m, 'rejects not counted');
 
 # make sure negative excess values are handled properly
- 
+
 http_get('/fast.html');
 select undef, undef, undef, 0.1;
 like(http_get('/fast.html'), qr/^HTTP\/1.. 200 /m, 'negative excess');

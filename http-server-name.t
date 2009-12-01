@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has('rewrite')
+my $t = Test::Nginx->new()->has('rewrite')->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -90,17 +90,7 @@ http {
 
 EOF
 
-eval {
-
 $t->run();
-
-};
-
-if ($@) {
-	plan(skip_all => 'not patched yet');
-}
-
-$t->plan(9);
 
 ###############################################################################
 

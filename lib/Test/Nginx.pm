@@ -66,6 +66,7 @@ sub has_module($) {
 	my %regex = (
 		mail	=> '--with-mail',
 		flv	=> '--with-http_flv_module',
+		perl	=> '--with-http_perl_module',
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		cache	=> '(?s)^(?!.*--without-http-cache)',

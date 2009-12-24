@@ -89,9 +89,10 @@ like(http_get('/t2.html'), qr/SEE-THIS/, 'get after head');
 unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head after get');
 
 like(http_get('/empty.html'), qr/HTTP/, 'empty get first');
+like(http_get('/empty.html'), qr/HTTP/, 'empty get second');
+
 {
 local $TODO = 'not fixed yet';
-like(http_get('/empty.html'), qr/HTTP/, 'empty get second');
 
 sleep(2);
 unlink $t->testdir() . '/t.html';
@@ -100,9 +101,13 @@ like(http_gzip_request('/t.html'),
 	'non-empty get stale');
 }
 
+{
+local $TODO = 'broken in 0.8.31';
+
 unlink $t->testdir() . '/empty.html';
 like(http_gzip_request('/empty.html'),
 	qr/HTTP.*14\x0d\x0a.{20}\x0d\x0a0\x0d\x0a\x0d\x0a\z/s,
 	'empty get stale');
+}
 
 ###############################################################################

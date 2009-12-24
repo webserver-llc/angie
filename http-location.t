@@ -76,14 +76,7 @@ like(http_get('/'), qr/X-Location: exactlyroot/, 'exactlyroot');
 like(http_get('/x'), qr/X-Location: root/, 'root');
 like(http_get('/images/t.gif'), qr/X-Location: images/, 'images');
 like(http_get('/t.gif'), qr/X-Location: regex/, 'regex');
-
-{
-local $TODO = 'broken in 0.8.25';
-
 like(http_get('/t.GIF'), qr/X-Location: regex/, 'regex with mungled case');
-
-}
-
 like(http_get('/casefull/t.gif'), qr/X-Location: regex/, 'first regex wins');
 like(http_get('/casefull/'), qr/X-Location: casefull/, 'casefull regex');
 like(http_get('/CASEFULL/'), qr/X-Location: root/,

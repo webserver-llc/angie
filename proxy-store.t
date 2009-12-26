@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More tests => 7;
+use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new();
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF')->has(qw/http proxy ssi/)->plan(7);
 
 %%TEST_GLOBALS%%
 

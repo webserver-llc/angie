@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(2);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

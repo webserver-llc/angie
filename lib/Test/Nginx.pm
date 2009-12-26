@@ -51,11 +51,13 @@ sub DESTROY {
 	}
 }
 
-sub has($) {
-	my ($self, $feature) = @_;
+sub has($;) {
+	my ($self, @features) = @_;
 
-	Test::More::plan(skip_all => "$feature not compiled in")
-		unless $self->has_module($feature);
+	foreach my $feature (@features) {
+		Test::More::plan(skip_all => "$feature not compiled in")
+			unless $self->has_module($feature);
+	}
 
 	return $self;
 }
@@ -64,14 +66,41 @@ sub has_module($) {
 	my ($self, $feature) = @_;
 
 	my %regex = (
-		mail	=> '--with-mail',
+		mail	=> '--with-mail(?!\S)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',
-		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
+		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
-		cache	=> '(?s)^(?!.*--without-http-cache)',
-		fastcgi	=> '(?s)^(?!.*--without-http_fastcgi_module)',
+		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',
+		userid	=> '(?s)^(?!.*--without-http_userid_module)',
+		access	=> '(?s)^(?!.*--without-http_access_module)',
+		auth_basic
+			=> '(?s)^(?!.*--without-http_auth_basic_module)',
+		autoindex
+			=> '(?s)^(?!.*--without-http_autoindex_module)',
+		geo	=> '(?s)^(?!.*--without-http_geo_module)',
+		map	=> '(?s)^(?!.*--without-http_map_module)',
+		referer	=> '(?s)^(?!.*--without-http_referer_module)',
+		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
 		proxy	=> '(?s)^(?!.*--without-http_proxy_module)',
+		fastcgi	=> '(?s)^(?!.*--without-http_fastcgi_module)',
+		memcached
+			=> '(?s)^(?!.*--without-http_memcached_module)',
+		limit_zone
+			=> '(?s)^(?!.*--without-http_limit_zone_module)',
+		limit_req
+			=> '(?s)^(?!.*--without-http_limit_req_module)',
+		empty_gif
+			=> '(?s)^(?!.*--without-http_empty_gif_module)',
+		browser	=> '(?s)^(?!.*--without-http_browser_module)',
+		upstream_ip_hash
+			=> '(?s)^(?!.*--without-http_upstream_ip_hash_module)',
+		http	=> '(?s)^(?!.*--without-http(?!\S))',
+		cache	=> '(?s)^(?!.*--without-http-cache)',
+		pop3	=> '(?s)^(?!.*--without-mail_pop3_module)',
+		imap	=> '(?s)^(?!.*--without-mail_imap_module)',
+		smtp	=> '(?s)^(?!.*--without-mail_smtp_module)',
+		pcre	=> '(?s)^(?!.*--without-pcre)',
 	);
 
 	my $re = $regex{$feature};

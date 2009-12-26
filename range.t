@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->plan(25);
+my $t = Test::Nginx->new()->has(qw/http charset/)->plan(25);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

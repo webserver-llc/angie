@@ -29,7 +29,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
-	->has('mail')->plan(8)
+	->has(qw/mail pop3 http rewrite/)->plan(8)
 	->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 

@@ -20,7 +20,7 @@ use Test::Nginx::SMTP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has('mail')->plan(2)
+my $t = Test::Nginx->new()->has(qw/mail smtp http/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%

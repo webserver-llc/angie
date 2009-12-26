@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has('gzip')->plan(8);
+my $t = Test::Nginx->new()->has(qw/http proxy gzip/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

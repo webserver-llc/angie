@@ -28,7 +28,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
-	->has('mail')->plan(25)
+	->has(qw/mail smtp http rewrite/)->plan(25)
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 

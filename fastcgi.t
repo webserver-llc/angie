@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has('fastcgi')->plan(4)
+my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

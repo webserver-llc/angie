@@ -91,15 +91,21 @@ like($r, qr!test-long-0{37}\.\.&gt;!ms, 'long name');
 like($r, qr!href="test-escape-url-%25"!ms, 'escaped url');
 
 {
-local $TODO = 'patches under review';
+local $TODO = 'patch under review';
 
 like($r, qr!test-escape-html-&lt;&gt;&amp;!ms, 'escaped html');
 like($r, qr!test-long-(&gt;){37}\.\.&gt;!ms, 'long escaped html');
+
+}
 
 $r = http_get('/utf8/');
 
 like($r, qr!test-utf8-(\xd1\x84){3}</a>!ms, 'utf8');
 like($r, qr!test-utf8-(\xd1\x84){37}\.\.!ms, 'utf8 long');
+
+{
+local $TODO = 'patch under review';
+
 like($r, qr!test-utf8-&lt;&gt;&amp;-\xd1\x84</a>!ms, 'utf8 escaped');
 like($r, qr!test-utf8-&lt;&gt;&amp;-(\xd1\x84){33}\.\.!ms,
 	'utf8 escaped long');

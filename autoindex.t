@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http autoindex/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/http autoindex/)->plan(16)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -63,6 +63,7 @@ $t->write_file('test-colon:blah', '');
 $t->write_file('test-long-' . ('0' x 50), '');
 $t->write_file('test-long-' . ('>' x 50), '');
 $t->write_file('test-escape-url-%', '');
+$t->write_file('test-escape-url2-?', '');
 $t->write_file('test-escape-html-<>&', '');
 
 mkdir($d . '/utf8');
@@ -89,6 +90,13 @@ like($r, qr!href="./test-colon:blah"!ms, 'colon not scheme');
 like($r, qr!test-long-0{37}\.\.&gt;!ms, 'long name');
 
 like($r, qr!href="test-escape-url-%25"!ms, 'escaped url');
+
+{
+local $TODO = 'not fixed yet';
+
+like($r, qr!href="test-escape-url2-%3f"!ms, 'escaped ? in url');
+
+}
 
 {
 local $TODO = 'patch under review';

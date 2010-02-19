@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite memcached/)->plan(2)
+my $t = Test::Nginx->new()->has(qw/http rewrite memcached ssi/)->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -44,17 +44,25 @@ http {
             set $memcached_key $uri;
             memcached_pass 127.0.0.1:8081;
         }
+
+        location /ssi {
+            default_type text/html;
+            ssi on;
+        }
     }
 }
 
 EOF
 
+$t->write_file('ssi.html', '<!--#include virtual="/" set="blah" -->blah: <!--#echo var="blah" -->');
 $t->run_daemon(\&memcached_fake_daemon);
 $t->run();
 
 ###############################################################################
 
 like(http_get('/'), qr/SEE-THIS/, 'memcached split trailer');
+
+like(http_get('/ssi.html'), qr/SEE-THIS/, 'memcached ssi var');
 
 TODO: {
 local $TODO = 'patch under review';
@@ -82,7 +90,9 @@ sub memcached_fake_daemon {
 		}
 
 		print $client 'VALUE / 0 8' . CRLF;
-		print $client 'SEE-THIS';
+		print $client 'SEE-TH';
+		select(undef, undef, undef, 0.1);
+		print $client 'IS';
 		select(undef, undef, undef, 0.1);
 		print $client CRLF . 'EN';
 		select(undef, undef, undef, 0.1);

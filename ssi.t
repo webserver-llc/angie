@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http ssi cache proxy/)->plan(16);
+my $t = Test::Nginx->new()->has(qw/http ssi cache proxy rewrite/)->plan(18);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -42,6 +42,11 @@ http {
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
+
+        if ($args = "found") {
+            return 204;
+        }
+
         location / {
             ssi on;
         }
@@ -68,6 +73,8 @@ $t->write_file('test2.html',
 	'X<!--#include virtual="/test1.html?test=test" -->X');
 $t->write_file('test3.html',
 	'X<!--#set var="blah" value="test" --><!--#echo var="blah" -->X');
+$t->write_file('test-args-rewrite.html',
+	'X<!--#include virtual="/check?found" -->X');
 $t->write_file('test-empty1.html', 'X<!--#include virtual="/empty.html" -->X');
 $t->write_file('test-empty2.html',
 	'X<!--#include virtual="/local/empty.html" -->X');
@@ -91,6 +98,19 @@ like(http_get('/test1.html?atest=a&testb=b&ctestc=c&test=test'), qr/^XtestX$/m,
 like(http_get('/test2.html'), qr/^XXtestXX$/m, 'argument via include');
 
 like(http_get('/test3.html'), qr/^XtestX$/m, 'set');
+
+# args should be in subrequest even if original request has no args and that
+# was queried somehow (e.g. by server rewrites)
+
+TODO: {
+local $TODO = 'patch under review';
+
+like(http_get('/test-args-rewrite.html'), qr/^XX$/m, 'args only subrequest');
+
+}
+
+like(http_get('/test-args-rewrite.html?wasargs'), qr/^XX$/m,
+	'args was in main request');
 
 # Last-Modified and Accept-Ranges headers should be cleared
 

@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(5)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -44,6 +44,7 @@ http {
 
         location / {
             fastcgi_pass 127.0.0.1:8081;
+            fastcgi_param REQUEST_URI $request_uri;
         }
     }
 }
@@ -61,6 +62,14 @@ like(http_get('/'), qr/^3$/m, 'fastcgi third request');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 
+TODO: {
+local $TODO = 'coredumps in 0.8.34';
+todo_skip $TODO, 1 unless $ENV{TEST_NGINX_UNSAFE};
+
+like(http_get('/stderr'), qr/SEE-THIS/, 'large stderr handled');
+
+}
+
 ###############################################################################
 
 sub fastcgi_daemon {
@@ -71,6 +80,11 @@ sub fastcgi_daemon {
 	my $count;
 	while( $request->Accept() >= 0 ) {
 		$count++;
+
+		if ($ENV{REQUEST_URI} eq '/stderr') {
+			warn "sample stderr text" x 512;
+		}
+		
 		print <<EOF;
 Location: http://127.0.0.1:8080/redirect
 Content-Type: text/html

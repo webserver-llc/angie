@@ -18,4 +18,5 @@ installed.
 
 Currently each test creates it's own temporary directory and uses it for
 logs etc.  One may instruct tests not to remove the temp directory (e.g.
-for analysis of failed test) by setting LEAVE environment variable.
+for analysis of failed test) by setting TEST_NGINX_LEAVE environment
+variable.

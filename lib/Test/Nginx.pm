@@ -36,7 +36,7 @@ sub new {
 	$self->{_testdir} = tempdir(
 		'nginx-test-XXXXXXXXXX',
 		TMPDIR => 1,
-		CLEANUP => not $ENV{LEAVE}
+		CLEANUP => not $ENV{TEST_NGINX_LEAVE}
 	)
 		or die "Can't create temp directory: $!\n";
 

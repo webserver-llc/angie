@@ -62,13 +62,7 @@ like(http_get('/'), qr/^3$/m, 'fastcgi third request');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 
-TODO: {
-local $TODO = 'coredumps in 0.8.34';
-todo_skip $TODO, 1 unless $ENV{TEST_NGINX_UNSAFE};
-
 like(http_get('/stderr'), qr/SEE-THIS/, 'large stderr handled');
-
-}
 
 ###############################################################################
 

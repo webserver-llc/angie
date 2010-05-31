@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     limit_req_zone  $binary_remote_addr  zone=one:10m   rate=1r/s;
-    limit_req_zone  $binary_remote_addr  zone=long:10m  rate=1r/m;
+    limit_req_zone  $binary_remote_addr  zone=long:10m  rate=1r/s;
     limit_req_zone  $binary_remote_addr  zone=fast:10m  rate=1000r/s;
 
     server {

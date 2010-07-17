@@ -58,12 +58,7 @@ $t->run();
 
 ###############################################################################
 
-{
-local $TODO = 'broken in 0.7.25, patch under review';
-
 like(http_get('/'), qr/^xFIRSTxWAITEDxSECONDx$/m, 'waited non-active');
-
-}
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

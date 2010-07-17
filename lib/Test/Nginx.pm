@@ -84,6 +84,8 @@ sub has_module($) {
 		rewrite	=> '(?s)^(?!.*--without-http_rewrite_module)',
 		proxy	=> '(?s)^(?!.*--without-http_proxy_module)',
 		fastcgi	=> '(?s)^(?!.*--without-http_fastcgi_module)',
+		uwsgi	=> '(?s)^(?!.*--without-http_uwsgi_module)',
+		scgi	=> '(?s)^(?!.*--without-http_scgi_module)',
 		memcached
 			=> '(?s)^(?!.*--without-http_memcached_module)',
 		limit_zone
@@ -288,6 +290,12 @@ sub test_globals_http() {
 
 	$s .= "proxy_temp_path $self->{_testdir}/proxy_temp;\n"
 		if $self->has_module('proxy');
+
+	$s .= "uwsgi_temp_path $self->{_testdir}/uwsgi_temp;\n"
+		if $self->has_module('uwsgi');
+
+	$s .= "scgi_temp_path $self->{_testdir}/scgi_temp;\n"
+		if $self->has_module('scgi');
 
 	$self->{_test_globals_http} = $s;
 }

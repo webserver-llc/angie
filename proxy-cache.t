@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -59,6 +59,11 @@ http {
             proxy_cache_use_stale  error timeout invalid_header http_500
                                    http_404;
         }
+
+        location /fake/ {
+            proxy_pass    http://127.0.0.1:8082;
+            proxy_cache   NAME;
+        }
     }
     server {
         listen       127.0.0.1:8081;
@@ -74,6 +79,7 @@ EOF
 $t->write_file('t.html', 'SEE-THIS');
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('empty.html', '');
+$t->run_daemon(\&http_fake_daemon);
 $t->run();
 
 ###############################################################################
@@ -107,6 +113,45 @@ unlink $t->testdir() . '/empty.html';
 like(http_gzip_request('/empty.html'),
 	qr/HTTP.*14\x0d\x0a.{20}\x0d\x0a0\x0d\x0a\x0d\x0a\z/s,
 	'empty get stale');
+}
+
+{
+local $TODO = 'patch pending';
+
+http_get('/fake/unfinished');
+like(http_get('/fake/unfinished'), qr/unfinished 2/, 'unfinished not cached');
+}
+
+###############################################################################
+
+sub http_fake_daemon {
+	my $server = IO::Socket::INET->new(
+		Proto => 'tcp',
+		LocalAddr => '127.0.0.1:8082',
+		Listen => 5,
+		Reuse => 1
+	)
+		or die "Can't create listening socket: $!\n";
+
+	my $num = 0;
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+
+		while (<$client>) {
+			last if (/^\x0d?\x0a?$/);
+		}
+
+		$num++;
+		print $client <<"EOF";
+HTTP/1.1 200 OK
+Content-Length: 100
+Cache-Control: max-age=300
+Connection: close
+
+unfinished $num
+EOF
+	}
 }
 
 ###############################################################################

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(17)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(19)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -59,6 +59,15 @@ http {
             return 200;
         }
 
+        location /return405 {
+            return 405;
+        }
+
+        location /error404return405 {
+            error_page 404 /return405;
+            return 404;
+        }
+
         location /error405return204 {
             error_page 405 /return204;
             return 405;
@@ -67,9 +76,6 @@ http {
         location /error405return200 {
             error_page 405 /return200;
             return 405;
-        }
-
-        location /file.html {
         }
 
         location /return200text {
@@ -136,6 +142,9 @@ like(http_get('/no?a=b'), qr!^Location: http://example.com/\?c=d\x0d?$!ms,
 
 like(http_get('/return204'), qr!204 No Content!, 'return 204');
 like(http_get('/return200'), qr!200 OK!, 'return 200');
+like(http_get('/return405'), qr!HTTP/1.1 405.*body!ms, 'return 405');
+
+like(http_get('/error404return405'), qr!HTTP/1.1 404!, 'error 404 return 405');
 
 TODO: {
 local $TODO = 'not yet';

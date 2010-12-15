@@ -46,6 +46,7 @@ sub new {
 sub DESTROY {
 	my ($self) = @_;
 	$self->stop();
+	$self->stop_daemons();
 	if ($ENV{TEST_NGINX_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
 	}
@@ -196,18 +197,24 @@ sub waitforsocket($) {
 sub stop() {
 	my ($self) = @_;
 
+	return $self unless $self->{_started};
+
+	kill 'QUIT', `cat $self->{_testdir}/nginx.pid`;
+	wait;
+
+	$self->{_started} = 0;
+
+	return $self;
+}
+
+sub stop_daemons() {
+	my ($self) = @_;
+
 	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
 		my $p = shift @{$self->{_daemons}};
 		kill 'TERM', $p;
 		wait;
 	}
-
-	return $self unless $self->{_started};
-
-	kill 'TERM', `cat $self->{_testdir}/nginx.pid`;
-	wait;
-
-	$self->{_started} = 0;
 
 	return $self;
 }

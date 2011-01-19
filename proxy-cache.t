@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(10)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -93,6 +93,10 @@ unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head request');
 like(http_get('/t2.html'), qr/SEE-THIS/, 'get after head');
 unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head after get');
 
+like(http_get_range('/t.html', 'Range: bytes=4-'), qr/^THIS/m, 'cached range');
+like(http_get_range('/t.html', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
+	'cached multipart range');
+
 like(http_get('/empty.html'), qr/HTTP/, 'empty get first');
 like(http_get('/empty.html'), qr/HTTP/, 'empty get second');
 
@@ -120,6 +124,19 @@ local $TODO = 'patch pending';
 
 http_get('/fake/unfinished');
 like(http_get('/fake/unfinished'), qr/unfinished 2/, 'unfinished not cached');
+}
+
+###############################################################################
+
+sub http_get_range {
+        my ($url, $extra) = @_;
+        return http(<<EOF);
+GET $url HTTP/1.1
+Host: localhost
+Connection: close
+$extra
+
+EOF
 }
 
 ###############################################################################

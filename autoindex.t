@@ -86,7 +86,7 @@ like($r, qr!href="test-file-link"!ms, 'symlink to file');
 like($r, qr!href="test-dir/"!ms, 'directory');
 like($r, qr!href="test-dir-link/"!ms, 'symlink to directory');
 
-like($r, qr!href="./test-colon:blah"!ms, 'colon not scheme');
+unlike($r, qr!href="test-colon:blah"!ms, 'colon not scheme');
 like($r, qr!test-long-0{37}\.\.&gt;!ms, 'long name');
 
 like($r, qr!href="test-escape-url-%25"!ms, 'escaped url');

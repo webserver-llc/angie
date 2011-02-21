@@ -100,14 +100,14 @@ $t->run();
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet';
-
 # tests for error_page status code change for redirects. problems
-# introduced in 0.8.53.
+# introduced in 0.8.53 and fixed in 0.9.5.
 
 like(http_get('/redirect200'), qr!HTTP!, 'redirect 200');
 like(http_get('/redirect497'), qr!HTTP/1.1 302!, 'redirect 497');
+
+TODO: {
+local $TODO = 'not yet';
 
 # various tests to see if old location cleared if we happen to redirect
 # again in error_page 302

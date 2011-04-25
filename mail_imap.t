@@ -29,7 +29,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
-	->has(qw/mail imap http rewrite/)->plan(8)
+	->has(qw/mail imap http rewrite/)->plan(9)
 	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
@@ -85,6 +85,11 @@ EOF
 
 my $s = Test::Nginx::IMAP->new();
 $s->ok('greeting');
+
+# bad auth
+
+$s->send('1 AUTHENTICATE');
+$s->check(qr/^\S+ BAD/, 'auth without arguments');
 
 # auth plain
 

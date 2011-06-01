@@ -75,12 +75,17 @@ unlike(http_get_auth('/', 'crypt', '123'), qr!SEETHIS!, 'normal wrong');
 like(http_get_auth('/', 'crypt1', 'password'), qr!SEETHIS!, 'crypt $1$ (md5)');
 unlike(http_get_auth('/', 'crypt1', '123'), qr!SEETHIS!, 'crypt $1$ wrong');
 
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get_auth('/', 'apr1', 'password'), qr!SEETHIS!, 'apr1 md5');
 like(http_get_auth('/', 'plain', 'password'), qr!SEETHIS!, 'plain password');
-like(http_get_auth('/', 'ssha', 'password'), qr!SEETHIS!, 'ssha');
+
+SKIP: {
+	# SHA1 may not be available unless we have OpenSSL
+
+	skip 'no sha1', 1 unless $t->has_module('--with-http_ssl_module')
+		or $t->has_module('--with-sha1')
+		or $t->has_module('--with-openssl');
+
+	like(http_get_auth('/', 'ssha', 'password'), qr!SEETHIS!, 'ssha');
 }
 
 unlike(http_get_auth('/', 'apr1', '123'), qr!SEETHIS!, 'apr1 md5 wrong');

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http dav/)->plan(11);
+my $t = Test::Nginx->new()->has(qw/http dav/)->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -88,6 +88,23 @@ EOF
 like($r, qr/204 No Content/, 'delete file');
 unlike($r, qr/Content-Length|Transfer-Encoding/, 'no length in 204');
 ok(!-f $t->testdir() . '/file', 'file deleted');
+
+$r = http(<<EOF . '0123456789' . 'extra');
+PUT /file HTTP/1.1
+Host: localhost
+Connection: close
+Content-Length: 10
+
+EOF
+
+like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
+	'put file extra data');
+TODO: {
+local $TODO = 'not yet';
+
+is(-s $t->testdir() . '/file', 10,
+	'put file extra data size');
+}
 
 TODO: {
 local $TODO = 'broken in 0.8.32';

@@ -2,7 +2,7 @@ package Test::Nginx;
 
 # (C) Maxim Dounin
 
-# Generict module for nginx tests.
+# Generic module for nginx tests.
 
 ###############################################################################
 

@@ -366,13 +366,14 @@ sub http($;%) {
 		select undef, undef, undef, $extra{sleep} if $extra{sleep};
 		return '' if $extra{aborted};
 		$reply = $s->getline();
-		log_in($reply);
 		alarm(0);
 	};
 	alarm(0);
 	if ($@) {
 		log_in("died: $@");
 		return undef;
+	} else {
+		log_in($reply);
 	}
 	return $reply;
 }

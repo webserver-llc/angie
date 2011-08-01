@@ -41,8 +41,8 @@ sub send {
 sub read {
 	my ($self) = @_;
 	eval {
-		alarm(2);
 		local $SIG{ALRM} = sub { die "alarm\n" };
+		alarm(2);
 		while (<$self>) {
 			log_in($_);
 			next if m/^\d\d\d-/;

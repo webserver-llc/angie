@@ -314,7 +314,12 @@ sub log_core {
 	my ($prefix, $msg) = @_;
 	($prefix, $msg) = ('', $prefix) unless defined $msg;
 	$prefix .= ' ' if length($prefix) > 0;
- 
+
+	if (length($msg) > 4096) {
+		$msg = substr($msg, 0, 4096);
+		$msg .= "(...logged only 4096 of " . length($msg) . " bytes)";
+	}
+
 	$msg =~ s/^/# $prefix/gm;
 	$msg =~ s/([^\x20-\x7e])/sprintf('\\x%02x', ord($1)) . (($1 eq "\n") ? "\n" : '')/gmxe;
 	$msg .= "\n" unless $msg =~ /\n\Z/;

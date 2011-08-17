@@ -30,7 +30,6 @@ my $t = Test::Nginx->new()->has(qw/http rewrite memcached/)
 
 %%TEST_GLOBALS%%
 
-master_process off;
 daemon         off;
 
 events {

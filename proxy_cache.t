@@ -26,7 +26,6 @@ my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(12)
 
 %%TEST_GLOBALS%%
 
-master_process off;
 daemon         off;
 
 events {

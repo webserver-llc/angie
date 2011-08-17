@@ -29,7 +29,6 @@ my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(5)
 
 %%TEST_GLOBALS%%
 
-master_process off;
 daemon         off;
 
 events {

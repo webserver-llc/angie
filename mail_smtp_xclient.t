@@ -31,7 +31,6 @@ my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(6)
 
 %%TEST_GLOBALS%%
 
-master_process off;
 daemon         off;
 
 events {

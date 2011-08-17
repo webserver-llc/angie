@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require SCGI; };
 plan(skip_all => 'SCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http scgi/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/http scgi/)->plan(5)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -45,6 +45,7 @@ http {
             scgi_pass 127.0.0.1:8081;
             scgi_param SCGI 1;
             scgi_param REQUEST_URI $request_uri;
+            scgi_param HTTP_X_BLAH "blah";
         }
     }
 }
@@ -61,6 +62,45 @@ like(http_get('/redir'), qr/302/, 'scgi redirect');
 like(http_get('/'), qr/^3$/m, 'scgi third request');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
+
+SKIP: {
+skip 'unsafe', 1 unless $ENV{TEST_NGINX_UNSAFE};
+local $TODO = 'not yet';
+
+like(http_get_headers('/headers'), qr/SEE-THIS/,
+	'scgi request with many ignored headers');
+
+}
+
+###############################################################################
+
+sub http_get_headers {
+        my ($url, %extra) = @_;
+        return http(<<EOF, %extra);
+GET $url HTTP/1.0
+Host: localhost
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+X-Blah: ignored header
+
+EOF
+}
 
 ###############################################################################
 

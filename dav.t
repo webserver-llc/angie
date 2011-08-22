@@ -98,12 +98,8 @@ EOF
 
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
 	'put file extra data');
-TODO: {
-local $TODO = 'not yet';
-
 is(-s $t->testdir() . '/file', 10,
 	'put file extra data size');
-}
 
 TODO: {
 local $TODO = 'broken in 0.8.32';

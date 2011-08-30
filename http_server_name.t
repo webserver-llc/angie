@@ -77,7 +77,7 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        server_name  "~^(?<name>www\p{N}+)\.example\.com$";
+        server_name  "~^(?P<name>www\p{N}+)\.example\.com$";
 
         location / {
             add_header X-Server $server_name;

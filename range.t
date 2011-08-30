@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http charset/)->plan(25);
+my $t = Test::Nginx->new()->has(qw/http charset/)->plan(31);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -102,6 +102,22 @@ like($t1, qr/Content-Type: multipart\/byteranges; boundary=/,
 like($t1, qr/X000XXXXXX/m, 'multipart - content 0-9');
 like($t1, qr/^X099XXXXXX\x0d?$/m, 'multipart - content -10 aka 990-999');
 like($t1, qr/X001XXXXXX\x0d?$/m, 'multipart - content 10-19');
+
+TODO: {
+local $TODO = 'not yet';
+
+$t1 = http_get_range('/t1.html', 'Range: bytes=0-9, -10, 100000-, 10-19');
+like($t1, qr/206/, 'multipart big - 206 partial reply');
+like($t1, qr/Content-Type: multipart\/byteranges; boundary=/,
+        'multipart big - content type');
+like($t1, qr/X000XXXXXX/m, 'multipart big - content 0-9');
+like($t1, qr/^X099XXXXXX\x0d?$/m, 'multipart big - content -10 aka 990-999');
+like($t1, qr/X001XXXXXX\x0d?$/m, 'multipart big - content 10-19');
+
+}
+
+like(http_get_range('/t1.html', 'Range: bytes=100000-'), qr/416/,
+	'not satisfiable');
 
 ###############################################################################
 

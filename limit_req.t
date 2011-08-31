@@ -35,8 +35,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    limit_req_zone  $binary_remote_addr  zone=one:10m   rate=1r/s;
-    limit_req_zone  $binary_remote_addr  zone=long:10m  rate=1r/s;
+    limit_req_zone  $binary_remote_addr  zone=one:10m   rate=2r/s;
+    limit_req_zone  $binary_remote_addr  zone=long:10m  rate=2r/s;
     limit_req_zone  $binary_remote_addr  zone=fast:10m  rate=1000r/s;
 
     server {
@@ -74,7 +74,7 @@ http_get('/test1.html');
 # before reading response.
 
 my $l1 = length(http_get('/long.html'));
-my $l2 = length(http_get('/long.html', sleep => 1.1));
+my $l2 = length(http_get('/long.html', sleep => 0.6));
 is($l2, $l1, 'delayed big request not truncated');
 
 # make sure rejected requests are not counted, and access is again allowed

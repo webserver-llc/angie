@@ -62,6 +62,9 @@ $t->run_daemon('uwsgi', '--socket', '127.0.0.1:8081',
 
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Can't start uwsgi";
+
 ###############################################################################
 
 like(http_get('/'), qr/SEE-THIS/, 'uwsgi request');

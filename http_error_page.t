@@ -105,9 +105,6 @@ $t->run();
 like(http_get('/redirect200'), qr!HTTP!, 'redirect 200');
 like(http_get('/redirect497'), qr!HTTP/1.1 302!, 'redirect 497');
 
-TODO: {
-local $TODO = 'not yet';
-
 # various tests to see if old location cleared if we happen to redirect
 # again in error_page 302
 
@@ -130,7 +127,5 @@ like(http_get('/error302directory'),
 like(http_get('/error302auto'),
 	qr{HTTP/1.1 301(?!.*Location: first).*Location: http://}ms,
 	'error 302 auto redirect - old location cleared');
-
-}
 
 ###############################################################################

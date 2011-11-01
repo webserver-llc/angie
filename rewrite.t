@@ -145,9 +145,6 @@ like(http_get('/return405'), qr!HTTP/1.1 405.*body!ms, 'return 405');
 
 like(http_get('/error404return405'), qr!HTTP/1.1 404!, 'error 404 return 405');
 
-TODO: {
-local $TODO = 'not yet';
-
 # status code should be 405, and entity body is expected (vs. normal 204
 # replies which doesn't expect to have body); use HTTP/1.1 for test
 # to make problem clear
@@ -169,21 +166,14 @@ like($r, qr/HTTP\/1.1 405.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
 like(http_get('/error405return200'), qr/HTTP\/1.1 405(?!.*body)/ms,
 	'error 405 return 200');
 
-}
-
 # tests involving return with two arguments, as introduced in
 # 0.8.42
 
 like(http_get('/return200text'), qr!text\z!, 'return 200 text');
 like(http_get('/return404text'), qr!text\z!, 'return 404 text');
 
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get('/error405return200text'), qr!HTTP/1.1 405.*text\z!ms,
 	'error 405 to return 200 text');
-
-}
 
 # return 302 is somewhat special: it adds Location header instead of
 # body text.  additionally it doesn't sent reply directly (as it's done for
@@ -192,17 +182,9 @@ like(http_get('/error405return200text'), qr!HTTP/1.1 405.*text\z!ms,
 like(http_get('/return302text'), qr!HTTP/1.1 302.*Location: text!ms,
 	'return 302 text');
 
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get('/error302return200text'),
 	qr!HTTP/1.1 302.*Location: text.*text\z!ms,
 	'error 302 return 200 text');
-
-}
-
-TODO: {
-local $TODO = 'not yet';
 
 # in contrast to other return's this shouldn't preserve original status code
 # from error, and the same applies to "rewrite ... redirect" as an error
@@ -215,8 +197,6 @@ like(http_get('/error405return302text'),
 like(http_get('/error405rewrite'),
 	qr!HTTP/1.1 302.*Location: http://example.com/!ms,
 	'error 405 rewrite redirect');
-
-}
 
 like(http_get('/error405directory'),
 	qr!HTTP/1.1 301.*Location: http://!ms,

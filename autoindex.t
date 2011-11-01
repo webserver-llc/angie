@@ -89,29 +89,14 @@ unlike($r, qr!href="test-colon:blah"!ms, 'colon not scheme');
 like($r, qr!test-long-0{37}\.\.&gt;!ms, 'long name');
 
 like($r, qr!href="test-escape-url-%25"!ms, 'escaped url');
-
-{
-local $TODO = 'not fixed yet';
-
 like($r, qr!href="test-escape-url2-%3f"!ms, 'escaped ? in url');
-
-}
-
-{
-local $TODO = 'patch under review';
-
 like($r, qr!test-escape-html-&lt;&gt;&amp;!ms, 'escaped html');
 like($r, qr!test-long-(&gt;){37}\.\.&gt;!ms, 'long escaped html');
-
-}
 
 $r = http_get('/utf8/');
 
 like($r, qr!test-utf8-(\xd1\x84){3}</a>!ms, 'utf8');
 like($r, qr!test-utf8-(\xd1\x84){37}\.\.!ms, 'utf8 long');
-
-{
-local $TODO = 'patch under review';
 
 like($r, qr!test-utf8-&lt;&gt;&amp;-\xd1\x84</a>!ms, 'utf8 escaped');
 like($r, qr!test-utf8-&lt;&gt;&amp;-(\xd1\x84){33}\.\.!ms,
@@ -120,7 +105,5 @@ like($r, qr!test-utf8-(\xd1\x84){3}-(&gt;){33}\.\.!ms, 'utf8 long escaped');
 
 like(http_get('/test-dir-escape-<>&/'), qr!test-dir-escape-&lt;&gt;&amp;!ms,
 	'escaped title');
-
-}
 
 ###############################################################################

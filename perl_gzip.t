@@ -78,12 +78,6 @@ $t->run();
 ###############################################################################
 
 http_gzip_like(http_gzip_request('/'), qr/TEST/, 'perl response gzipped');
-
-TODO: {
-local $TODO = 'patch pending';
-
 http_gzip_like(http_gzip_request('/gz'), qr/TEST/, 'not doublegzipped');
-
-}
 
 ###############################################################################

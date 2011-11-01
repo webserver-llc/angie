@@ -101,12 +101,7 @@ like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
 is(-s $t->testdir() . '/file', 10,
 	'put file extra data size');
 
-TODO: {
-local $TODO = 'broken in 0.8.32';
-
 # 201 replies contain body, response should indicate it's empty
-# before 0.8.32 chunked was explicitly disabled for 201 replies so
-# connection was just closed (which isn't perfect but worked)
 
 $r = http(<<EOF);
 MKCOL /test/ HTTP/1.1
@@ -136,6 +131,5 @@ Connection: close
 EOF
 
 like($r, qr/201.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'move dir');
-}
 
 ###############################################################################

@@ -178,7 +178,7 @@ sub http_fake_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalAddr => '127.0.0.1:8081',
-		Listen => 1,
+		Listen => 5,
 		Reuse => 1
 	)
 		or die "Can't create listening socket: $!\n";

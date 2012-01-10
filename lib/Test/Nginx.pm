@@ -119,7 +119,7 @@ sub has_daemon($) {
 	my ($self, $daemon) = @_;
 
 	Test::More::plan(skip_all => "$daemon not found")
-		unless `which $daemon`;
+		unless `command -v $daemon`;
 
 	return $self;
 }

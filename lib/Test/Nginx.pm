@@ -252,6 +252,7 @@ sub run_daemon($;@) {
 			exit 0;
 		} else {
 			exec($code, @args);
+			exit 0;
 		}
 	}
 

@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(12);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(15);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -61,6 +61,20 @@ http {
         location /impl_default/ {
             proxy_pass http://127.0.0.1:8081/replace_this/;
         }
+
+        location /off/ {
+            proxy_pass http://127.0.0.1:8081/;
+            proxy_redirect off;
+
+            location /off/on/ {
+                proxy_pass http://127.0.0.1:8081;
+                proxy_redirect http://127.0.0.1:8081/off/ /;
+
+                location /off/on/on/ {
+                    proxy_pass http://127.0.0.1:8081;
+                }
+            }
+        }
     }
 
     server {
@@ -95,6 +109,19 @@ is(http_get_location('http://127.0.0.1:8080/var_in_second/test.html'),
 	'http://127.0.0.1:8080/var_here/test.html', 'variable in second arg');
 is(http_get_refresh('http://127.0.0.1:8080/var_in_second/test.html'),
 	'7; url=/var_here/test.html', 'variable in second arg (refresh)');
+
+is(http_get_location('http://127.0.0.1:8080/off/test.html'),
+	'http://127.0.0.1:8081/test.html', 'rewrite off');
+is(http_get_location('http://127.0.0.1:8080/off/on/test.html'),
+	'http://127.0.0.1:8080/on/test.html', 'rewrite off overwrite');
+
+TODO: {
+local $TODO = 'rewrite off inheritance bug';
+
+is(http_get_location('http://127.0.0.1:8080/off/on/on/test.html'),
+	'http://127.0.0.1:8080/on/on/test.html', 'rewrite inheritance');
+
+}
 
 TODO: {
 local $TODO = 'support variables in first argument';

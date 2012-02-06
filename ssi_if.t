@@ -117,9 +117,6 @@ like(http_get('/if_varvar.html?v=varHERE&v2=HERE'), qr/^xOKx$/m,
 	'if var = complex');
 
 
-TODO: {
-local $TODO = 'support for captures in regexps';
-
 $t->write_file('if_cap_re.html',
 	'x<!--#if expr="$arg_v = /(CAP\d).*(CAP\d)/" -->'
 		. '<!--#echo var="1" -->x<!--#echo var="2" -->'
@@ -136,8 +133,6 @@ $t->write_file('if_ncap_re.html',
 
 like(http_get('/if_ncap_re.html?v=captureHEREeee'), qr/^xHEREx$/m,
 	'if regex with named capture');
-
-}
 
 
 $t->write_file('if.html', 'x' . $if_elif_else . 'x');
@@ -163,9 +158,6 @@ like(http_get('/if_multi.html?2=t&4=t'), qr/^xELSE1xIF2xELSE3xIF4xELSE5x$/m,
 	'multiple if (interlaced reversed)');
 
 
-TODO: {
-local $TODO = 'fix "if" conditions inside the "block" command';
-
 $t->write_file('if_in_block.html',
 	'<!--#block name="one" -->' . $if_elif_else . '<!--#endblock -->'
 	. 'x<!--#include virtual="/404?$args" stub="one" -->x');
@@ -175,8 +167,6 @@ like(http_get('/if_in_block.html?if=1&elif=1'), qr/^xIFx$/m,
 	'if suppresses elif (in block)');
 like(http_get('/if_in_block.html?elif=1'), qr/^xELIFx$/m, 'elif (in block)');
 like(http_get('/if_in_block.html'), qr/^xELSEx$/m, 'else (in block)');
-
-}
 
 
 $t->write_file('if_config_set_echo.html',

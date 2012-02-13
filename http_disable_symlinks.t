@@ -11,6 +11,7 @@ use strict;
 
 use Test::More;
 use POSIX;
+use Cwd qw/ realpath /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -112,24 +113,18 @@ eval {
 plan(skip_all => 'no disable_symlinks') if $@;
 
 my $uid = getuid();
+my ($extfile) = grep { -f "$_" && $uid != (stat($_))[4] }
+	('/etc/resolv.conf', '/etc/protocols', '/etc/host.conf');
 
-my @extfiles = ('/etc/resolv.conf', '/etc/protocols', '/etc/host.conf');
-my $extfile = undef;
-
-foreach (@extfiles) {
-	if (-f "$_" && $uid != (stat($_))[4]) {
-		$extfile = $_;
-		last;
-	}
-}
-
-if (defined($extfile)) {
-	$t->plan(17);
-} else {
-	plan(skip_all => 'external suitable object not found');
-}
+plan(skip_all => 'no external file found')
+	if !defined $extfile;
 
 my $d = $t->testdir();
+
+plan(skip_all => 'cannot test under symlink')
+	if $d ne realpath($d);
+
+$t->plan(17);
 
 mkdir("$d/on");
 mkdir("$d/not_owner");
@@ -199,15 +194,15 @@ like(http_get_host('s1', '/if_not_owner/link2'), qr!403 Forbidden!,
 	'if (if_not_owner, other uid)');
 
 like(http_get_host('s2', '/cached-off/link'), qr!200 OK!,
-	'open_file_cache (pass #1)');
+	'open_file_cache (pass 1)');
 like(http_get_host('s2', '/cached-on/link'), qr!403 Forbidden!,
-	'open_file_cache (pass #2)');
+	'open_file_cache (pass 2)');
 like(http_get_host('s2', '/cached-off/link'), qr!200 OK!,
-	'open_file_cache (pass #3)');
+	'open_file_cache (pass 3)');
 like(http_get_host('s2', '/cached-if-not-owner/link'), qr!403 Forbidden!,
-	'open_file_cache (pass #4)');
+	'open_file_cache (pass 4)');
 like(http_get_host('s2', '/cached-off/link'), qr!200 OK!,
-	'open_file_cache (pass #5)');
+	'open_file_cache (pass 5)');
 
 ###############################################################################
 

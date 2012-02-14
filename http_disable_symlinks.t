@@ -92,6 +92,16 @@ http {
             alias %%TESTDIR%%/$1;
         }
 
+        location ~ (.+/)tailowner$ {
+            disable_symlinks if_not_owner;
+            alias %%TESTDIR%%/$1;
+        }
+
+        location ~ (.+/)tailoff$ {
+            disable_symlinks off;
+            alias %%TESTDIR%%/$1;
+        }
+
         location /dir {
             disable_symlinks on;
             try_files $uri/ =404;
@@ -149,7 +159,7 @@ my $d = $t->testdir();
 plan(skip_all => 'cannot test under symlink')
 	if $d ne realpath($d);
 
-$t->plan(23);
+$t->plan(25);
 
 mkdir("$d/on");
 mkdir("$d/not_owner");
@@ -236,7 +246,10 @@ like(http_get('/complex/1/empty.html'), qr!200 OK!, 'complex root 1');
 like(http_get('/complex/2/empty.html'), qr!200 OK!, 'complex root 2');
 like(http_get('/complex/3/empty.html'), qr!200 OK!, 'complex root 3');
 
-like(http_get('/link/tail'), qr!403 !, 'file with trailing /');
+like(http_get('/link/tail'), qr!403 !, 'file with trailing /, on');
+like(http_get('/link/tailowner'), qr!404 !, 'file with trailing /, owner');
+like(http_get('/link/tailoff'), qr!404 !, 'file with trailing /, off');
+
 like(http_get('/dirlink'), qr!404 !, 'directory without /');
 like(http_get('/dirlink/'), qr!404 !, 'directory with trailing /');
 

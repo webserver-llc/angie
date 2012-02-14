@@ -71,6 +71,31 @@ http {
                 return 204;
             }
         }
+
+        location /complex/1/ {
+            disable_symlinks on;
+            alias %%TESTDIR%%/./cached/../;
+        }
+
+        location /complex/2/ {
+            disable_symlinks on;
+            alias %%TESTDIR%%//./cached/..//;
+        }
+
+        location /complex/3/ {
+            disable_symlinks on;
+            alias ///%%TESTDIR%%//./cached/..//;
+        }
+
+        location ~ (.+/)tail$ {
+            disable_symlinks on;
+            alias %%TESTDIR%%/$1;
+        }
+
+        location /dir {
+            disable_symlinks on;
+            try_files $uri/ =404;
+        }
     }
 
     server {
@@ -124,7 +149,7 @@ my $d = $t->testdir();
 plan(skip_all => 'cannot test under symlink')
 	if $d ne realpath($d);
 
-$t->plan(17);
+$t->plan(23);
 
 mkdir("$d/on");
 mkdir("$d/not_owner");
@@ -160,6 +185,9 @@ symlink($extfile, "$d/if_on/link2");
 $t->write_file("if_not_owner/empty.html", "");
 symlink("empty.html", "$d/if_not_owner/link");
 symlink($extfile, "$d/if_not_owner/link2");
+
+mkdir("$d/dir");
+symlink("dir", "$d/dirlink");
 
 symlink($extfile, "$d/cached/link");
 
@@ -203,6 +231,14 @@ like(http_get_host('s2', '/cached-if-not-owner/link'), qr!403 Forbidden!,
 	'open_file_cache (pass 4)');
 like(http_get_host('s2', '/cached-off/link'), qr!200 OK!,
 	'open_file_cache (pass 5)');
+
+like(http_get('/complex/1/empty.html'), qr!200 OK!, 'complex root 1');
+like(http_get('/complex/2/empty.html'), qr!200 OK!, 'complex root 2');
+like(http_get('/complex/3/empty.html'), qr!200 OK!, 'complex root 3');
+
+like(http_get('/link/tail'), qr!403 !, 'file with trailing /');
+like(http_get('/dirlink'), qr!404 !, 'directory without /');
+like(http_get('/dirlink/'), qr!404 !, 'directory with trailing /');
 
 ###############################################################################
 

@@ -246,6 +246,12 @@ like(http_get('/complex/1/empty.html'), qr!200 OK!, 'complex root 1');
 like(http_get('/complex/2/empty.html'), qr!200 OK!, 'complex root 2');
 like(http_get('/complex/3/empty.html'), qr!200 OK!, 'complex root 3');
 
+# workaround for freebsd 8: we use O_EXEC instead of O_SEARCH (since there
+# is no O_SEARCH), and O_DIRECTORY does nothing.  setting the 'x' bit
+# tests to pass as openat() will correctly fail with ENOTDIR
+
+chmod(0700, "$d/link");
+
 like(http_get('/link/tail'), qr!403 !, 'file with trailing /, on');
 like(http_get('/link/tailowner'), qr!404 !, 'file with trailing /, owner');
 like(http_get('/link/tailoff'), qr!404 !, 'file with trailing /, off');

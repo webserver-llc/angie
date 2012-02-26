@@ -106,6 +106,20 @@ http {
             disable_symlinks on;
             try_files $uri/ =404;
         }
+
+        location /from {
+            disable_symlinks on from=$document_root;
+
+            location /from/wo_slash {
+                alias %%TESTDIR%%/dirlink;
+            }
+            location /from/with_slash/ {
+                alias %%TESTDIR%%/dirlink/;
+            }
+            location ~ ^/from/exact/(.+)$ {
+                alias %%TESTDIR%%/$1;
+            }
+        }
     }
 
     server {
@@ -156,10 +170,7 @@ plan(skip_all => 'no external file found')
 
 my $d = $t->testdir();
 
-plan(skip_all => 'cannot test under symlink')
-	if $d ne realpath($d);
-
-$t->plan(25);
+$t->plan(28);
 
 mkdir("$d/on");
 mkdir("$d/not_owner");
@@ -197,11 +208,15 @@ symlink("empty.html", "$d/if_not_owner/link");
 symlink($extfile, "$d/if_not_owner/link2");
 
 mkdir("$d/dir");
+$t->write_file("dir/empty.html", "");
 symlink("dir", "$d/dirlink");
 
 symlink($extfile, "$d/cached/link");
 
 ###############################################################################
+
+SKIP: {
+skip 'cannot test under symlink', 25 if $d ne realpath($d);
 
 like(http_get_host('s1', '/link'), qr!200 OK!, 'static (off, same uid)');
 like(http_get_host('s1', '/link2'), qr!200 OK!, 'static (off, other uid)');
@@ -258,6 +273,12 @@ like(http_get('/link/tailoff'), qr!404 !, 'file with trailing /, off');
 
 like(http_get('/dirlink'), qr!404 !, 'directory without /');
 like(http_get('/dirlink/'), qr!404 !, 'directory with trailing /');
+
+} # SKIP: cannot test under symlink
+
+like(http_get('/from/wo_slash/empty.html'), qr!200 OK!, '"from=" without /');
+like(http_get('/from/with_slash/empty.html'), qr!200 OK!, '"from=" with /');
+like(http_get('/from/exact/link'), qr!200 OK!, '"from=" exact match');
 
 ###############################################################################
 

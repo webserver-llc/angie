@@ -267,7 +267,7 @@ like(http_get('/complex/3/empty.html'), qr!200 OK!, 'complex root 3');
 
 chmod(0700, "$d/link");
 
-like(http_get('/link/tail'), qr!403 !, 'file with trailing /, on');
+like(http_get('/link/tail'), qr!40[34] !, 'file with trailing /, on');
 like(http_get('/link/tailowner'), qr!404 !, 'file with trailing /, owner');
 like(http_get('/link/tailoff'), qr!404 !, 'file with trailing /, off');
 

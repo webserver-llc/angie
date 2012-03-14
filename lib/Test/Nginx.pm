@@ -379,9 +379,8 @@ sub http($;%) {
 	if ($@) {
 		log_in("died: $@");
 		return undef;
-	} else {
-		log_in($reply);
 	}
+	log_in($reply);
 	return $reply;
 }
 

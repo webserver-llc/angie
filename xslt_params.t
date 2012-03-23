@@ -43,17 +43,17 @@ http {
 
         location /x1 {
             xslt_stylesheet %%TESTDIR%%/test.xslt
-                            param1='value1':param2=root param3='value%33';
+                            param1='value1':param2=/root param3='value%33';
         }
         location /x2 {
             xslt_stylesheet %%TESTDIR%%/test.xslt;
             xslt_param param1 "'value1'";
-            xslt_param param2 "root";
+            xslt_param param2 "/root";
             xslt_string_param param3 "value3";
         }
         location /x3 {
             xslt_stylesheet %%TESTDIR%%/test.xslt
-                            param1='value1':param2=root;
+                            param1='value1':param2=/root;
             xslt_string_param param3 "value3";
         }
     }

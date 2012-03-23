@@ -46,7 +46,7 @@ http {
         }
         location /x2 {
             xslt_stylesheet %%TESTDIR%%/test.xslt
-                            param1='value1':param2=root param3='value%33';
+                            param1='value1':param2=/root param3='value%33';
         }
         location /x3 {
             xml_entities %%TESTDIR%%/entities.dtd;
@@ -77,7 +77,7 @@ test xslt result
 param1=<xsl:value-of select="$param1"/>
 param2=<xsl:value-of select="$param2"/>
 param3=<xsl:value-of select="$param3"/>
-data=<xsl:value-of select="root"/>
+data=<xsl:value-of select="/root"/>
 </xsl:template>
 
 </xsl:stylesheet>
@@ -90,7 +90,7 @@ $t->write_file('first.xslt', <<'EOF');
                 xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
 <xsl:template match="/">
-<root>other <xsl:value-of select="root"/></root>
+<root>other <xsl:value-of select="/root"/></root>
 </xsl:template>
 
 </xsl:stylesheet>

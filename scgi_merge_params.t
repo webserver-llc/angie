@@ -121,7 +121,7 @@ sub scgi_daemon {
 
 	my $scgi = SCGI->new($server, blocking => 1);
 	my $count = 0;
-  
+
 	while (my $request = $scgi->accept()) {
 		$count++;
 		$request->read_env();

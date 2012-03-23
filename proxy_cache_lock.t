@@ -194,7 +194,7 @@ sub http_fake_daemon {
 				$uri = $1;
 				$num = 0;
 			}
-				
+
 			$uri = $1 if /GET (.*) HTTP/;
 			last if /^\x0d?\x0a?$/;
 		}

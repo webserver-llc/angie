@@ -76,6 +76,7 @@ eval {
 plan(skip_all => 'no proxy_cache_lock') if $@;
 
 $t->plan(19);
+$t->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
@@ -198,6 +199,8 @@ sub http_fake_daemon {
 			$uri = $1 if /GET (.*) HTTP/;
 			last if /^\x0d?\x0a?$/;
 		}
+
+		next unless $uri;
 
 		sleep(1);
 

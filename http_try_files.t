@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(3)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -44,6 +44,10 @@ http {
 
         location /nouri/ {
             try_files $uri /fallback_nouri;
+        }
+
+        location /short/ {
+            try_files /short $uri =404;
         }
 
         location /fallback {
@@ -74,6 +78,7 @@ $t->run();
 
 like(http_get('/found.html'), qr!SEE THIS!, 'found');
 like(http_get('/uri/notfound'), qr!X-URI: /fallback!, 'not found uri');
+like(http_get('/short/long'), qr!404 Not!, 'short uri in try_files');
 
 TODO: {
 local $TODO = 'fixed in 1.1.12';

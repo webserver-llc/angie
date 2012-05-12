@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http geo/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http geo/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -60,6 +60,7 @@ http {
         server_name  localhost;
 
         location / {
+            add_header X-IP  $remote_addr;
             add_header X-Geo $geo;
             add_header X-Arg $geo_from_arg;
             add_header X-XFF $geo_proxy;
@@ -71,6 +72,11 @@ EOF
 
 $t->write_file('1', '');
 $t->run();
+
+plan(skip_all => 'no 127.0.0.1 on host')
+	if http_get('/1') !~ /X-IP: 127.0.0.1/m;
+
+$t->plan(6);
 
 ###############################################################################
 

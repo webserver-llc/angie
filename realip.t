@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http realip/)->plan(3);
+my $t = Test::Nginx->new()->has(qw/http realip/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -53,9 +53,12 @@ EOF
 $t->write_file('1', '');
 $t->run();
 
-###############################################################################
+plan(skip_all => 'no 127.0.0.1 on host')
+	if http_get('/1') !~ /X-IP: 127.0.0.1/m;
 
-like(http_get('/1'), qr/^X-IP: 127.0.0.1/m, 'realip no ip');
+$t->plan(2);
+
+###############################################################################
 
 like(http_xff('192.0.2.1'), qr/^X-IP: 192.0.2.1/m, 'realip');
 like(http_xff('10.0.0.1, 192.0.2.1'), qr/^X-IP: 192.0.2.1/m, 'realip multi');

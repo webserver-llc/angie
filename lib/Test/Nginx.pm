@@ -39,6 +39,7 @@ sub new {
 		CLEANUP => not $ENV{TEST_NGINX_LEAVE}
 	)
 		or die "Can't create temp directory: $!\n";
+	$self->{_testdir} =~ s!\\!/!g if $^O eq 'MSWin32';
 
 	return $self;
 }
@@ -199,7 +200,19 @@ sub stop() {
 
 	return $self unless $self->{_started};
 
-	kill 'QUIT', `cat $self->{_testdir}/nginx.pid`;
+	if ($^O eq 'MSWin32') {
+		my $testdir = $self->{_testdir};
+		my @globals = $self->{_test_globals} ?
+			() : ('-g', "pid $testdir/nginx.pid; "
+			. "error_log $testdir/error.log debug;");
+		exec($NGINX, '-c', "$testdir/nginx.conf", '-s', 'stop',
+			@globals)
+			or die "Unable to exec(): $!\n";
+
+	} else {
+		kill 'QUIT', `cat $self->{_testdir}/nginx.pid`;
+	}
+
 	wait;
 
 	$self->{_started} = 0;

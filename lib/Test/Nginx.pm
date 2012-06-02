@@ -119,6 +119,11 @@ sub has_module($) {
 sub has_daemon($) {
 	my ($self, $daemon) = @_;
 
+	if ($^O eq 'MSWin32') {
+		Test::More::plan(skip_all => "win32");
+		return $self;
+	}
+
 	Test::More::plan(skip_all => "$daemon not found")
 		unless `command -v $daemon`;
 

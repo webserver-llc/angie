@@ -210,9 +210,9 @@ sub stop() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		exec($NGINX, '-c', "$testdir/nginx.conf", '-s', 'stop',
-			@globals)
-			or die "Unable to exec(): $!\n";
+		system($NGINX, '-c', "$testdir/nginx.conf", '-s', 'stop',
+			@globals) == 0
+			or die "system() failed: $?\n";
 
 	} else {
 		kill 'QUIT', `cat $self->{_testdir}/nginx.pid`;
@@ -230,7 +230,7 @@ sub stop_daemons() {
 
 	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
 		my $p = shift @{$self->{_daemons}};
-		kill 'TERM', $p;
+		kill $^O eq 'MSWin32' ? 9 : 'TERM', $p;
 		wait;
 	}
 

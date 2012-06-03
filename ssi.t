@@ -103,12 +103,7 @@ like(http_get('/test3.html'), qr/^XtestX$/m, 'set');
 # args should be in subrequest even if original request has no args and that
 # was queried somehow (e.g. by server rewrites)
 
-TODO: {
-local $TODO = 'patch under review';
-
 like(http_get('/test-args-rewrite.html'), qr/^XX$/m, 'args only subrequest');
-
-}
 
 like(http_get('/test-args-rewrite.html?wasargs'), qr/^XX$/m,
 	'args was in main request');

@@ -124,8 +124,14 @@ sub has_daemon($) {
 		return $self;
 	}
 
+	if ($^O eq 'solaris') {
+		Test::More::plan(skip_all => "$daemon not found")
+			unless `command -v $daemon`;
+		return $self;
+	}
+
 	Test::More::plan(skip_all => "$daemon not found")
-		unless `command -v $daemon`;
+		unless `which $daemon`;
 
 	return $self;
 }

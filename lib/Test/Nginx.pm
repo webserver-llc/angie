@@ -68,6 +68,7 @@ sub has_module($) {
 	my ($self, $feature) = @_;
 
 	my %regex = (
+		sni	=> 'TLS SNI support enabled',
 		mail	=> '--with-mail(?!\S)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',
@@ -387,7 +388,7 @@ sub http($;%) {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(2);
-		my $s = IO::Socket::INET->new(
+		my $s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8080'
 		);

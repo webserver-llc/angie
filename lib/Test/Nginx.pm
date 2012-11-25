@@ -117,6 +117,24 @@ sub has_module($) {
 	return ($self->{_configure_args} =~ $re) ? 1 : 0;
 }
 
+sub has_version($) {
+	my ($self, $need) = @_;
+
+	$self->{_configure_args} = `$NGINX -V 2>&1`
+		if !defined $self->{_configure_args};
+
+	$self->{_configure_args} =~ m!nginx version: nginx/([0-9.]+)!;
+
+	my @v = split(/\./, $1);
+	my $n;
+
+	for $n (split(/\./, $need)) {
+		return 0 if $n > (shift @v || 0);
+	}
+
+	return 1;
+}
+
 sub has_daemon($) {
 	my ($self, $daemon) = @_;
 

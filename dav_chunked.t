@@ -56,7 +56,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.3.9');
 
 my $r;
 

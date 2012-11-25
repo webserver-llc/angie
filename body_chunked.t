@@ -83,7 +83,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.3.9');
 
 like(http_get_body('/', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'body');

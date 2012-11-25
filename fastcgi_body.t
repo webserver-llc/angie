@@ -63,7 +63,7 @@ like(http_get_length('/', ''), qr/X-Body: /, 'fastcgi empty body');
 like(http_get_length('/', 'foobar'), qr/X-Body: foobar/, 'fastcgi body');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.3.9');
 
 like(http(<<EOF), qr/X-Body: foobar/, 'fastcgi chunked');
 GET / HTTP/1.1

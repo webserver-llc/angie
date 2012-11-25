@@ -105,15 +105,8 @@ unlike(http_get_auth('/', 'plain', '123'), qr!SEETHIS!, 'plain wrong');
 unlike(http_get_auth('/', 'ssha', '123'), qr!SEETHIS!, 'ssha wrong');
 
 like(http_get_auth('/', 'apr12', '1'), qr!401 Unauthorized!, 'apr1 md5 broken');
-
-SKIP: {
-skip 'unsafe', 2 unless $ENV{TEST_NGINX_UNSAFE};
-local $TODO = 'not yet';
-
 like(http_get_auth('/', 'ssha2', '1'), qr!401 Unauthorized!, 'ssha broken 1');
 like(http_get_auth('/', 'ssha3', '1'), qr!401 Unauthorized!, 'ssha broken 2');
-
-}
 
 ###############################################################################
 

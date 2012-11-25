@@ -219,13 +219,8 @@ like(http_get('/capture/%25?a=b'),
 	qr!^uri:/capture/% args:c=d&a=b$!ms,
 	'escape with added args');
 
-TODO: {
-local $TODO = 'patch pending';
-
 like(http_get('/capturedup/%25?a=b'),
 	qr!^uri:/capturedup/% args:c=/capturedup/%25&a=b$!ms,
 	'escape with added args');
-
-}
 
 ###############################################################################

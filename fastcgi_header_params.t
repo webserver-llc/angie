@@ -56,15 +56,8 @@ $t->run();
 
 ###############################################################################
 
-SKIP: {
-skip 'unsafe', 1 unless $ENV{TEST_NGINX_UNSAFE};
-
-local $TODO = 'not yet';
-
 like(http_get_headers('/'), qr/SEE-THIS/,
 	'fastcgi request with many ignored headers');
-
-}
 
 ###############################################################################
 

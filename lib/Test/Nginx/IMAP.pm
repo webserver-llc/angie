@@ -65,7 +65,7 @@ sub check {
 }
 
 sub ok {
-	my $self = shift; 
+	my $self = shift;
 	Test::More->builder->like($self->read(), qr/^\S+ OK/, @_);
 }
 

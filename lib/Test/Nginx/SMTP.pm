@@ -64,12 +64,12 @@ sub check {
 }
 
 sub ok {
-	my $self = shift; 
+	my $self = shift;
 	Test::More->builder->like($self->read(), qr/^2\d\d /, @_);
 }
 
 sub authok {
-	my $self = shift; 
+	my $self = shift;
 	Test::More->builder->like($self->read(), qr/^235 /, @_);
 }
 

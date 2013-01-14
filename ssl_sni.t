@@ -66,7 +66,7 @@ EOF
 eval { require IO::Socket::SSL; die if $IO::Socket::SSL::VERSION < 1.56; };
 plan(skip_all => 'IO::Socket::SSL version >= 1.56 required') if $@;
 
-eval { 
+eval {
 	my $ctx = Net::SSLeay::CTX_new() or die;
 	my $ssl = Net::SSLeay::new($ctx) or die;
 	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
@@ -153,7 +153,7 @@ sub get_cert_cn {
 }
 
 sub https_get_host {
-	my ($host, $sni) = @_; 
+	my ($host, $sni) = @_;
 	my $s = get_ssl_socket($sni ? $sni : $host);
 
 	return http(<<EOF, socket => $s);

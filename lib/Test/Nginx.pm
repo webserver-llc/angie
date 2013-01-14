@@ -336,7 +336,7 @@ sub test_globals_http() {
 	$s .= "access_log $self->{_testdir}/access.log;\n";
 	$s .= "client_body_temp_path $self->{_testdir}/client_body_temp;\n";
 
-	$s .= "fastcgi_temp_path $self->{_testdir}/fastcgi_temp;\n" 
+	$s .= "fastcgi_temp_path $self->{_testdir}/fastcgi_temp;\n"
 		if $self->has_module('fastcgi');
 
 	$s .= "proxy_temp_path $self->{_testdir}/proxy_temp;\n"

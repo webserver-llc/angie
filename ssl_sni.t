@@ -131,6 +131,7 @@ sub get_ssl_socket {
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8443',
 			SSL_hostname => $host,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_error_trap => sub { die $_[1] }
 		);
 		alarm(0);

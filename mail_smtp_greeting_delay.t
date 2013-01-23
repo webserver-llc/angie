@@ -27,7 +27,7 @@ my $t = Test::Nginx->new()->has(qw/mail smtp http/)->plan(2)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

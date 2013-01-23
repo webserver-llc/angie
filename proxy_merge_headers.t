@@ -28,7 +28,7 @@ my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)->plan(7)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

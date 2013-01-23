@@ -33,7 +33,7 @@ my $t = Test::Nginx->new()->has(qw/http gunzip memcached/)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

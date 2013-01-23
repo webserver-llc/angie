@@ -30,7 +30,7 @@ my $t = Test::Nginx->new()->has(qw/http fastcgi cache/)->plan(4)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

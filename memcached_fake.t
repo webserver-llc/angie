@@ -27,7 +27,7 @@ my $t = Test::Nginx->new()->has(qw/http rewrite memcached ssi/)->plan(3)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

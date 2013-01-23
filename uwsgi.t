@@ -26,7 +26,7 @@ my $t = Test::Nginx->new()->has(qw/http uwsgi/)->has_daemon('uwsgi')->plan(3)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

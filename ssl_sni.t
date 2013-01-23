@@ -28,7 +28,7 @@ my $t = Test::Nginx->new()->has(qw/http http_ssl sni rewrite/)
 
 %%TEST_GLOBALS%%
 
-daemon         off;
+daemon off;
 
 events {
 }

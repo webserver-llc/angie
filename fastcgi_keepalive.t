@@ -68,7 +68,12 @@ like(http_get('/'), qr/SEE-THIS/, 'fastcgi request');
 like(http_get('/redir'), qr/302/, 'fastcgi redirect');
 like(http_get('/'), qr/^request: 3$/m, 'fastcgi third request');
 
+TODO: {
+local $TODO = 'not yet';
+
 like(http_get('/single'), qr/^connection: 1$/m, 'single connection used');
+
+}
 
 # New connection to fastcgi application should be established after HEAD
 # requests since nginx doesn't read whole response (as it doesn't need
@@ -76,7 +81,12 @@ like(http_get('/single'), qr/^connection: 1$/m, 'single connection used');
 
 unlike(http_head('/head'), qr/SEE-THIS/, 'no data in HEAD');
 
+TODO: {
+local $TODO = 'not yet';
+
 like(http_get('/after'), qr/^connection: 2$/m, 'new connection after HEAD');
+
+}
 
 ###############################################################################
 
@@ -110,8 +120,11 @@ sub fastcgi_respond($$) {
 
 	# stdout
 	$h->{socket}->write(pack("CCnnCx", $h->{version}, 6, $h->{id},
-		length($body), 0));
+		length($body), 8));
 	$h->{socket}->write($body);
+	select(undef, undef, undef, 0.1);
+	$h->{socket}->write(pack("xxxxxxxx"));
+	select(undef, undef, undef, 0.1);
 
 	# write some text to stdout and stderr splitted over multiple network
 	# packets to test if we correctly set pipe length in various places
@@ -124,7 +137,9 @@ sub fastcgi_respond($$) {
 	$h->{socket}->write($tt . pack("CC", $h->{version}, 7));
 	select(undef, undef, undef, 0.1);
 	$h->{socket}->write(pack("nnCx", $h->{id}, length($tt), 0));
+	select(undef, undef, undef, 0.1);
 	$h->{socket}->write($tt);
+	select(undef, undef, undef, 0.1);
 
 	# close stdout
 	$h->{socket}->write(pack("CCnnCx", $h->{version}, 6, $h->{id}, 0, 0));
@@ -133,6 +148,7 @@ sub fastcgi_respond($$) {
 
 	# end request
 	$h->{socket}->write(pack("CCnnCx", $h->{version}, 3, $h->{id}, 8, 0));
+	select(undef, undef, undef, 0.1);
 	$h->{socket}->write(pack("NCxxx", 0, 0));
 }
 

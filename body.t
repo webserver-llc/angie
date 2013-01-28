@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(10);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -54,6 +54,10 @@ http {
             add_header X-Body "$request_body";
             add_header X-Body-File "$request_body_file";
             proxy_pass http://127.0.0.1:8081;
+        }
+        location /small {
+            client_body_in_file_only on;
+            proxy_pass http://127.0.0.1:8080/;
         }
         location /single {
             client_body_in_single_buffer on;
@@ -112,6 +116,16 @@ like(http_get_body('/discard', '0123456789', '0123456789' x 128,
 like(http_get_body('/discard', '0123456789' x 128, '0123456789' x 512,
 	'0123456789', 'foobar'), qr/(TEST.*){4}/ms,
 	'body discard 2');
+
+TODO: {
+local $TODO = 'broken by 1.3.9';
+
+# proxy with file only
+
+like(http_get_body('/small', '0123456789'),
+	qr/X-Body: 0123456789\x0d?$/ms, 'small body in file only');
+
+}
 
 ###############################################################################
 

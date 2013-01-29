@@ -409,7 +409,8 @@ sub http($;%) {
 		my $s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8080'
-		);
+		)
+			or die "Can't connect to nginx: $!\n";
 		log_out($request);
 		$s->print($request);
 		local $/;

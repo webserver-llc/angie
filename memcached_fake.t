@@ -30,7 +30,6 @@ my $t = Test::Nginx->new()->has(qw/http rewrite memcached ssi/)->plan(3)
 daemon off;
 
 events {
-use select;
 }
 
 http {

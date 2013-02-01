@@ -117,15 +117,10 @@ like(http_get_body('/discard', '0123456789' x 128, '0123456789' x 512,
 	'0123456789', 'foobar'), qr/(TEST.*){4}/ms,
 	'body discard 2');
 
-TODO: {
-local $TODO = 'broken by 1.3.9';
-
 # proxy with file only
 
-like(http_get_body('/small', '0123456789') || '',
+like(http_get_body('/small', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'small body in file only');
-
-}
 
 ###############################################################################
 

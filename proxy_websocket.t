@@ -70,7 +70,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.3.13');
 
 # establish websocket connection
 

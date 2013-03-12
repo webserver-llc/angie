@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -35,6 +35,11 @@ events {
 
 http {
     %%TEST_GLOBALS_HTTP%%
+
+    upstream u {
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8080 backup;
+    }
 
     server {
         listen       127.0.0.1:8080;
@@ -68,6 +73,9 @@ http {
         location /discard {
             return 200 "TEST\n";
         }
+        location /next {
+            proxy_pass http://u/;
+        }
     }
 
     server {
@@ -76,6 +84,15 @@ http {
 
         location / {
             return 200 "TEST\n";
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8082;
+        server_name  localhost;
+
+        location / {
+            return 444;
         }
     }
 }
@@ -121,6 +138,11 @@ like(http_get_body('/discard', '0123456789' x 128, '0123456789' x 512,
 
 like(http_get_body('/small', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'small body in file only');
+
+# proxy_next_upstream
+
+like(http_get_body('/next', '0123456789'),
+	qr/X-Body: 0123456789\x0d?$/ms, 'body next upstream');
 
 ###############################################################################
 

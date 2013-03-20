@@ -405,7 +405,7 @@ sub http($;%) {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(2);
+		alarm($extra{timeout} || 2);
 		my $s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8080'

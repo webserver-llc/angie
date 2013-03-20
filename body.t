@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(12);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -62,6 +62,7 @@ http {
         }
         location /small {
             client_body_in_file_only on;
+            add_header X-Original-Uri "$request_uri";
             proxy_pass http://127.0.0.1:8080/;
         }
         location /single {
@@ -138,6 +139,20 @@ like(http_get_body('/discard', '0123456789' x 128, '0123456789' x 512,
 
 like(http_get_body('/small', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'small body in file only');
+
+# proxy with file only - reuse of r->header_in
+
+like(
+	http(
+		'GET /small HTTP/1.0' . CRLF
+		. 'Content-Length: 10' . CRLF . CRLF
+		. '01234',
+		sleep => 0.1,
+		body => '56789'
+	),
+	qr!X-Body: 0123456789\x0d?\x0a.*X-Original-Uri: /small!ms,
+	'small body in file only, not preread'
+);
 
 # proxy_next_upstream
 

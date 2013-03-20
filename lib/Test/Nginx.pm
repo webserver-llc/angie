@@ -420,6 +420,11 @@ sub http($;%) {
 		select undef, undef, undef, $extra{sleep} if $extra{sleep};
 		return '' if $extra{aborted};
 
+		if ($extra{body}) {
+			log_out($extra{body});
+			$s->print($extra{body});
+		}
+
 		local $/;
 		$reply = $s->getline();
 

@@ -402,21 +402,27 @@ EOF
 sub http($;%) {
 	my ($request, %extra) = @_;
 	my $reply;
+
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm($extra{timeout} || 2);
+
 		my $s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8080'
 		)
 			or die "Can't connect to nginx: $!\n";
+
 		log_out($request);
 		$s->print($request);
-		local $/;
+
 		select undef, undef, undef, $extra{sleep} if $extra{sleep};
 		return '' if $extra{aborted};
+
+		local $/;
 		$reply = $s->getline();
+
 		alarm(0);
 	};
 	alarm(0);
@@ -424,6 +430,7 @@ sub http($;%) {
 		log_in("died: $@");
 		return undef;
 	}
+
 	log_in($reply);
 	return $reply;
 }

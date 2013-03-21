@@ -61,6 +61,9 @@ EOF
 $t->run_daemon(\&upgrade_fake_daemon);
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Can't start test backend";
+
 ###############################################################################
 
 TODO: {
@@ -121,7 +124,7 @@ $s = upgrade_connect(noheader => 1);
 ok($s, "handshake noupgrade");
 
 SKIP: {
-	skip "handshake failed", 2 unless $s;
+	skip "handshake failed", 1 unless $s;
 
 	upgrade_write($s, "foo");
 	isnt(upgrade_read($s), "bar", "after handshake noupgrade");

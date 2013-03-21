@@ -67,6 +67,9 @@ EOF
 $t->run_daemon(\&websocket_fake_daemon);
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Can't start test backend";
+
 ###############################################################################
 
 TODO: {

@@ -100,6 +100,10 @@ sub has_module($) {
 		browser	=> '(?s)^(?!.*--without-http_browser_module)',
 		upstream_ip_hash
 			=> '(?s)^(?!.*--without-http_upstream_ip_hash_module)',
+		upstream_least_conn
+			=> '(?s)^(?!.*--without-http_upstream_least_conn_mod)',
+		upstream_keepalive
+			=> '(?s)^(?!.*--without-http_upstream_keepalive_modu)',
 		http	=> '(?s)^(?!.*--without-http(?!\S))',
 		cache	=> '(?s)^(?!.*--without-http-cache)',
 		pop3	=> '(?s)^(?!.*--without-mail_pop3_module)',

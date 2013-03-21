@@ -24,8 +24,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy ssi rewrite/)->plan(50)
-	->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive ssi rewrite/)
+	->plan(50)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->write_file_expand('nginx.conf', <<'EOF')->plan(6);
 
 %%TEST_GLOBALS%%
 
@@ -52,15 +52,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_test_daemon);
-
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no keepalive patches') if $@;
-
-$t->plan(6);
+$t->run();
 
 ###############################################################################
 

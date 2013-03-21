@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy ssi rewrite/)
+my $t = Test::Nginx->new()->has(qw/http proxy ssi rewrite/)->plan(50)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -73,15 +73,7 @@ $t->write_file('ssi.html',
 	'set: <!--#echo var="x" -->');
 
 $t->run_daemon(\&http_daemon);
-
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no keepalive patches') if $@;
-
-$t->plan(50);
+$t->run();
 
 ###############################################################################
 

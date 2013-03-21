@@ -75,6 +75,9 @@ $t->write_file('ssi.html',
 $t->run_daemon(\&http_daemon);
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Can't start test backend";
+
 ###############################################################################
 
 # There are 3 mostly independend modes of upstream operation:

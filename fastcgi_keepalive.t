@@ -64,12 +64,7 @@ like(http_get('/'), qr/SEE-THIS/, 'fastcgi request');
 like(http_get('/redir'), qr/302/, 'fastcgi redirect');
 like(http_get('/'), qr/^request: 3$/m, 'fastcgi third request');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.12');
-
 like(http_get('/single'), qr/^connection: 1$/m, 'single connection used');
-
-}
 
 # New connection to fastcgi application should be established after HEAD
 # requests since nginx doesn't read whole response (as it doesn't need
@@ -77,12 +72,7 @@ like(http_get('/single'), qr/^connection: 1$/m, 'single connection used');
 
 unlike(http_head('/head'), qr/SEE-THIS/, 'no data in HEAD');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.12');
-
 like(http_get('/after'), qr/^connection: 2$/m, 'new connection after HEAD');
-
-}
 
 ###############################################################################
 

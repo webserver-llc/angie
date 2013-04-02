@@ -149,13 +149,7 @@ like(http_get('/p/' . md5_hex('test.html' . 'secret') . '/test.html'),
 like(http_get('/p/' . md5_hex('fake') . '/test.html'), qr/^HTTP.*403/,
 	'request old style fake hash');
 like(http_get('/p/test.html'), qr/^HTTP.*403/, 'request old style no hash');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.12');
-
 like(http_get('/inheritance/test'), qr/PASSED/, 'inheritance');
-
-}
 
 ###############################################################################
 

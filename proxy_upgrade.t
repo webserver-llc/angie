@@ -29,7 +29,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy/)
-	->write_file_expand('nginx.conf', <<'EOF')->plan(28);
+	->write_file_expand('nginx.conf', <<'EOF')->plan(27);
 
 %%TEST_GLOBALS%%
 
@@ -116,21 +116,13 @@ SKIP: {
 	is(upgrade_read($s), "bar", "next to pipelined");
 }
 
+}
+
 # connection should not be upgraded unless upgrade was actually
 # requested and allowed by configuration
 
-undef $s;
-$s = upgrade_connect(noheader => 1);
-ok($s, "handshake noupgrade");
-
-SKIP: {
-	skip "handshake failed", 1 unless $s;
-
-	upgrade_write($s, "foo");
-	isnt(upgrade_read($s), "bar", "after handshake noupgrade");
-}
-
-}
+my $s = upgrade_connect(noheader => 1);
+ok(!$s, "handshake noupgrade");
 
 ###############################################################################
 
@@ -163,7 +155,7 @@ sub upgrade_connect {
 	$buf = '';
 
 	while (1) {
-		$buf = $s->getline();
+		$buf = upgrade_getline($s);
 		last unless length $buf;
 		log_in($buf);
 		$got .= $buf;
@@ -172,7 +164,32 @@ sub upgrade_connect {
 
 	# parse server response
 
-	return $s if $got =~ m!HTTP/1.1 101!;
+	return if $got !~ m!HTTP/1.1 101!;
+
+	# make sure next line is "handshaked"
+
+	return if upgrade_read($s) ne 'handshaked';
+	return $s;
+}
+
+sub upgrade_getline {
+	my ($s) = @_;
+	my $buf;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n"; };
+		alarm(2);
+		$buf = $s->getline();
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	return $buf;
 }
 
 sub upgrade_write {
@@ -182,8 +199,9 @@ sub upgrade_write {
 
 sub upgrade_read {
 	my ($s) = @_;
-	my $m = $s->getline();
+	my $m = upgrade_getline($s);
 	$m =~ s/\x0d?\x0a// if defined $m;
+	log_in($m);
 	return $m;
 }
 
@@ -238,7 +256,10 @@ sub upgrade_handle_client {
 				$handshake = 0;
 				$buffer = 'HTTP/1.1 101 Switching' . CRLF
 					. 'Upgrade: foo' . CRLF
-					. 'Connection: Upgrade' . CRLF . CRLF;
+					. 'Connection: Upgrade' . CRLF . CRLF
+					. 'handshaked' . CRLF;
+
+				log2o($buffer);
 
 				next;
 			}
@@ -247,6 +268,7 @@ sub upgrade_handle_client {
 
 			if ($unfinished =~ m/\x0d?\x0a\z/) {
 				$unfinished =~ s/foo/bar/g;
+				log2o($unfinished);
 				$buffer .= $unfinished;
 				$unfinished = '';
 			}

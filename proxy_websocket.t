@@ -166,6 +166,13 @@ sub websocket_connect {
 	# parse server response
 
 	$h->parse($got);
+
+	# store the rest for later websocket_read()
+	# see websocket_read() for details
+
+	${*$s}->{_websocket_frame} ||= Protocol::WebSocket::Frame->new();
+	${*$s}->{_websocket_frame}->append($got);
+
 	return $s if $h->is_done;
 }
 

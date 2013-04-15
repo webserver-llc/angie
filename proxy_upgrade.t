@@ -147,7 +147,7 @@ sub upgrade_connect {
 	local $SIG{PIPE} = 'IGNORE';
 
 	log_out($buf);
-	$s->print($buf);
+	$s->syswrite($buf);
 
 	# read response
 
@@ -174,27 +174,48 @@ sub upgrade_connect {
 
 sub upgrade_getline {
 	my ($s) = @_;
-	my $buf;
+	my ($h, $buf, $line);
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n"; };
-		alarm(2);
-		$buf = $s->getline();
-		alarm(0);
-	};
-	alarm(0);
+	${*$s}->{_upgrade_private} ||= { b => ''};
+	$h = ${*$s}->{_upgrade_private};
 
-	if ($@) {
-		log_in("died: $@");
-		return undef;
+	if ($h->{b} =~ /^(.*?\x0a)(.*)/ms) {
+		$h->{b} = $2;
+		return $1;
 	}
 
-	return $buf;
+	$s->blocking(0);
+	while (IO::Select->new($s)->can_read(1.5)) {
+		my $n = $s->sysread($buf, 1024);
+		last unless $n;
+
+		$h->{b} .= $buf;
+
+		if ($h->{b} =~ /^(.*?\x0a)(.*)/ms) {
+			$h->{b} = $2;
+			return $1;
+		}
+	};
 }
 
 sub upgrade_write {
 	my ($s, $message) = @_;
-	$s->print($message . CRLF);
+
+	$message = $message . CRLF;
+
+	local $SIG{PIPE} = 'IGNORE';
+
+	$s->blocking(0);
+	while (IO::Select->new($s)->can_write(1.5)) {
+		my $n = $s->syswrite($message);
+		last unless $n;
+		$message = substr($message, $n);
+		last unless length $message;
+	}
+
+	if (length $message) {
+		$s->close();
+	}
 }
 
 sub upgrade_read {

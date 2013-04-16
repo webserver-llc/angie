@@ -363,9 +363,9 @@ sub log_core {
 	($prefix, $msg) = ('', $prefix) unless defined $msg;
 	$prefix .= ' ' if length($prefix) > 0;
 
-	if (length($msg) > 4096) {
-		$msg = substr($msg, 0, 4096)
-			. "(...logged only 4096 of " . length($msg)
+	if (length($msg) > 2048) {
+		$msg = substr($msg, 0, 2048)
+			. "(...logged only 2048 of " . length($msg)
 			. " bytes)";
 	}
 

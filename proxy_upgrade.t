@@ -156,7 +156,7 @@ sub upgrade_connect {
 
 	while (1) {
 		$buf = upgrade_getline($s);
-		last unless length $buf;
+		last unless defined $buf and length $buf;
 		log_in($buf);
 		$got .= $buf;
 		last if $got =~ /\x0d?\x0a\x0d?\x0a$/;
@@ -168,7 +168,9 @@ sub upgrade_connect {
 
 	# make sure next line is "handshaked"
 
-	return if upgrade_read($s) ne 'handshaked';
+	$buf = upgrade_read($s);
+
+	return if !defined $buf or $buf ne 'handshaked';
 	return $s;
 }
 

@@ -130,10 +130,12 @@ sub has_version($) {
 	$self->{_configure_args} =~ m!nginx version: nginx/([0-9.]+)!;
 
 	my @v = split(/\./, $1);
-	my $n;
+	my ($n, $v);
 
 	for $n (split(/\./, $need)) {
-		return 0 if $n > (shift @v || 0);
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
 	}
 
 	return 1;

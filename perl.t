@@ -107,9 +107,6 @@ like(http(
 	body => '1234567890'
 ), qr/body: 1234567890/, 'perl body late');
 
-TODO: {
-local $TODO = 'broken' if $t->has_version('1.3.9');
-
 like(http(
 	'GET /body HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF
@@ -118,11 +115,6 @@ like(http(
 	sleep => 0.1,
 	body => '67890'
 ), qr/body: 1234567890/, 'perl body split');
-
-}
-
-TODO: {
-local $TODO = 'not yet';
 
 like(http(
 	'GET /body HTTP/1.1' . CRLF
@@ -153,7 +145,5 @@ like(http(
 	sleep => 0.1,
 	body => '67890' . CRLF . '0' . CRLF . CRLF
 ), qr/body: 1234567890/, 'perl body chunked split');
-
-}
 
 ###############################################################################

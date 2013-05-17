@@ -78,7 +78,7 @@ $t->run();
 like(http_get('/'), qr/X-Body: body/, 'proxy_set_body');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.1');
 
 like(http_get('/p1'), qr/X-Body: body two/, 'proxy_set_body twice');
 

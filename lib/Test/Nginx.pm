@@ -21,6 +21,7 @@ our %EXPORT_TAGS = (
 
 use File::Temp qw/ tempdir /;
 use IO::Socket;
+use POSIX qw/ waitpid WNOHANG /;
 use Socket qw/ CRLF /;
 use Test::More qw//;
 
@@ -192,20 +193,24 @@ sub run(;$) {
 
 	# wait for nginx to start
 
-	$self->waitforfile("$testdir/nginx.pid")
+	$self->waitforfile("$testdir/nginx.pid", $pid)
 		or die "Can't start nginx";
 
 	$self->{_started} = 1;
 	return $self;
 }
 
-sub waitforfile($) {
-	my ($self, $file) = @_;
+sub waitforfile($;$) {
+	my ($self, $file, $pid) = @_;
+	my $exited;
 
 	# wait for file to appear
+	# or specified process to exit
 
 	for (1 .. 30) {
 		return 1 if -e $file;
+		return 0 if $exited;
+		$exited = waitpid($pid, WNOHANG) != 0 if $pid;
 		select undef, undef, undef, 0.1;
 	}
 
@@ -236,6 +241,12 @@ sub stop() {
 
 	return $self unless $self->{_started};
 
+	local $/;
+	open F, '<' . $self->{_testdir} . '/nginx.pid'
+		or die "Can't open nginx.pid: $!";
+	my $pid = <F>;
+	close F;
+
 	if ($^O eq 'MSWin32') {
 		my $testdir = $self->{_testdir};
 		my @globals = $self->{_test_globals} ?
@@ -246,10 +257,10 @@ sub stop() {
 			or die "system() failed: $?\n";
 
 	} else {
-		kill 'QUIT', `cat $self->{_testdir}/nginx.pid`;
+		kill 'QUIT', $pid;
 	}
 
-	wait;
+	waitpid($pid, 0);
 
 	$self->{_started} = 0;
 
@@ -262,7 +273,7 @@ sub stop_daemons() {
 	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
 		my $p = shift @{$self->{_daemons}};
 		kill $^O eq 'MSWin32' ? 9 : 'TERM', $p;
-		wait;
+		waitpid($p, 0);
 	}
 
 	return $self;

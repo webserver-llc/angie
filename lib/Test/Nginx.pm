@@ -19,6 +19,7 @@ our %EXPORT_TAGS = (
 
 ###############################################################################
 
+use File::Path qw/ rmtree /;
 use File::Temp qw/ tempdir /;
 use IO::Socket;
 use POSIX qw/ waitpid WNOHANG /;
@@ -36,8 +37,7 @@ sub new {
 
 	$self->{_testdir} = tempdir(
 		'nginx-test-XXXXXXXXXX',
-		TMPDIR => 1,
-		CLEANUP => not $ENV{TEST_NGINX_LEAVE}
+		TMPDIR => 1
 	)
 		or die "Can't create temp directory: $!\n";
 	$self->{_testdir} =~ s!\\!/!g if $^O eq 'MSWin32';
@@ -51,6 +51,9 @@ sub DESTROY {
 	$self->stop_daemons();
 	if ($ENV{TEST_NGINX_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
+	}
+	if (not $ENV{TEST_NGINX_LEAVE}) {
+		eval { rmtree($self->{_testdir}); };
 	}
 }
 

@@ -64,6 +64,9 @@ $t->run_daemon(\&http_daemon, 8081);
 $t->run_daemon(\&http_daemon, 8082);
 $t->run();
 
+$t->waitforsocket('127.0.0.1:8081');
+$t->waitforsocket('127.0.0.1:8082');
+
 ###############################################################################
 
 is(many('/', 30), '8081: 15, 8082: 15', 'balanced');
@@ -94,7 +97,7 @@ sub many {
 	my ($uri, $count, %opts) = @_;
 	my %ports;
 
-	for (1 .. 30) {
+	for (1 .. $count) {
 		if (http_get($uri) =~ /X-Port: (\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
@@ -120,6 +123,8 @@ sub http_daemon {
 		Reuse => 1
 	)
 		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
 
 	while (my $client = $server->accept()) {
 		$client->autoflush(1);

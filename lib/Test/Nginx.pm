@@ -35,6 +35,8 @@ sub new {
 	my $self = {};
 	bless $self;
 
+	$self->{_pid} = $$;
+
 	$self->{_testdir} = tempdir(
 		'nginx-test-XXXXXXXXXX',
 		TMPDIR => 1
@@ -47,6 +49,7 @@ sub new {
 
 sub DESTROY {
 	my ($self) = @_;
+	return if $self->{_pid} != $$;
 	$self->stop();
 	$self->stop_daemons();
 	if ($ENV{TEST_NGINX_CATLOG}) {

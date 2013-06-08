@@ -80,8 +80,9 @@ EOF
 $t->write_file('t.html', 'SEE-THIS');
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('empty.html', '');
+
 $t->run_daemon(\&http_fake_daemon);
-$t->run();
+$t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
@@ -138,6 +139,8 @@ sub http_fake_daemon {
 		Reuse => 1
 	)
 		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
 
 	my $num = 0;
 

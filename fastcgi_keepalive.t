@@ -53,10 +53,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_test_daemon);
-$t->run();
-
-$t->waitforsocket('127.0.0.1:8081')
-	or die "Can't start test backend";
+$t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 

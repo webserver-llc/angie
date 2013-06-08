@@ -59,7 +59,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_chunked_daemon);
-$t->run();
+$t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
@@ -76,6 +76,8 @@ sub http_chunked_daemon {
 		Reuse => 1
 	)
 		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
 
 	while (my $client = $server->accept()) {
 		$client->autoflush(1);

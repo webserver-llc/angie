@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(7)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(13)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -54,7 +54,12 @@ http {
 
                 my $v = $r->variable("testvar");
 
-                $r->print("$v");
+                $r->print("testvar: $v\n");
+
+                $r->print("host: ", $r->header_in("Host"), "\n");
+                $r->print("xfoo: ", $r->header_in("X-Foo"), "\n");
+                $r->print("cookie: ", $r->header_in("Cookie"), "\n");
+                $r->print("xff: ", $r->header_in("X-Forwarded-For"), "\n");
 
                 return OK;
             }';
@@ -91,6 +96,52 @@ $t->run();
 ###############################################################################
 
 like(http_get('/'), qr/TEST/, 'perl response');
+
+# various $r->header_in() cases
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/host: localhost/, 'perl header_in known');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'X-Foo: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/xfoo: foo/, 'perl header_in unknown');
+
+TODO: {
+local $TODO = 'broken in 1.3.14';
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Cookie: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/cookie: foo/, 'perl header_in cookie');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Cookie: foo1' . CRLF
+	. 'Cookie: foo2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/cookie: foo1; foo2/, 'perl header_in cookie2');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'X-Forwarded-For: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/xff: foo/, 'perl header_in xff');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'X-Forwarded-For: foo1' . CRLF
+	. 'X-Forwarded-For: foo2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/xff: foo1, foo2/, 'perl header_in xff2');
+
+}
+
+# various request body tests
 
 like(http(
 	'GET /body HTTP/1.0' . CRLF

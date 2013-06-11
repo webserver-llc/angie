@@ -111,7 +111,7 @@ like(http(
 ), qr/xfoo: foo/, 'perl header_in unknown');
 
 TODO: {
-local $TODO = 'broken in 1.3.14';
+local $TODO = 'broken in 1.3.14' unless $t->has_version('1.5.2');
 
 like(http(
 	'GET / HTTP/1.0' . CRLF

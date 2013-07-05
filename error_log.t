@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) Nginx, Inc
+# (C) Nginx, Inc.
 
 # Tests for error_log.
 # Various log levels emitted with limit_req_log_level.

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) Nginx, Inc
+# (C) Nginx, Inc.
 
 # Tests for debug_connection.
 

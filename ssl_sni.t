@@ -67,6 +67,13 @@ eval { require IO::Socket::SSL; die if $IO::Socket::SSL::VERSION < 1.56; };
 plan(skip_all => 'IO::Socket::SSL version >= 1.56 required') if $@;
 
 eval {
+	if (IO::Socket::SSL->can('can_client_sni')) {
+		IO::Socket::SSL->can_client_sni() or die;
+	}
+};
+plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
+
+eval {
 	my $ctx = Net::SSLeay::CTX_new() or die;
 	my $ssl = Net::SSLeay::new($ctx) or die;
 	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;

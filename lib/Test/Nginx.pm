@@ -98,8 +98,8 @@ sub has_module($) {
 		scgi	=> '(?s)^(?!.*--without-http_scgi_module)',
 		memcached
 			=> '(?s)^(?!.*--without-http_memcached_module)',
-		limit_zone
-			=> '(?s)^(?!.*--without-http_limit_zone_module)',
+		limit_conn
+			=> '(?s)^(?!.*--without-http_limit_conn_module)',
 		limit_req
 			=> '(?s)^(?!.*--without-http_limit_req_module)',
 		empty_gif

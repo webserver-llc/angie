@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http sub perl/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http sub perl/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -68,6 +68,18 @@ http {
                 return OK;
             }';
         }
+
+        location /short {
+            sub_filter ab _replaced;
+            perl 'sub {
+                my $r = shift;
+                $r->send_http_header("text/html");
+                return OK if $r->header_only;
+                $r->print($r->variable("arg_a"));
+                $r->print($r->variable("arg_b"));
+                return OK;
+            }';
+        }
     }
 }
 
@@ -85,20 +97,56 @@ like(http_get('/multi?a=a&b=aaab'), qr/^aa_replaced$/m, 'aab in a + aaab');
 TODO: {
 local $TODO = 'not yet';
 
-like(http_get('/multi?a=a&b=aab'), qr/a_replaced/, 'aab in a + aab');
-like(http_get('/multi?a=a&b=aaaab'), qr/aaa_replaced/, 'aab in a + aaaab');
+like(http_get('/multi?a=a&b=aab'), qr/^a_replaced$/m, 'aab in a + aab');
+like(http_get('/multi?a=a&b=aaaab'), qr/^aaa_replaced$/m, 'aab in a + aaaab');
 
 }
 
 TODO: {
 local $TODO = 'not yet';
 
-like(http_get('/multi?a=aa&b=ab'), qr/a_replaced/, 'aab in aa + ab');
-like(http_get('/multi?a=aa&b=aab'), qr/aa_replaced/, 'aab in aa + aab');
-like(http_get('/multi?a=aa&b=aaab'), qr/aaa_replaced/, 'aab in aa + aaab');
+like(http_get('/multi?a=aa&b=ab'), qr/^a_replaced$/m, 'aab in aa + ab');
+like(http_get('/multi?a=aa&b=aab'), qr/^aa_replaced$/m, 'aab in aa + aab');
+like(http_get('/multi?a=aa&b=aaab'), qr/^aaa_replaced$/m, 'aab in aa + aaab');
 
 }
 
-like(http_get('/multi?a=aa&b=aaaab'), qr/aaaa_replaced/, 'aab in aa + aaaab');
+like(http_get('/multi?a=aa&b=aaaab'), qr/^aaaa_replaced$/m, 'aab in aa + aaaab');
+
+# full backtracking
+
+like(http_get('/multi?a=aa&b=xaaab'), qr/^aaxa_replaced$/m, 'aab in aa + xaaab');
+like(http_get('/multi?a=aa&b=axaaab'), qr/^aaaxa_replaced$/m,
+	'aab in aa + axaaab');
+like(http_get('/multi?a=aa&b=aaxaaab'), qr/^aaaaxa_replaced$/m,
+	'aab in aa + aaxaaab');
+
+# short pattern
+
+like(http_get('/short?a=a&b=b'), qr/^_replaced$/m, 'ab in a + b');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/short?a=a&b=ab'), qr/^a_replaced$/m, 'ab in a + ab');
+
+}
+
+like(http_get('/short?a=a&b=aab'), qr/^aa_replaced$/m, 'ab in a + aab');
+like(http_get('/short?a=a&b=aaab'), qr/^aaa_replaced$/m, 'ab in a + aaab');
+like(http_get('/short?a=a&b=aaaab'), qr/^aaaa_replaced$/m, 'ab in a + aaaab');
+
+like(http_get('/short?a=aa&b=b'), qr/^a_replaced$/m, 'ab in aa + b');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/short?a=aa&b=ab'), qr/^aa_replaced$/m, 'ab in aa + ab');
+
+}
+
+like(http_get('/short?a=aa&b=aab'), qr/^aaa_replaced$/m, 'ab in aa + aab');
+like(http_get('/short?a=aa&b=aaab'), qr/^aaaa_replaced$/m, 'ab in aa + aaab');
+like(http_get('/short?a=aa&b=aaaab'), qr/^aaaaa_replaced$/m, 'ab in aa + aaaab');
 
 ###############################################################################

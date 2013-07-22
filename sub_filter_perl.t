@@ -115,11 +115,16 @@ like(http_get('/multi?a=aa&b=aaaab'), qr/^aaaa_replaced$/m, 'aab in aa + aaaab')
 
 # full backtracking
 
+TODO: {
+local $TODO = 'not yet';
+
 like(http_get('/multi?a=aa&b=xaaab'), qr/^aaxa_replaced$/m, 'aab in aa + xaaab');
 like(http_get('/multi?a=aa&b=axaaab'), qr/^aaaxa_replaced$/m,
 	'aab in aa + axaaab');
 like(http_get('/multi?a=aa&b=aaxaaab'), qr/^aaaaxa_replaced$/m,
 	'aab in aa + aaxaaab');
+
+}
 
 # short pattern
 

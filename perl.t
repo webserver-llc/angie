@@ -110,9 +110,6 @@ like(http(
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/xfoo: foo/, 'perl header_in unknown');
 
-TODO: {
-local $TODO = 'broken in 1.3.14' unless $t->has_version('1.5.2');
-
 like(http(
 	'GET / HTTP/1.0' . CRLF
 	. 'Cookie: foo' . CRLF
@@ -138,8 +135,6 @@ like(http(
 	. 'X-Forwarded-For: foo2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/xff: foo1, foo2/, 'perl header_in xff2');
-
-}
 
 # various request body tests
 

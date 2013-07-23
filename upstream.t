@@ -78,8 +78,6 @@ is(many('/', 30), '8081: 15, 8082: 15', 'balanced');
 is(many('/close', 30), '8081: 6, 8082: 24', 'failures');
 
 SKIP: {
-local $TODO = 'broken in 1.3.0';
-
 skip 'long test', 1 unless $ENV{TEST_NGINX_UNSAFE};
 
 # bug: failures counter is reset if first request in a second succeeds

@@ -55,9 +55,6 @@ $t->run();
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.9');
-
 my $r;
 
 $r = http(<<EOF);
@@ -101,8 +98,6 @@ EOF
 
 like($r, qr/204 No Content/, 'put chunked big');
 is(read_file($t->testdir() . '/file'), '1234567890' x 1024, 'put big content');
-
-}
 
 ###############################################################################
 

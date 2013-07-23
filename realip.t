@@ -77,10 +77,6 @@ like(http_xff('/1', '192.0.2.1, 10.0.1.1, 127.0.0.1'),
 like(http_xff('/2', '10.0.1.1, 192.0.2.1, 127.0.0.1'),
 	qr/^X-IP: 192.0.2.1/m, 'realip recursive on');
 
-TODO: {
-
-local $TODO = 'not yet' unless $t->has_version('1.3.14');
-
 like(http(<<EOF), qr/^X-IP: 10.0.1.1/m, 'realip multi xff recursive off');
 GET /1 HTTP/1.0
 Host: localhost
@@ -97,8 +93,6 @@ X-Forwarded-For: 192.0.2.1
 X-Forwarded-For: 127.0.0.1
 
 EOF
-
-}
 
 ###############################################################################
 

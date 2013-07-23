@@ -72,9 +72,6 @@ $t->waitforsocket('127.0.0.1:8081')
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.13');
-
 # establish websocket connection
 
 my $s = websocket_connect();
@@ -120,8 +117,6 @@ SKIP: {
 
 	websocket_write($s, "foo");
 	is(websocket_read($s), "bar", "next to pipelined");
-}
-
 }
 
 ###############################################################################

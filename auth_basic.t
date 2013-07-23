@@ -101,12 +101,7 @@ SKIP: {
 		or $t->has_module('--with-openssl');
 
 	like(http_get_auth('/', 'ssha', 'password'), qr!SEETHIS!, 'ssha');
-
-TODO: {
-	local $TODO = 'not yet' unless $t->has_version('1.3.13');
 	like(http_get_auth('/', 'sha', 'password'), qr!SEETHIS!, 'sha');
-}
-
 }
 
 unlike(http_get_auth('/', 'apr1', '123'), qr!SEETHIS!, 'apr1 md5 wrong');

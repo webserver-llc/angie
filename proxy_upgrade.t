@@ -66,9 +66,6 @@ $t->waitforsocket('127.0.0.1:8081')
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.3.13');
-
 # establish connection
 
 my $s = upgrade_connect();
@@ -116,12 +113,11 @@ SKIP: {
 	is(upgrade_read($s), "bar", "next to pipelined");
 }
 
-}
-
 # connection should not be upgraded unless upgrade was actually
 # requested and allowed by configuration
 
-my $s = upgrade_connect(noheader => 1);
+undef $s;
+$s = upgrade_connect(noheader => 1);
 ok(!$s, "handshake noupgrade");
 
 ###############################################################################

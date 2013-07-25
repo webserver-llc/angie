@@ -99,7 +99,7 @@ http_get('/cache/length');
 like(http_get('/cache/length'), qr/MISS/, 'unfinished not cached');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 # chunked encoding has enough information to don't cache a response,
 # much like with Content-Length available
@@ -110,7 +110,7 @@ like(http_get('/cache/chunked'), qr/MISS/, 'unfinished chunked');
 }
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 # make sure there is no final chunk in unfinished responses
 
@@ -129,7 +129,7 @@ like(http_get_11('/chunked/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
 	'chunked final chunk');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 # the same with proxy_buffering set to off
 
@@ -153,7 +153,7 @@ like(http_get('/un/big', sleep => 0.1), qr/unfinished/s, 'big unfinished un');
 like(http_get('/un/big/ok', sleep => 0.1), qr/finished/s, 'big finished un');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 # if disk buffering fails for some reason, there should be
 # no final chunk

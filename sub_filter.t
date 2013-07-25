@@ -87,7 +87,7 @@ like(http_get('/once?b=foofoo'), qr/barfoo/, 'once');
 like(http_get('/many?b=foofoo'), qr/barbar/, 'many');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 like(http_get('/many?b=fo'), qr/fo/, 'incomplete');
 like(http_get('/many?b=foofo'), qr/barfo/, 'incomplete long');
@@ -98,7 +98,7 @@ like(http_get('/complex?b=abac'), qr/_replaced/, 'complex');
 like(http_get('/complex?b=abaabac'), qr/aba_replaced/, 'complex 1st char');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 like(http_get('/complex?b=ababac'), qr/replaced/, 'complex 2nd char');
 
@@ -107,7 +107,7 @@ like(http_get('/complex?b=ababac'), qr/replaced/, 'complex 2nd char');
 like(http_get('/complex2?b=ababX'), qr/_replaced/, 'complex2');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 like(http_get('/complex2?b=abababX'), qr/ab_replaced/, 'complex2 long');
 
@@ -116,7 +116,7 @@ like(http_get('/complex2?b=abababX'), qr/ab_replaced/, 'complex2 long');
 like(http_get('/complex3?b=aab'), qr/_replaced/, 'complex3 aab in aab');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 like(http_get('/complex3?b=aaab'), qr/a_replaced/, 'complex3 aab in aaab');
 

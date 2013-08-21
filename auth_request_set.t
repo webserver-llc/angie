@@ -9,8 +9,6 @@
 use warnings;
 use strict;
 
-use Socket qw/ CRLF /;
-
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -23,15 +21,14 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite auth_request/)
+my $t = Test::Nginx->new()->has(qw/http rewrite proxy auth_request/)
 	->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
-master_process off;
-daemon         off;
+daemon off;
 
 events {
 }
@@ -133,7 +130,7 @@ like(http_get('/t2.html'), qr/X-Set-Username: username/, 'set after redirect');
 like(http_get('/t3.html'), qr/X-Set-Username: username/,
 	'set after named location');
 like(http_get('/t4.html'), qr/X-Set-Username: username2/,
-	 'set on second auth');
+	'set on second auth');
 
 # there are two variables with set_handler: $args and $limit_rate
 # we do test $args as it's a bit more simple thing to do

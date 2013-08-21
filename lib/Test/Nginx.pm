@@ -79,6 +79,8 @@ sub has_module($) {
 		mail	=> '--with-mail(?!\S)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',
+		auth_request
+			=> '--with-http_auth_request_module',
 		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',

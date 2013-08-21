@@ -9,9 +9,9 @@
 use warnings;
 use strict;
 
-use Socket qw/ CRLF /;
-
 use Test::More;
+
+use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -25,14 +25,13 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http rewrite proxy fastcgi auth_basic auth_request/)
-	->plan(18);
+	->plan(17);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
-master_process off;
-daemon         off;
+daemon off;
 
 events {
 }
@@ -135,8 +134,6 @@ $t->run();
 
 ###############################################################################
 
-pass('runs');
-
 like(http_get('/open'), qr/ 404 /, 'auth open');
 like(http_get('/unauthorized'), qr/ 401 /, 'auth unauthorized');
 like(http_get('/forbidden'), qr/ 403 /, 'auth forbidden');
@@ -187,8 +184,8 @@ SKIP: {
 ###############################################################################
 
 sub http_get_auth {
-        my ($url, %extra) = @_;
-        return http(<<EOF, %extra);
+	my ($url, %extra) = @_;
+	return http(<<EOF, %extra);
 GET $url HTTP/1.0
 Host: localhost
 Authorization: Basic dXNlcjpzZWNyZXQ=
@@ -203,7 +200,7 @@ sub http_post {
 		"Host: localhost" . CRLF .
 		"Content-Length: 10" . CRLF .
 		CRLF .
-		"1234567890"; 
+		"1234567890";
 
 	return http($p, %extra);
 }
@@ -215,7 +212,7 @@ sub http_post_big {
 		"Host: localhost" . CRLF .
 		"Content-Length: 10240" . CRLF .
 		CRLF .
-		("1234567890" x 1024); 
+		("1234567890" x 1024);
 
 	return http($p, %extra);
 }

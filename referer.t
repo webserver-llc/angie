@@ -149,7 +149,7 @@ ok(!valid('/regex2', 'http://www.example.org'), 'regex 2 no uri');
 ok(valid('/regex2', 'http://www.example.org/uRI'), 'regex 2 uri caseless');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.4');
 
 ok(valid('/regex3', 'https://www.eXample.org'), 'regex https');
 

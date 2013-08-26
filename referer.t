@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http referer rewrite/)->plan(49);
+my $t = Test::Nginx->new()->has(qw/http referer rewrite/)->plan(51);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -56,7 +56,7 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        server_name  localhost ~bar;
+        server_name  localhost ~bar ~^anchoredre$;
 
         location /blocked {
             valid_referers blocked www.example.org;
@@ -71,7 +71,7 @@ http {
             return 200 "value $invalid_referer";
         }
         location /regex {
-            valid_referers ~example.org;
+            valid_referers ~example.org ~(?-i)example.net;
             return 200 "value $invalid_referer";
         }
         location /regex2 {
@@ -143,6 +143,7 @@ ok(valid('/regex', 'http://www.example.org'), 'regex');
 ok(valid('/regex', 'http://www.eXample.org'), 'regex caseless');
 ok(valid('/regex', 'http://www.example.org/uri'), 'regex uri');
 ok(!valid('/regex', 'http://www.example.com'), 'regex mismatch');
+ok(!valid('/regex', 'http://www.eXample.net'), 'regex case mismatch');
 
 ok(valid('/regex2', 'http://www.example.org/uri'), 'regex 2 uri');
 ok(!valid('/regex2', 'http://www.example.org'), 'regex 2 no uri');
@@ -165,6 +166,7 @@ local $TODO = 'not yet';
 
 ok(valid('/sn', 'http://foobAr'), 'server_names regex caseless');
 ok(valid('/sn', 'http://foobAr/uri'), 'server_names regex caseless uri');
+ok(valid('/sn', 'http://anchoredre/uri'), 'server_names regex anchored');
 
 }
 

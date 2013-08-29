@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http referer rewrite/)->plan(51);
+my $t = Test::Nginx->new()->has(qw/http referer rewrite/)->plan(54);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -98,6 +98,10 @@ http {
             valid_referers *.example.com *.example.org www.example.* example.*;
             return 200 "value $invalid_referer";
         }
+        location /long {
+            valid_referers ~.*;
+            return 200 "value $invalid_referer";
+        }
         location /wc2 {
             valid_referers www.example.*/uri;
             return 200 "value $invalid_referer";
@@ -131,6 +135,17 @@ ok(!valid('/simple', 'foobar'), 'small');
 ok(valid('/simple', 'http://www.example.org/' . 'a' x 256), 'long uri');
 ok(!valid('/simple', 'http://www.example.' . 'a' x 256), 'long hostname');
 ok(!valid('/wc', 'http://example.' . 'a' x 256), 'long hostname wildcard');
+
+ok(valid('/long', 'http://' . 'a' x 255), 'long hostname 255');
+
+TODO: {
+local $TODO = 'not yet';
+
+ok(valid('/long', 'http://' . 'a' x 256), 'long hostname 256');
+
+}
+
+ok(!valid('/long', 'http://' . 'a' x 257), 'long hostname 257');
 
 ok(valid('/uri', 'http://www.example.org/uri'), 'uri');
 ok(valid('/uri', 'http://www.example.org/urii'), 'uri prefix');

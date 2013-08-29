@@ -139,7 +139,7 @@ ok(!valid('/wc', 'http://example.' . 'a' x 256), 'long hostname wildcard');
 ok(valid('/long', 'http://' . 'a' x 255), 'long hostname 255');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.5');
 
 ok(valid('/long', 'http://' . 'a' x 256), 'long hostname 256');
 
@@ -177,7 +177,7 @@ ok(valid('/sn', 'http://localhost/uri'), 'server_names uri');
 ok(valid('/sn', 'http://foobar'), 'server_names regex');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.5');
 
 ok(valid('/sn', 'http://foobAr'), 'server_names regex caseless');
 ok(valid('/sn', 'http://foobAr/uri'), 'server_names regex caseless uri');
@@ -201,7 +201,7 @@ ok(valid('/', 'http://another', 'another'), 'server context');
 # server_name below valid_referers
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.5');
 
 ok(valid('/', 'http://below', 'below'), 'server below');
 

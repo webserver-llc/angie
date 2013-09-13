@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -62,6 +62,16 @@ http {
             add_header X-Location casefull;
             return 204;
         }
+
+        location /lowercase {
+            add_header X-Location lowercase;
+            return 204;
+        }
+
+        location /UPPERCASE {
+            add_header X-Location uppercase;
+            return 204;
+        }
     }
 }
 
@@ -85,6 +95,20 @@ SKIP: {
 
 	like(http_get('/CASEFULL/'), qr/X-Location: root/,
      		'casefull regex do not match wrong case');
+}
+
+# on case-insensitive systems a request to "/UPPERCASE" fails,
+# as location search tree is incorrectly sorted if uppercase
+# characters are used in location directives (ticket #90)
+
+like(http_get('/lowercase'), qr/X-Location: lowercase/, 'lowercase');
+
+TODO: {
+local $TODO = 'fails on caseless oses'
+	if $^O eq 'MSWin32' or $^O eq 'darwin';
+
+like(http_get('/UPPERCASE'), qr/X-Location: uppercase/, 'uppercase');
+
 }
 
 ###############################################################################

@@ -127,7 +127,7 @@ http {
 
 EOF
 
-$t->write_file('htpasswd', 'user:zz1T8N4tWvmbE' . "\n");
+$t->write_file('htpasswd', 'user:{PLAIN}secret' . "\n");
 $t->write_file('auth-basic', 'INVISIBLE');
 $t->write_file('auth-open-static', 'INVISIBLE');
 $t->run();

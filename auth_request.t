@@ -173,6 +173,7 @@ like(http_post_big('/proxy-double'), qr/ 204 /, 'proxy auth with body read');
 SKIP: {
 	eval { require FCGI; };
 	skip 'FCGI not installed', 2 if $@;
+	skip 'win32', 2 if $^O eq 'MSWin32';
 
 	$t->run_daemon(\&fastcgi_daemon);
 	$t->waitforsocket('127.0.0.1:8081');

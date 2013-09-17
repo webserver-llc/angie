@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(10)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(14)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -63,6 +63,26 @@ http {
             return 204;
         }
 
+        location = /foo {
+            add_header X-Location "/foo exact";
+            return 204;
+        }
+
+        location /foo {
+            add_header X-Location "/foo prefix";
+            return 204;
+        }
+
+        location = /foo/ {
+            add_header X-Location "/foo/ exact";
+            return 204;
+        }
+
+        location /foo/ {
+            add_header X-Location "/foo/ prefix";
+            return 204;
+        }
+
         location /lowercase {
             add_header X-Location lowercase;
             return 204;
@@ -88,6 +108,11 @@ like(http_get('/t.gif'), qr/X-Location: regex/, 'regex');
 like(http_get('/t.GIF'), qr/X-Location: regex/, 'regex with mungled case');
 like(http_get('/casefull/t.gif'), qr/X-Location: regex/, 'first regex wins');
 like(http_get('/casefull/'), qr/X-Location: casefull/, 'casefull regex');
+
+like(http_get('/foo'), qr!X-Location: /foo exact!, '/foo exact');
+like(http_get('/foobar'), qr!X-Location: /foo prefix!, '/foo prefix');
+like(http_get('/foo/'), qr!X-Location: /foo/ exact!, '/foo/ exact');
+like(http_get('/foo/bar'), qr!X-Location: /foo/ prefix!, '/foo/ prefix');
 
 SKIP: {
 	skip 'caseless os', 1

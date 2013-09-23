@@ -42,7 +42,7 @@ sub read {
 	my ($self) = @_;
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
-		alarm(2);
+		alarm(3);
 		while (<$self>) {
 			log_in($_);
 			# XXX

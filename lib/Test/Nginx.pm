@@ -431,7 +431,7 @@ sub http($;%) {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm($extra{timeout} || 2);
+		alarm(5);
 
 		my $s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',

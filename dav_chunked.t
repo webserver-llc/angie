@@ -87,7 +87,7 @@ is(read_file($t->testdir() . '/file'), '', 'put empty content');
 
 my $body = ('a' . CRLF . '1234567890' . CRLF) x 1024 . '0' . CRLF . CRLF;
 
-$r = http(<<EOF, timeout => 5);
+$r = http(<<EOF);
 PUT /file HTTP/1.1
 Host: localhost
 Connection: close

@@ -130,7 +130,7 @@ like(http_get('/lowercase'), qr/X-Location: lowercase/, 'lowercase');
 
 TODO: {
 local $TODO = 'fails on caseless oses'
-	if $^O eq 'MSWin32' or $^O eq 'darwin';
+	if ($^O eq 'MSWin32' or $^O eq 'darwin') and !$t->has_version('1.5.6');
 
 like(http_get('/UPPERCASE'), qr/X-Location: uppercase/, 'uppercase');
 

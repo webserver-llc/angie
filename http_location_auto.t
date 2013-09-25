@@ -66,7 +66,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.6');
 
 like(http_get('/a'), qr/301 Moved/, 'auto redirect');
 

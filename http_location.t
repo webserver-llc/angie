@@ -119,7 +119,7 @@ SKIP: {
 		if $^O eq 'MSWin32' or $^O eq 'darwin';
 
 	like(http_get('/CASEFULL/'), qr/X-Location: root/,
-     		'casefull regex do not match wrong case');
+		'casefull regex do not match wrong case');
 }
 
 # on case-insensitive systems a request to "/UPPERCASE" fails,

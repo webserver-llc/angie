@@ -109,7 +109,7 @@ sub fastcgi_respond($$) {
 	$h->{socket}->write(pack("xxxxxxxx"));
 	select(undef, undef, undef, 0.1);
 
-	# write some text to stdout and stderr splitted over multiple network
+	# write some text to stdout and stderr split over multiple network
 	# packets to test if we correctly set pipe length in various places
 
 	my $tt = "test text, just for test";

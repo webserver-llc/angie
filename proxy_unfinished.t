@@ -9,7 +9,7 @@
 #
 # - shouldn't be cached
 #
-# - if a response is sent using chunked transfer encoding, 
+# - if a response is sent using chunked transfer encoding,
 #   final chunk shouldn't be sent
 
 ###############################################################################

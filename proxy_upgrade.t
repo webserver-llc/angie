@@ -256,7 +256,7 @@ sub upgrade_handle_client {
 	log2c("(new connection $client)");
 
 	while (1) {
-        	$poll->mask($client => ($buffer ? POLLIN|POLLOUT : POLLIN));
+		$poll->mask($client => ($buffer ? POLLIN|POLLOUT : POLLIN));
 		my $p = $poll->poll(0.5);
 		log2c("(poll $p)");
 

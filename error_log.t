@@ -50,7 +50,7 @@ http {
             error_log %%TESTDIR%%/e_debug_debug.log debug;
             error_log %%TESTDIR%%/e_debug_info.log info;
             error_log stderr debug;
-        }        
+        }
         location /info {
             limit_req_log_level info;
             error_log %%TESTDIR%%/e_info_debug.log debug;

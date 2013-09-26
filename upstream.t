@@ -71,7 +71,7 @@ $t->waitforsocket('127.0.0.1:8082');
 
 is(many('/', 30), '8081: 15, 8082: 15', 'balanced');
 
-# from 9 first requests to 8081, only 6 will be successfull,
+# from 9 first requests to 8081, only 6 will be successful,
 # 3rd, 6th, and 9th requests will fail; after this the backend
 # will be considered down and won't be used till fail_timeout passes
 

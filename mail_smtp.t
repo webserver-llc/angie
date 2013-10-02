@@ -141,7 +141,7 @@ $s->authok('auth login with username');
 # Try auth plain with pipelining
 
 TODO: {
-local $TODO = 'pipelining not in official nginx';
+local $TODO = 'not yet' unless $t->has_version('1.5.6');
 local $SIG{__WARN__} = sub {};
 
 $s = Test::Nginx::SMTP->new();
@@ -198,7 +198,7 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 $s->ok('pipelined mail from');
 
 TODO: {
-local $TODO = 'pipelining not in official nginx';
+local $TODO = 'not yet' unless $t->has_version('1.5.6');
 local $SIG{__WARN__} = sub {};
 
 $s->ok('pipelined rcpt to');

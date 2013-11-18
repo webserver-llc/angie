@@ -93,8 +93,10 @@ select undef, undef, undef, 2.5;
 # (a 304 status code will appear in backend's logs), then cached again
 
 like(http_get('/t'), qr/X-Cache-Status: REVALIDATED.*SEE/ms, 'revalidated');
-like(read_file($t->testdir() . '/access.log'), qr/ 304 /, 'not modified');
 like(http_get('/t'), qr/X-Cache-Status: HIT.*SEE/ms, 'request cached');
+
+select undef, undef, undef, 0.1;
+like(read_file($t->testdir() . '/access.log'), qr/ 304 /, 'not modified');
 
 # 2nd document is recreated with a new content
 

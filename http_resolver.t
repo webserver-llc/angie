@@ -101,7 +101,7 @@ plan(skip_all => 'no inet6 support') if $@;
 $t->waitforsocket('127.0.0.1:8081');
 $t->waitforsocket('127.0.0.1:8082');
 
-$t->plan(27);
+$t->plan(28);
 
 ###############################################################################
 
@@ -120,6 +120,11 @@ like(http_host_header('nx.example.net', '/'), qr/502 Bad/, 'NXDOMAIN');
 like(http_host_header('cname.example.net', '/cached'), qr/200 OK/, 'CNAME');
 like(http_host_header('cname.example.net', '/cached'), qr/200 OK/,
 	'CNAME cached');
+
+# CNAME + A combined answer
+# demonstrates the name in answer section different from what is asked
+
+like(http_host_header('cname_a.example.net', '/'), qr/200 OK/, 'CNAME + A');
 
 # CNAME refers to non-existing A
 
@@ -169,7 +174,6 @@ sleep 2;
 
 # expired ttl causes nginx to query the next (bad) ns
 
-skip:
 like(http_host_header('ttl.example.net', '/two'), qr/502 Bad/, 'ttl expired');
 
 # zero ttl prohibits response caching
@@ -267,6 +271,13 @@ sub reply_handler {
 			return 'SERVFAIL';
 		}
 		($type, $rdata) = ('CNAME', 'alias.example.net');
+		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+	} elsif ($name eq 'cname_a.example.net') {
+		($type, $rdata) = ('CNAME', 'alias.example.net');
+		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		($name, $type, $rdata) = ('alias.example.net', 'A', '127.0.0.1');
 		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
 
 	} elsif ($name eq 'cname2.example.net') {

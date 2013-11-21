@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for mail resolver
+# Tests for mail resolver.
 
 ###############################################################################
 
@@ -28,7 +28,8 @@ local $SIG{PIPE} = 'IGNORE';
 eval { require Net::DNS::Nameserver; };
 plan(skip_all => "Net::DNS::Nameserver not installed") if $@;
 
-my $t = Test::Nginx->new()->has(qw/http mail smtp rewrite/);
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)
+	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -100,7 +101,6 @@ $t->run_daemon(\&dns_daemon, 8081);
 $t->run_daemon(\&dns_daemon, 8082);
 $t->run_daemon(\&dns_daemon, 8083);
 $t->run_daemon(\&dns_daemon, 8084);
-$t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
 $t->run();
 
 $t->waitforsocket('127.0.0.1:8081');

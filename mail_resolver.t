@@ -25,9 +25,6 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-eval { require Net::DNS::Nameserver; };
-plan(skip_all => "Net::DNS::Nameserver not installed") if $@;
-
 my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)
 	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
 
@@ -97,16 +94,16 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, 8081);
-$t->run_daemon(\&dns_daemon, 8082);
-$t->run_daemon(\&dns_daemon, 8083);
-$t->run_daemon(\&dns_daemon, 8084);
+$t->run_daemon(\&dns_daemon, 8081, $t);
+$t->run_daemon(\&dns_daemon, 8082, $t);
+$t->run_daemon(\&dns_daemon, 8083, $t);
+$t->run_daemon(\&dns_daemon, 8084, $t);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:8081');
-$t->waitforsocket('127.0.0.1:8082');
-$t->waitforsocket('127.0.0.1:8083');
-$t->waitforsocket('127.0.0.1:8084');
+$t->waitforfile($t->testdir . '/8081');
+$t->waitforfile($t->testdir . '/8082');
+$t->waitforfile($t->testdir . '/8083');
+$t->waitforfile($t->testdir . '/8084');
 
 $t->plan(5);
 
@@ -205,65 +202,115 @@ close $s;
 ###############################################################################
 
 sub reply_handler {
-	my ($name, $class, $type, $peerhost, $query, $conn) = @_;
-	my ($rcode, @ans, $ttl, $rdata);
+	my ($recv_data, $port) = @_;
 
-	$rcode = 'NOERROR';
-	$ttl = 3600;
+	my (@name, @rdata);
 
-	if ($name eq 'a.example.net' && $type eq 'A') {
-		($rdata) = ('127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+	use constant NOERROR	=> 0;
+	use constant SERVFAIL	=> 2;
+	use constant NXDOMAIN	=> 3;
 
-	} elsif ($name eq '1.0.0.127.in-addr.arpa' && $type eq 'PTR') {
-		if ($conn->{sockport} == 8081) {
-			$rdata = 'a.example.net';
-			push @ans, Net::DNS::RR->new(
-				"$name $ttl $class $type $rdata"
-			);
+	use constant A		=> 1;
+	use constant CNAME	=> 5;
+	use constant PTR	=> 12;
 
-		} elsif ($conn->{sockport} == 8082) {
-			return 'SERVFAIL';
+	use constant IN 	=> 1;
 
-		} elsif ($conn->{sockport} == 8083) {
-			# zero length RDATA
-			$rdata = '';
-			push @ans, Net::DNS::RR->new(
-				"$name $ttl $class $type $rdata"
-			);
+	# default values
 
-		} elsif ($conn->{sockport} == 8084) {
-			# PTR answered with CNAME
-			($type, $rdata) = ('CNAME',
-				'1.1.0.0.127.in-addr.arpa');
-			push @ans, Net::DNS::RR->new(
-				"$name $ttl $class $type $rdata"
-			);
-		}
+	my ($hdr, $rcode, $ttl) = (0x8180, NOERROR, 3600);
 
-	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type eq 'PTR') {
-		$rdata = 'a.example.net';
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+	# decode name
 
-	} else {
-		$rcode = 'NXDOMAIN';
+	my ($len, $offset) = (undef, 12);
+	while (1) {
+		$len = unpack("\@$offset C", $recv_data);
+		last if $len == 0;
+		$offset++;
+		push @name, unpack("\@$offset A$len", $recv_data);
+		$offset += $len;
 	}
 
-	return ($rcode, \@ans);
+	$offset -= 1;
+	my ($id, $type, $class) = unpack("n x$offset n2", $recv_data);
+
+	my $name = join('.', @name);
+	if ($name eq 'a.example.net' && $type == A) {
+		push @rdata, rd_addr($ttl, '127.0.0.1');
+
+	} elsif ($name eq '1.0.0.127.in-addr.arpa' && $type == PTR) {
+		if ($port == 8081) {
+			push @rdata, rd_name(PTR, $ttl, 'a.example.net');
+
+		} elsif ($port == 8082) {
+			$rcode = SERVFAIL;
+
+		} elsif ($port == 8083) {
+			# zero length RDATA
+
+			push @rdata, pack("n3N n", 0xc00c, PTR, IN, $ttl, 0);
+
+		} elsif ($port == 8084) {
+			# PTR answered with CNAME
+
+			push @rdata, rd_name(CNAME, $ttl,
+				'1.1.0.0.127.in-addr.arpa');
+		}
+
+	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type == PTR) {
+		push @rdata, rd_name(PTR, $ttl, 'a.example.net');
+
+	} else {
+		$rcode = NXDOMAIN;
+	}
+
+	$len = @name;
+	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+		0, 0, @name, $type, $class) . join('', @rdata);
+}
+
+sub rd_name {
+	my ($type, $ttl, $name) = @_;
+	my ($rdlen, @rdname);
+
+	@rdname = split /\./, $name;
+	$rdlen = length(join '', @rdname) + @rdname + 1;
+	pack("n3N n(w/a*)* x", 0xc00c, PTR, IN, $ttl, $rdlen, @rdname);
+}
+
+sub rd_addr {
+	my ($ttl, $addr) = @_;
+
+	my $code = 'split(/\./, $addr)';
+
+	# use a special pack string to not zero pad
+
+	return pack 'n3N', 0xc00c, A, IN, $ttl if $addr eq '';
+
+	pack 'n3N nC4', 0xc00c, A, IN, $ttl, eval "scalar $code", eval($code);
 }
 
 sub dns_daemon {
-	my ($port) = @_;
+	my ($port, $t) = @_;
 
-	my $ns = Net::DNS::Nameserver->new(
+	my ($data, $recv_data);
+	my $socket = IO::Socket::INET->new(
 		LocalAddr    => '127.0.0.1',
 		LocalPort    => $port,
 		Proto        => 'udp',
-		ReplyHandler => \&reply_handler,
 	)
-		or die "Can't create nameserver object: $!\n";
+		or die "Can't create listening socket: $!\n";
 
-	$ns->main_loop;
+	# signal we are ready
+
+	open my $fh, '>', $t->testdir() . '/' . $port;
+	close $fh;
+
+	while (1) {
+		$socket->recv($recv_data, 65536);
+		$data = reply_handler($recv_data, $port);
+		$socket->send($data);
+	}
 }
 
 ###############################################################################

@@ -22,9 +22,6 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require Net::DNS::Nameserver; };
-plan(skip_all => "Net::DNS::Nameserver not installed") if $@;
-
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite ipv6/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -88,9 +85,6 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, 8081);
-$t->run_daemon(\&dns_daemon, 8082);
-
 eval {
 	open OLDERR, ">&", \*STDERR; close STDERR;
 	$t->run();
@@ -98,8 +92,11 @@ eval {
 };
 plan(skip_all => 'no inet6 support') if $@;
 
-$t->waitforsocket('127.0.0.1:8081');
-$t->waitforsocket('127.0.0.1:8082');
+$t->run_daemon(\&dns_daemon, 8081, $t);
+$t->run_daemon(\&dns_daemon, 8082, $t);
+
+$t->waitforfile($t->testdir . '/8081');
+$t->waitforfile($t->testdir . '/8082');
 
 $t->plan(28);
 
@@ -231,119 +228,174 @@ EOF
 ###############################################################################
 
 sub reply_handler {
-	my ($name, $class, $type, $peerhost, $query, $conn) = @_;
-	my ($rcode, @ans, $ttl, $rdata);
+	my ($recv_data, $port) = @_;
 
-	$rcode = 'NOERROR';
-	$ttl = 3600;
+	my (@name, @rdata);
 
+	use constant NOERROR	=> 0;
+	use constant SERVFAIL	=> 2;
+	use constant NXDOMAIN	=> 3;
+
+	use constant A		=> 1;
+	use constant CNAME	=> 5;
+	use constant AAAA	=> 28;
+	use constant DNAME	=> 39;
+
+	use constant IN 	=> 1;
+
+	# default values
+
+	my ($hdr, $rcode, $ttl) = (0x8180, NOERROR, 3600);
+
+	# decode name
+
+	my ($len, $offset) = (undef, 12);
+	while (1) {
+		$len = unpack("\@$offset C", $recv_data);
+		last if $len == 0;
+		$offset++;
+		push @name, unpack("\@$offset A$len", $recv_data);
+		$offset += $len;
+	}
+
+	$offset -= 1;
+	my ($id, $type, $class) = unpack("n x$offset n2", $recv_data);
+
+	my $name = join('.', @name);
 	if (($name eq 'a.example.net') || ($name eq 'alias.example.net')) {
-		($rdata) = ('127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif (($name eq 'many.example.net')) {
-		if ($conn->{sockport} == 8082) {
-			return 'SERVFAIL';
+		if ($port == 8082) {
+			$rcode = SERVFAIL;
 		}
-		($rdata) = ('127.0.0.201');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
-		($rdata) = ('127.0.0.202');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, rd_addr($ttl, '127.0.0.201');
+		push @rdata, rd_addr($ttl, '127.0.0.202');
 
 	} elsif (($name eq 'aaaa.example.net')) {
-		($type, $rdata) = ('AAAA', '::1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		# AAAA [::1]
+
+		push @rdata, pack('n3N nx15C', 0xc00c, AAAA, IN, $ttl,
+			16, 1);
 
 	} elsif (($name eq 'short.example.net')) {
 		# zero length RDATA in DNS response
-		($name, $rdata) = ($name, '');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, rd_addr($ttl, '');
 
 	} elsif (($name eq 'alias.example.com')) {
-		my $dname = 'example.com';
-		($type, $rdata) = ('DNAME', 'example.net');
-		push @ans, Net::DNS::RR->new("$dname $ttl $class $type $rdata");
-		($type, $rdata) = ('CNAME', 'alias.example.net');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		# example.com.       3600 IN DNAME example.net.
+
+		my @dname = ('example', 'net');
+		my $rdlen = length(join '', @dname) + @dname + 1;
+		push @rdata, pack("n3N n(w/a*)* x", 0xc012, DNAME, IN, $ttl,
+			$rdlen, @dname);
+
+		# alias.example.com. 3600 IN CNAME alias.example.net.
+
+		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
+			8, 5, 'alias', 0xc02f);
 
 	} elsif ($name eq 'cname.example.net') {
-		if ($conn->{sockport} == 8082) {
-			return 'SERVFAIL';
+		if ($port == 8082) {
+			$rcode = SERVFAIL;
 		}
-		($type, $rdata) = ('CNAME', 'alias.example.net');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
+			8, 5, 'alias', 0xc012);
 
 	} elsif ($name eq 'cname_a.example.net') {
-		($type, $rdata) = ('CNAME', 'alias.example.net');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
+			8, 5, 'alias', 0xc014);
 
-		($name, $type, $rdata) = ('alias.example.net', 'A', '127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		# points to "alias" set in previous rdata
+
+		push @rdata, pack('n3N nC4', 0xc031, A, IN, $ttl,
+			4, split(/\./, '127.0.0.1'));
 
 	} elsif ($name eq 'cname2.example.net') {
 		# points to non-existing A
-		($type, $rdata) = ('CNAME', 'nx.example.net');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, pack("n3N nCa2n", 0xc00c, CNAME, IN, $ttl,
+			5, 2, 'nx', 0xc02f);
 
 	} elsif ($name eq 'long.example.net') {
-		($type, $rdata) = ('CNAME', 'a' x 63);
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, pack("n3N nCA63x", 0xc00c, CNAME, IN, $ttl,
+			65, 63, 'a' x 63);
 
 	} elsif (($name eq 'a' x 63)) {
-		($rdata) = ('127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq 'long2.example.net') {
-		($type, $rdata) = ('CNAME', 'a' x 63 . '.' . 'a' x 63 . '.'
-			. 'a' x 63 . '.' . 'a' x 63);
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, pack("n3N n(CA63)4x", 0xc00c, CNAME, IN, $ttl, 257,
+			63, 'a' x 63, 63, 'a' x 63, 63, 'a' x 63, 63, 'a' x 63);
 
 	} elsif (($name eq 'a' x 63 . '.' . 'a' x 63 . '.' . 'a' x 63 . '.'
 			. 'a' x 63))
 	{
-		($rdata) = ('127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq 'ttl.example.net') {
-		if ($conn->{sockport} == 8082) {
-			return 'SERVFAIL';
+		if ($port == 8082) {
+			$rcode = SERVFAIL;
 		}
-		($ttl, $rdata) = (1, '127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, rd_addr(1, '127.0.0.1');
 
 	} elsif ($name eq 'ttl0.example.net') {
-		if ($conn->{sockport} == 8082) {
-			return 'SERVFAIL';
+		if ($port == 8082) {
+			$rcode = SERVFAIL;
 		}
-		($ttl, $rdata) = (0, '127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, rd_addr(0, '127.0.0.1');
 
 	} elsif ($name eq '2.example.net') {
-		if ($conn->{sockport} == 8081) {
-			return 'SERVFAIL';
+		if ($port == 8081) {
+			$rcode = SERVFAIL;
 		}
-		($rdata) = ('127.0.0.1');
-		push @ans, Net::DNS::RR->new("$name $ttl $class $type $rdata");
+
+		push @rdata, rd_addr(0, '127.0.0.1');
 
 	} else {
-		$rcode = 'NXDOMAIN';
+		$rcode = NXDOMAIN;
 	}
 
-	return ($rcode, \@ans);
+	$len = @name;
+	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+		0, 0, @name, $type, $class) . join('', @rdata);
+}
+
+sub rd_addr {
+	my ($ttl, $addr) = @_;
+
+	my $code = 'split(/\./, $addr)';
+
+	return pack 'n3N', 0xc00c, A, IN, $ttl if $addr eq '';
+
+	pack 'n3N nC4', 0xc00c, A, IN, $ttl, eval "scalar $code", eval($code);
 }
 
 sub dns_daemon {
-	my ($port) = @_;
+	my ($port, $t) = @_;
 
-	my $ns = Net::DNS::Nameserver->new(
+	my ($data, $recv_data);
+	my $socket = IO::Socket::INET->new(
 		LocalAddr    => '127.0.0.1',
 		LocalPort    => $port,
 		Proto        => 'udp',
-		ReplyHandler => \&reply_handler,
 	)
-		or die "Can't create nameserver object: $!\n";
+		or die "Can't create listening socket: $!\n";
 
-	$ns->main_loop;
+	# signal we are ready
+
+	open my $fh, '>', $t->testdir() . '/' . $port;
+	close $fh;
+
+	while (1) {
+		$socket->recv($recv_data, 65536);
+		$data = reply_handler($recv_data, $port);
+		$socket->send($data);
+	}
 }
 
 ###############################################################################

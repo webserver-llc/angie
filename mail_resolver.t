@@ -259,9 +259,6 @@ sub reply_handler {
 
 	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type == PTR) {
 		push @rdata, rd_name(PTR, $ttl, 'a.example.net');
-
-	} else {
-		$rcode = NXDOMAIN;
 	}
 
 	$len = @name;

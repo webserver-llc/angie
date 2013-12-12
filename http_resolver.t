@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite ipv6/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -38,40 +38,28 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        listen       [::1]:8080;
         server_name  localhost;
 
         location / {
             resolver    127.0.0.1:8081;
-            # to lower resolving delay for unsupported AAAA
             resolver_timeout 1s;
             proxy_pass  http://$host:8080/backend;
-        }
-        location /cached {
-            resolver    127.0.0.1:8081 127.0.0.1:8082;
-            proxy_pass  http://$host:8080/backend;
+
+            proxy_next_upstream http_504 timeout error;
+            proxy_intercept_errors on;
+            proxy_connect_timeout 1s;
+            error_page 504 502 /50x;
         }
         location /two {
             resolver    127.0.0.1:8081 127.0.0.1:8082;
-            resolver_timeout 2s;
             proxy_pass  http://$host:8080/backend;
         }
         location /valid {
-            resolver    127.0.0.1:8081 127.0.0.1:8082 valid=3s;
-            resolver_timeout 2s;
+            resolver    127.0.0.1:8081 valid=3s;
             proxy_pass  http://$host:8080/backend;
         }
         location /invalid {
             proxy_pass  http://$host:8080/backend;
-        }
-        location /many {
-            resolver    127.0.0.1:8081 127.0.0.1:8082;
-            resolver_timeout 2s;
-            proxy_pass  http://$host:8080/backend;
-            proxy_next_upstream http_504 timeout error;
-            proxy_intercept_errors on;
-            proxy_connect_timeout 2s;
-            error_page 504 502 /50x;
         }
 
         location /backend {
@@ -85,20 +73,13 @@ http {
 
 EOF
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no inet6 support') if $@;
-
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
+$t->run()->plan(27);
+
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
-
-$t->plan(28);
 
 ###############################################################################
 
@@ -106,16 +87,9 @@ like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
 like(http_host_header('short.example.net', '/'), qr/502 Bad/,
 	'A short dns response');
 
-TODO: {
-local $TODO = 'support for AAAA';
-
-like(http_host_header('aaaa.example.net', '/'), qr/200 OK/, 'AAAA');
-
-}
-
 like(http_host_header('nx.example.net', '/'), qr/502 Bad/, 'NXDOMAIN');
-like(http_host_header('cname.example.net', '/cached'), qr/200 OK/, 'CNAME');
-like(http_host_header('cname.example.net', '/cached'), qr/200 OK/,
+like(http_host_header('cname.example.net', '/'), qr/200 OK/, 'CNAME');
+like(http_host_header('cname.example.net', '/'), qr/200 OK/,
 	'CNAME cached');
 
 # CNAME + A combined answer
@@ -136,61 +110,61 @@ like(http_host_header('alias.example.com', '/'), qr/200 OK/, 'DNAME');
 # many A records in round robin
 # nonexisting IPs enumerated with proxy_next_upstream
 
-like(http_host_header('many.example.net', '/many'),
+like(http_host_header('many.example.net', '/'),
 	qr/^127.0.0.20(1:8080, 127.0.0.202:8080|2:8080, 127.0.0.201:8080)$/m,
 	'A many');
 
-like(http_host_header('many.example.net', '/many'),
+like(http_host_header('many.example.net', '/'),
 	qr/^127.0.0.20(1:8080, 127.0.0.202:8080|2:8080, 127.0.0.201:8080)$/m,
 	'A many cached');
 
-# several resolver addresses with 1st ns bad
-# query bad ns, negative responses are not cached
+# tests for several resolvers specified in directive
+# query bad ns, make sure that error responses are not cached
 
 like(http_host_header('2.example.net', '/two'), qr/502 Bad/, 'two ns bad');
 
-# query alive ns
+# now get correct response
 
 like(http_host_header('2.example.net', '/two'), qr/200 OK/, 'two ns good');
 
-# cached response prevents querying the next (bad) ns again
+# response is cached, actual request would get error
 
 like(http_host_header('2.example.net', '/two'), qr/200 OK/, 'two ns cached');
 
-# ttl tested with 1st ns good and 2nd ns bad
-# query good ns and cache response
+# ttl tested with 1st req good and 2nd req bad
+# send 1st request and cache its good response
 
-like(http_host_header('ttl.example.net', '/two'), qr/200 OK/, 'ttl');
+like(http_host_header('ttl.example.net', '/'), qr/200 OK/, 'ttl');
 
-# cached response prevents querying the next (bad) ns
+# response is cached, actual request would get error
 
-like(http_host_header('ttl.example.net', '/two'), qr/200 OK/, 'ttl cached 1');
-like(http_host_header('ttl.example.net', '/two'), qr/200 OK/, 'ttl cached 2');
+like(http_host_header('ttl.example.net', '/'), qr/200 OK/, 'ttl cached 1');
+like(http_host_header('ttl.example.net', '/'), qr/200 OK/, 'ttl cached 2');
 
 sleep 2;
 
-# expired ttl causes nginx to query the next (bad) ns
+# expired ttl causes nginx to make actual query
 
-like(http_host_header('ttl.example.net', '/two'), qr/502 Bad/, 'ttl expired');
+like(http_host_header('ttl.example.net', '/'), qr/502 Bad/, 'ttl expired');
 
 # zero ttl prohibits response caching
 
-like(http_host_header('ttl0.example.net', '/two'), qr/200 OK/, 'zero ttl');
+like(http_host_header('ttl0.example.net', '/'), qr/200 OK/, 'zero ttl');
 
 TODO: {
 local $TODO = 'support for zero ttl';
 
-like(http_host_header('ttl0.example.net', '/two'), qr/502 Bad/,
+like(http_host_header('ttl0.example.net', '/'), qr/502 Bad/,
 	'zero ttl not cached');
 
 }
 
-# "valid" parameter tested with 1st alive ns and 2nd bad ns
-# query alive ns, and cache response
+# "valid" parameter tested with 1st req good and 2nd req bad
+# send 1st request and cache its good response
 
 like(http_host_header('ttl.example.net', '/valid'), qr/200 OK/, 'valid');
 
-# cached response prevents querying the next (bad) ns
+# response is cached, actual request would get error
 
 like(http_host_header('ttl.example.net', '/valid'), qr/200 OK/,
 	'valid cached 1');
@@ -207,7 +181,7 @@ like(http_host_header('ttl.example.net', '/valid'), qr/200 OK/,
 
 sleep 2;
 
-# expired "valid" value causes nginx to query the next (bad) ns
+# expired "valid" value causes nginx to make actual query
 
 like(http_host_header('ttl.example.net', '/valid'), qr/502 Bad/,
 	'valid expired');
@@ -228,7 +202,7 @@ EOF
 ###############################################################################
 
 sub reply_handler {
-	my ($recv_data, $port) = @_;
+	my ($recv_data, $port, $state) = @_;
 
 	my (@name, @rdata);
 
@@ -238,7 +212,6 @@ sub reply_handler {
 
 	use constant A		=> 1;
 	use constant CNAME	=> 5;
-	use constant AAAA	=> 28;
 	use constant DNAME	=> 39;
 
 	use constant IN 	=> 1;
@@ -263,26 +236,26 @@ sub reply_handler {
 
 	my $name = join('.', @name);
 	if (($name eq 'a.example.net') || ($name eq 'alias.example.net')) {
-		push @rdata, rd_addr($ttl, '127.0.0.1');
+		if ($type == A || $type == CNAME) {
+			push @rdata, rd_addr($ttl, '127.0.0.1');
+		}
 
-	} elsif (($name eq 'many.example.net')) {
-		if ($port == 8082) {
+	} elsif (($name eq 'many.example.net') && $type == A) {
+		$state->{manycnt}++;
+		if ($state->{manycnt} > 1) {
 			$rcode = SERVFAIL;
 		}
 
 		push @rdata, rd_addr($ttl, '127.0.0.201');
 		push @rdata, rd_addr($ttl, '127.0.0.202');
 
-	} elsif (($name eq 'aaaa.example.net')) {
-		# AAAA [::1]
-
-		push @rdata, pack('n3N nx15C', 0xc00c, AAAA, IN, $ttl,
-			16, 1);
 
 	} elsif (($name eq 'short.example.net')) {
 		# zero length RDATA in DNS response
 
-		push @rdata, rd_addr($ttl, '');
+		if ($type == A) {
+			push @rdata, rd_addr($ttl, '');
+		}
 
 	} elsif (($name eq 'alias.example.com')) {
 		# example.com.       3600 IN DNAME example.net.
@@ -298,8 +271,9 @@ sub reply_handler {
 			8, 5, 'alias', 0xc02f);
 
 	} elsif ($name eq 'cname.example.net') {
-		if ($port == 8082) {
-			$rcode = SERVFAIL;
+		$state->{cnamecnt}++;
+		if ($state->{cnamecnt} > 2) {
+		        $rcode = SERVFAIL;
 		}
 		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
 			8, 5, 'alias', 0xc012);
@@ -310,8 +284,10 @@ sub reply_handler {
 
 		# points to "alias" set in previous rdata
 
-		push @rdata, pack('n3N nC4', 0xc031, A, IN, $ttl,
-			4, split(/\./, '127.0.0.1'));
+		if ($type == A) {
+			push @rdata, pack('n3N nC4', 0xc031, A, IN, $ttl,
+				4, split(/\./, '127.0.0.1'));
+		}
 
 	} elsif ($name eq 'cname2.example.net') {
 		# points to non-existing A
@@ -323,7 +299,7 @@ sub reply_handler {
 		push @rdata, pack("n3N nCA63x", 0xc00c, CNAME, IN, $ttl,
 			65, 63, 'a' x 63);
 
-	} elsif (($name eq 'a' x 63)) {
+	} elsif (($name eq 'a' x 63) && $type == A) {
 		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq 'long2.example.net') {
@@ -331,19 +307,21 @@ sub reply_handler {
 			63, 'a' x 63, 63, 'a' x 63, 63, 'a' x 63, 63, 'a' x 63);
 
 	} elsif (($name eq 'a' x 63 . '.' . 'a' x 63 . '.' . 'a' x 63 . '.'
-			. 'a' x 63))
+			. 'a' x 63) && $type == A)
 	{
 		push @rdata, rd_addr($ttl, '127.0.0.1');
 
-	} elsif ($name eq 'ttl.example.net') {
-		if ($port == 8082) {
+	} elsif ($name eq 'ttl.example.net' && $type == A) {
+		$state->{ttlcnt}++;
+		if ($state->{ttlcnt} == 2 || $state->{ttlcnt} == 4) {
 			$rcode = SERVFAIL;
 		}
 
 		push @rdata, rd_addr(1, '127.0.0.1');
 
-	} elsif ($name eq 'ttl0.example.net') {
-		if ($port == 8082) {
+	} elsif ($name eq 'ttl0.example.net' && $type == A) {
+		$state->{ttl0cnt}++;
+		if ($state->{ttl0cnt} == 2) {
 			$rcode = SERVFAIL;
 		}
 
@@ -351,13 +329,15 @@ sub reply_handler {
 
 	} elsif ($name eq '2.example.net') {
 		if ($port == 8081) {
+			$state->{twocnt}++;
+		}
+		if ($state->{twocnt} & 1) {
 			$rcode = SERVFAIL;
 		}
 
-		push @rdata, rd_addr(0, '127.0.0.1');
-
-	} else {
-		$rcode = NXDOMAIN;
+		if ($type == A) {
+			push @rdata, rd_addr($ttl, '127.0.0.1');
+		}
 	}
 
 	$len = @name;
@@ -386,6 +366,16 @@ sub dns_daemon {
 	)
 		or die "Can't create listening socket: $!\n";
 
+	# track number of relevant queries
+
+	my %state = (
+		cnamecnt     => 0,
+		twocnt       => 0,
+		ttlcnt       => 0,
+		ttl0cnt      => 0,
+		manycnt      => 0,
+	);
+
 	# signal we are ready
 
 	open my $fh, '>', $t->testdir() . '/' . $port;
@@ -393,7 +383,7 @@ sub dns_daemon {
 
 	while (1) {
 		$socket->recv($recv_data, 65536);
-		$data = reply_handler($recv_data, $port);
+		$data = reply_handler($recv_data, $port, \%state);
 		$socket->send($data);
 	}
 }

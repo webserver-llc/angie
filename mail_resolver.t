@@ -160,7 +160,7 @@ close $s;
 # PTR with zero length RDATA
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.8');
 
 $s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8028");
 $s->read();

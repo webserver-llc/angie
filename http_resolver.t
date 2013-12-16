@@ -58,6 +58,10 @@ http {
             resolver    127.0.0.1:8081 valid=3s;
             proxy_pass  http://$host:8080/backend;
         }
+        location /case {
+            resolver    127.0.0.1:8081;
+            proxy_pass  http://$http_x_name:8080/backend;
+        }
         location /invalid {
             proxy_pass  http://$host:8080/backend;
         }
@@ -76,7 +80,7 @@ EOF
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
-$t->run()->plan(27);
+$t->run()->plan(31);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
@@ -84,6 +88,20 @@ $t->waitforfile($t->testdir . '/8082');
 ###############################################################################
 
 like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
+
+# ensure that resolver serves queries from cache in a case-insensitive manner
+# we check this by marking 2nd and subsequent queries on backend with SERVFAIL
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.5.8');
+
+http_x_name_header('case.example.net', '/case');
+like(http_x_name_header('CASE.example.net', '/case'), qr/200 OK/,
+	'A case-insensitive');
+
+}
+
+like(http_host_header('awide.example.net', '/'), qr/200 OK/, 'A uncompressed');
 like(http_host_header('short.example.net', '/'), qr/502 Bad/,
 	'A short dns response');
 
@@ -186,6 +204,31 @@ sleep 2;
 like(http_host_header('ttl.example.net', '/valid'), qr/502 Bad/,
 	'valid expired');
 
+TODO: {
+local $TODO = 'not yet';
+
+# Ensure that resolver respects expired A in CNAME + A combined response.
+# When ttl in A is expired, only the canonical name should be queried.
+# Catch this by returning SERVFAIL on the 2nd and subsequent queries for
+# original name.
+
+http_host_header('cname_a_ttl.example.net', '/');
+
+# Ensure that resolver respects expired CNAME in CNAME + A combined response.
+# When ttl in CNAME is expired, the answer should not be served from cache.
+# Catch this by returning SERVFAIL on the 2nd and subsequent queries.
+
+http_host_header('cname_a_ttl2.example.net', '/');
+
+sleep 2;
+
+like(http_host_header('cname_a_ttl.example.net', '/'), qr/200 OK/,
+	'CNAME + A with expired A ttl');
+like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
+	'CNAME + A with expired CNAME ttl');
+
+}
+
 like(http_host_header('example.net', '/invalid'), qr/502 Bad/, 'no resolver');
 
 ###############################################################################
@@ -195,6 +238,15 @@ sub http_host_header {
 	return http(<<EOF);
 GET $uri HTTP/1.0
 Host: $host
+
+EOF
+}
+
+sub http_x_name_header {
+	my ($host, $uri) = @_;
+	return http(<<EOF);
+GET $uri HTTP/1.0
+X-Name: $host
 
 EOF
 }
@@ -239,6 +291,18 @@ sub reply_handler {
 		if ($type == A || $type == CNAME) {
 			push @rdata, rd_addr($ttl, '127.0.0.1');
 		}
+
+	} elsif ($name eq 'case.example.net' && $type == A) {
+		if (++$state->{casecnt} > 1) {
+			$rcode = SERVFAIL;
+		}
+
+		push @rdata, rd_addr($ttl, '127.0.0.1');
+
+	} elsif ($name eq 'awide.example.net' && $type == A) {
+		push @rdata, pack '(w/a*)3x n2N nC4',
+			('awide', 'example', 'net'), A, IN, $ttl,
+			4, (127, 0, 0, 1);
 
 	} elsif (($name eq 'many.example.net') && $type == A) {
 		$state->{manycnt}++;
@@ -288,6 +352,30 @@ sub reply_handler {
 			push @rdata, pack('n3N nC4', 0xc031, A, IN, $ttl,
 				4, split(/\./, '127.0.0.1'));
 		}
+
+	} elsif ($name eq 'cname_a_ttl.example.net') {
+		push @rdata, pack("n3N nCa17n", 0xc00c, CNAME, IN, $ttl,
+			20, 17, 'cname_a_ttl_alias', 0xc018);
+
+		if ($type == A) {
+			if (++$state->{cttlcnt} >= 2) {
+			        $rcode = SERVFAIL;
+			}
+			push @rdata, pack('n3N nC4', 0xc035, A, IN, 1,
+				4, split(/\./, '127.0.0.1'));
+		}
+
+	} elsif ($name eq 'cname_a_ttl2.example.net' && $type == A) {
+		push @rdata, pack("n3N nCa18n", 0xc00c, CNAME, IN, 1,
+			21, 18, 'cname_a_ttl2_alias', 0xc019);
+		if (++$state->{cttl2cnt} >= 2) {
+		        $rcode = SERVFAIL;
+		}
+		push @rdata, pack('n3N nC4', 0xc036, A, IN, $ttl,
+			4, split(/\./, '127.0.0.1'));
+
+	} elsif ($name eq 'cname_a_ttl_alias.example.net' && $type == A) {
+		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq 'cname2.example.net') {
 		# points to non-existing A
@@ -373,7 +461,10 @@ sub dns_daemon {
 		twocnt       => 0,
 		ttlcnt       => 0,
 		ttl0cnt      => 0,
+		cttlcnt      => 0,
+		cttl2cnt     => 0,
 		manycnt      => 0,
+		casecnt      => 0,
 	);
 
 	# signal we are ready

@@ -42,6 +42,9 @@ mail {
     smtp_auth    none;
     server_name  locahost;
 
+    # prevent useless resend
+    resolver_timeout 1s;
+
     server {
         listen    127.0.0.1:8025;
         protocol  smtp;
@@ -59,14 +62,24 @@ mail {
         protocol  smtp;
         resolver  127.0.0.1:8083;
 
-        # prevent useless resend
-        resolver_timeout 1s;
     }
 
     server {
         listen    127.0.0.1:8029;
         protocol  smtp;
         resolver  127.0.0.1:8084;
+    }
+
+    server {
+        listen    127.0.0.1:8030;
+        protocol  smtp;
+        resolver  127.0.0.1:8085;
+    }
+
+    server {
+        listen    127.0.0.1:8031;
+        protocol  smtp;
+        resolver  127.0.0.1:8086;
     }
 }
 
@@ -94,18 +107,16 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, 8081, $t);
-$t->run_daemon(\&dns_daemon, 8082, $t);
-$t->run_daemon(\&dns_daemon, 8083, $t);
-$t->run_daemon(\&dns_daemon, 8084, $t);
+for (8081 .. 8086) {
+	$t->run_daemon(\&dns_daemon, $_, $t);
+}
 $t->run();
 
-$t->waitforfile($t->testdir . '/8081');
-$t->waitforfile($t->testdir . '/8082');
-$t->waitforfile($t->testdir . '/8083');
-$t->waitforfile($t->testdir . '/8084');
+for (8081 .. 8086) {
+	$t->waitforfile($t->testdir . "/$_");
+}
 
-$t->plan(5);
+$t->plan(7);
 
 ###############################################################################
 
@@ -199,6 +210,46 @@ close $s;
 
 }
 
+# uncompressed answer
+
+TODO: {
+local $TODO = 'support for uncompressed name in PTR';
+
+$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8030");
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+$s->send('MAIL FROM:<test@example.com> SIZE=100');
+$s->read();
+
+$s->send('RCPT TO:<test@example.com>');
+$s->ok('uncompressed PTR');
+
+$s->send('QUIT');
+$s->read();
+close $s;
+
+}
+
+TODO: {
+local $TODO = 'PTR type checking';
+
+$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8031");
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+$s->send('MAIL FROM:<test@example.com> SIZE=100');
+$s->read();
+
+$s->send('RCPT TO:<test@example.com>');
+$s->check(qr/TEMPUNAVAIL/, 'PTR type');
+
+$s->send('QUIT');
+$s->read();
+close $s;
+
+}
+
 ###############################################################################
 
 sub reply_handler {
@@ -255,6 +306,16 @@ sub reply_handler {
 
 			push @rdata, rd_name(CNAME, $ttl,
 				'1.1.0.0.127.in-addr.arpa');
+
+		} elsif ($port == 8085) {
+			# uncompressed answer
+
+			push @rdata, pack("(w/a*)6x n2N n(w/a*)3x",
+				('1', '0', '0', '127', 'in-addr', 'arpa'),
+				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
+
+		} elsif ($port == 8086) {
+			push @rdata, rd_name(CNAME, $ttl, 'a.example.net');
 		}
 
 	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type == PTR) {
@@ -272,7 +333,7 @@ sub rd_name {
 
 	@rdname = split /\./, $name;
 	$rdlen = length(join '', @rdname) + @rdname + 1;
-	pack("n3N n(w/a*)* x", 0xc00c, PTR, IN, $ttl, $rdlen, @rdname);
+	pack("n3N n(w/a*)* x", 0xc00c, $type, IN, $ttl, $rdlen, @rdname);
 }
 
 sub rd_addr {

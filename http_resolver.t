@@ -80,7 +80,7 @@ EOF
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
-$t->run()->plan(31);
+$t->run()->plan(30);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
@@ -207,13 +207,6 @@ like(http_host_header('ttl.example.net', '/valid'), qr/502 Bad/,
 TODO: {
 local $TODO = 'not yet';
 
-# Ensure that resolver respects expired A in CNAME + A combined response.
-# When ttl in A is expired, only the canonical name should be queried.
-# Catch this by returning SERVFAIL on the 2nd and subsequent queries for
-# original name.
-
-http_host_header('cname_a_ttl.example.net', '/');
-
 # Ensure that resolver respects expired CNAME in CNAME + A combined response.
 # When ttl in CNAME is expired, the answer should not be served from cache.
 # Catch this by returning SERVFAIL on the 2nd and subsequent queries.
@@ -222,8 +215,6 @@ http_host_header('cname_a_ttl2.example.net', '/');
 
 sleep 2;
 
-like(http_host_header('cname_a_ttl.example.net', '/'), qr/200 OK/,
-	'CNAME + A with expired A ttl');
 like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
 	'CNAME + A with expired CNAME ttl');
 
@@ -350,18 +341,6 @@ sub reply_handler {
 
 		if ($type == A) {
 			push @rdata, pack('n3N nC4', 0xc031, A, IN, $ttl,
-				4, split(/\./, '127.0.0.1'));
-		}
-
-	} elsif ($name eq 'cname_a_ttl.example.net') {
-		push @rdata, pack("n3N nCa17n", 0xc00c, CNAME, IN, $ttl,
-			20, 17, 'cname_a_ttl_alias', 0xc018);
-
-		if ($type == A) {
-			if (++$state->{cttlcnt} >= 2) {
-			        $rcode = SERVFAIL;
-			}
-			push @rdata, pack('n3N nC4', 0xc035, A, IN, 1,
 				4, split(/\./, '127.0.0.1'));
 		}
 

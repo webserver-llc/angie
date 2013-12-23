@@ -205,7 +205,7 @@ like(http_host_header('ttl.example.net', '/valid'), qr/502 Bad/,
 	'valid expired');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.9');
 
 # Ensure that resolver respects expired CNAME in CNAME + A combined response.
 # When ttl in CNAME is expired, the answer should not be served from cache.

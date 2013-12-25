@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(14);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -83,5 +83,23 @@ like($r, qr/^Cache-Control: no-cache/m, 'Cache-Control preserved');
 like($r, qr/^Expires: fake/m, 'Expires preserved');
 like($r, qr/^Accept-Ranges: parrots/m, 'Accept-Ranges preserved');
 unlike($r, qr/^Something/m, 'other headers stripped');
+
+TODO: {
+local $TODO = 'escaped characters' unless $t->has_version('1.5.9');
+
+like(http_get('/proxy?xar=/foo?bar'), qr/200 OK.*xar: \/foo\?bar/s,
+	'X-Accel-Redirect value unchanged');
+unlike(http_get('/proxy?xar=..'), qr/200 OK/,
+	'X-Accel-Redirect unsafe dotdot');
+unlike(http_get('/proxy?xar=../foo'), qr/200 OK/,
+	'X-Accel-Redirect unsafe dotdotsep');
+unlike(http_get('/proxy?xar=/foo/..'), qr/200 OK/,
+	'X-Accel-Redirect unsafe sepdotdot');
+unlike(http_get('/proxy?xar=/foo/.%2e'), qr/200 OK/,
+	'X-Accel-Redirect unsafe unescaped');
+like(http_get('/proxy?xar=/foo%20bar'), qr/uri: \/foo bar/,
+	'X-Accel-Redirect unescaped');
+
+}
 
 ###############################################################################

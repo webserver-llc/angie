@@ -39,11 +39,16 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        # catch safe and unhandled unsafe URIs
+        if ($upstream_http_x_accel_redirect) {
+            return 200 "xar: $upstream_http_x_accel_redirect uri: $uri";
+        }
+
         location /proxy {
             proxy_pass http://127.0.0.1:8080/return-xar;
         }
         location /return-xar {
-            add_header  X-Accel-Redirect     /index.html;
+            add_header  X-Accel-Redirect     $arg_xar;
 
             # this headers will be preserved on
             # X-Accel-Redirect
@@ -65,13 +70,12 @@ http {
 
 EOF
 
-$t->write_file('index.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
 
-my $r = http_get('/proxy');
-like($r, qr/SEE-THIS/, 'X-Accel-Redirect works');
+my $r = http_get('/proxy?xar=/index.html');
+like($r, qr/xar: \/index.html uri: \/index.html/, 'X-Accel-Redirect works');
 like($r, qr/^Content-Type: text\/blah/m, 'Content-Type preserved');
 like($r, qr/^Set-Cookie: blah=blah/m, 'Set-Cookie preserved');
 like($r, qr/^Content-Disposition: attachment/m, 'Content-Disposition preserved');

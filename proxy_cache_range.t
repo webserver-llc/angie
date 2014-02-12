@@ -85,8 +85,8 @@ like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 ###############################################################################
 
 sub http_get_range {
-        my ($url, $extra) = @_;
-        return http(<<EOF);
+	my ($url, $extra) = @_;
+	return http(<<EOF);
 GET $url HTTP/1.1
 Host: localhost
 Connection: close

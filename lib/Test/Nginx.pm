@@ -348,6 +348,9 @@ sub test_globals() {
 	$s .= "pid $self->{_testdir}/nginx.pid;\n";
 	$s .= "error_log $self->{_testdir}/error.log debug;\n";
 
+	$s .= $ENV{TEST_NGINX_GLOBALS}
+		if $ENV{TEST_NGINX_GLOBALS};
+
 	$self->{_test_globals} = $s;
 }
 
@@ -374,6 +377,9 @@ sub test_globals_http() {
 
 	$s .= "scgi_temp_path $self->{_testdir}/scgi_temp;\n"
 		if $self->has_module('scgi');
+
+	$s .= $ENV{TEST_NGINX_GLOBALS_HTTP}
+		if $ENV{TEST_NGINX_GLOBALS_HTTP};
 
 	$self->{_test_globals_http} = $s;
 }

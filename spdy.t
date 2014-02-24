@@ -589,10 +589,14 @@ sub spdy_settings {
 
 sub spdy_read {
 	my ($sess, %extra) = @_;
-	my ($skip, $length, @got);
+	my ($skip, $length, $buf, @got);
+	my $tries = 0;
+	my $maxtried = 3;
 
 again:
-	my $buf = raw_read($sess->{socket}) or return undef;
+	do {
+		$buf = raw_read($sess->{socket});
+	} until (defined $buf || $tries++ >= $maxtried);
 
 	for ($skip = 0; $skip < length $buf; $skip += $length + 8) {
 		my $type = unpack("\@$skip B", $buf);
@@ -607,7 +611,7 @@ again:
 		push @got, $cframe{$ctype}($sess, $skip, $buf);
 		test_fin($got[-1], $extra{all});
 	}
-	goto again if %extra && @{$extra{all}};
+	goto again if %extra && @{$extra{all}} && $tries < $maxtried;
 	return \@got;
 }
 

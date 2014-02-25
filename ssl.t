@@ -53,6 +53,7 @@ http {
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
         ssl_session_cache shared:SSL:10m;
+        ssl_session_tickets off;
 
         location /reuse {
             return 200 "body $ssl_session_reused";

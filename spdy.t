@@ -598,6 +598,8 @@ again:
 		$buf = raw_read($sess->{socket});
 	} until (defined $buf || $tries++ >= $maxtried);
 
+	$buf = '' if !defined $buf;
+
 	for ($skip = 0; $skip < length $buf; $skip += $length + 8) {
 		my $type = unpack("\@$skip B", $buf);
 		$length = hex unpack("\@$skip x5 H6", $buf);

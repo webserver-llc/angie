@@ -67,10 +67,15 @@ $t->run();
 ###############################################################################
 
 {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.5.13');
 
 like(http_get_range('/t.html?1', 'Range: bytes=4-'), qr/^THIS/m,
 	'range on first request');
+}
+
+{
+local $TODO = 'not yet';
+
 like(http_get_range('/t.html?2', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 	'multipart range on first request');
 }

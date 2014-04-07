@@ -77,9 +77,10 @@ is(durations($t, undef, 5.6), '5.6 5.6', 'end float');
 like(http_head('/test.mp4?start=1&end=1'), qr/200 OK/, 'zero range');
 like(http_head('/test.mp4?start=1&end=0'), qr/200 OK/, 'negative range');
 
-# start/end values exceeding file duration
+# start/end values exceeding track/file duration
 
-like(http_head("/test.mp4?end=11"), qr!HTTP/1.1 500!, 'end beyond EOF');
+unlike(http_head("/test.mp4?end=11"), qr!HTTP/1.1 500!,
+	'end beyond short track');
 
 }
 

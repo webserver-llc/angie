@@ -23,7 +23,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http mp4/)->has_daemon('ffprobe ffmpeg')
+my $t = Test::Nginx->new()->has(qw/http mp4/)->has_daemon('ffprobe')
+	->has_daemon('ffmpeg')
 	->plan(14)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

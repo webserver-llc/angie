@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http mp4/)->has_daemon('ffprobe')
 	->has_daemon('ffmpeg')
-	->plan(14)->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -49,6 +49,8 @@ http {
 
 EOF
 
+plan(skip_all => 'no lavfi')
+	unless grep /lavfi/, `ffmpeg -loglevel quiet -formats`;
 system('ffmpeg -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
 	. '-f lavfi -i testsrc=duration=20:size=320x200:rate=15 '
@@ -56,7 +58,7 @@ system('ffmpeg -loglevel quiet -y '
 	. "${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";
 
-$t->run();
+$t->run()->plan(14);
 
 ###############################################################################
 

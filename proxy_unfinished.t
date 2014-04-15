@@ -50,7 +50,7 @@ http {
                        keys_zone=one:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:8080 sndbuf=32k;
         server_name  localhost;
 
         location / {
@@ -160,7 +160,7 @@ local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 chmod(0000, $t->testdir() . '/proxy_temp');
 like(http_get_11('/proxy/big.html', sleep => 0.5),
-	qr/X(?!.*\x0d\x0a?0\x0d\x0a?)/s, 'no proxy temp');
+	qr/X(?!.*\x0d\x0a?0\x0d\x0a?)|finished/s, 'no proxy temp');
 
 }
 

@@ -68,20 +68,13 @@ http {
 
 EOF
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no inet6 support') if $@;
+$t->try_run('no inet6 support')->plan(72);
 
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
-
-$t->plan(72);
 
 ###############################################################################
 

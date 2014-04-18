@@ -82,14 +82,7 @@ http {
 
 EOF
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no inet6 and/or unix support') if $@;
-
-$t->plan(12);
+$t->try_run('no inet6 and/or unix support')->plan(12);
 
 ###############################################################################
 

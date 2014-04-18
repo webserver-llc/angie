@@ -74,14 +74,7 @@ $t->write_file('t1.gz', $out);
 $t->write_file('t2.gz', $out . $out);
 $t->write_file('t3', 'not compressed');
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no gzip_static always') if $@;
-
-$t->plan(12);
+$t->try_run('no gzip_static always')->plan(12);
 
 ###############################################################################
 

@@ -67,13 +67,7 @@ EOF
 $t->write_file('t', 'SEE-THIS');
 $t->write_file('t2', 'SEE-THIS');
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no proxy_cache_revalidate') if $@;
-$t->plan(9);
+$t->try_run('no proxy_cache_revalidate')->plan(9);
 
 ###############################################################################
 

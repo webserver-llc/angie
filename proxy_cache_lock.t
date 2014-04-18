@@ -70,14 +70,8 @@ EOF
 
 $t->run_daemon(\&http_fake_daemon);
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no proxy_cache_lock') if $@;
+$t->try_run('no proxy_cache_lock')->plan(19);
 
-$t->plan(19);
 $t->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################

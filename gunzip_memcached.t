@@ -71,14 +71,7 @@ if ($memhelp =~ /-U/) {
 
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081', @memopts);
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no memcached_gzip_flag') if $@;
-
-$t->plan(2);
+$t->try_run('no memcached_gzip_flag')->plan(2);
 
 $t->waitforsocket('127.0.0.1:8081')
 	or die "Can't start memcached";

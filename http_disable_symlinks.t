@@ -154,13 +154,6 @@ http {
 
 EOF
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-plan(skip_all => 'no disable_symlinks') if $@;
-
 my $uid = getuid();
 my ($extfile) = grep { -f "$_" && $uid != (stat($_))[4] }
 	('/etc/resolv.conf', '/etc/protocols', '/etc/host.conf');
@@ -168,9 +161,9 @@ my ($extfile) = grep { -f "$_" && $uid != (stat($_))[4] }
 plan(skip_all => 'no external file found')
 	if !defined $extfile;
 
-my $d = $t->testdir();
+$t->try_run('no disable_symlinks')->plan(28);
 
-$t->plan(28);
+my $d = $t->testdir();
 
 mkdir("$d/on");
 mkdir("$d/not_owner");

@@ -172,6 +172,19 @@ sub has_daemon($) {
 	return $self;
 }
 
+sub try_run($$) {
+	my ($self, $message) = @_;
+
+	eval {
+		open OLDERR, ">&", \*STDERR; close STDERR;
+		$self->run();
+		open STDERR, ">&", \*OLDERR;
+	};
+
+	Test::More::plan(skip_all => $message) if $@;
+	return $self;
+}
+
 sub plan($) {
 	my ($self, $plan) = @_;
 

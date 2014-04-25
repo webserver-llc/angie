@@ -43,6 +43,8 @@ sub new {
 	)
 		or die "Can't create temp directory: $!\n";
 	$self->{_testdir} =~ s!\\!/!g if $^O eq 'MSWin32';
+	mkdir "$self->{_testdir}/logs"
+		or die "Can't create logs directory: $!\n";
 
 	return $self;
 }
@@ -210,7 +212,7 @@ sub run(;$) {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		exec($NGINX, '-c', "$testdir/nginx.conf", @globals)
+		exec($NGINX, '-p', $testdir, '-c', 'nginx.conf', @globals),
 			or die "Unable to exec(): $!\n";
 	}
 
@@ -275,8 +277,8 @@ sub stop() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		system($NGINX, '-c', "$testdir/nginx.conf", '-s', 'stop',
-			@globals) == 0
+		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
+			'-s', 'stop', @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {

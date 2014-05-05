@@ -36,8 +36,6 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache limit_conn rewrite spdy/);
 
-plan(skip_all => 'no SPDY/3.1') unless $t->has_version('1.5.10');
-
 $t->plan(72)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -389,9 +387,6 @@ is($frame->{data}, 7, 'priority 7');
 
 # stream muliplexing + priority
 
-TODO: {
-local $TODO = 'reversed priority' unless $t->has_version('1.5.11');
-
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 7 });
 $sid2 = spdy_stream($sess, { path => '/t2.html', prio => 0 });
@@ -427,8 +422,6 @@ $frames = spdy_read($sess, all => [
 
 @data = grep { $_->{type} eq "DATA" } @$frames;
 is(join (' ', map { $_->{sid} } @data), "$sid1 $sid2", 'multiple priority 2');
-
-}
 
 # limit_conn
 
@@ -520,17 +513,12 @@ is($frame->{sid}, $sid1, 'dup stream - stream');
 
 # awkward protocol version
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.11');
-
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/s', version => 'HTTP/1.10' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'awkward version');
-
-}
 
 # missing mandatory request header
 

@@ -86,7 +86,7 @@ $t->write_file('x1', '<root>data</root>');
 $t->write_file('x2', '<root>data</root>');
 $t->write_file('x3', '<root>data</root>');
 
-$t->try_run('no xslt_param')->plan(3);
+$t->run()->plan(3);
 
 ###############################################################################
 

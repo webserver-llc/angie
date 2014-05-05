@@ -62,7 +62,7 @@ $t->write_file('inmemory.html',
 	'<!--#include virtual="/include$request_uri" set="x" -->' .
 	'set: <!--#echo var="x" -->');
 
-$t->try_run('no fastcgi_buffering')->plan(2);
+$t->run()->plan(2);
 
 $t->run_daemon(\&fastcgi_daemon)->waitforsocket('127.0.0.1:8081');
 

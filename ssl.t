@@ -30,9 +30,6 @@ plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
 	->has_daemon('openssl');
 
-plan(skip_all => 'new syntax: "$ssl_session_reused"')
-	unless $t->has_version('1.5.11');
-
 $t->plan(4)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

@@ -84,8 +84,7 @@ like($r, qr/^Expires: fake/m, 'Expires preserved');
 like($r, qr/^Accept-Ranges: parrots/m, 'Accept-Ranges preserved');
 unlike($r, qr/^Something/m, 'other headers stripped');
 
-TODO: {
-local $TODO = 'escaped characters' unless $t->has_version('1.5.9');
+# escaped characters
 
 like(http_get('/proxy?xar=/foo?bar'), qr/200 OK.*xar: \/foo\?bar/s,
 	'X-Accel-Redirect value unchanged');
@@ -99,7 +98,5 @@ unlike(http_get('/proxy?xar=/foo/.%2e'), qr/200 OK/,
 	'X-Accel-Redirect unsafe unescaped');
 like(http_get('/proxy?xar=/foo%20bar'), qr/uri: \/foo bar/,
 	'X-Accel-Redirect unescaped');
-
-}
 
 ###############################################################################

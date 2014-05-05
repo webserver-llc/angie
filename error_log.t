@@ -24,7 +24,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http limit_req/);
 
-plan(skip_all => 'not yet') unless $t->has_version('1.5.2');
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 $t->plan(25)->write_file_expand('nginx.conf', <<'EOF');

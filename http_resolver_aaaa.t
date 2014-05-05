@@ -24,8 +24,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite ipv6/);
 
-plan(skip_all => 'no ipv6 capable resolver') unless $t->has_version('1.5.8');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

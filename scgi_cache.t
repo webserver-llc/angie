@@ -70,12 +70,7 @@ like(http_get('/nolen'), qr/MISS/, 'no length');
 like(http_get('/nolen'), qr/HIT/, 'no length cached');
 
 like(http_get('/len/empty'), qr/MISS/, 'empty length');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.3');
-
 like(http_get('/len/empty'), qr/HIT/, 'empty length cached');
-}
 
 like(http_get('/nolen/empty'), qr/MISS/, 'empty no length');
 like(http_get('/nolen/empty'), qr/HIT/, 'empty no length cached');

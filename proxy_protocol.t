@@ -26,8 +26,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http access ipv6 realip/);
 
-plan(skip_all => 'no PROXY support') unless $t->has_version('1.5.12');
-
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(18);
 
 %%TEST_GLOBALS%%

@@ -92,14 +92,9 @@ like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
 # ensure that resolver serves queries from cache in a case-insensitive manner
 # we check this by marking 2nd and subsequent queries on backend with SERVFAIL
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.8');
-
 http_x_name_header('case.example.net', '/case');
 like(http_x_name_header('CASE.example.net', '/case'), qr/200 OK/,
 	'A case-insensitive');
-
-}
 
 like(http_host_header('awide.example.net', '/'), qr/200 OK/, 'A uncompressed');
 like(http_host_header('short.example.net', '/'), qr/502 Bad/,
@@ -204,9 +199,6 @@ sleep 2;
 like(http_host_header('ttl.example.net', '/valid'), qr/502 Bad/,
 	'valid expired');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.9');
-
 # Ensure that resolver respects expired CNAME in CNAME + A combined response.
 # When ttl in CNAME is expired, the answer should not be served from cache.
 # Catch this by returning SERVFAIL on the 2nd and subsequent queries.
@@ -217,8 +209,6 @@ sleep 2;
 
 like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
 	'CNAME + A with expired CNAME ttl');
-
-}
 
 like(http_host_header('example.net', '/invalid'), qr/502 Bad/, 'no resolver');
 

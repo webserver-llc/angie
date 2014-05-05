@@ -66,9 +66,6 @@ is(durations($t, 0.0), '10.0 20.0', 'start zero');
 is(durations($t, 2), '8.0 18.0', 'start integer');
 is(durations($t, 7.1), '2.9 12.9', 'start float');
 
-SKIP: {
-skip 'no end argument support', 8 unless $t->has_version('1.5.13');
-
 is(durations($t, 6, 9), '3.0 3.0', 'start end integer');
 is(durations($t, 2.7, 5.6), '2.9 2.9', 'start end float');
 
@@ -85,17 +82,8 @@ like(http_head('/test.mp4?start=1&end=0'), qr/200 OK/, 'negative range');
 unlike(http_head("/test.mp4?end=11"), qr!HTTP/1.1 500!,
 	'end beyond short track');
 unlike(http_head("/test.mp4?end=21"), qr!HTTP/1.1 500!, 'end beyond EOF');
-
-}
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.10');
-
 unlike(http_head("/test.mp4?start=11"), qr!HTTP/1.1 500!,
 	'start beyond short track');
-
-}
-
 like(http_head("/test.mp4?start=21"), qr!HTTP/1.1 500!, 'start beyond EOF');
 
 # check for alerts, e.g., "zero buf in output", shouldn't be any

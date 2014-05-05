@@ -155,14 +155,7 @@ like(http_get('/no?a=b'), qr!^Location: http://example.com/\?c=d\x0d?$!ms,
 
 like(http_get('/return204'), qr!204 No Content!, 'return 204');
 like(http_get('/return200'), qr!200 OK!, 'return 200');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.6');
-
 like(http_get('/return306'), qr!HTTP/1.1 306 !, 'return 306');
-
-}
-
 like(http_get('/return405'), qr!HTTP/1.1 405.*body!ms, 'return 405');
 
 like(http_get('/error404return405'), qr!HTTP/1.1 404!, 'error 404 return 405');

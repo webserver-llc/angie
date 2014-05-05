@@ -67,7 +67,7 @@ EOF
 $t->write_file('t', 'SEE-THIS');
 $t->write_file('t2', 'SEE-THIS');
 
-$t->try_run('no proxy_cache_revalidate')->plan(9);
+$t->run()->plan(9);
 
 ###############################################################################
 

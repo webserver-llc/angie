@@ -70,7 +70,7 @@ EOF
 
 $t->run_daemon(\&http_fake_daemon);
 
-$t->try_run('no proxy_cache_lock')->plan(19);
+$t->run()->plan(19);
 
 $t->waitforsocket('127.0.0.1:8081');
 

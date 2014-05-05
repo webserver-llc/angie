@@ -98,19 +98,11 @@ $t->run()->waitforsocket('127.0.0.1:8081');
 http_get('/cache/length');
 like(http_get('/cache/length'), qr/MISS/, 'unfinished not cached');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.3');
-
 # chunked encoding has enough information to don't cache a response,
 # much like with Content-Length available
 
 http_get('/cache/chunked');
 like(http_get('/cache/chunked'), qr/MISS/, 'unfinished chunked');
-
-}
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.3');
 
 # make sure there is no final chunk in unfinished responses
 
@@ -119,8 +111,6 @@ like(http_get_11('/length'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
 like(http_get_11('/chunked'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
 	'chunked no final chunk');
 
-}
-
 # but there is final chunk in complete responses
 
 like(http_get_11('/length/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
@@ -128,17 +118,12 @@ like(http_get_11('/length/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
 like(http_get_11('/chunked/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
 	'chunked final chunk');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.3');
-
 # the same with proxy_buffering set to off
 
 like(http_get_11('/un/length'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
         'unbuffered length no final chunk');
 like(http_get_11('/un/chunked'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
         'unbuffered chunked no final chunk');
-
-}
 
 like(http_get_11('/un/length/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
         'unbuffered length final chunk');
@@ -152,17 +137,12 @@ like(http_get('/big/ok', sleep => 0.1), qr/finished/s, 'big finished');
 like(http_get('/un/big', sleep => 0.1), qr/unfinished/s, 'big unfinished un');
 like(http_get('/un/big/ok', sleep => 0.1), qr/finished/s, 'big finished un');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.3');
-
 # if disk buffering fails for some reason, there should be
 # no final chunk
 
 chmod(0000, $t->testdir() . '/proxy_temp');
 like(http_get_11('/proxy/big.html', sleep => 0.5),
 	qr/X(?!.*\x0d\x0a?0\x0d\x0a?)|finished/s, 'no proxy temp');
-
-}
 
 ###############################################################################
 

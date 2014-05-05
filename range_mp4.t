@@ -66,9 +66,6 @@ isnt($fsz0, $fsz, 'mp4 start argument works');
 
 my $t1;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.13');
-
 # MP4 has minimally 16 byte ftyp object at start
 
 my $start = $fsz - 10;
@@ -90,8 +87,6 @@ like($t1, qr/206/, 'multi buffers - 206 partial reply');
 like($t1, qr/Content-Length: 100/, 'multi buffers - content length');
 like($t1, qr/Content-Range: bytes 0-99\/$fsz/,
 	'multi buffers - content range');
-
-}
 
 TODO: {
 local $TODO = 'multipart range on mp4';

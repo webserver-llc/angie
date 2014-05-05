@@ -74,7 +74,7 @@ $t->write_file('t1.gz', $out);
 $t->write_file('t2.gz', $out . $out);
 $t->write_file('t3', 'not compressed');
 
-$t->try_run('no gzip_static always')->plan(12);
+$t->run()->plan(12);
 
 ###############################################################################
 

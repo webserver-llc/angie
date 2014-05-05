@@ -154,21 +154,12 @@ like(http_get('/test-empty3.html'), qr/HTTP/, 'empty with proxy cached');
 # handling of escaped URIs
 
 like(http_get('/unescape1.html'), qr/^XXtestXX$/m, 'escaped in path');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.9');
-
 like(http_get('/unescape2.html'), qr/^XSEE-THISX$/m,
 	'escaped question in path');
 like(http_get('/unescape3.html'), qr/404 Not Found/,
 	'escaped query separator');
 
-}
-
 # handling of embedded date variables
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.5.10');
 
 like(http_get('/var_nossi.html'),
 	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'no ssi');
@@ -179,8 +170,6 @@ like(http_get('/var_format.html?custom=1'),
 	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'custom header');
 like(http_get('/var_format.html'),
 	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'default header');
-
-}
 
 like(http_get('/var_format.html?custom=1'),
 	qr/x\w+, \d\d:\d\d:\d\dx/, 'custom ssi');

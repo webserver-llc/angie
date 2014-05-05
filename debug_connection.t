@@ -23,8 +23,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http --with-debug ipv6 proxy/);
 
-plan(skip_all => 'not yet') unless $t->has_version('1.5.2');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

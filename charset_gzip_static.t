@@ -150,18 +150,18 @@ like(http_get('/p.ab/t.html'), qr!text/html; charset=A!ms,
 TODO: {
 local $TODO = 'not yet';
 
-like(http_gzip_request('/p.ab/t.html'), qr!text/html\x0d; charset=.*gzip!ms,
+like(http_gzip_request('/p.ab/t.html'), qr!text/html\x0d.*gzip!ms,
 	'proxy recode gzip');
 
 }
 
-like(http_get('/p.aa/gz.html'), qr!text/html; charset=A!ms,
+like(http_get('/p.aa/t.html'), qr!text/html; charset=A!ms,
 	'proxy nullrecode plain');
 
 TODO: {
 local $TODO = 'not yet';
 
-like(http_gzip_request('/p.aa/gz.html'), qr!text/html\x0d; charset=.*gzip!ms,
+like(http_gzip_request('/p.aa/t.html'), qr!text/html; charset=A.*gzip!ms,
 	'proxy nullrecode gzip');
 
 }

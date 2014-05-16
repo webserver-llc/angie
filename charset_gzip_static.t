@@ -146,14 +146,8 @@ like(http_gzip_request('/p/t.html'), qr!text/html; charset=.*gzip!ms,
 
 like(http_get('/p.ab/t.html'), qr!text/html; charset=A!ms,
 	'proxy recode plain');
-
-TODO: {
-local $TODO = 'not yet';
-
 like(http_gzip_request('/p.ab/t.html'), qr!text/html\x0d.*gzip!ms,
 	'proxy recode gzip');
-
-}
 
 like(http_get('/p.aa/t.html'), qr!text/html; charset=A!ms,
 	'proxy nullrecode plain');

@@ -179,8 +179,8 @@ sub http_daemon {
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
 		if ($uri eq '/w' && $port == 8081) {
-			Test::Nginx::log_core('||', "$port: sleep(3)");
-			select undef, undef, undef, 3;
+			Test::Nginx::log_core('||', "$port: sleep(2.5)");
+			select undef, undef, undef, 2.5;
 		}
 
 		Test::Nginx::log_core('||', "$port: response, 200");

@@ -123,7 +123,7 @@ like(http_gzip_request('/t1.html'), qr!text/html; charset=.*gzip!ms, 'gzip');
 like(http_get('/t2.html'), qr!text/html; charset=A.*Y{99}!ms, 'recode plain');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.1');
 
 like(http_gzip_request('/t2.html'), qr!text/html\x0d.*gzip!ms, 'recode gzip');
 http_gzip_like(http_gzip_request('/t2.html'), qr!X{99}!, 'recode content');
@@ -136,7 +136,7 @@ like(http_gzip_request('/t.html'), qr!text/html\x0d.*gzip!ms, 'nocharset gzip');
 like(http_get('/p/t.html'), qr!text/html; charset=!, 'proxy plain');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.1');
 
 like(http_gzip_request('/p/t.html'), qr!text/html; charset=.*gzip!ms,
 	'proxy gzip');
@@ -153,7 +153,7 @@ like(http_get('/p.aa/t.html'), qr!text/html; charset=A!ms,
 	'proxy nullrecode plain');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.1');
 
 like(http_gzip_request('/p.aa/t.html'), qr!text/html; charset=A.*gzip!ms,
 	'proxy nullrecode gzip');

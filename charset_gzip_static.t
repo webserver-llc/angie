@@ -93,7 +93,7 @@ my $in = 'X' x 99;
 my $out;
 
 eval {
-	require IO::Compress::Gzip;   
+	require IO::Compress::Gzip;
 	IO::Compress::Gzip::gzip(\$in => \$out);
 };
 

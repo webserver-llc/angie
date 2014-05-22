@@ -211,8 +211,13 @@ $im = GD::Image->newFromGifData(http_get_body('/gif'));
 is($im->interlaced, 0, 'gif interlaced off');
 is($im->transparent, 0, 'gif transparent white');
 
+SKIP: {
+skip 'broken libgd', 1 unless has_gdversion('2.1.0') or $ENV{TEST_NGINX_UNSAFE};
+
 $im = GD::Image->newFromGifData(http_get_body('/interlaced/gif'));
 is($im->interlaced, 1, 'gif interlaced on');
+
+}
 
 $im = GD::Image->newFromGifData(http_get_body('/nontransparent/gif'));
 is($im->transparent, -1, 'gif transparent loss');
@@ -269,6 +274,22 @@ sub http_get_body {
 	}
 
 	return $2;
+}
+
+sub has_gdversion {
+	my ($need) = @_;
+
+	my $v_str = `gdlib-config --version 2>&1` or return;
+	my @v = split(/\./, $v_str);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

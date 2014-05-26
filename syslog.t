@@ -22,6 +22,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'win32') if $^O eq 'MSWin32';
+
 my $t = Test::Nginx->new()->has(qw/http limit_req/);
 
 plan(skip_all => 'no syslog') unless $t->has_version('1.7.1');

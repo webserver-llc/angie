@@ -82,7 +82,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.1');
 
 like(http_get('/index.html'), qr/not truncated/, 'subrequest partial match');
 like(http_get('/xslt.html'), qr/not.*truncated/ms, 'partial match and xslt');

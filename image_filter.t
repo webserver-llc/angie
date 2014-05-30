@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 eval { require GD; };
 plan(skip_all => 'GD not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http proxy map image/)->plan(39)
+my $t = Test::Nginx->new()->has(qw/http proxy map image_filter/)->plan(39)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

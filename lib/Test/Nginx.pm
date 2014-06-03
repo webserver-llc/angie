@@ -109,6 +109,8 @@ sub has_module($) {
 		empty_gif
 			=> '(?s)^(?!.*--without-http_empty_gif_module)',
 		browser	=> '(?s)^(?!.*--without-http_browser_module)',
+		upstream_hash
+			=> '(?s)^(?!.*--without-http_upstream_hash_module)',
 		upstream_ip_hash
 			=> '(?s)^(?!.*--without-http_upstream_ip_hash_module)',
 		upstream_least_conn

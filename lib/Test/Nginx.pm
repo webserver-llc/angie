@@ -51,9 +51,13 @@ sub new {
 
 sub DESTROY {
 	my ($self) = @_;
+	local $?;
+
 	return if $self->{_pid} != $$;
+
 	$self->stop();
 	$self->stop_daemons();
+
 	if ($ENV{TEST_NGINX_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
 	}

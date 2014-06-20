@@ -97,7 +97,7 @@ my @memopts = ();
 
 if ($memhelp =~ /repcached/) {
 	# repcached patch adds additional listen socket
-	push @memopts, '-X', '8082';
+	push @memopts, '-X', '0';
 }
 if ($memhelp =~ /-U/) {
 	# UDP port is on by default in memcached 1.2.7+

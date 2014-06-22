@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has('http')->plan(12)
+my $t = Test::Nginx->new()->has('http')->plan(14)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -80,11 +80,19 @@ like(http_get_inm('/t', '"foo", "bar", ' . $etag . ' , "baz"'), qr/304/,
 	'if-none-match with complex list');
 like(http_get_inm('/t', '*'), qr/304/, 'if-none-match all');
 
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get_inm('/t', 'W/' . $etag), qr/304/, 'if-none-match weak');
+
+}
+
 like(http_get_im('/t', $etag), qr/200/, 'if-match');
 like(http_get_im('/t', '"foo"'), qr/412/, 'if-match fail');
 like(http_get_im('/t', '"foo", "bar", ' . "\t" . $etag . ' , "baz"'),
 	qr/200/, 'if-match with complex list');
 like(http_get_im('/t', '*'), qr/200/, 'if-match all');
+like(http_get_im('/t', 'W/' . $etag), qr/412/, 'if-match weak fail');
 
 ###############################################################################
 

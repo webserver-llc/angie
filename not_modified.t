@@ -71,23 +71,20 @@ SKIP: {
 my ($t1, $etag);
 
 $t1 = http_get('/t');
+$t1 =~ /ETag: (".*")/;
+$etag = $1;
 
-SKIP: {
-    skip "no etag support", 8 if $t1 !~ /ETag: (".*")/;
-    $etag = $1;
-
-    like(http_get_inm('/t', $etag), qr/304/, 'if-none-match');
-    like(http_get_inm('/t', '"foo"'), qr/200/, 'if-none-match fail');
-    like(http_get_inm('/t', '"foo", "bar", ' . $etag . ' , "baz"'), qr/304/,
+like(http_get_inm('/t', $etag), qr/304/, 'if-none-match');
+like(http_get_inm('/t', '"foo"'), qr/200/, 'if-none-match fail');
+like(http_get_inm('/t', '"foo", "bar", ' . $etag . ' , "baz"'), qr/304/,
 	'if-none-match with complex list');
-    like(http_get_inm('/t', '*'), qr/304/, 'if-none-match all');
+like(http_get_inm('/t', '*'), qr/304/, 'if-none-match all');
 
-    like(http_get_im('/t', $etag), qr/200/, 'if-match');
-    like(http_get_im('/t', '"foo"'), qr/412/, 'if-match fail');
-    like(http_get_im('/t', '"foo", "bar", ' . "\t" . $etag . ' , "baz"'),
+like(http_get_im('/t', $etag), qr/200/, 'if-match');
+like(http_get_im('/t', '"foo"'), qr/412/, 'if-match fail');
+like(http_get_im('/t', '"foo", "bar", ' . "\t" . $etag . ' , "baz"'),
 	qr/200/, 'if-match with complex list');
-    like(http_get_im('/t', '*'), qr/200/, 'if-match all');
-}
+like(http_get_im('/t', '*'), qr/200/, 'if-match all');
 
 ###############################################################################
 

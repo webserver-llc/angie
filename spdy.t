@@ -241,20 +241,13 @@ $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
 is($frame->{headers}->{':status'}, '200 OK', 'proxy cache unconditional');
 
-my $etag = $frame->{headers}->{'etag'};
-
-SKIP: {
-skip 'no etag', 1 unless defined $etag;
-
 $sid2 = spdy_stream($sess, { path => '/proxy/t2.html',
-	headers => { "if-none-match" =>  $etag }
+	headers => { "if-none-match" => $frame->{headers}->{'etag'} }
 });
 $frames = spdy_read($sess, all => [{ sid => $sid2, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
 is($frame->{headers}->{':status'}, 304, 'proxy cache conditional');
-
-}
 
 # request body (uses proxied response)
 

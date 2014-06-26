@@ -81,7 +81,7 @@ like(http_get_inm('/t', '"foo", "bar", ' . $etag . ' , "baz"'), qr/304/,
 like(http_get_inm('/t', '*'), qr/304/, 'if-none-match all');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.3');
 
 like(http_get_inm('/t', 'W/' . $etag), qr/304/, 'if-none-match weak');
 

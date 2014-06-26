@@ -101,7 +101,7 @@ like(http_get_inm('/etag', $etag), qr/ 304 /, 'if-none-match etag only');
 like(http_get_inm('/proxy/etag', $etag), qr/ 200 /, 'inm etag proxy ignored');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.3');
 
 like(http_get_inm('/cache/etag', $etag), qr/ 304 /, 'inm etag from cache');
 

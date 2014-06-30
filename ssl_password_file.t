@@ -63,7 +63,7 @@ http {
     }
 
     server {
-        server_name  two_entries_in_file;
+        server_name  two_entries;
 
         ssl_password_file password_many;
     }

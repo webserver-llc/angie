@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(11)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(14)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -59,6 +59,8 @@ http {
 
             proxy_cache_use_stale  error timeout invalid_header http_500
                                    http_404;
+
+            add_header X-Cache-Status $upstream_cache_status;
         }
     }
     server {
@@ -89,12 +91,15 @@ unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head request');
 like(http_get('/t2.html'), qr/SEE-THIS/, 'get after head');
 unlike(http_head('/t2.html'), qr/SEE-THIS/, 'head after get');
 
+like(http_head('/empty.html?head'), qr/MISS/, 'empty head first');
+like(http_head('/empty.html?head'), qr/HIT/, 'empty head second');
+
 like(http_get_range('/t.html', 'Range: bytes=4-'), qr/^THIS/m, 'cached range');
 like(http_get_range('/t.html', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 	'cached multipart range');
 
-like(http_get('/empty.html'), qr/HTTP/, 'empty get first');
-like(http_get('/empty.html'), qr/HTTP/, 'empty get second');
+like(http_get('/empty.html'), qr/MISS/, 'empty get first');
+like(http_get('/empty.html'), qr/HIT/, 'empty get second');
 
 select(undef, undef, undef, 1.1);
 unlink $t->testdir() . '/t.html';
@@ -106,6 +111,8 @@ unlink $t->testdir() . '/empty.html';
 like(http_gzip_request('/empty.html'),
 	qr/HTTP.*14\x0d\x0a.{20}\x0d\x0a0\x0d\x0a\x0d\x0a\z/s,
 	'empty get stale');
+
+like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################
 

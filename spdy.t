@@ -38,7 +38,7 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 my $t = Test::Nginx->new()
 	->has(qw/http proxy cache limit_conn rewrite spdy realip/);
 
-$t->plan(74)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(76)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -88,6 +88,12 @@ http {
             proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
+        }
+        location /proxy_buffering_off {
+            proxy_pass http://127.0.0.1:8081/;
+            proxy_cache NAME;
+            proxy_cache_valid 1m;
+            proxy_buffering off;
         }
         location /t3.html {
             limit_conn conn 1;
@@ -236,21 +242,37 @@ is($frame->{headers}->{':status'}, 405, 'SYN_REPLAY status with redirect');
 ok($frame, 'DATA frame with redirect');
 is($frame->{data}, 'body', 'DATA payload with redirect');
 
+# SYN_REPLY could be received with fin, followed by DATA
+
+$sess = new_session();
+$sid1 = spdy_stream($sess, { path => '/proxy/t2.html', method => 'HEAD' });
+
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+push @$frames, $_ for @{spdy_read($sess, all => [{ sid => $sid1 }])};
+ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
+
 # ensure that HEAD-like requests, i.e., without response body, do not lead to
 # client connection close due to cache filling up with upstream response body
 
 TODO: {
 local $TODO = 'premature client connection close';
 
-$sess = new_session();
-$sid1 = spdy_stream($sess, { path => '/proxy/t2.html', method => 'HEAD' });
-$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
-
 $sid2 = spdy_stream($sess, { path => '/' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 ok(grep ({ $_->{type} eq "SYN_REPLY" } @$frames), 'proxy cache headers only');
 
 }
+
+# HEAD on empty cache with proxy_buffering off
+
+$sess = new_session();
+$sid1 = spdy_stream($sess,
+	{ path => '/proxy_buffering_off/t2.html?1', method => 'HEAD' });
+
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+push @$frames, $_ for @{spdy_read($sess, all => [{ sid => $sid1 }])};
+ok(!grep ({ $_->{type} eq "DATA" } @$frames),
+	'proxy cache HEAD buffering off - no body');
 
 # simple proxy cache test
 

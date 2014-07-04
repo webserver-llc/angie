@@ -113,7 +113,7 @@ my %cframe = (
 
 my $sess = new_session();
 spdy_ping($sess, 0x12345678);
-my $frames = spdy_read($sess);
+my $frames = spdy_read($sess, all => [{ type => 'PING' }]);
 
 my ($frame) = grep { $_->{type} eq "PING" } @$frames;
 ok($frame, 'PING frame');
@@ -266,14 +266,14 @@ is($frame->{data}, 'SEE-THIS', 'proxied response');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html' });
-$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
+$frames = spdy_read($sess, all => [{ sid => $sid1, length => 2**16 }]);
 
 @data = grep { $_->{type} eq "DATA" } @$frames;
 my $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 2**16, 'iws - stream blocked on initial window size');
 
 spdy_ping($sess, 0xf00ff00f);
-$frames = spdy_read($sess);
+$frames = spdy_read($sess, all => [{ type => 'PING' }]);
 
 ($frame) = grep { $_->{type} eq "PING" } @$frames;
 ok($frame, 'iws - PING not blocked');
@@ -306,7 +306,7 @@ is($sum, 2**16 + 80, 'increased initial window size');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html' });
-spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
+spdy_read($sess, all => [{ sid => $sid1, length => 2**16 }]);
 
 spdy_window($sess, 1);
 spdy_settings($sess, 7 => 42);
@@ -320,7 +320,7 @@ $frames = spdy_read($sess);
 is(@$frames, 0, 'zero window - no data');
 
 spdy_window($sess, 1, $sid1);
-$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
+$frames = spdy_read($sess, all => [{ sid => $sid1, length => 1 }]);
 is(@$frames, 1, 'positive window - data');
 is(@$frames[0]->{length}, 1, 'positive window - data length');
 
@@ -328,7 +328,7 @@ is(@$frames[0]->{length}, 1, 'positive window - data length');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html' });
-$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
+$frames = spdy_read($sess, all => [{ sid => $sid1, length => 2**16 }]);
 
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
@@ -383,7 +383,10 @@ is($frame->{data}, 7, 'priority 7');
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 7 });
 $sid2 = spdy_stream($sess, { path => '/t2.html', prio => 0 });
-spdy_read($sess);
+spdy_read($sess, all => [
+	{ sid => $sid1, length => 2**16 },
+	{ sid => $sid2, fin => 0 }
+]);
 
 spdy_window($sess, 2**17, $sid1);
 spdy_window($sess, 2**17, $sid2);
@@ -402,7 +405,10 @@ is(join (' ', map { $_->{sid} } @data), "$sid2 $sid1", 'multiple priority 1');
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 0 });
 $sid2 = spdy_stream($sess, { path => '/t2.html', prio => 7 });
-spdy_read($sess);
+spdy_read($sess, all => [
+	{ sid => $sid1, length => 2**16 },
+	{ sid => $sid2, fin => 0 }
+]);
 
 spdy_window($sess, 2**17, $sid1);
 spdy_window($sess, 2**17, $sid2);
@@ -570,45 +576,72 @@ sub spdy_settings {
 
 sub spdy_read {
 	my ($sess, %extra) = @_;
-	my ($skip, $length, $buf, @got);
-	my $tries = 0;
-	my $maxtried = 3;
+	my ($length, @got);
+	my $s = $sess->{socket};
+	my $buf = '';
 
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
 again:
-	do {
-		$buf = raw_read($sess->{socket});
-	} until (defined $buf || $tries++ >= $maxtried);
+		alarm(1);
 
-	$buf = '' if !defined $buf;
+		$buf = raw_read($s, $buf, 8);
 
-	for ($skip = 0; $skip < length $buf; $skip += $length + 8) {
-		my $type = unpack("\@$skip B", $buf);
-		$length = hex unpack("\@$skip x5 H6", $buf);
+		my $type = unpack("B", $buf);
+		$length = 8 + hex unpack("x5 H6", $buf);
+		$buf = raw_read($s, $buf, $length);
+
 		if ($type == 0) {
-			push @got, dframe($skip, $buf);
-			test_fin($got[-1], $extra{all});
-			next;
-		}
+			push @got, dframe($buf);
 
-		my $ctype = unpack("\@$skip x2 n", $buf);
-		push @got, $cframe{$ctype}($sess, $skip, $buf);
-		test_fin($got[-1], $extra{all});
-	}
-	goto again if %extra && @{$extra{all}} && $tries < $maxtried;
+		} else {
+			my $ctype = unpack("x2 n", $buf);
+			push @got, $cframe{$ctype}($sess, $buf);
+		}
+		$buf = substr($buf, $length);
+
+		goto again if test_fin($got[-1], $extra{all});
+		alarm(0);
+	};
+	alarm(0);
 	return \@got;
 }
 
 sub test_fin {
 	my ($frame, $all) = @_;
+	my @test = @{$all};
 
-	@{$all} = grep {
-		!($_->{sid} == $frame->{sid} && $_->{fin} == $frame->{fin})
-	} @{$all} if defined $frame->{fin};
+	# wait for the specified DATA length
+
+	for (@test) {
+		if ($_->{length} && $frame->{type} eq 'DATA') {
+			# check also for StreamID if needed
+
+			if (!$_->{sid} || $_->{sid} == $frame->{sid}) {
+				$_->{length} -= $frame->{length};
+			}
+		}
+	}
+	@test = grep { !(defined $_->{length} && $_->{length} == 0) } @test;
+
+	# wait for the fin flag
+
+	@test = grep { !(defined $_->{fin}
+		&& $_->{sid} == $frame->{sid} && $_->{fin} == $frame->{fin})
+	} @test if defined $frame->{fin};
+
+	# wait for the specified frame
+
+	@test = grep { !($_->{type} && $_->{type} eq $frame->{type}) } @test;
+
+	@{$all} = @test;
 }
 
 sub dframe {
-	my ($skip, $buf) = @_;
+	my ($buf) = @_;
 	my %frame;
+	my $skip = 0;
 
 	my $stream = unpack "\@$skip B32", $buf; $skip += 4;
 	substr($stream, 0, 1) = 0;
@@ -689,11 +722,11 @@ sub spdy_stream {
 }
 
 sub syn_reply {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my ($i, $status);
 	my %payload;
+	my $skip = 4;
 
-	$skip += 4;
 	my $flags = unpack "\@$skip B8", $buf; $skip += 1;
 	$payload{fin} = substr($flags, 7, 1);
 
@@ -716,10 +749,10 @@ sub syn_reply {
 }
 
 sub rst_stream {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my %payload;
+	my $skip = 5;
 
-	$skip += 5;
 	$payload{length} = hex(unpack "\@$skip H6", $buf); $skip += 3;
 	$payload{type} = 'RST_STREAM';
 	$payload{sid} = unpack "\@$skip N", $buf; $skip += 4;
@@ -728,10 +761,10 @@ sub rst_stream {
 }
 
 sub settings {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my %payload;
+	my $skip = 4;
 
-	$skip += 4;
 	$payload{flags} = unpack "\@$skip H", $buf; $skip += 1;
 	$payload{length} = hex(unpack "\@$skip H6", $buf); $skip += 3;
 	$payload{type} = 'SETTINGS';
@@ -747,10 +780,10 @@ sub settings {
 }
 
 sub ping {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my %payload;
+	my $skip = 5;
 
-	$skip += 5;
 	$payload{length} = hex(unpack "\@$skip H6", $buf); $skip += 3;
 	$payload{type} = 'PING';
 	$payload{value} = unpack "\@$skip N", $buf;
@@ -758,10 +791,10 @@ sub ping {
 }
 
 sub goaway {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my %payload;
+	my $skip = 5;
 
-	$skip += 5;
 	$payload{length} = hex unpack "\@$skip H6", $buf; $skip += 3;
 	$payload{type} = 'GOAWAY';
 	$payload{sid} = unpack "\@$skip N", $buf; $skip += 4;
@@ -770,10 +803,9 @@ sub goaway {
 }
 
 sub window_update {
-	my ($ctx, $skip, $buf) = @_;
+	my ($ctx, $buf) = @_;
 	my %payload;
-
-	$skip += 5;
+	my $skip = 5;
 
 	$payload{length} = hex(unpack "\@$skip H6", $buf); $skip += 3;
 	$payload{type} = 'WINDOW_UPDATE';
@@ -814,17 +846,15 @@ sub hunpack {
 }
 
 sub raw_read {
-	my ($s) = @_;
-	my ($got, $buf);
+	my ($s, $buf, $len) = @_;
+	my $got = '';
 
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_read(0.4)) {
-		my $n = $s->sysread($buf, 1024);
-		last unless $n;
-		$got .= $buf;
-	};
-	log_in($got);
-	return $got;
+	while (length($buf) < $len)  {
+		$s->sysread($got, $len - length($buf)) or die;
+		log_in($got);
+		$buf .= $got;
+	}
+	return $buf;
 }
 
 sub raw_write {
@@ -832,7 +862,6 @@ sub raw_write {
 
 	local $SIG{PIPE} = 'IGNORE';
 
-	$s->blocking(0);
 	while (IO::Select->new($s)->can_write(0.4)) {
 		log_out($message);
 		my $n = $s->syswrite($message);

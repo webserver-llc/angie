@@ -707,9 +707,9 @@ sub spdy_stream {
 	$status == Compress::Raw::Zlib->Z_OK or fail "flush failed";
 	$output = $start . $tail;
 
-	my $len = '';
-	vec($len, 7, 8) = (length $output) + 10;
-	$buf |= $len;
+	# set length, attach headers and optional body
+
+	$buf |= pack "x4N", length($output) + 10;
 	$buf .= $output;
 
 	if (defined $body) {

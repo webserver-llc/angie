@@ -13,6 +13,7 @@ use strict;
 use Test::More;
 
 use IO::Select;
+use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -34,9 +35,10 @@ eval {
 plan(skip_all => 'Compress::Raw::Zlib not installed') if $@;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache limit_conn rewrite spdy/);
+my $t = Test::Nginx->new()
+	->has(qw/http proxy cache limit_conn rewrite spdy realip/);
 
-$t->plan(72)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(74)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -54,11 +56,18 @@ http {
     server {
         listen       127.0.0.1:8080 spdy;
         listen       127.0.0.1:8081;
+        listen       127.0.0.1:8082 proxy_protocol spdy;
         server_name  localhost;
 
         location /s {
             add_header X-Header X-Foo;
             return 200 'body';
+        }
+        location /pp {
+            set_real_ip_from  127.0.0.1/32;
+            real_ip_header proxy_protocol;
+            alias %%TESTDIR%%/t2.html;
+            add_header X-PP $remote_addr;
         }
         location /spdy {
             return 200 $spdy;
@@ -165,6 +174,17 @@ is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLAY header HEAD');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame, undef, 'HEAD no body');
+
+# GET with PROXY protocol
+
+my $proxy = 'PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678' . CRLF;
+$sess = new_session(8082, proxy => $proxy);
+$sid1 = spdy_stream($sess, { path => '/pp' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+ok($frame, 'PROXY SYN_REPLAY frame');
+is($frame->{headers}->{'x-pp'}, '192.0.2.1', 'PROXY remote addr');
 
 # request header
 
@@ -872,7 +892,8 @@ sub raw_write {
 }
 
 sub new_session {
-	my ($d, $i, $status);
+	my ($port, %extra) = @_;
+	my ($d, $i, $status, $s);
 
 	($d, $status) = Compress::Raw::Zlib::Deflate->new(
 		-WindowBits => 12,
@@ -887,12 +908,21 @@ sub new_session {
 	);
 	fail "Zlib failure: $status" unless $i;
 
+	$s = new_socket($port);
+
+	if ($extra{proxy}) {
+		raw_write($s, $extra{proxy});
+	}
+
 	return { zlib => { i => $i, d => $d },
-		socket => new_socket(), last_stream => -1 };
+		socket => $s, last_stream => -1 };
 }
 
 sub new_socket {
+	my ($port) = @_;
 	my $s;
+
+	$port = 8080 unless defined $port;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
@@ -900,7 +930,7 @@ sub new_socket {
 		alarm(2);
 		$s = IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8080',
+			PeerAddr => "127.0.0.1:$port",
 		);
 		alarm(0);
 	};

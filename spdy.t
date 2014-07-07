@@ -255,7 +255,8 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
 # client connection close due to cache filling up with upstream response body
 
 TODO: {
-local $TODO = 'premature client connection close';
+local $TODO = 'premature client connection close'
+	unless $t->has_version('1.7.3');
 
 $sid2 = spdy_stream($sess, { path => '/' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);

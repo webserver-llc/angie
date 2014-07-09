@@ -32,7 +32,8 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
+my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
+	->has_daemon('openssl');
 
 plan(skip_all => 'no ssl_password_file') unless $t->has_version('1.7.2');
 
@@ -62,22 +63,26 @@ http {
         ssl_password_file password;
 
         location / {
+		return 200 "$scheme";
         }
     }
 
     server {
+        listen       127.0.0.1:8080;
         server_name  two_entries;
 
         ssl_password_file password_many;
     }
 
     server {
+        listen       127.0.0.1:8080;
         server_name  file_is_fifo;
 
         ssl_password_file password_fifo;
     }
 
     server {
+        listen       127.0.0.1:8080;
         server_name  inherits;
 
         ssl_certificate_key inherits.key;
@@ -131,8 +136,8 @@ is($@, '', 'ssl_password_file works');
 
 # simple tests to ensure that nothing broke with ssl_password_file directive
 
-like(http_get('/password'), qr/200 OK/, 'http');
-like(http_get('/password', socket => get_ssl_socket()), qr/200 OK/, 'https');
+like(http_get('/'), qr/200 OK.*http/ms, 'http');
+like(http_get('/', socket => get_ssl_socket()), qr/200 OK.*https/ms, 'https');
 
 ###############################################################################
 

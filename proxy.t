@@ -43,8 +43,10 @@ http {
             proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
         }
+
         location /var {
-            proxy_pass http://$arg_ip:$arg_port/;
+            proxy_pass http://$arg_b;
+            proxy_read_timeout 1s;
         }
     }
 }
@@ -61,8 +63,7 @@ like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
-like(http_get('/var?ip=127.0.0.1&port=8081'), qr/SEE-THIS/,
-	'proxy url with IP literal and variable');
+like(http_get('/var?b=127.0.0.1:8081/'), qr/SEE-THIS/, 'proxy with variables');
 
 ###############################################################################
 

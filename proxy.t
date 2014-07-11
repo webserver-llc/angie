@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(3);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -43,6 +43,9 @@ http {
             proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
         }
+        location /var {
+            proxy_pass http://$arg_ip:$arg_port/;
+        }
     }
 }
 
@@ -57,6 +60,9 @@ like(http_get('/'), qr/SEE-THIS/, 'proxy request');
 like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
+
+like(http_get('/var?ip=127.0.0.1&port=8081'), qr/SEE-THIS/,
+	'proxy url with IP literal and variable');
 
 ###############################################################################
 

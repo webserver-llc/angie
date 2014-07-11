@@ -39,13 +39,15 @@ http {
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
+
+        location / {
+            add_header X-Session $ssl_session_reused;
+        }
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
-
-        add_header X-Foo ssl;
 
         location /ssl_reuse {
             proxy_pass https://127.0.0.1:8081/;
@@ -85,9 +87,9 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/ssl'), qr/200 OK.*X-Foo: ssl/ms, 'ssl');
-like(http_get('/ssl'), qr/200 OK.*X-Foo: ssl/ms, 'ssl 2');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Foo: ssl/ms, 'ssl reuse session');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Foo: ssl/ms, 'ssl reuse session 2');
+like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
+like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
 
 ###############################################################################

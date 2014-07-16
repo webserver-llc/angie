@@ -65,6 +65,11 @@ http {
         location /invalid {
             proxy_pass  http://$host:8080/backend;
         }
+        location /resend {
+            resolver    127.0.0.1:8081;
+            resolver_timeout 6s;
+            proxy_pass  http://$host:8080/backend;
+        }
 
         location /backend {
             return 200;
@@ -80,12 +85,16 @@ EOF
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
-$t->run()->plan(30);
+$t->run()->plan(31);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
 
 ###############################################################################
+
+# schedule resend test, which takes abound 5 seconds to complete
+
+my $s = http_start('id.example.net', '/resend');
 
 like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
 
@@ -212,6 +221,13 @@ like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
 
 like(http_host_header('example.net', '/invalid'), qr/502 Bad/, 'no resolver');
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.4');
+
+like(http_end($s), qr/200 OK/, 'resend after malformed response');
+
+}
+
 ###############################################################################
 
 sub http_host_header {
@@ -230,6 +246,57 @@ GET $uri HTTP/1.0
 X-Name: $host
 
 EOF
+}
+
+sub http_start {
+	my ($host, $uri) = @_;
+
+	my $s;
+	my $request = <<EOF;
+GET $uri HTTP/1.0
+Host: $host
+
+EOF
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(5);
+		$s = IO::Socket::INET->new(
+			Proto => 'tcp',
+			PeerAddr => '127.0.0.1:8080'
+		);
+		log_out($request);
+		$s->print($request);
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+	return $s;
+}
+
+sub http_end {
+	my ($s) = @_;
+	my $reply;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(3);
+		local $/;
+		$reply = $s->getline();
+		log_in($reply);
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+	return $reply;
 }
 
 ###############################################################################
@@ -276,6 +343,13 @@ sub reply_handler {
 	} elsif ($name eq 'case.example.net' && $type == A) {
 		if (++$state->{casecnt} > 1) {
 			$rcode = SERVFAIL;
+		}
+
+		push @rdata, rd_addr($ttl, '127.0.0.1');
+
+	} elsif ($name eq 'id.example.net' && $type == A) {
+		if (++$state->{idcnt} == 1) {
+			$id++;
 		}
 
 		push @rdata, rd_addr($ttl, '127.0.0.1');
@@ -434,6 +508,7 @@ sub dns_daemon {
 		cttl2cnt     => 0,
 		manycnt      => 0,
 		casecnt      => 0,
+		idcnt        => 0,
 	);
 
 	# signal we are ready

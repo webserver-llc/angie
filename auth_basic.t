@@ -120,9 +120,9 @@ like(http_get_auth('/', 'sha3', '1'), qr!401 Unauthorized!, 'sha broken 2');
 sub http_get_auth {
 	my ($url, $user, $password) = @_;
 
-	my $auth = encode_base64($user . ':' . $password);
+	my $auth = encode_base64($user . ':' . $password, '');
 
-        my $r = http(<<EOF);
+	return http(<<EOF);
 GET $url HTTP/1.0
 Host: localhost
 Authorization: Basic $auth

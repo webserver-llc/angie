@@ -104,7 +104,7 @@ http_get('/w');
 
 # same and other zones in different locations
 
-my $s = http_start('/w');
+my $s = http_get('/w', start => 1);
 like(http_get('/'), qr/^HTTP\/1.. 503 /, 'rejected');
 like(http_get('/1'), qr/^HTTP\/1.. 503 /, 'rejected different location');
 unlike(http_get('/zone'), qr/^HTTP\/1.. 503 /, 'passed different zone');
@@ -114,7 +114,7 @@ unlike(http_get('/1'), qr/^HTTP\/1.. 503 /, 'passed');
 
 # custom error code and log level
 
-$s = http_start('/custom/w');
+$s = http_get('/custom/w', start => 1);
 like(http_get('/custom'), qr/^HTTP\/1.. 501 /, 'limit_conn_status');
 
 like(`grep -F '[info]' ${\($t->testdir())}/error.log`,
@@ -123,7 +123,7 @@ like(`grep -F '[info]' ${\($t->testdir())}/error.log`,
 
 # limit_zone
 
-$s = http_start('/legacy/w');
+$s = http_get('/legacy/w', start => 1);
 like(http_get('/legacy'), qr/^HTTP\/1.. 503 /, 'legacy rejected');
 
 $s->close;
@@ -131,36 +131,8 @@ unlike(http_get('/legacy'), qr/^HTTP\/.. 503 /, 'legacy passed');
 
 # limited after unlimited
 
-$s = http_start('/w');
+$s = http_get('/w', start => 1);
 like(http_get('/unlim'), qr/404 Not Found/, 'unlimited passed');
 like(http_get('/'), qr/503 Service/, 'limited rejected');
-
-###############################################################################
-
-sub http_start {
-	my ($uri) = @_;
-
-	my $s;
-	my $request = "GET $uri HTTP/1.0" . CRLF . CRLF;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		$s = IO::Socket::INET->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8080'
-		);
-		log_out($request);
-		$s->print($request);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $s;
-}
 
 ###############################################################################

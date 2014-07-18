@@ -16,7 +16,7 @@ use Socket qw/ CRLF /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -88,7 +88,7 @@ sub parallel {
 	my (@sockets, %ports);
 
 	for (1 .. $count) {
-		push(@sockets, http_start($uri));
+		push(@sockets, http_get($uri, start => 1));
 		select undef, undef, undef, 0.1;
 	}
 
@@ -100,53 +100,6 @@ sub parallel {
 	}
 
 	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
-}
-
-sub http_start {
-	my ($uri) = @_;
-
-	my $s;
-	my $request = "GET $uri HTTP/1.0" . CRLF . CRLF;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		$s = IO::Socket::INET->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8080'
-		);
-		log_out($request);
-		$s->print($request);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $s;
-}
-
-sub http_end {
-	my ($s) = @_;
-	my $reply;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		local $/;
-		$reply = $s->getline();
-		log_in($reply);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $reply;
 }
 
 ###############################################################################

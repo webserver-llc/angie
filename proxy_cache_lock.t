@@ -15,7 +15,7 @@ use Socket qw/ CRLF /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -87,7 +87,7 @@ for my $i (1 .. 5) {
 my @sockets;
 
 for my $i (1 .. 5) {
-	$sockets[$i] = http_start('/par1');
+	$sockets[$i] = http_get('/par1', start => 1);
 }
 
 for my $i (1 .. 5) {
@@ -99,7 +99,7 @@ like(http_get('/par1'), qr/request 1/, 'first request cached');
 # parallel requests with cache lock timeout
 
 for my $i (1 .. 3) {
-	$sockets[$i] = http_start('/timeout');
+	$sockets[$i] = http_get('/timeout', start => 1);
 }
 
 for my $i (1 .. 3) {
@@ -111,7 +111,7 @@ like(http_get('/timeout'), qr/request 3/, 'lock timeout - last cached');
 # no lock
 
 for my $i (1 .. 3) {
-	$sockets[$i] = http_start('/nolock');
+	$sockets[$i] = http_get('/nolock', start => 1);
 }
 
 for my $i (1 .. 3) {
@@ -121,53 +121,6 @@ for my $i (1 .. 3) {
 like(http_get('/nolock'), qr/request 3/, 'nolock - last cached');
 
 ###############################################################################
-
-sub http_start {
-	my ($uri) = @_;
-
-	my $s;
-	my $request = "GET $uri HTTP/1.0" . CRLF . CRLF;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		$s = IO::Socket::INET->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8080'
-		);
-		log_out($request);
-		$s->print($request);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $s;
-}
-
-sub http_end {
-	my ($s) = @_;
-	my $reply;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		local $/;
-		$reply = $s->getline();
-		log_in($reply);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $reply;
-}
 
 ###############################################################################
 

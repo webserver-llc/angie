@@ -15,7 +15,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -94,7 +94,7 @@ $t->waitforfile($t->testdir . '/8082');
 
 # schedule resend test, which takes abound 5 seconds to complete
 
-my $s = http_start('id.example.net', '/resend');
+my $s = http_host_header('id.example.net', '/resend', start => 1);
 
 like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
 
@@ -231,8 +231,8 @@ like(http_end($s), qr/200 OK/, 'resend after malformed response');
 ###############################################################################
 
 sub http_host_header {
-	my ($host, $uri) = @_;
-	return http(<<EOF);
+	my ($host, $uri, %extra) = @_;
+	return http(<<EOF, %extra);
 GET $uri HTTP/1.0
 Host: $host
 
@@ -246,57 +246,6 @@ GET $uri HTTP/1.0
 X-Name: $host
 
 EOF
-}
-
-sub http_start {
-	my ($host, $uri) = @_;
-
-	my $s;
-	my $request = <<EOF;
-GET $uri HTTP/1.0
-Host: $host
-
-EOF
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
-		$s = IO::Socket::INET->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8080'
-		);
-		log_out($request);
-		$s->print($request);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $s;
-}
-
-sub http_end {
-	my ($s) = @_;
-	my $reply;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(3);
-		local $/;
-		$reply = $s->getline();
-		log_in($reply);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-	return $reply;
 }
 
 ###############################################################################

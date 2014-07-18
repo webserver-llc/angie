@@ -12,7 +12,7 @@ use strict;
 use base qw/ Exporter /;
 
 our @EXPORT = qw/ log_in log_out http http_get http_head /;
-our @EXPORT_OK = qw/ http_gzip_request http_gzip_like /;
+our @EXPORT_OK = qw/ http_gzip_request http_gzip_like http_start http_end /;
 our %EXPORT_TAGS = (
 	gzip => [ qw/ http_gzip_request http_gzip_like / ]
 );
@@ -455,14 +455,23 @@ EOF
 
 sub http($;%) {
 	my ($request, %extra) = @_;
-	my $reply;
+
+	my $s = http_start($request, %extra);
+
+	return $s if $extra{start} or !defined $s;
+	return http_end($s);
+}
+
+sub http_start($;%) {
+	my ($request, %extra) = @_;
+	my $s;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(5);
 
-		my $s = $extra{socket} || IO::Socket::INET->new(
+		$s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:8080'
 		)
@@ -478,6 +487,26 @@ sub http($;%) {
 			log_out($extra{body});
 			$s->print($extra{body});
 		}
+
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	return $s;
+}
+
+sub http_end($;%) {
+	my ($s) = @_;
+	my $reply;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(5);
 
 		local $/;
 		$reply = $s->getline();

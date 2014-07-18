@@ -39,6 +39,7 @@ http {
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
+        ssl_session_cache builtin;
 
         location / {
             add_header X-Session $ssl_session_reused;

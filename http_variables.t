@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(3);
+my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -69,6 +69,7 @@ $t->run();
 ###############################################################################
 
 http_get('/');
+http_get('/../bad_uri');
 http_get('/redefine');
 
 $t->stop();
@@ -81,6 +82,13 @@ my $log;
 	local $/;
 	$log = <LOG>;
 	close LOG;
+}
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.4');
+
+like($log, qr!^: -$!m, 'no uri');
+
 }
 
 like($log, qr!^/: -$!m, 'no header');

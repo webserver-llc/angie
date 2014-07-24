@@ -38,7 +38,7 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 my $t = Test::Nginx->new()
 	->has(qw/http proxy cache limit_conn rewrite spdy realip/);
 
-$t->plan(76)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(79)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -97,6 +97,15 @@ http {
         }
         location /t3.html {
             limit_conn conn 1;
+        }
+        location /set-cookie {
+            add_header Set-Cookie val1;
+            add_header Set-Cookie val2;
+            return 200;
+        }
+        location /cookie {
+            add_header X-Cookie $http_cookie;
+            return 200;
         }
     }
 }
@@ -206,6 +215,43 @@ is($frame->{headers}->{':status'}, 206, 'SYN_REPLAY status range');
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{length}, 10, 'DATA length range');
 is($frame->{data}, '002XXXX000', 'DATA payload range');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.4');
+
+# request header with multiple values
+
+$sess = new_session();
+$sid1 = spdy_stream($sess, { path => '/cookie',
+	headers => { "cookie" =>  "val1\0val2" }
+});
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+ok(grep ({ $_->{type} eq "SYN_REPLY" } @$frames),
+	'multiple request header values');
+
+# request header with multiple values proxied to http backend
+
+$sess = new_session();
+$sid1 = spdy_stream($sess, { path => '/proxy/cookie',
+	headers => { "cookie" =>  "val1\0val2" }
+});
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+is($frame->{headers}->{'x-cookie'}, 'val1; val2',
+	'multiple request header values - proxied');
+
+}
+
+# response header with multiple values
+
+$sess = new_session();
+$sid1 = spdy_stream($sess, { path => '/set-cookie' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+is($frame->{headers}->{'set-cookie'}, "val1\0val2",
+	'response header with multiple values');
 
 # $spdy
 

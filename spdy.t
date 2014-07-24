@@ -305,7 +305,7 @@ local $TODO = 'premature client connection close'
 	unless $t->has_version('1.7.3');
 
 $sid2 = spdy_stream($sess, { path => '/' });
-$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+$frames = spdy_read($sess, all => [{ sid => $sid2, fin => 1 }]);
 ok(grep ({ $_->{type} eq "SYN_REPLY" } @$frames), 'proxy cache headers only');
 
 }

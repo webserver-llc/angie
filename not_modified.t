@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has('http')->plan(14)
+my $t = Test::Nginx->new()->has('http')->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -93,6 +93,10 @@ like(http_get_im('/t', '"foo", "bar", ' . "\t" . $etag . ' , "baz"'),
 	qr/200/, 'if-match with complex list');
 like(http_get_im('/t', '*'), qr/200/, 'if-match all');
 like(http_get_im('/t', 'W/' . $etag), qr/412/, 'if-match weak fail');
+
+# server MUST ignore precondition if its response wouldn't be 2xx or 412
+
+like(http_get_im('/nx', '"foo"'), qr/404/, 'if-match ignored with 404');
 
 ###############################################################################
 

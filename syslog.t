@@ -26,9 +26,9 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http limit_req/);
 
-plan(skip_all => 'no syslog') unless $t->has_version('1.7.1');
+plan(skip_all => 'no syslog if') unless $t->has_version('1.7.5');
 
-$t->plan(56)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(58)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -46,7 +46,7 @@ http {
     limit_req_zone $binary_remote_addr zone=one:10m rate=1r/m;
 
     log_format empty "";
-    log_format logf "$status";
+    log_format logf "$uri:$status";
 
     error_log syslog:server=127.0.0.1:8084 info;
     error_log %%TESTDIR%%/f_http.log info;
@@ -89,6 +89,9 @@ http {
         }
         location /a_logf {
             access_log syslog:server=127.0.0.1:8080 logf;
+        }
+        location /if {
+            access_log syslog:server=127.0.0.1:8085 logf if=$arg_logme;
         }
 
         location /debug {
@@ -134,9 +137,11 @@ EOF
 
 $t->run_daemon(\&syslog_daemon, 8083, $t, 's_glob.log');
 $t->run_daemon(\&syslog_daemon, 8084, $t, 's_http.log');
+$t->run_daemon(\&syslog_daemon, 8085, $t, 's_if.log');
 
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_http.log');
+$t->waitforfile($t->testdir . '/s_if.log');
 
 $t->run();
 
@@ -157,7 +162,7 @@ like(get_syslog('/at'), qr/SEETHIS:/, 'access_log tag');
 like(get_syslog('/e'),
 	qr/nginx: \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} \[error\]/,
 	'error_log format');
-like(get_syslog('/a_logf'), qr/nginx: 404$/, 'access_log log_format');
+like(get_syslog('/a_logf'), qr/nginx: \/a_logf:404$/, 'access_log log_format');
 
 my @lines = split /<\d+>/, get_syslog('/a2');
 is($lines[1], $lines[2], 'access_log many');
@@ -194,6 +199,17 @@ is(syslog_lines('/high', '[error'), 1, 'high');
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'f_glob.log'), 'master syslog');
 is_deeply(levels($t, 's_http.log'), levels($t, 'f_http.log'), 'http syslog');
+
+http_get('/if');
+http_get('/if/empty?logme=');
+http_get('/if/zero?logme=0');
+http_get('/if/good?logme=1');
+http_get('/if/work?logme=yes');
+
+get_syslog('/a');
+
+like(read_file($t, 's_if.log'), qr/good:404.*work:404/s, 'syslog if success');
+unlike(read_file($t, 's_if.log'), qr/(if:|empty:|zero:)404/, 'syslog if fail');
 
 ###############################################################################
 

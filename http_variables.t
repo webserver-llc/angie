@@ -84,13 +84,7 @@ my $log;
 	close LOG;
 }
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.4');
-
 like($log, qr!^: -$!m, 'no uri');
-
-}
-
 like($log, qr!^/: -$!m, 'no header');
 like($log, qr!^/set: max-age=3600[,;] private[,;] must-revalidate$!m,
 	'multi headers');

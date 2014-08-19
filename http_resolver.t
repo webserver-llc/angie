@@ -70,6 +70,11 @@ http {
             resolver_timeout 6s;
             proxy_pass  http://$host:8080/backend;
         }
+        location /bad {
+            resolver    127.0.0.1:8089;
+            resolver_timeout 1s;
+            proxy_pass  http://$host:8080/backend;
+        }
 
         location /backend {
             return 200;
@@ -85,7 +90,7 @@ EOF
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 
-$t->run()->plan(31);
+$t->run()->plan(32);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
@@ -225,6 +230,17 @@ TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.7.4');
 
 like(http_end($s), qr/200 OK/, 'resend after malformed response');
+
+}
+
+$s = http_get('/bad', start => 1);
+my $s2 = http_get('/bad', start => 1);
+
+TODO: {
+local $TODO = 'hangs';
+
+http_end($s);
+ok(http_end($s2), 'timeout handler on 2nd request');
 
 }
 

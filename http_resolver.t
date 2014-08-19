@@ -97,7 +97,7 @@ $t->waitforfile($t->testdir . '/8082');
 
 ###############################################################################
 
-# schedule resend test, which takes abound 5 seconds to complete
+# schedule resend test, which takes about 5 seconds to complete
 
 my $s = http_host_header('id.example.net', '/resend', start => 1);
 

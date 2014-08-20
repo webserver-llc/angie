@@ -115,7 +115,12 @@ http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
 
 
-select undef, undef, undef, 0.1;
+# wait for file to appear with nonzero size thanks to the flush parameter
+
+for (1 .. 10) {
+	last if -s $t->testdir() . '/compressed.log';
+	select undef, undef, undef, 0.1;
+}
 
 # verify that "gzip" parameter turns on compression
 

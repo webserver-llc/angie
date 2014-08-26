@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(14)
+my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -69,6 +69,17 @@ http {
             sub_filter aab _replaced;
             return 200 $arg_b;
         }
+
+        location /single {
+            sub_filter A B;
+            return 200 $arg_b;
+        }
+
+        location /single/many {
+            sub_filter A B;
+            sub_filter_once off;
+            return 200 $arg_b;
+        }
     }
 }
 
@@ -96,5 +107,26 @@ like(http_get('/complex2?b=abababX'), qr/ab_replaced/, 'complex2 long');
 like(http_get('/complex3?b=aab'), qr/_replaced/, 'complex3 aab in aab');
 like(http_get('/complex3?b=aaab'), qr/a_replaced/, 'complex3 aab in aaab');
 like(http_get('/complex3?b=aaaab'), qr/aa_replaced/, 'complex3 aab in aaaab');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.4');
+
+SKIP: {
+skip 'leaves coredump', 8 unless $t->has_version('1.7.4')
+	or $ENV{TEST_NGINX_UNSAFE};
+
+like(http_get('/single?b=A'), qr/B/, 'single only');
+like(http_get('/single?b=AA'), qr/BA/, 'single begin');
+like(http_get('/single?b=CAAC'), qr/CBAC/, 'single middle');
+like(http_get('/single?b=CA'), qr/CB/, 'single end');
+
+like(http_get('/single/many?b=A'), qr/B/, 'single many only');
+like(http_get('/single/many?b=AA'), qr/BB/, 'single many begin');
+like(http_get('/single/many?b=CAAC'), qr/CBBC/, 'single many middle');
+like(http_get('/single/many?b=CA'), qr/CB/, 'single many end');
+
+}
+
+}
 
 ###############################################################################

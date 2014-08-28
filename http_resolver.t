@@ -237,7 +237,7 @@ $s = http_get('/bad', start => 1);
 my $s2 = http_get('/bad', start => 1);
 
 TODO: {
-local $TODO = 'hangs';
+local $TODO = 'hangs' unless $t->has_version('1.7.5');
 
 http_end($s);
 ok(http_end($s2), 'timeout handler on 2nd request');

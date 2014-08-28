@@ -76,10 +76,11 @@ $t->run();
 # prefixed variables
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.5');
 
 SKIP: {
-skip 'leaves coredump', 2 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'leaves coredump', 2 unless $t->has_version('1.7.5')
+	or $ENV{TEST_NGINX_UNSAFE};
 
 like(http_get_extra('/t1.html', 'Foo: http_foo'), qr/Xset_fooX/,
 	'set in this context');

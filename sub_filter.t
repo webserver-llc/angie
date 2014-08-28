@@ -109,10 +109,10 @@ like(http_get('/complex3?b=aaab'), qr/a_replaced/, 'complex3 aab in aaab');
 like(http_get('/complex3?b=aaaab'), qr/aa_replaced/, 'complex3 aab in aaaab');
 
 TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.4');
+local $TODO = 'not yet' unless $t->has_version('1.7.5');
 
 SKIP: {
-skip 'leaves coredump', 8 unless $t->has_version('1.7.4')
+skip 'leaves coredump', 8 unless $t->has_version('1.7.5')
 	or $ENV{TEST_NGINX_UNSAFE};
 
 like(http_get('/single?b=A'), qr/B/, 'single only');

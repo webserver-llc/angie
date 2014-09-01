@@ -140,6 +140,12 @@ http {
             return 204;
         }
     }
+
+    server {
+        listen       127.0.0.1:8084;
+        server_name  localhost;
+        return 444;
+    }
 }
 
 EOF

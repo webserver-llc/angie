@@ -132,7 +132,7 @@ SKIP: {
 
 	my $gzipped = read_file($t, 'compressed.log');
 	IO::Uncompress::Gunzip::gunzip(\$gzipped => \$log);
-	is($log, "/compressed:200\n", 'compressed log - flush time');
+	like($log, qr!^/compressed:200!s, 'compressed log - flush time');
 }
 
 # now verify all other logs

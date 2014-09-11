@@ -41,6 +41,8 @@ http {
     scgi_cache_path  %%TESTDIR%%/cache  levels=1:2
                      keys_zone=NAME:10m;
 
+    scgi_cache_key   stub;
+
     scgi_param SCGI 1;
     scgi_param HTTP_X_BLAH "blah";
 

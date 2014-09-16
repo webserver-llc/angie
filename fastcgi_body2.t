@@ -28,7 +28,7 @@ eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(1)
+my $t = Test::Nginx->new()->has(qw/http fastcgi/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -42,7 +42,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8081;
+        server 127.0.0.1:8081 max_fails=0;
         server 127.0.0.1:8082;
     }
 
@@ -56,6 +56,15 @@ http {
             fastcgi_param CONTENT_LENGTH $content_length;
             # fastcgi_next_upstream error timeout;
             fastcgi_read_timeout 1s;
+        }
+
+        location /in_memory {
+            fastcgi_pass u;
+            fastcgi_param REQUEST_URI $request_uri;
+            fastcgi_param CONTENT_LENGTH $content_length;
+            # fastcgi_next_upstream error timeout;
+            fastcgi_read_timeout 1s;
+            client_body_buffer_size 128k;
         }
     }
 }
@@ -74,7 +83,15 @@ $t->waitforsocket('127.0.0.1:8082');
 TODO: {
 local $TODO = 'not yet';
 
-like(http_get_length('/', 'x' x 102400), qr/X-Length: 102400/, 'body length');
+like(http_get_length('/', 'x' x 102400), qr/X-Length: 102400/,
+	'body length - in file');
+
+# force quick recovery, so that the next request wouldn't fail
+
+http_get('/');
+
+like(http_get_length('/in_memory', 'x' x 102400), qr/X-Length: 102400/,
+	'body length - in memory');
 
 }
 

@@ -46,6 +46,9 @@ sub new {
 	mkdir "$self->{_testdir}/logs"
 		or die "Can't create logs directory: $!\n";
 
+	Test::More::BAIL_OUT("no $NGINX binary found")
+		unless -x $NGINX;
+
 	return $self;
 }
 

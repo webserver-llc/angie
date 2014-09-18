@@ -89,11 +89,13 @@ EOF
 
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
+$t->run_daemon(\&dns_daemon, 8089, $t);
 
 $t->run()->plan(32);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
+$t->waitforfile($t->testdir . '/8089');
 
 ###############################################################################
 
@@ -483,6 +485,7 @@ sub dns_daemon {
 
 	while (1) {
 		$socket->recv($recv_data, 65536);
+		next if $port == 8089;
 		$data = reply_handler($recv_data, $port, \%state);
 		$socket->send($data);
 	}

@@ -56,9 +56,17 @@ http {
             return 200 OK;
         }
 
-        location /complex {
+        location /filtered/complex {
             access_log %%TESTDIR%%/complex.log test
                        if=$arg_logme$arg_logmetoo;
+            return 200 OK;
+        }
+
+        location /filtered/noreuse {
+            access_log %%TESTDIR%%/noreuse.log test buffer=16k
+                       if=$arg_a;
+            access_log %%TESTDIR%%/noreuse.log test buffer=16k
+                       if=$arg_b;
             return 200 OK;
         }
 
@@ -83,7 +91,7 @@ http {
 
 EOF
 
-$t->try_run('no access_log if')->plan(8);
+$t->try_run('no access_log if')->plan(9);
 
 ###############################################################################
 
@@ -96,14 +104,19 @@ http_get('/filtered/zero?logme=0');
 http_get('/filtered/good?logme=1');
 http_get('/filtered/work?logme=yes');
 
-http_get('/complex');
-http_get('/complex/one?logme=1');
-http_get('/complex/two?logmetoo=1');
-http_get('/complex/either1?logme=A&logmetoo=B');
-http_get('/complex/either2?logme=A');
-http_get('/complex/either3?logmetoo=B');
-http_get('/complex/either4?logme=0&logmetoo=0');
-http_get('/complex/neither?logme=&logmetoo=');
+http_get('/filtered/complex');
+http_get('/filtered/complex/one?logme=1');
+http_get('/filtered/complex/two?logmetoo=1');
+http_get('/filtered/complex/either1?logme=A&logmetoo=B');
+http_get('/filtered/complex/either2?logme=A');
+http_get('/filtered/complex/either3?logmetoo=B');
+http_get('/filtered/complex/either4?logme=0&logmetoo=0');
+http_get('/filtered/complex/neither?logme=&logmetoo=');
+
+http_get('/filtered/noreuse1/zero?a=0');
+http_get('/filtered/noreuse1/good?a=1');
+http_get('/filtered/noreuse2/zero?b=0');
+http_get('/filtered/noreuse2/good?b=1');
 
 http_get('/compressed');
 
@@ -157,16 +170,28 @@ is($log, "/filtered/good:200\n/filtered/work:200\n", 'log filtering');
 # verify "if=" argument works with complex value
 
 my $exp_complex = <<'EOF';
-/complex/one:200
-/complex/two:200
-/complex/either1:200
-/complex/either2:200
-/complex/either3:200
-/complex/either4:200
+/filtered/complex/one:200
+/filtered/complex/two:200
+/filtered/complex/either1:200
+/filtered/complex/either2:200
+/filtered/complex/either3:200
+/filtered/complex/either4:200
 EOF
 
 $log = read_file($t, 'complex.log');
 is($log, $exp_complex, 'if with complex value');
+
+
+# buffer created with false "if" is not reused among multiple access_log
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.5');
+
+$log = read_file($t, '/noreuse.log');
+is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
+	'log filtering with buffering');
+
+}
 
 
 # multiple logs in a same location

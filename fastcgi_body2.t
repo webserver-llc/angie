@@ -81,7 +81,7 @@ $t->waitforsocket('127.0.0.1:8082');
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.6');
 
 like(http_get_length('/', 'x' x 102400), qr/X-Length: 102400/,
 	'body length - in file');

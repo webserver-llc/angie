@@ -102,7 +102,7 @@ like(http_get('/t'), qr/X-Cache-Status: REVALIDATED.*SEE/ms, 'revalidated');
 like(http_get('/t'), qr/X-Cache-Status: HIT.*SEE/ms, 'cached again');
 
 select undef, undef, undef, 0.1;
-like(read_file($t->testdir() . '/access.log'), qr/ 304 /, 'not modified');
+like($t->read_file('access.log'), qr/ 304 /, 'not modified');
 
 # 2nd document is recreated with a new content
 
@@ -128,20 +128,5 @@ like(http_get('/etag/t2'), qr/X-Cache-Status: EXPIRED.*NEW/ms,
 	'etag2 revalidate failed');
 like(http_get('/etag/t2'), qr/X-Cache-Status: HIT.*NEW/ms,
 	'etag2 new response cached');
-
-###############################################################################
-
-sub read_file {
-	my ($file) = @_;
-	my $log;
-
-        local $/;
-
-        open LOG, $file or die "Can't open $file: $!\n";
-        $log = <LOG>;
-        close LOG;
-
-	return $log;
-}
 
 ###############################################################################

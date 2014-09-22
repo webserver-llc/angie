@@ -208,8 +208,8 @@ http_get('/if/work?logme=yes');
 
 get_syslog('/a');
 
-like(read_file($t, 's_if.log'), qr/good:404.*work:404/s, 'syslog if success');
-unlike(read_file($t, 's_if.log'), qr/(if:|empty:|zero:)404/, 'syslog if fail');
+like($t->read_file('s_if.log'), qr/good:404.*work:404/s, 'syslog if success');
+unlike($t->read_file('s_if.log'), qr/(if:|empty:|zero:)404/, 'syslog if fail');
 
 ###############################################################################
 
@@ -222,7 +222,7 @@ sub levels {
 	my ($t, $file) = @_;
 	my %levels_hash;
 
-	map { $levels_hash{$_}++; } (read_file($t, $file) =~ /(\[\w+\])/g);
+	map { $levels_hash{$_}++; } ($t->read_file($file) =~ /(\[\w+\])/g);
 
 	return \%levels_hash;
 }
@@ -264,17 +264,6 @@ sub get_syslog {
 	}
 	$s->close();
 	return $data;
-}
-
-sub read_file {
-	my ($t, $file) = @_;
-	my $path = $t->testdir() . '/' . $file;
-
-	open my $fh, '<', $path or return "$!";
-	local $/;
-	my $content = <$fh>;
-	close $fh;
-	return $content;
 }
 
 sub parse_syslog_message {

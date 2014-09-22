@@ -143,7 +143,7 @@ SKIP: {
 	eval { require IO::Uncompress::Gunzip; };
 	skip("IO::Uncompress::Gunzip not installed", 1) if $@;
 
-	my $gzipped = read_file($t, 'compressed.log');
+	my $gzipped = $t->read_file('compressed.log');
 	IO::Uncompress::Gunzip::gunzip(\$gzipped => \$log);
 	like($log, qr!^/compressed:200!s, 'compressed log - flush time');
 }
@@ -155,7 +155,7 @@ $t->stop();
 
 # verify that by default, 'combined' format is used, 'off' disables logging
 
-$log = read_file($t, 'combined.log');
+$log = $t->read_file('combined.log');
 like($log,
 	qr!^\Q127.0.0.1 - - [\E .*
 		\Q] "GET /combined HTTP/1.0" 200 2 "-" "-"\E$!x,
@@ -163,7 +163,7 @@ like($log,
 
 # verify that log filtering works
 
-$log = read_file($t, 'filtered.log');
+$log = $t->read_file('filtered.log');
 is($log, "/filtered/good:200\n/filtered/work:200\n", 'log filtering');
 
 
@@ -178,7 +178,7 @@ my $exp_complex = <<'EOF';
 /filtered/complex/either4:200
 EOF
 
-$log = read_file($t, 'complex.log');
+$log = $t->read_file('complex.log');
 is($log, $exp_complex, 'if with complex value');
 
 
@@ -187,7 +187,7 @@ is($log, $exp_complex, 'if with complex value');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.7.5');
 
-$log = read_file($t, '/noreuse.log');
+$log = $t->read_file('/noreuse.log');
 is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
 	'log filtering with buffering');
 
@@ -196,34 +196,21 @@ is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
 
 # multiple logs in a same location
 
-$log = read_file($t, 'multi1.log');
+$log = $t->read_file('multi1.log');
 is($log, "/multi:200\n", 'multiple logs 1');
 
 # same content in the second log
 
-$log = read_file($t, 'multi2.log');
+$log = $t->read_file('multi2.log');
 is($log, "/multi:200\n", 'multiple logs 2');
 
 
 # test log destinations with variables
 
-$log = read_file($t, '0');
+$log = $t->read_file('0');
 is($log, "/varlog:200\n", 'varlog literal zero name');
 
-$log = read_file($t, 'filename');
+$log = $t->read_file('filename');
 is($log, "/varlog:200\n", 'varlog good name');
-
-###############################################################################
-
-sub read_file {
-	my ($t, $file) = @_;
-	my $path = $t->testdir() . '/' . $file;
-
-	open my $fh, '<', $path or return "$!";
-	local $/;
-	my $content = <$fh>;
-	close $fh;
-	return $content;
-}
 
 ###############################################################################

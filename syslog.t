@@ -274,7 +274,6 @@ sub read_file {
 	local $/;
 	my $content = <$fh>;
 	close $fh;
-	chop $content;
 	return $content;
 }
 

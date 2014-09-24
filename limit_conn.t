@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req/)->plan(10);
+my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -44,7 +44,6 @@ http {
     limit_conn_zone  $binary_remote_addr  zone=zone:1m;
     limit_conn_zone  $binary_remote_addr  zone=zone2:1m;
     limit_conn_zone  $binary_remote_addr  zone=custom:1m;
-    limit_zone       legacy  $binary_remote_addr  1m;
 
     server {
         listen       127.0.0.1:8081;
@@ -82,19 +81,12 @@ http {
             limit_conn_status 501;
             limit_conn custom 1;
         }
-
-        location /legacy {
-            proxy_pass http://127.0.0.1:8081/;
-            limit_conn legacy 1;
-        }
     }
 }
 
 EOF
 
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
@@ -120,14 +112,6 @@ like(http_get('/custom'), qr/^HTTP\/1.. 501 /, 'limit_conn_status');
 like(`grep -F '[info]' ${\($t->testdir())}/error.log`,
 	qr/limiting connections by zone "custom"/s,
 	'limit_conn_log_level');
-
-# limit_zone
-
-$s = http_get('/legacy/w', start => 1);
-like(http_get('/legacy'), qr/^HTTP\/1.. 503 /, 'legacy rejected');
-
-$s->close;
-unlike(http_get('/legacy'), qr/^HTTP\/.. 503 /, 'legacy passed');
 
 # limited after unlimited
 

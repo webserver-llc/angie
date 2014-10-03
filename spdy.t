@@ -528,6 +528,13 @@ is($frame->{headers}->{':status'}, 200, 'conn_limit 1');
 ($frame) = grep { $_->{type} eq "SYN_REPLY" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 503, 'conn_limit 2');
 
+spdy_settings($sess, 7 => 2**16);
+
+spdy_read($sess, all => [
+	{ sid => $sid1, fin => 1 },
+	{ sid => $sid2, fin => 1 }
+]);
+
 # limit_conn + client's RST_STREAM
 
 $sess = new_session();

@@ -157,11 +157,11 @@ like(get('/', 'deflate'), qr/EXPIRED/ms, 'bump4');
 TODO: {
 local $TODO = 'not yet';
 
-like(head('/', 'gzip'), qr/MISS/ms, 'first not bumped by second requests');
+like(get('/', 'gzip'), qr/MISS/ms, 'first not bumped by second requests');
 
 }
 
-like(head('/', 'deflate'), qr/HIT/ms, 'second variant cached');
+like(get('/', 'deflate'), qr/HIT/ms, 'second variant cached');
 
 }
 

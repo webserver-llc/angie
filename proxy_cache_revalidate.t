@@ -115,7 +115,7 @@ like(http_get('/t2'), qr/X-Cache-Status: HIT.*NEW/ms, 'new response cached');
 # 2nd document is recreated
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.7');
 
 like(http_get('/etag/t'), qr/X-Cache-Status: REVALIDATED.*SEE/ms,
 	'etag revalidated');

@@ -14,7 +14,6 @@ use Test::More;
 use IO::Poll;
 use IO::Select;
 use IO::Socket::INET;
-use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 

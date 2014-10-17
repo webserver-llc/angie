@@ -57,7 +57,7 @@ http {
         }
 
         location /req {
-            limit_req  zone=req burst=1;
+            limit_req  zone=req burst=2;
         }
     }
 }
@@ -85,6 +85,7 @@ ok(IO::Select->new($s)->can_read(0.1), 'limit_req different key');
 # limit_conn tests
 
 $s = http_get('/w', start => 1);
+select undef, undef, undef, 0.2;
 
 like(http_get('/'), qr/^HTTP\/1.. 503 /, 'limit_conn same key');
 unlike(http_get('/?c=2'), qr/^HTTP\/1.. 503 /, 'limit_conn different key');

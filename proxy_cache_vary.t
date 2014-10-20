@@ -103,7 +103,7 @@ $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('asterisk', 'SEE-THIS');
 $t->write_file('complex', 'SEE-THIS');
 
-$t->try_run('no proxy_ignore_headers Vary')->plan(40);
+$t->try_run('no proxy_ignore_headers Vary')->plan(41);
 
 ###############################################################################
 
@@ -246,6 +246,7 @@ TODO: {
 local $TODO = 'not yet';
 
 like(get('/', 'foo,bar'), qr/HIT/ms, 'normalize whitespace');
+like(get('/', 'foo,,  ,bar , '), qr/HIT/ms, 'normalize empty');
 like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
 
 }

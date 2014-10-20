@@ -103,7 +103,7 @@ $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('asterisk', 'SEE-THIS');
 $t->write_file('complex', 'SEE-THIS');
 
-$t->try_run('no proxy_ignore_headers Vary')->plan(41);
+$t->try_run('no proxy_ignore_headers Vary')->plan(42);
 
 ###############################################################################
 
@@ -237,10 +237,13 @@ like(get('/asterisk', 'gzip'), qr/MISS/ms, 'vary asterisk second');
 #       specification (e.g., reordering field values when order is not
 #       significant; case-normalization, where values are defined to be
 #       case-insensitive)
+#
+# Only whitespace normalization is currently implemented.
 
 like(get('/', 'foo, bar'), qr/MISS/ms, 'normalize first');
 like(get('/', 'foo,bar'), qr/HIT/ms, 'normalize whitespace');
 like(get('/', 'foo,,  ,bar , '), qr/HIT/ms, 'normalize empty');
+like(get('/', 'foobar'), qr/MISS/ms, 'normalize no whitespace mismatch');
 
 TODO: {
 local $TODO = 'not yet';

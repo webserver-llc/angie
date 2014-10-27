@@ -79,6 +79,14 @@ http {
             proxy_next_upstream_tries 2;
         }
 
+        location /tries/resolver {
+            resolver 127.0.0.1:8083;
+            resolver_timeout 1s;
+
+            proxy_pass http://$host:8081/backend;
+            proxy_next_upstream_tries 2;
+        }
+
         location /timeout {
             proxy_pass http://u3;
             proxy_next_upstream_timeout 1500ms;
@@ -86,6 +94,14 @@ http {
 
         location /timeout/backup {
             proxy_pass http://u4;
+            proxy_next_upstream_timeout 1500ms;
+        }
+
+        location /timeout/resolver {
+            resolver 127.0.0.1:8083;
+            resolver_timeout 1s;
+
+            proxy_pass http://$host:8082/backend;
             proxy_next_upstream_timeout 1500ms;
         }
 
@@ -99,20 +115,36 @@ EOF
 
 $t->run_daemon(\&http_daemon, 8081);
 $t->run_daemon(\&http_daemon, 8082);
-$t->try_run('no proxy_next_upstream_tries')->plan(4);
+$t->run_daemon(\&dns_daemon, 8083, $t);
+$t->try_run('no proxy_next_upstream_tries')->plan(6);
 
 $t->waitforsocket('127.0.0.1:8081');
 $t->waitforsocket('127.0.0.1:8082');
+$t->waitforfile($t->testdir . '/8083');
 
 ###############################################################################
 
 like(http_get('/tries'), qr/x404, 404x/, 'tries');
 like(http_get('/tries/backup'), qr/x404, 404x/, 'tries backup');
 
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/tries/resolver'), qr/x404, 404x/, 'tries resolved');
+
+}
+
 # two tries fit into 1.5s
 
 like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/timeout/resolver'), qr/x404, 404x/, 'timeout resolved');
+
+}
 
 ###############################################################################
 
@@ -156,6 +188,73 @@ EOF
 
 	} continue {
 		close $client;
+	}
+}
+
+sub reply_handler {
+	my ($recv_data) = @_;
+
+	my (@name, @rdata);
+
+	use constant NOERROR	=> 0;
+	use constant A		=> 1;
+	use constant IN 	=> 1;
+
+	# default values
+
+	my ($hdr, $rcode, $ttl) = (0x8180, NOERROR, 3600);
+
+	# decode name
+
+	my ($len, $offset) = (undef, 12);
+	while (1) {
+		$len = unpack("\@$offset C", $recv_data);
+		last if $len == 0;
+		$offset++;
+		push @name, unpack("\@$offset A$len", $recv_data);
+		$offset += $len;
+	}
+
+	$offset -= 1;
+	my ($id, $type, $class) = unpack("n x$offset n2", $recv_data);
+
+	@rdata = map { rd_addr($ttl, '127.0.0.1') } (1 .. 3);
+
+	$len = @name;
+	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+		0, 0, @name, $type, $class) . join('', @rdata);
+}
+
+sub rd_addr {
+	my ($ttl, $addr) = @_;
+
+	my $code = 'split(/\./, $addr)';
+
+	return pack 'n3N', 0xc00c, A, IN, $ttl if $addr eq '';
+
+	pack 'n3N nC4', 0xc00c, A, IN, $ttl, eval "scalar $code", eval($code);
+}
+
+sub dns_daemon {
+	my ($port, $t) = @_;
+
+	my ($data, $recv_data);
+	my $socket = IO::Socket::INET->new(
+		LocalAddr    => '127.0.0.1',
+		LocalPort    => $port,
+		Proto        => 'udp',
+	)
+		or die "Can't create listening socket: $!\n";
+
+	# signal we are ready
+
+	open my $fh, '>', $t->testdir() . '/' . $port;
+	close $fh;
+
+	while (1) {
+		$socket->recv($recv_data, 65536);
+		$data = reply_handler($recv_data);
+		$socket->send($data);
 	}
 }
 

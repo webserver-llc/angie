@@ -128,7 +128,7 @@ like(http_get('/tries'), qr/x404, 404x/, 'tries');
 like(http_get('/tries/backup'), qr/x404, 404x/, 'tries backup');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.7');
 
 like(http_get('/tries/resolver'), qr/x404, 404x/, 'tries resolved');
 
@@ -140,7 +140,7 @@ like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.7');
 
 like(http_get('/timeout/resolver'), qr/x404, 404x/, 'timeout resolved');
 

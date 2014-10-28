@@ -218,7 +218,7 @@ sub reply_handler {
 	$offset -= 1;
 	my ($id, $type, $class) = unpack("n x$offset n2", $recv_data);
 
-	@rdata = map { rd_addr($ttl, '127.0.0.1') } (1 .. 3) if $type == A;;
+	@rdata = map { rd_addr($ttl, '127.0.0.1') } (1 .. 3) if $type == A;
 
 	$len = @name;
 	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,

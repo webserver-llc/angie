@@ -38,7 +38,7 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 my $t = Test::Nginx->new()
 	->has(qw/http proxy cache limit_conn rewrite spdy realip/);
 
-$t->plan(79)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(82)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -89,6 +89,9 @@ http {
             proxy_cache NAME;
             proxy_cache_valid 1m;
         }
+        location /header/ {
+            proxy_pass http://127.0.0.1:8083/;
+        }
         location /proxy_buffering_off {
             proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
@@ -112,7 +115,8 @@ http {
 
 EOF
 
-$t->run();
+$t->run_daemon(\&http_daemon);
+$t->run()->waitforsocket('127.0.0.1:8083');
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 
@@ -252,6 +256,32 @@ $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
 is($frame->{headers}->{'set-cookie'}, "val1\0val2",
 	'response header with multiple values');
+
+# response header with multiple values - no empty values inside
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid1 = spdy_stream($sess, { path => '/header/inside' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+is($frame->{headers}->{'x-foo'}, "val1\0val2", 'no empty header value inside');
+
+$sid1 = spdy_stream($sess, { path => '/header/first' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+is($frame->{headers}->{'x-foo'}, "val1\0val2", 'no empty header value first');
+
+$sid1 = spdy_stream($sess, { path => '/header/last' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
+is($frame->{headers}->{'x-foo'}, "val1\0val2", 'no empty header value last');
+
+}
 
 # $spdy
 
@@ -1101,6 +1131,75 @@ sub dictionary {
 		"text/javascript,public", "privatemax-age=gzip,deflate,",
 		"sdchcharset=utf-8charset=iso-8859-1,utf-,*,enq=0."
 	);
+}
+
+###############################################################################
+
+# reply with multiple (also empty) header values
+
+sub http_daemon {
+	my $server = IO::Socket::INET->new(
+		Proto => 'tcp',
+		LocalHost => '127.0.0.1',
+		LocalPort => 8083,
+		Listen => 5,
+		Reuse => 1
+	)
+		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+
+		my $headers = '';
+		my $uri = '';
+
+		while (<$client>) {
+			$headers .= $_;
+			last if (/^\x0d?\x0a?$/);
+		}
+
+		next if $headers eq '';
+		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
+
+		if ($uri eq '/inside') {
+
+			print $client <<EOF;
+HTTP/1.1 200 OK
+Connection: close
+X-Foo: val1
+X-Foo:
+X-Foo: val2
+
+EOF
+
+		} elsif ($uri eq '/first') {
+
+			print $client <<EOF;
+HTTP/1.1 200 OK
+Connection: close
+X-Foo:
+X-Foo: val1
+X-Foo: val2
+
+EOF
+
+		} elsif ($uri eq '/last') {
+
+			print $client <<EOF;
+HTTP/1.1 200 OK
+Connection: close
+X-Foo: val1
+X-Foo: val2
+X-Foo:
+
+EOF
+		}
+
+	} continue {
+		close $client;
+	}
 }
 
 ###############################################################################

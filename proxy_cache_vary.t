@@ -107,7 +107,7 @@ $t->try_run('no proxy_ignore_headers Vary')->plan(41);
 
 ###############################################################################
 
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.7');
 
 like(get('/', 'gzip'), qr/MISS/ms, 'first request');
 like(get('/', 'gzip'), qr/HIT/ms, 'vary match cached');
@@ -237,16 +237,14 @@ like(get('/asterisk', 'gzip'), qr/MISS/ms, 'vary asterisk second');
 #       specification (e.g., reordering field values when order is not
 #       significant; case-normalization, where values are defined to be
 #       case-insensitive)
-#
-# No normalization is currently implemented.
 
 like(get('/', 'foo, bar'), qr/MISS/ms, 'normalize first');
+like(get('/', 'foo,bar'), qr/HIT/ms, 'normalize whitespace');
+like(get('/', 'foo,,  ,bar , '), qr/HIT/ms, 'normalize empty');
 
 TODO: {
 local $TODO = 'not yet';
 
-like(get('/', 'foo,bar'), qr/HIT/ms, 'normalize whitespace');
-like(get('/', 'foo,,  ,bar , '), qr/HIT/ms, 'normalize empty');
 like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
 
 }

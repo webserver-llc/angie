@@ -935,6 +935,7 @@ sub hunpack {
 
 		$len = unpack("\@$skip N", $data); $skip += 4;
 		my $value = unpack("\@$skip A$len", $data); $skip += $len;
+		$value .= "\0" x ($len - length $value);
 
 		$headers{$name} = $value;
 	}

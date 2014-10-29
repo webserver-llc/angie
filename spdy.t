@@ -260,7 +260,7 @@ is($frame->{headers}->{'set-cookie'}, "val1\0val2",
 # response header with multiple values - no empty values inside
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.8');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/header/inside' });

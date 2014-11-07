@@ -72,18 +72,18 @@ my $start = $fsz - 10;
 my $last = $fsz - 1;
 
 $t1 = http_get_range('/test.mp4?start=1', 'Range: bytes=0-9');
-like($t1, qr/206/, 'first bytes - 206 partial reply');
+like($t1, qr/ 206 /, 'first bytes - 206 partial reply');
 like($t1, qr/Content-Length: 10/, 'first bytes - content length');
 like($t1, qr/Content-Range: bytes 0-9\/$fsz/, 'first bytes - content range');
 
 $t1 = http_get_range('/test.mp4?start=1', 'Range: bytes=-10');
-like($t1, qr/206/, 'final bytes - 206 partial reply');
+like($t1, qr/ 206 /, 'final bytes - 206 partial reply');
 like($t1, qr/Content-Length: 10/, 'final bytes - content length');
 like($t1, qr/Content-Range: bytes $start-$last\/$fsz/,
 	'final bytes - content range');
 
 $t1 = http_get_range('/test.mp4?start=1', 'Range: bytes=0-99');
-like($t1, qr/206/, 'multi buffers - 206 partial reply');
+like($t1, qr/ 206 /, 'multi buffers - 206 partial reply');
 like($t1, qr/Content-Length: 100/, 'multi buffers - content length');
 like($t1, qr/Content-Range: bytes 0-99\/$fsz/,
 	'multi buffers - content range');
@@ -92,7 +92,7 @@ TODO: {
 local $TODO = 'multipart range on mp4';
 
 $t1 = http_get_range('/test.mp4?start=1', 'Range: bytes=0-10,11-99');
-like($t1, qr/206/, 'multipart range - 206 partial reply');
+like($t1, qr/ 206 /, 'multipart range - 206 partial reply');
 like($t1, qr/Content-Length: 100/, 'multipart range - content length');
 like($t1, qr/Content-Range: bytes 0-10,11-99\/$fsz/,
 	'multipart range - content range');

@@ -58,7 +58,7 @@ $t->run();
 ###############################################################################
 
 like(http_get('/'), qr/SEE-THIS/, 'scgi request');
-like(http_get('/redir'), qr/302/, 'scgi redirect');
+like(http_get('/redir'), qr/ 302 /, 'scgi redirect');
 like(http_get('/'), qr/^3$/m, 'scgi third request');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');

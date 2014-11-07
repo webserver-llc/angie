@@ -84,7 +84,7 @@ my $t1;
 
 http_get('/t1.html');
 $t1 = http_get_range('/t1.html', 'Range: bytes=0-9, 10-19');
-like($t1, qr/206/, 'charset - 206 partial reply');
+like($t1, qr/ 206 /, 'charset - 206 partial reply');
 like($t1, qr/Content-Type: multipart\/byteranges; boundary=\w+\x0d\x0a/,
 	'charset - content type');
 like($t1, qr/Content-Type: text\/html; charset=B(?!; charset)/,
@@ -94,7 +94,7 @@ like($t1, qr/X001XXXXXX\x0d?$/m, 'charset - content 10-19');
 
 http_get('/t2.html');
 $t1 = http_get_range('/t2.html', 'Range: bytes=0-9, 10-19');
-like($t1, qr/206/, 'x-accel-charset - 206 partial reply');
+like($t1, qr/ 206 /, 'x-accel-charset - 206 partial reply');
 like($t1, qr/Content-Type: multipart\/byteranges; boundary=\w+\x0d\x0a/,
 	'x-accel-charset - content type');
 like($t1, qr/Content-Type: text\/html; charset=A(?!; charset)/,

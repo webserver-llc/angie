@@ -124,8 +124,8 @@ $memd1->set('/big', 'X' x 1000000);
 my $total = $memd1->stats()->{total}->{total_connections};
 
 like(http_get('/'), qr/SEE-THIS/, 'keepalive memcached request');
-like(http_get('/notfound'), qr/404/, 'keepalive memcached not found');
-like(http_get('/next'), qr/404/,
+like(http_get('/notfound'), qr/ 404 /, 'keepalive memcached not found');
+like(http_get('/next'), qr/ 404 /,
 	'keepalive not found with memcached_next_upstream');
 like(http_get('/'), qr/SEE-THIS/, 'keepalive memcached request again');
 like(http_get('/'), qr/SEE-THIS/, 'keepalive memcached request again');

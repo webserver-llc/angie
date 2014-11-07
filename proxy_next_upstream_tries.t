@@ -49,18 +49,6 @@ http {
         server 127.0.0.1:8081 backup;
     }
 
-    upstream u3 {
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8082;
-    }
-
-    upstream u4 {
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8082 backup;
-        server 127.0.0.1:8082 backup;
-    }
-
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -83,7 +71,7 @@ http {
             resolver 127.0.0.1:8083;
             resolver_timeout 1s;
 
-            proxy_pass http://$host:8081/backend;
+            proxy_pass http://$host:8081;
             proxy_next_upstream_tries 2;
         }
 
@@ -93,12 +81,12 @@ http {
         }
 
         location /timeout {
-            proxy_pass http://u3;
+            proxy_pass http://u/w;
             proxy_next_upstream_timeout 1900ms;
         }
 
         location /timeout/backup {
-            proxy_pass http://u4;
+            proxy_pass http://u2/w;
             proxy_next_upstream_timeout 1900ms;
         }
 
@@ -106,12 +94,12 @@ http {
             resolver 127.0.0.1:8083;
             resolver_timeout 1s;
 
-            proxy_pass http://$host:8082/backend;
+            proxy_pass http://$host:8081/w;
             proxy_next_upstream_timeout 1900ms;
         }
 
         location /timeout/zero {
-            proxy_pass http://u3;
+            proxy_pass http://u/w;
             proxy_next_upstream_timeout 0;
         }
 
@@ -124,12 +112,10 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon, 8081);
-$t->run_daemon(\&http_daemon, 8082);
 $t->run_daemon(\&dns_daemon, 8083, $t);
 $t->try_run('no proxy_next_upstream_tries')->plan(8);
 
 $t->waitforsocket('127.0.0.1:8081');
-$t->waitforsocket('127.0.0.1:8082');
 $t->waitforfile($t->testdir . '/8083');
 
 ###############################################################################
@@ -180,6 +166,7 @@ sub http_daemon {
 		$client->autoflush(1);
 
 		my $headers = '';
+		my $uri = '';
 
 		while (<$client>) {
 			$headers .= $_;
@@ -188,7 +175,9 @@ sub http_daemon {
 
 		next if $headers eq '';
 
-		if ($port == 8082) {
+		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
+
+		if ($uri eq '/w') {
 			Test::Nginx::log_core('||', "$port: sleep(1)");
 			select undef, undef, undef, 1;
 		}

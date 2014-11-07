@@ -89,12 +89,12 @@ http {
 
         location /timeout {
             proxy_pass http://u3;
-            proxy_next_upstream_timeout 1500ms;
+            proxy_next_upstream_timeout 1900ms;
         }
 
         location /timeout/backup {
             proxy_pass http://u4;
-            proxy_next_upstream_timeout 1500ms;
+            proxy_next_upstream_timeout 1900ms;
         }
 
         location /timeout/resolver {
@@ -102,7 +102,7 @@ http {
             resolver_timeout 1s;
 
             proxy_pass http://$host:8082/backend;
-            proxy_next_upstream_timeout 1500ms;
+            proxy_next_upstream_timeout 1900ms;
         }
 
         location /404 {
@@ -134,7 +134,7 @@ like(http_get('/tries/resolver'), qr/x404, 404x/, 'tries resolved');
 
 }
 
-# two tries fit into 1.5s
+# two tries fit into 1.9s
 
 like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');

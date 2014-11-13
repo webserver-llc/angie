@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(14);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(15);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -39,7 +39,8 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        # catch safe and unhandled unsafe URIs
+        # catch safe and unhandled unsafe URIs,
+        # bypassed with redirect to named location
         if ($upstream_http_x_accel_redirect) {
             return 200 "xar: $upstream_http_x_accel_redirect uri: $uri";
         }
@@ -64,6 +65,9 @@ http {
             add_header  Something            other;
 
             return 204;
+        }
+        location @named {
+            return 200 "named xar: $upstream_http_x_accel_redirect uri: $uri";
         }
     }
 }
@@ -98,5 +102,13 @@ unlike(http_get('/proxy?xar=/foo/.%2e'), qr/200 OK/,
 	'X-Accel-Redirect unsafe unescaped');
 like(http_get('/proxy?xar=/foo%20bar'), qr/uri: \/foo bar/,
 	'X-Accel-Redirect unescaped');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.7.8');
+
+like(http_get('/proxy?xar=@named'),
+	qr!200 OK.*named xar: \@named uri: /proxy!s, 'in named location');
+
+}
 
 ###############################################################################

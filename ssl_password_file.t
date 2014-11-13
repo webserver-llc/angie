@@ -63,7 +63,7 @@ http {
         ssl_password_file password;
 
         location / {
-		return 200 "$scheme";
+            return 200 "$scheme";
         }
     }
 

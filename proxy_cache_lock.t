@@ -95,7 +95,7 @@ for my $i (1 .. 5) {
 
 like(http_get('/par1'), qr/request 1/, 'first request cached');
 
-# parallel requests with cache lock timeout
+# since 1.7.8, parallel requests with cache lock timeout expired are not cached
 
 for my $i (1 .. 3) {
 	$sockets[$i] = http_get('/timeout', start => 1);
@@ -105,7 +105,12 @@ for my $i (1 .. 3) {
 	like(http_end($sockets[$i]), qr/request $i/, 'lock timeout ' . $i);
 }
 
-like(http_get('/timeout'), qr/request 3/, 'lock timeout - last cached');
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/timeout'), qr/request 1/, 'lock timeout - first only cached');
+
+}
 
 # no lock
 

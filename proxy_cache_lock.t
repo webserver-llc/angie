@@ -106,7 +106,7 @@ for my $i (1 .. 3) {
 }
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'behavior change' unless $t->has_version('1.7.8');
 
 like(http_get('/timeout'), qr/request 1/, 'lock timeout - first only cached');
 

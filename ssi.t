@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http ssi cache proxy rewrite/)->plan(27);
+my $t = Test::Nginx->new()->has(qw/http ssi cache proxy rewrite/)->plan(28);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -64,6 +64,10 @@ http {
             ssi off;
             alias %%TESTDIR%%/;
         }
+        location = /test-empty-postpone.html {
+            ssi on;
+            postpone_output 0;
+        }
         location /var {
             ssi on;
             add_header X-Var $date_gmt;
@@ -94,6 +98,8 @@ $t->write_file('test-empty2.html',
 	'X<!--#include virtual="/local/empty.html" -->X');
 $t->write_file('test-empty3.html',
 	'X<!--#include virtual="/cache/empty.html" -->X');
+$t->write_file('test-empty-postpone.html',
+	'X<!--#include virtual="/proxy/empty.html" -->X');
 $t->write_file('empty.html', '');
 
 $t->write_file('unescape.html?', 'SEE-THIS');
@@ -146,10 +152,20 @@ unlike(http_get('/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 unlike(http_get('/proxy/test1.html'), qr/Last-Modified|Accept-Ranges/im,
 	'cleared headers from proxy');
 
+# empty subrequests
+
 like(http_get('/test-empty1.html'), qr/HTTP/, 'empty with ssi');
 like(http_get('/test-empty2.html'), qr/HTTP/, 'empty without ssi');
 like(http_get('/test-empty3.html'), qr/HTTP/, 'empty with proxy');
 like(http_get('/test-empty3.html'), qr/HTTP/, 'empty with proxy cached');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/test-empty-postpone.html'), qr/HTTP.*XX/ms,
+	'empty with postpone_output 0');
+
+}
 
 # handling of escaped URIs
 
@@ -176,6 +192,11 @@ like(http_get('/var_format.html?custom=1'),
 like(http_get('/var_format.html'),
 	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+x/, 'default ssi');
 
+TODO: {
+local $TODO = 'not yet';
+
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
+
+}
 
 ###############################################################################

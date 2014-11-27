@@ -50,7 +50,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:10m;
+    proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
     limit_conn_zone  $binary_remote_addr  zone=conn:1m;
 
     server {

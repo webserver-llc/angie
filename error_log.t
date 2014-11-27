@@ -38,7 +38,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    limit_req_zone $binary_remote_addr zone=one:10m rate=1r/m;
+    limit_req_zone $binary_remote_addr zone=one:1m rate=1r/m;
     limit_req zone=one;
 
     server {

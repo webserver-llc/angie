@@ -38,7 +38,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     proxy_cache_path       %%TESTDIR%%/cache levels=1:2
-                           keys_zone=NAME:10m;
+                           keys_zone=NAME:1m;
 
     server {
         listen       127.0.0.1:8080;

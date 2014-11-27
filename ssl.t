@@ -49,7 +49,7 @@ http {
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
-        ssl_session_cache shared:SSL:10m;
+        ssl_session_cache shared:SSL:1m;
         ssl_session_tickets off;
 
         location /reuse {

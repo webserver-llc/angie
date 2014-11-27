@@ -39,7 +39,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     scgi_cache_path  %%TESTDIR%%/cache  levels=1:2
-                     keys_zone=NAME:10m;
+                     keys_zone=NAME:1m;
 
     scgi_cache_key   stub;
 

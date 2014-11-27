@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     proxy_cache_path   %%TESTDIR%%/cache  levels=1:2
-                       keys_zone=NAME:10m;
+                       keys_zone=NAME:1m;
 
     proxy_set_header X-Blah "blah";
     proxy_hide_header X-Hidden;

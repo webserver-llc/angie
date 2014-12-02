@@ -160,7 +160,7 @@ like(http_get('/test-empty3.html'), qr/HTTP/, 'empty with proxy');
 like(http_get('/test-empty3.html'), qr/HTTP/, 'empty with proxy cached');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.8');
 
 like(http_get('/test-empty-postpone.html'), qr/HTTP.*XX/ms,
 	'empty with postpone_output 0');
@@ -193,7 +193,7 @@ like(http_get('/var_format.html'),
 	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+x/, 'default ssi');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.8');
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

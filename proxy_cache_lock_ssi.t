@@ -101,7 +101,7 @@ like(http_get('/ssi.html'), qr/end/, 'cache lock ssi');
 http_end($s);
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.8');
 
 cmp_ok(time() - $start, '<=', 3, 'parallel execution after lock timeout');
 

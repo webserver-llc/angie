@@ -228,10 +228,10 @@ like(get('/asterisk', 'gzip'), qr/MISS/ms, 'vary asterisk second');
 #
 #    o  adding or removing whitespace, where allowed in the header field's
 #       syntax
-# 
+#
 #    o  combining multiple header fields with the same field name (see
 #       Section 3.2 of [RFC7230])
-# 
+#
 #    o  normalizing both header field values in a way that is known to
 #       have identical semantics, according to the header field's
 #       specification (e.g., reordering field values when order is not

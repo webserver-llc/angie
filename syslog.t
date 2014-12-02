@@ -97,7 +97,7 @@ http {
         location /debug {
             limit_req zone=one;
             error_log syslog:server=127.0.0.1:8080 debug;
-        }        
+        }
         location /info {
             limit_req zone=one;
             limit_req_log_level info;

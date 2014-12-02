@@ -81,7 +81,7 @@ like(`cat ${\($t->testdir())}/access.log`, qr/post/, 'post action in logs');
 TODO: {
 local $TODO = 'broken in 1.5.4' unless $t->has_version('1.7.8');
 
-# the r->header_sent check in 1.5.4+ results in 
+# the r->header_sent check in 1.5.4+ results in
 # "header already sent" alerts
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');

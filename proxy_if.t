@@ -226,7 +226,7 @@ like(http_get('/proxy-inside-if-crash'), qr!500 Internal Server Error!,
 
 # normal proxy_pass and proxy_pass with variables
 # use distinct field, and inheritance should be mutually
-# exclusive, see ticket #537
+# exclusive, see ticket #645
 
 like(http_get('/variables'), qr!uri:/outer!,
 	'proxy_pass variables');

@@ -116,6 +116,6 @@ unlike(http_get('/off'), qr/Expires:/, 'expires off');
 like(http_get('/access'), qr/max-age=2048/, 'expires access');
 like(http_get('/negative'), qr/no-cache/, 'expires negative');
 like(http_get('/daily'), qr/Expires:.*:33 GMT/, 'expires daily');
-like(http_get('/modified'), qr/max-age=2048/, 'expires modified');
+like(http_get('/modified'), qr/max-age=204./, 'expires modified');
 
 ###############################################################################

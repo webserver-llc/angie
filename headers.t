@@ -48,13 +48,49 @@ http {
 
         location /nx {
         }
+
+        location /epoch {
+            expires epoch;
+        }
+
+        location /max {
+            expires max;
+        }
+
+        location /off {
+            expires off;
+        }
+
+        location /access {
+            expires 2048;
+        }
+
+        location /negative {
+            expires -2048;
+        }
+
+        location /daily {
+            expires @15h30m33s;
+        }
+
+        location /modified {
+            expires modified 2048;
+        }
     }
 }
 
 EOF
 
 $t->write_file('t1', '');
-$t->try_run('no add_header always')->plan(6);
+$t->write_file('epoch', '');
+$t->write_file('max', '');
+$t->write_file('off', '');
+$t->write_file('access', '');
+$t->write_file('negative', '');
+$t->write_file('daily', '');
+$t->write_file('modified', '');
+
+$t->try_run('no add_header always')->plan(13);
 
 ###############################################################################
 
@@ -71,5 +107,15 @@ $r = http_get('/nx');
 unlike($r, qr/Cache-Control/, 'bad expires');
 unlike($r, qr/X-URI/, 'bad add_header');
 like($r, qr/X-Always/, 'bad add_header always');
+
+# various expires variants
+
+like(http_get('/epoch'), qr/Expires:.*1970/, 'expires epoch');
+like(http_get('/max'), qr/Expires:.*2037/, 'expires max');
+unlike(http_get('/off'), qr/Expires:/, 'expires off');
+like(http_get('/access'), qr/max-age=2048/, 'expires access');
+like(http_get('/negative'), qr/no-cache/, 'expires negative');
+like(http_get('/daily'), qr/Expires:.*:33 GMT/, 'expires daily');
+like(http_get('/modified'), qr/max-age=2048/, 'expires modified');
 
 ###############################################################################

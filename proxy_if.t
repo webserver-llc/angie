@@ -44,7 +44,7 @@ http {
             proxy_pass http://127.0.0.1:8081/;
         }
 
-        # request will be sent to backend without uri changed
+        # request was sent to backend without uri changed
         # to '/' due to if
 
         location /proxy-pass-uri {
@@ -64,7 +64,8 @@ http {
         }
 
         # same as the above, but there is a special handling
-        # in configuration merge; it may do wrong things though
+        # in configuration merge; it used to do wrong things with
+        # nested locations though
 
         location /proxy-pass-uri-lmt {
             proxy_pass http://127.0.0.1:8081/replacement;
@@ -182,7 +183,7 @@ like(http_get('/proxy-pass-uri'), qr!uri:/replacement$!,
 	'proxy_pass uri changed');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.9');
 
 # due to missing information about an original location where
 # proxy_pass was specified, this used to pass request with
@@ -204,9 +205,9 @@ like(http_get('/proxy-pass-uri-lmt'), qr!uri:/replacement$!,
 	'proxy_pass uri and limit_except');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.9');
 
-# special handling of limit_except results in wrong handling
+# special handling of limit_except resulted in wrong handling
 # of requests in nested locations
 
 like(http_get('/proxy-pass-uri-lmt/inner'), qr!404 Not Found!,
@@ -232,7 +233,7 @@ like(http_get('/variables'), qr!uri:/outer!,
 	'proxy_pass variables');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.9');
 
 like(http_get('/variables?if=1'), qr!uri:/variables!,
 	'proxy_pass variables if');
@@ -251,7 +252,7 @@ like(http_get('/ssl?if=1'), qr!uri:/outer!,
 	'proxy_pass ssl inside if');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.9');
 
 like(http_get('/ssl/inner'), qr!uri:/ssl/inner!,
 	'proxy_pass nossl inside ssl');

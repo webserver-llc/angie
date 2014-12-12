@@ -101,6 +101,12 @@ if ($memhelp =~ /-U/) {
 	push @memopts1, '-U', '0';
 	push @memopts2, '-U', '0';
 }
+if ($memhelp =~ /-t/) {
+	# for connection stats consistency in threaded memcached 1.3+
+
+	push @memopts1, '-t', '1';
+	push @memopts2, '-t', '1';
+}
 
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081', @memopts1);
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082', @memopts2);

@@ -78,25 +78,13 @@ $t->try_run('no use_temp_path')->plan(7);
 
 like(http_get('/t?c=ON'), qr/MISS.*SEE-THIS/ms, 'temp path');
 like(http_get('/t?c=OFF'), qr/MISS.*SEE-THIS/ms, 'temp path off');
-
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get('/t?c=LEVELS'), qr/MISS.*SEE-THIS/ms, 'temp path levels');
-
-}
 
 $t->write_file('t', 'SEE-THAT');
 
 like(http_get('/t?c=ON'), qr/HIT.*SEE-THIS/ms, 'temp path cached');
 like(http_get('/t?c=OFF'), qr/HIT.*SEE-THIS/ms, 'temp path cached off');
-
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get('/t?c=LEVELS'), qr/HIT.*SEE-THIS/ms, 'temp path cached levels');
-
-}
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

@@ -221,7 +221,7 @@ sub run(;$) {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		exec($NGINX, '-p', $testdir, '-c', 'nginx.conf', @globals),
+		exec($NGINX, '-p', "$testdir/", '-c', 'nginx.conf', @globals),
 			or die "Unable to exec(): $!\n";
 	}
 

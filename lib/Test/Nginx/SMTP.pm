@@ -20,7 +20,7 @@ use base qw/ IO::Socket::INET /;
 sub new {
 	my $class = shift;
 
-	my $self = return $class->SUPER::new(
+	my $self = $class->SUPER::new(
 		Proto => "tcp",
 		PeerAddr => "127.0.0.1:8025",
 		@_

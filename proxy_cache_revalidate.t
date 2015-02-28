@@ -49,7 +49,7 @@ http {
             proxy_pass    http://127.0.0.1:8081;
             proxy_cache   one;
 
-            proxy_cache_valid  200  1s;
+            proxy_cache_valid  200 404  1s;
 
             add_header X-Cache-Status $upstream_cache_status;
         }
@@ -75,10 +75,13 @@ http {
 
 EOF
 
+my $d = $t->testdir();
+
 $t->write_file('t', 'SEE-THIS');
 $t->write_file('t2', 'SEE-THIS');
+$t->write_file('t3', 'SEE-THIS');
 
-$t->run()->plan(20);
+$t->run()->plan(23);
 
 ###############################################################################
 
@@ -99,6 +102,8 @@ like(http_get('/etag/t2'), qr/X-Cache-Status: HIT.*SEE/ms, 'etag2 cached');
 like(http_get('/201'), qr/X-Cache-Status: MISS/, 'other status');
 like(http_get('/201'), qr/X-Cache-Status: HIT/, 'other status cached');
 
+like(http_get('/t3'), qr/SEE/, 'cache before 404');
+
 # wait for a while for cached responses to expire
 
 select undef, undef, undef, 2.5;
@@ -108,6 +113,10 @@ select undef, undef, undef, 2.5;
 
 like(http_get('/t'), qr/X-Cache-Status: REVALIDATED.*SEE/ms, 'revalidated');
 like(http_get('/t'), qr/X-Cache-Status: HIT.*SEE/ms, 'cached again');
+
+rename("$d/t3", "$d/t3_moved");
+
+like(http_get('/t3'), qr/ 404 /, 'cache 404 response');
 
 select undef, undef, undef, 0.1;
 like($t->read_file('access.log'), qr/ 304 /, 'not modified');
@@ -144,5 +153,24 @@ like(http_get('/etag/t2'), qr/X-Cache-Status: HIT.*NEW/ms,
 # 1573fc7875fa in 1.7.9 effectively turned it back.
 
 unlike(http_get('/201'), qr/X-If-Modified/, 'other status no revalidation');
+
+# wait for a while for a cached 404 response to expire
+
+select undef, undef, undef, 2.5;
+
+# check that conditional requests are not used to revalidate 404 response
+
+# before fd283aa92e04 introduced in 1.7.7, this test passed by chance because
+# of the If-Modified-Since header that was sent with Epoch in revalidation
+# of responses cached without the Last-Modified header;
+# fd283aa92e04 leaved (an legitimate) successful revalidation of 404 by ETag
+# (introduced by 44b9ab7752e3 in 1.7.3), which caused the test to fail;
+# 1573fc7875fa in 1.7.9 changed to not revalidate non-200/206 responses but
+# leaked Last-Modified and ETag into 404 inherited from stale 200/206 response;
+# 174512857ccf in 1.7.11 fixed the leak and allowed the test to pass.
+
+rename("$d/t3_moved", "$d/t3");
+
+like(http_get('/t3'), qr/SEE/, 'no 404 revalidation after stale 200');
 
 ###############################################################################

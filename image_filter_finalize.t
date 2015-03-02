@@ -141,7 +141,7 @@ like(http_get('/t1'), qr/HTTP/, 'image filter and cache');
 like(http_get('/t2'), qr/HTTP/, 'image filter and store');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.11');
 
 http_get('/slow');
 http_get('/t3');

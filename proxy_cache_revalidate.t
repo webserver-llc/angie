@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -64,6 +64,12 @@ http {
             proxy_pass http://127.0.0.1:8081/;
             proxy_hide_header Last-Modified;
         }
+        location /201 {
+            add_header Last-Modified "Mon, 02 Mar 2015 17:20:58 GMT";
+            add_header Cache-Control "max-age=1";
+            add_header X-If-Modified-Since $http_if_modified_since;
+            return 201;
+        }
     }
 }
 
@@ -72,7 +78,7 @@ EOF
 $t->write_file('t', 'SEE-THIS');
 $t->write_file('t2', 'SEE-THIS');
 
-$t->run()->plan(17);
+$t->run()->plan(20);
 
 ###############################################################################
 
@@ -89,6 +95,9 @@ like(http_get('/etag/t'), qr/X-Cache-Status: HIT.*SEE/ms, 'etag cached');
 
 like(http_get('/etag/t2'), qr/X-Cache-Status: MISS.*SEE/ms, 'etag2');
 like(http_get('/etag/t2'), qr/X-Cache-Status: HIT.*SEE/ms, 'etag2 cached');
+
+like(http_get('/201'), qr/X-Cache-Status: MISS/, 'other status');
+like(http_get('/201'), qr/X-Cache-Status: HIT/, 'other status cached');
 
 # wait for a while for cached responses to expire
 
@@ -127,5 +136,13 @@ like(http_get('/etag/t2'), qr/X-Cache-Status: EXPIRED.*NEW/ms,
 	'etag2 revalidate failed');
 like(http_get('/etag/t2'), qr/X-Cache-Status: HIT.*NEW/ms,
 	'etag2 new response cached');
+
+# check that conditional requests are only used for 200/206 responses
+
+# d0ce06cb9be1 in 1.7.3 changed to ignore header filter's work to strip
+# the Last-Modified header when storing non-200/206 in cache;
+# 1573fc7875fa in 1.7.9 effectively turned it back.
+
+unlike(http_get('/201'), qr/X-If-Modified/, 'other status no revalidation');
 
 ###############################################################################

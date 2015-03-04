@@ -501,11 +501,10 @@ is($frame->{data}, 7, 'priority 7');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 7 });
+spdy_read($sess, all => [{ sid => $sid1, length => 2**16 }]);
+
 $sid2 = spdy_stream($sess, { path => '/t2.html', prio => 0 });
-spdy_read($sess, all => [
-	{ sid => $sid1, length => 2**16 },
-	{ sid => $sid2, fin => 0 }
-]);
+spdy_read($sess, all => [{ sid => $sid2, fin => 0 }]);
 
 spdy_window($sess, 2**17, $sid1);
 spdy_window($sess, 2**17, $sid2);
@@ -523,11 +522,10 @@ is(join (' ', map { $_->{sid} } @data), "$sid2 $sid1", 'multiple priority 1');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 0 });
+spdy_read($sess, all => [{ sid => $sid1, length => 2**16 }]);
+
 $sid2 = spdy_stream($sess, { path => '/t2.html', prio => 7 });
-spdy_read($sess, all => [
-	{ sid => $sid1, length => 2**16 },
-	{ sid => $sid2, fin => 0 }
-]);
+spdy_read($sess, all => [{ sid => $sid2, fin => 0 }]);
 
 spdy_window($sess, 2**17, $sid1);
 spdy_window($sess, 2**17, $sid2);
@@ -545,15 +543,15 @@ is(join (' ', map { $_->{sid} } @data), "$sid1 $sid2", 'multiple priority 2');
 
 $sess = new_session();
 spdy_settings($sess, 7 => 1);
+
 $sid1 = spdy_stream($sess, { path => '/t3.html' });
-$sid2 = spdy_stream($sess, { path => '/t3.html' });
-$frames = spdy_read($sess, all => [
-	{ sid => $sid1, fin => 0 },
-	{ sid => $sid2, fin => 0 }
-]);
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" && $_->{sid} == $sid1 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'conn_limit 1');
+
+$sid2 = spdy_stream($sess, { path => '/t3.html' });
+$frames = spdy_read($sess, all => [{ sid => $sid2, fin => 0 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 503, 'conn_limit 2');
@@ -569,16 +567,16 @@ spdy_read($sess, all => [
 
 $sess = new_session();
 spdy_settings($sess, 7 => 1);
+
 $sid1 = spdy_stream($sess, { path => '/t3.html' });
+$frames = spdy_read($sess, all => [{ sid => $sid1, fin => 0 }]);
 spdy_rst($sess, $sid1, 5);
-$sid2 = spdy_stream($sess, { path => '/t3.html' });
-$frames = spdy_read($sess, all => [
-	{ sid => $sid1, fin => 0 },
-	{ sid => $sid2, fin => 0 }
-]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" && $_->{sid} == $sid1 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 1');
+
+$sid2 = spdy_stream($sess, { path => '/t3.html' });
+$frames = spdy_read($sess, all => [{ sid => $sid2, fin => 0 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');

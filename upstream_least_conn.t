@@ -87,7 +87,7 @@ sub parallel {
 
 	for (1 .. $count) {
 		push(@sockets, http_get($uri, start => 1));
-		select undef, undef, undef, 0.1;
+		select undef, undef, undef, 0.2;
 	}
 
 	for (1 .. $count) {

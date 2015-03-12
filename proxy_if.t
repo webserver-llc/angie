@@ -22,7 +22,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite http_ssl/)->plan(15);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite http_ssl/)
+	->has_daemon('openssl')->plan(15);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

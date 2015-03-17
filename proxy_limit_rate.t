@@ -43,6 +43,7 @@ http {
         location / {
             proxy_pass http://127.0.0.1:8080/data;
             proxy_limit_rate 12000;
+            add_header X-Msec $msec;
         }
 
         location /data {
@@ -57,10 +58,9 @@ $t->try_run('no proxy_limit_rate')->plan(2);
 
 ###############################################################################
 
-my $t1 = time();
-
 my $r = http_get('/');
 
+my ($t1) = $r =~ /X-Msec: (\d+)/;
 my $diff = time() - $t1;
 
 # four chunks are split with three 1s delays + 1s error

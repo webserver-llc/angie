@@ -93,7 +93,7 @@ http {
         }
 
         # filter finalization may cause duplicate upstream finalization,
-        # resulting in wrong $upstream_response time,
+        # resulting in wrong $upstream_response_time,
         # http://nginx.org/pipermail/nginx-devel/2015-February/006539.html
 
         # note that we'll need upstream response time to be at least 1 second,

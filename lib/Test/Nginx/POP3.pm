@@ -94,7 +94,7 @@ sub pop3_test_daemon {
 			} else {
 				print $client "-ERR unknown command" . CRLF;
 			}
-                }
+		}
 
 		close $client;
 	}

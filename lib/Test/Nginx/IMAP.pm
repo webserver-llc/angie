@@ -97,7 +97,7 @@ sub imap_test_daemon {
 			} else {
 				print $client $tag . ' ERR unknown command' . CRLF;
 			}
-                }
+		}
 
 		close $client;
 	}

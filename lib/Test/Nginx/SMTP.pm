@@ -110,7 +110,7 @@ sub smtp_test_daemon {
 			} else {
 				print $client "500 unknown command" . CRLF;
 			}
-                }
+		}
 
 		close $client;
 	}

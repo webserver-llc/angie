@@ -134,7 +134,6 @@ $s->ok('PTR');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 # Cached PTR prevents from querying bad ns on port 8083
 
@@ -150,7 +149,6 @@ $s->ok('PTR cached');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 # SERVFAIL
 
@@ -166,7 +164,6 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR SERVFAIL');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 # PTR with zero length RDATA
 
@@ -182,7 +179,6 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR empty');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 # CNAME
 
@@ -201,7 +197,6 @@ $s->ok('PTR with CNAME');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 }
 
@@ -222,7 +217,6 @@ $s->ok('uncompressed PTR');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 }
 
@@ -241,7 +235,6 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR type');
 
 $s->send('QUIT');
 $s->read();
-close $s;
 
 }
 

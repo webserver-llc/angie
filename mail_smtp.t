@@ -214,7 +214,6 @@ $s->ok('good rcpt to');
 $s = Test::Nginx::SMTP->new();
 $s->read();
 
-log_out('HEL');
 $s->print('HEL');
 $s->send('O example.com');
 $s->ok('split command');

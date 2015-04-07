@@ -228,23 +228,13 @@ like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
 
 like(http_host_header('example.net', '/invalid'), qr/502 Bad/, 'no resolver');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.4');
-
 like(http_end($s), qr/200 OK/, 'resend after malformed response');
-
-}
 
 $s = http_get('/bad', start => 1);
 my $s2 = http_get('/bad', start => 1);
 
-TODO: {
-local $TODO = 'hangs' unless $t->has_version('1.7.5');
-
 http_end($s);
 ok(http_end($s2), 'timeout handler on 2nd request');
-
-}
 
 ###############################################################################
 

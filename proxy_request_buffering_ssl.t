@@ -154,7 +154,7 @@ SKIP: {
 skip 'no preread failed', 3 unless $s;
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.12');
 
 is($s->{upload}('01234'), '01234', 'no preread - body part');
 is($s->{upload}('56789'), '56789', 'no preread - body part 2');
@@ -174,7 +174,7 @@ skip 'preread failed', 3 unless $s;
 is($s->{preread}, '01234', 'preread - preread');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.7.12');
 
 is($s->{upload}('56789'), '56789', 'preread - body part');
 is($s->{upload}('abcde'), 'abcde', 'preread - body part 2');

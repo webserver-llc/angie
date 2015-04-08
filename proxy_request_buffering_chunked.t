@@ -81,7 +81,7 @@ http {
         server_name  localhost;
 
         location / {
-            return 204;
+            proxy_pass http://127.0.0.1:8080/discard;
         }
         location /404 { }
     }
@@ -193,14 +193,18 @@ sub http_get_body {
 		my $body = $_;
 		"GET $uri HTTP/1.1" . CRLF
 		. "Host: localhost" . CRLF
-		. "Content-Length: " . (length $body) . CRLF . CRLF
-		. $body
+		. "Transfer-Encoding: chunked" . CRLF . CRLF
+		. sprintf("%x", length $body) . CRLF
+		. $body . CRLF
+		. "0" . CRLF . CRLF
 	} @_),
 		"GET $uri HTTP/1.1" . CRLF
 		. "Host: localhost" . CRLF
 		. "Connection: close" . CRLF
-		. "Content-Length: " . (length $last) . CRLF . CRLF
-		. $last
+		. "Transfer-Encoding: chunked" . CRLF . CRLF
+		. sprintf("%x", length $last) . CRLF
+		. $last . CRLF
+		. "0" . CRLF . CRLF
 	);
 }
 

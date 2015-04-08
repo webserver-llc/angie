@@ -78,16 +78,16 @@ http {
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
-        proxy_request_buffering off;
 
         location /preread {
             client_body_buffer_size 2k;
             add_header X-Body "$request_body";
             proxy_pass http://127.0.0.1:8082/;
+            proxy_request_buffering off;
         }
 
         location / {
-            return 204;
+            proxy_pass http://127.0.0.1:8080/discard;
         }
         location /404 { }
     }

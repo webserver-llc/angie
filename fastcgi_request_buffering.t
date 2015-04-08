@@ -49,15 +49,14 @@ http {
         client_header_buffer_size 1k;
         fastcgi_request_buffering off;
         fastcgi_param REQUEST_URI $request_uri;
+        fastcgi_param CONTENT_LENGTH $content_length;
 
         location / {
             client_body_buffer_size 2k;
-            add_header X-Body "$request_body";
             fastcgi_pass 127.0.0.1:8081;
         }
         location /single {
             client_body_in_single_buffer on;
-            add_header X-Body "$request_body";
             fastcgi_pass 127.0.0.1:8081;
         }
         location /preread {
@@ -83,7 +82,7 @@ $t->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
-unlike(http_get('/'), qr/X-Body:/ms, 'no body');
+like(http_get('/'), qr/X-Body: \x0d\x0a?/ms, 'no body');
 
 like(http_get_body('/', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'body');
@@ -337,12 +336,11 @@ sub fastcgi_daemon {
 		$socket);
 
 	my $count;
+	my $body;
+
 	while( $request->Accept() >= 0 ) {
 		$count++;
-
-		if ($ENV{REQUEST_URI} eq '/stderr') {
-			warn "sample stderr text" x 512;
-		}
+		read(STDIN, $body, $ENV{'CONTENT_LENGTH'});
 
 		if ($ENV{REQUEST_URI} eq '/error_page') {
 			print "Status: 404 Not Found" . CRLF . CRLF;
@@ -352,6 +350,7 @@ sub fastcgi_daemon {
 		print <<EOF;
 Location: http://127.0.0.1:8080/redirect
 Content-Type: text/html
+X-Body: $body
 
 SEE-THIS
 $count

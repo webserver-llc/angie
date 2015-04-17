@@ -53,6 +53,8 @@ http {
             proxy_cache_lock_timeout 100ms;
 
             proxy_read_timeout 2s;
+
+            add_header X-Msec $msec;
         }
 
         location = /ssi.html {
@@ -94,11 +96,9 @@ $t->run();
 # is woken up by the postpone filter once first subrequest completes,
 # but this is suboptimal behaviour
 
-my $start = time();
-
 my $s = http_get('/locked', start => 1);
 like(http_get('/ssi.html'), qr/end/, 'cache lock ssi');
-http_end($s);
+my ($start) = http_end($s) =~ /X-Msec: (\d+)/;
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.7.8');

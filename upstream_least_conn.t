@@ -63,7 +63,14 @@ $t->waitforsocket('127.0.0.1:8082');
 ###############################################################################
 
 is(many('/', 10), '8081: 5, 8082: 5', 'balanced');
-is(parallel('/w', 10), '8081: 1, 8082: 9', 'least conn');
+
+my @sockets;
+push(@sockets, http_get('/w', start => 1));
+push(@sockets, http_get('/w', start => 1));
+
+select undef, undef, undef, 0.2;
+
+is(many('/w', 10), '8082: 10', 'least conn');
 
 ###############################################################################
 
@@ -73,25 +80,6 @@ sub many {
 
 	for (1 .. $count) {
 		if (http_get($uri) =~ /X-Port: (\d+)/) {
-			$ports{$1} = 0 unless defined $ports{$1};
-			$ports{$1}++;
-		}
-	}
-
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
-}
-
-sub parallel {
-	my ($uri, $count, %opts) = @_;
-	my (@sockets, %ports);
-
-	for (1 .. $count) {
-		push(@sockets, http_get($uri, start => 1));
-		select undef, undef, undef, 0.2;
-	}
-
-	for (1 .. $count) {
-		if (http_end(pop(@sockets)) =~ /X-Port: (\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}

@@ -67,7 +67,7 @@ http {
         }
         location /resend {
             resolver    127.0.0.1:8081;
-            resolver_timeout 6s;
+            resolver_timeout 8s;
             proxy_pass  http://$host:8080/backend;
         }
         location /bad {

@@ -132,6 +132,7 @@ sub has_module($) {
 		pcre	=> '(?s)^(?!.*--without-pcre)',
 		split_clients
 			=> '(?s)^(?!.*--without-http_split_clients_module)',
+		stream	=> '--with-stream(?!\S)',
 	);
 
 	my $re = $regex{$feature};

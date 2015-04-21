@@ -69,7 +69,7 @@ EOF
 
 $t->run_daemon(\&http_fake_daemon);
 
-$t->run()->plan(19);
+$t->run()->plan(18);
 
 $t->waitforsocket('127.0.0.1:8081');
 
@@ -101,9 +101,12 @@ for my $i (1 .. 3) {
 	$sockets[$i] = http_get('/timeout', start => 1);
 }
 
-for my $i (1 .. 3) {
-	like(http_end($sockets[$i]), qr/request $i/, 'lock timeout ' . $i);
-}
+like(http_end($sockets[1]), qr/request 1/, 'lock timeout - first');
+
+my $rest = http_end($sockets[2]);
+$rest .= http_end($sockets[3]);
+
+like($rest, qr/request (2.*request 3|3.*request 2)/s, 'lock timeout - rest');
 
 TODO: {
 local $TODO = 'behavior change' unless $t->has_version('1.7.8');

@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/);
+my $t = Test::Nginx->new()->has(qw/stream/)->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -67,9 +67,7 @@ stream {
 EOF
 
 $t->run_daemon(\&stream_daemon);
-$t->try_run('no proxy_next_upstream')->plan(3);
-
-$t->waitforsocket('127.0.0.1:8089');
+$t->run()->waitforsocket('127.0.0.1:8089');
 
 ###############################################################################
 

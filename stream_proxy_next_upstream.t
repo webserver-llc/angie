@@ -42,7 +42,7 @@ stream {
         server 127.0.0.1:8089 backup;
     }
 
-    proxy_connect_timeout 2s;
+    proxy_connect_timeout 1s;
 
     server {
         listen      127.0.0.1:8081;
@@ -125,7 +125,7 @@ sub stream_read {
 	my ($buf);
 
 	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(3)) {
+	if (IO::Select->new($s)->can_read(5)) {
 		$s->sysread($buf, 1024);
 	};
 

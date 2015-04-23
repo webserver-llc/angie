@@ -44,7 +44,7 @@ stream {
     }
 
     upstream u2 {
-        zone u;
+        zone u2 32k;
         server 127.0.0.1:8087 backup;
         server 127.0.0.1:8088 down;
     }

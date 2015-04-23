@@ -124,6 +124,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-http_upstream_least_conn_mod)',
 		upstream_keepalive
 			=> '(?s)^(?!.*--without-http_upstream_keepalive_modu)',
+		upstream_zone
+			=> '(?s)^(?!.*--without-http_upstream_zone_module)',
 		http	=> '(?s)^(?!.*--without-http(?!\S))',
 		cache	=> '(?s)^(?!.*--without-http-cache)',
 		pop3	=> '(?s)^(?!.*--without-mail_pop3_module)',
@@ -135,6 +137,8 @@ sub has_module($) {
 		stream	=> '--with-stream(?!\S)',
 		stream_upstream_least_conn
 			=> '(?s)^(?!.*--without-stream_upstream_least_conn_m)',
+		stream_upstream_zone
+			=> '(?s)^(?!.*--without-stream_upstream_zone_module)',
 	);
 
 	my $re = $regex{$feature};

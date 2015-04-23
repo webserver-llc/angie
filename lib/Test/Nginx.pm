@@ -133,6 +133,8 @@ sub has_module($) {
 		split_clients
 			=> '(?s)^(?!.*--without-http_split_clients_module)',
 		stream	=> '--with-stream(?!\S)',
+		stream_upstream_least_conn
+			=> '(?s)^(?!.*--without-stream_upstream_least_conn_m)',
 	);
 
 	my $re = $regex{$feature};

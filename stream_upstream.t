@@ -119,10 +119,12 @@ sub stream_get {
 
 	my $s = stream_connect($peer);
 	stream_write($s, $data);
-	my $r = stream_read($s);
 
-	$s->close;
-	return $r;
+	$data = '';
+	while (my $buf = stream_read($s)) {
+		$data .= $buf;
+	}
+	return $data;
 }
 
 sub stream_connect {

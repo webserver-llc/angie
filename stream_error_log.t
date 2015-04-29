@@ -170,10 +170,12 @@ sub stream_get {
 	$peer = '127.0.0.1:8080' unless defined $peer;
 	my $s = stream_connect($peer);
 	stream_write($s, $data);
-	my $r = stream_read($s);
 
-	$s->close;
-	return $r;
+	$data = '';
+	while (my $buf = stream_read($s)) {
+		$data .= $buf;
+	}
+	return $data;
 }
 
 sub stream_connect {

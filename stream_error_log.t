@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(33);
+my $t = Test::Nginx->new()->has(qw/stream/)->plan(34);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -61,6 +61,7 @@ stream {
         proxy_pass  127.0.0.1:8081;
 
         error_log %%TESTDIR%%/e_stream.log info;
+        error_log syslog:server=127.0.0.1:8080 info;
         error_log syslog:server=127.0.0.1:8084 info;
     }
 }
@@ -111,9 +112,7 @@ is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 
 # syslog
 
-stream_get('data2', '127.0.0.1:8082');
-
-parse_syslog_message('syslog', $t->read_file('s_stream.log'));
+parse_syslog_message('syslog', get_syslog('data2', '127.0.0.1:8082'));
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'e_glob.log'),
 	'global syslog messages');
@@ -220,8 +219,49 @@ sub stream_read {
 	return $buf;
 }
 
+sub get_syslog {
+	my ($data, $peer, $port) = @_;
+	my ($s);
+	my $rfd = '';
+
+	$port = 8080 unless defined $port;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(1);
+		$s = IO::Socket::INET->new(
+			Proto => 'udp',
+			LocalAddr => "127.0.0.1:$port"
+		);
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	stream_get($data, $peer);
+	$data = '';
+
+	IO::Select->new($s)->can_read(1.5);
+	while (IO::Select->new($s)->can_read(0.1)) {
+		my $buffer;
+		sysread($s, $buffer, 4096);
+		$data .= $buffer;
+	}
+	$s->close();
+	return $data;
+}
+
 sub parse_syslog_message {
 	my ($desc, $line) = @_;
+
+	ok($line, $desc);
+
+SKIP: {
+	skip "$desc timeout", 18 unless $line;
 
 	my @months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
 		'Sep', 'Oct', 'Nov', 'Dec');
@@ -264,6 +304,8 @@ sub parse_syslog_message {
 	like($tag, qr'\w+', "$desc valid tag");
 
 	ok(length($msg) > 0, "$desc valid CONTENT");
+}
+
 }
 
 ###############################################################################

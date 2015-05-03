@@ -118,7 +118,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_certificate_key engine');
+$t->run();
 
 $t->write_file('index.html', '');
 

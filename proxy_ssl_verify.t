@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl proxy/)
-	->has_daemon('openssl')
+	->has_daemon('openssl')->plan(6)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -144,7 +144,7 @@ foreach my $name ('1.example.com', '2.example.com') {
 
 $t->write_file('index.html', '');
 
-$t->try_run('no proxy_ssl_verify')->plan(6);
+$t->run();
 
 ###############################################################################
 

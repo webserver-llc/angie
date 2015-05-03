@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(22);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -89,7 +89,7 @@ http {
 
 EOF
 
-$t->try_run('no proxy_request_buffering')->plan(22);
+$t->run();
 
 ###############################################################################
 
@@ -150,13 +150,7 @@ ok($s, 'preread');
 SKIP: {
 skip 'preread failed', 3 unless $s;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.12');
-
 is($s->{preread}, '5' . CRLF . '01234' . CRLF, 'preread - preread');
-
-}
-
 is($s->{upload}('56789', last => 1),
 	'5' . CRLF . '56789' . CRLF . '0' . CRLF . CRLF, 'preread - body');
 
@@ -170,13 +164,7 @@ ok($s, 'chunks');
 SKIP: {
 skip 'chunks failed', 3 unless $s;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.12');
-
 is($s->{preread}, '9' . CRLF . '01234many' . CRLF, 'chunks - preread');
-
-}
-
 is($s->{upload}('56789', many => 1, last => 1),
 	'9' . CRLF . '56789many' . CRLF . '0' . CRLF . CRLF, 'chunks - body');
 

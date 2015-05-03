@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -91,7 +91,7 @@ http {
 
 EOF
 
-$t->try_run('no access_log if')->plan(9);
+$t->run();
 
 ###############################################################################
 
@@ -184,14 +184,9 @@ is($log, $exp_complex, 'if with complex value');
 
 # buffer created with false "if" is not reused among multiple access_log
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.5');
-
 $log = $t->read_file('/noreuse.log');
 is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
 	'log filtering with buffering');
-
-}
 
 
 # multiple logs in a same location

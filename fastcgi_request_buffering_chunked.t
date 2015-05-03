@@ -29,7 +29,7 @@ eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http fastcgi rewrite/);
+my $t = Test::Nginx->new()->has(qw/http fastcgi rewrite/)->plan(19);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -76,9 +76,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->try_run('no fastcgi_request_buffering')->plan(19);
-
-$t->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 

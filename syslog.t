@@ -26,8 +26,6 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http limit_req/);
 
-plan(skip_all => 'no syslog if') unless $t->has_version('1.7.5');
-
 $t->plan(58)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

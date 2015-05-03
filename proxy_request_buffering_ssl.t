@@ -25,7 +25,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl proxy rewrite/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(18);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -113,7 +113,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no proxy_request_buffering')->plan(18);
+$t->run();
 
 ###############################################################################
 
@@ -153,13 +153,8 @@ ok($s, 'no preread');
 SKIP: {
 skip 'no preread failed', 3 unless $s;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.12');
-
 is($s->{upload}('01234'), '01234', 'no preread - body part');
 is($s->{upload}('56789'), '56789', 'no preread - body part 2');
-
-}
 
 like($s->{http_end}(), qr/200 OK/, 'no preread - response');
 
@@ -172,14 +167,8 @@ SKIP: {
 skip 'preread failed', 3 unless $s;
 
 is($s->{preread}, '01234', 'preread - preread');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.12');
-
 is($s->{upload}('56789'), '56789', 'preread - body part');
 is($s->{upload}('abcde'), 'abcde', 'preread - body part 2');
-
-}
 
 like($s->{http_end}(), qr/200 OK/, 'preread - response');
 

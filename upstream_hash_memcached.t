@@ -29,7 +29,9 @@ eval { require Cache::Memcached::Fast; };
 plan(skip_all => 'Cache::Memcached::Fast not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite memcached upstream_hash/)
-	->has_daemon('memcached')->write_file_expand('nginx.conf', <<'EOF');
+	->has_daemon('memcached')->plan(4);
+
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -107,7 +109,7 @@ if ($memhelp =~ /-U/) {
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081', @memopts);
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082', @memopts);
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8083', @memopts);
-$t->try_run('no upstream hash')->plan(4);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:8081') or die "Can't start memcached";
 $t->waitforsocket('127.0.0.1:8082') or die "Can't start memcached";

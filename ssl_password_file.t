@@ -35,8 +35,6 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
 	->has_daemon('openssl');
 
-plan(skip_all => 'no ssl_password_file') unless $t->has_version('1.7.2');
-
 $t->plan(3)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

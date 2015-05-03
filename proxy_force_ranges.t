@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache/)->plan(5)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -71,7 +71,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
-$t->try_run('no proxy_force_ranges')->plan(5);
+$t->run();
 
 ###############################################################################
 

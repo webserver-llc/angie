@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)
+my $t = Test::Nginx->new()->has(qw/http/)->plan(25)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -111,7 +111,7 @@ $t->write_file('var', '');
 $t->write_file('var_inner', '');
 $t->write_file('var_modified', '');
 
-$t->try_run('no add_header always or expires with variable')->plan(25);
+$t->run();
 
 ###############################################################################
 

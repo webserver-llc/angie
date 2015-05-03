@@ -103,12 +103,7 @@ unlike(http_get('/proxy?xar=/foo/.%2e'), qr/200 OK/,
 like(http_get('/proxy?xar=/foo%20bar'), qr/uri: \/foo bar/,
 	'X-Accel-Redirect unescaped');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.8');
-
 like(http_get('/proxy?xar=@named'),
 	qr!200 OK.*named xar: \@named uri: /proxy!s, 'in named location');
-
-}
 
 ###############################################################################

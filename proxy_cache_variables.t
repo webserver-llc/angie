@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache/)->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -70,7 +70,7 @@ EOF
 
 $t->write_file('index.html', 'SEE-THIS');
 
-$t->try_run('no proxy_cache with variables')->plan(9);
+$t->run();
 
 ###############################################################################
 

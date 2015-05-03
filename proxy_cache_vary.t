@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)->plan(42)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -103,11 +103,9 @@ $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('asterisk', 'SEE-THIS');
 $t->write_file('complex', 'SEE-THIS');
 
-$t->try_run('no proxy_ignore_headers Vary')->plan(42);
+$t->run();
 
 ###############################################################################
-
-local $TODO = 'not yet' unless $t->has_version('1.7.7');
 
 like(get('/', 'gzip'), qr/MISS/ms, 'first request');
 like(get('/', 'gzip'), qr/HIT/ms, 'vary match cached');

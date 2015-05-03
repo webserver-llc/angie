@@ -99,12 +99,6 @@ $t->run();
 my $s = http_get('/locked', start => 1);
 like(http_get('/ssi.html'), qr/end/, 'cache lock ssi');
 my ($start) = http_end($s) =~ /X-Msec: (\d+)/;
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.8');
-
 cmp_ok(time() - $start, '<=', 3, 'parallel execution after lock timeout');
-
-}
 
 ###############################################################################

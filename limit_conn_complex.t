@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req/);
+my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req/)->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -64,7 +64,7 @@ http {
 
 EOF
 
-$t->try_run('no complex value')->plan(4);
+$t->run();
 
 ###############################################################################
 

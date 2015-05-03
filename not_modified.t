@@ -79,14 +79,7 @@ like(http_get_inm('/t', '"foo"'), qr/ 200 /, 'if-none-match fail');
 like(http_get_inm('/t', '"foo", "bar", ' . $etag . ' , "baz"'), qr/ 304 /,
 	'if-none-match with complex list');
 like(http_get_inm('/t', '*'), qr/ 304 /, 'if-none-match all');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.3');
-
 like(http_get_inm('/t', 'W/' . $etag), qr/ 304 /, 'if-none-match weak');
-
-}
-
 like(http_get_im('/t', $etag), qr/ 200 /, 'if-match');
 like(http_get_im('/t', '"foo"'), qr/ 412 /, 'if-match fail');
 like(http_get_im('/t', '"foo", "bar", ' . "\t" . $etag . ' , "baz"'),

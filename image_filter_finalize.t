@@ -140,14 +140,9 @@ $t->run();
 like(http_get('/t1'), qr/HTTP/, 'image filter and cache');
 like(http_get('/t2'), qr/HTTP/, 'image filter and store');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.11');
-
 http_get('/slow');
 http_get('/t3');
 like(http_get('/time.log'), qr!/t3:.*, [1-9]\.!, 'upstream response time');
-
-}
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -113,7 +113,7 @@ EOF
 
 $t->run_daemon(\&http_daemon, 8081);
 $t->run_daemon(\&dns_daemon, 8083, $t);
-$t->try_run('no proxy_next_upstream_tries')->plan(8);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:8081');
 $t->waitforfile($t->testdir . '/8083');
@@ -122,28 +122,14 @@ $t->waitforfile($t->testdir . '/8083');
 
 like(http_get('/tries'), qr/x404, 404x/, 'tries');
 like(http_get('/tries/backup'), qr/x404, 404x/, 'tries backup');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.7');
-
 like(http_get('/tries/resolver'), qr/x404, 404x/, 'tries resolved');
-
-}
-
 like(http_get('/tries/zero'), qr/x404, 404, 404x/, 'tries zero');
 
 # two tries fit into 1.9s
 
 like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.7');
-
 like(http_get('/timeout/resolver'), qr/x404, 404x/, 'timeout resolved');
-
-}
-
 like(http_get('/timeout/zero'), qr/x404, 404, 404x/, 'timeout zero');
 
 ###############################################################################

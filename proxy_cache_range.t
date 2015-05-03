@@ -87,16 +87,11 @@ like(http_get_range('/t.html?1', 'Range: bytes=4-'), qr/^THIS/m,
 like(http_get_range('/t.html?1', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 	'cached multipart range');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.8');
-
 like(http_get_range('/min_uses/t.html?3', 'Range: bytes=4-'),
 	qr/^THIS/m, 'range below min_uses');
 
 like(http_get_range('/min_uses/t.html?4', 'Range: bytes=0-2,4-'),
 	qr/^SEE.*^THIS/ms, 'multipart range below min_uses');
-
-}
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

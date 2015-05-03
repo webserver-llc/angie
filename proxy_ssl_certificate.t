@@ -24,11 +24,9 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl proxy/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(5);
 
-plan(skip_all => 'no proxy_ssl_password_file') unless $t->has_version('1.7.8');
-
-$t->plan(5)->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

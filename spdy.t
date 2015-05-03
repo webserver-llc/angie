@@ -220,9 +220,6 @@ is($frame->{headers}->{':status'}, 206, 'SYN_REPLAY status range');
 is($frame->{length}, 10, 'DATA length range');
 is($frame->{data}, '002XXXX000', 'DATA payload range');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.4');
-
 # request header with multiple values
 
 $sess = new_session();
@@ -245,8 +242,6 @@ $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 is($frame->{headers}->{'x-cookie'}, 'val1; val2',
 	'multiple request header values - proxied');
 
-}
-
 # response header with multiple values
 
 $sess = new_session();
@@ -258,9 +253,6 @@ is($frame->{headers}->{'set-cookie'}, "val1\0val2",
 	'response header with multiple values');
 
 # response header with multiple values - no empty values inside
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.8');
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/header/inside' });
@@ -280,8 +272,6 @@ $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
 is($frame->{headers}->{'x-foo'}, "val1\0val2", 'no empty header value last');
-
-}
 
 # $spdy
 
@@ -330,15 +320,9 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
 # ensure that HEAD-like requests, i.e., without response body, do not lead to
 # client connection close due to cache filling up with upstream response body
 
-TODO: {
-local $TODO = 'premature client connection close'
-	unless $t->has_version('1.7.3');
-
 $sid2 = spdy_stream($sess, { path => '/' });
 $frames = spdy_read($sess, all => [{ sid => $sid2, fin => 1 }]);
 ok(grep ({ $_->{type} eq "SYN_REPLY" } @$frames), 'proxy cache headers only');
-
-}
 
 # HEAD on empty cache with proxy_buffering off
 

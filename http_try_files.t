@@ -99,14 +99,7 @@ like(http_get('/nouri/notfound'), qr!X-URI: /fallback!, 'not found nouri');
 like(http_get('/short/long'), qr!404 Not!, 'short uri in try_files');
 
 like(http_get('/file-file/'), qr!SEE THIS!, 'file matches file');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.10');
-
 like(http_get('/file-dir/'), qr!404 Not!, 'file does not match dir');
-
-}
-
 like(http_get('/dir-dir/'), qr!301 Moved Permanently!, 'dir matches dir');
 like(http_get('/dir-file/'), qr!404 Not!, 'dir does not match file');
 

@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)->plan(23)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -81,7 +81,7 @@ $t->write_file('t', 'SEE-THIS');
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('t3', 'SEE-THIS');
 
-$t->run()->plan(23);
+$t->run();
 
 ###############################################################################
 
@@ -131,14 +131,8 @@ like(http_get('/t2'), qr/X-Cache-Status: HIT.*NEW/ms, 'new response cached');
 # 1st document isn't modified
 # 2nd document is recreated
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.7');
-
 like(http_get('/etag/t'), qr/X-Cache-Status: REVALIDATED.*SEE/ms,
 	'etag revalidated');
-
-}
-
 like(http_get('/etag/t'), qr/X-Cache-Status: HIT.*SEE/ms,
 	'etag cached again');
 like(http_get('/etag/t2'), qr/X-Cache-Status: EXPIRED.*NEW/ms,

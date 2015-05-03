@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'no symlinks on win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http autoindex/)
+my $t = Test::Nginx->new()->has(qw/http autoindex/)->plan(37)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -77,7 +77,7 @@ mkdir($d . '/utf8');
 $t->write_file('utf8/test-utf8-' . ("\xd1\x84" x 3), '');
 $t->write_file('utf8/test-utf8-' . ("\xd1\x84" x 45), '');
 
-$t->try_run('no autoindex_format')->plan(37);
+$t->run();
 
 ###############################################################################
 

@@ -36,7 +36,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail mail_ssl imap http rewrite/)->has_daemon('openssl')
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)
+	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -137,7 +137,7 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no mail ssl')->plan(12);
+$t->run();
 
 ###############################################################################
 

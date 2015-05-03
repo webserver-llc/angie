@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_hash/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_hash/)->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -150,7 +150,7 @@ http {
 
 EOF
 
-$t->try_run('no upstream hash')->plan(11);
+$t->run();
 
 ###############################################################################
 

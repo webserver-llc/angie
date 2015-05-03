@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -59,10 +59,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon, 8081);
-
-$t->try_run('no proxy_cache_lock_age')->plan(2);
-
-$t->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 

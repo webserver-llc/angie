@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(18);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -88,7 +88,7 @@ http {
 
 EOF
 
-$t->try_run('no proxy_request_buffering')->plan(18);
+$t->run();
 
 ###############################################################################
 

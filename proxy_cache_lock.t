@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache/)->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -69,7 +69,7 @@ EOF
 
 $t->run_daemon(\&http_fake_daemon);
 
-$t->run()->plan(18);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:8081');
 
@@ -107,13 +107,7 @@ my $rest = http_end($sockets[2]);
 $rest .= http_end($sockets[3]);
 
 like($rest, qr/request (2.*request 3|3.*request 2)/s, 'lock timeout - rest');
-
-TODO: {
-local $TODO = 'behavior change' unless $t->has_version('1.7.8');
-
 like(http_get('/timeout'), qr/request 1/, 'lock timeout - first only cached');
-
-}
 
 # no lock
 

@@ -168,13 +168,7 @@ unlike(http_get_auth('/proxy'), qr/INVISIBLE/, 'proxy auth no content');
 
 like(http_post('/proxy'), qr/ 401 /, 'proxy auth post');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.7.3');
-
 like(http_get_auth('/proxy-cache'), qr/ 404 /, 'proxy auth with cache');
-
-}
-
 like(http_get('/proxy-cache'), qr/ 404 /, 'proxy auth cached');
 
 # Consider the following scenario:

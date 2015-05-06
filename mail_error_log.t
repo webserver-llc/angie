@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -30,7 +32,7 @@ my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/)
 
 plan(skip_all => 'no error_log') unless $t->has_version('1.9.0');
 
-$t->plan(29)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(30)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -52,6 +54,7 @@ mail {
 
         error_log %%TESTDIR%%/e_debug.log debug;
         error_log %%TESTDIR%%/e_info.log info;
+        error_log syslog:server=127.0.0.1:8080 info;
         error_log syslog:server=127.0.0.1:8082 info;
         error_log stderr info;
     }
@@ -119,7 +122,7 @@ is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 
 # syslog
 
-parse_syslog_message('syslog', $t->read_file('s_info.log'));
+parse_syslog_message('syslog', get_syslog());
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'e_glob.log'),
 	'global syslog messages');
@@ -151,8 +154,48 @@ sub levels {
 	return \%levels_hash;
 }
 
+sub get_syslog {
+	my ($port) = @_;
+	my $data = '';
+	my ($s);
+
+	$port = 8080 unless defined $port;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(1);
+		$s = IO::Socket::INET->new(
+			Proto => 'udp',
+			LocalAddr => "127.0.0.1:$port"
+		);
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	Test::Nginx::IMAP->new();
+
+	IO::Select->new($s)->can_read(1.5);
+	while (IO::Select->new($s)->can_read(0.1)) {
+		my $buffer;
+		sysread($s, $buffer, 4096);
+		$data .= $buffer;
+	}
+	$s->close();
+	return $data;
+}
+
 sub parse_syslog_message {
 	my ($desc, $line) = @_;
+
+	ok($line, $desc);
+
+SKIP: {
+	skip "$desc timeout", 18 unless $line;
 
 	my @months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
 		'Sep', 'Oct', 'Nov', 'Dec');
@@ -195,6 +238,8 @@ sub parse_syslog_message {
 	like($tag, qr'\w+', "$desc valid tag");
 
 	ok(length($msg) > 0, "$desc valid CONTENT");
+}
+
 }
 
 ###############################################################################

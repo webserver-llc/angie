@@ -54,9 +54,15 @@ mail {
 
         error_log %%TESTDIR%%/e_debug.log debug;
         error_log %%TESTDIR%%/e_info.log info;
-        error_log syslog:server=127.0.0.1:8080 info;
         error_log syslog:server=127.0.0.1:8082 info;
         error_log stderr info;
+    }
+
+    server {
+        listen     127.0.0.1:8145;
+        protocol   imap;
+
+        error_log syslog:server=127.0.0.1:8080 info;
     }
 }
 
@@ -177,7 +183,7 @@ sub get_syslog {
 		return undef;
 	}
 
-	Test::Nginx::IMAP->new();
+	Test::Nginx::IMAP->new(PeerAddr => "127.0.0.1:8145")->read();
 
 	IO::Select->new($s)->can_read(1.5);
 	while (IO::Select->new($s)->can_read(0.1)) {

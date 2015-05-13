@@ -70,15 +70,15 @@ http {
         }
         location /var {
             ssi on;
-            add_header X-Var $date_gmt;
+            add_header X-Var x${date_gmt}x;
         }
         location /var_noformat {
             ssi on;
-            add_header X-Var $date_gmt;
+            add_header X-Var x${date_gmt}x;
             return 200;
         }
         location /var_nossi {
-            add_header X-Var $date_gmt;
+            add_header X-Var x${date_gmt}x;
             return 200;
         }
     }
@@ -172,20 +172,18 @@ like(http_get('/unescape3.html'), qr/404 Not Found/,
 
 # handling of embedded date variables
 
-like(http_get('/var_nossi.html'),
-	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'no ssi');
-like(http_get('/var_noformat.html'),
-	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'no format');
+my $re_date_gmt = qr/X-Var: x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d [\w ]+x/;
 
-like(http_get('/var_format.html?custom=1'),
-	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'custom header');
-like(http_get('/var_format.html'),
-	qr/X-Var: \w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+/, 'default header');
+like(http_get('/var_nossi.html'), $re_date_gmt, 'no ssi');
+like(http_get('/var_noformat.html'), $re_date_gmt, 'no format');
+
+like(http_get('/var_format.html?custom=1'), $re_date_gmt, 'custom header');
+like(http_get('/var_format.html'), $re_date_gmt, 'default header');
 
 like(http_get('/var_format.html?custom=1'),
 	qr/x\w+, \d\d:\d\d:\d\dx/, 'custom ssi');
 like(http_get('/var_format.html'),
-	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d \w+x/, 'default ssi');
+	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d [\w ]+x/, 'default ssi');
 
 like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 

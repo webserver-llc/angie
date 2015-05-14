@@ -33,10 +33,9 @@ eval {
 	Compress::Raw::Zlib->WANT_GZIP_OR_ZLIB;
 };
 plan(skip_all => 'Compress::Raw::Zlib not installed') if $@;
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()
-	->has(qw/http proxy cache limit_conn rewrite spdy realip/);
+	->has(qw/http proxy cache limit_conn rewrite spdy realip shmem/);
 
 $t->plan(82)->write_file_expand('nginx.conf', <<'EOF');
 

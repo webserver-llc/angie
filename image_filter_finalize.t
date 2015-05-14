@@ -21,10 +21,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
-my $t = Test::Nginx->new()
-	->has(qw/http proxy cache image_filter limit_req rewrite/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/http proxy cache image_filter limit_req/)
+	->has(qw/rewrite shmem/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

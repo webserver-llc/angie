@@ -73,8 +73,9 @@ sub has($;) {
 	my ($self, @features) = @_;
 
 	foreach my $feature (@features) {
-		Test::More::plan(skip_all => "$feature not compiled in")
-			unless $self->has_module($feature);
+		Test::More::plan(skip_all => "no $feature available")
+			unless $self->has_module($feature)
+			or $self->has_feature($feature);
 	}
 
 	return $self;
@@ -150,6 +151,20 @@ sub has_module($) {
 		if !defined $self->{_configure_args};
 
 	return ($self->{_configure_args} =~ $re) ? 1 : 0;
+}
+
+sub has_feature($) {
+	my ($self, $feature) = @_;
+
+	if ($feature eq 'symlink') {
+		return $^O ne 'MSWin32';
+	}
+
+	if ($feature eq 'shmem') {
+		return $^O ne 'MSWin32' || $self->has_version('1.9.0');
+	}
+
+	return 0;
 }
 
 sub has_version($) {

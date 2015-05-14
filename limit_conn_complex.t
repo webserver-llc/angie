@@ -24,9 +24,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
-my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req/)->plan(4);
+my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req shmem/)
+	->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

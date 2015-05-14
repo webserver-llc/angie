@@ -42,6 +42,11 @@ stream {
         server 127.0.0.1:8089 backup;
     }
 
+    upstream u2 {
+        server 127.0.0.1:8087;
+        server 127.0.0.1:8089 backup;
+    }
+
     proxy_connect_timeout 1s;
 
     server {
@@ -52,7 +57,7 @@ stream {
 
     server {
         listen      127.0.0.1:8082;
-        proxy_pass  u;
+        proxy_pass  u2;
         proxy_next_upstream on;
     }
 

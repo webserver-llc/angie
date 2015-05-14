@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(22)
+my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(25)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -78,6 +78,16 @@ http {
             sub_filter_once off;
             return 200 $arg_b;
         }
+
+        location /var/string {
+            sub_filter X$arg_a _replaced;
+            return 200 $arg_b;
+        }
+
+        location /var/replacement {
+            sub_filter aab '${arg_a}_replaced';
+            return 200 $arg_b;
+        }
     }
 }
 
@@ -115,5 +125,17 @@ like(http_get('/single/many?b=A'), qr/B/, 'single many only');
 like(http_get('/single/many?b=AA'), qr/BB/, 'single many begin');
 like(http_get('/single/many?b=CAAC'), qr/CBBC/, 'single many middle');
 like(http_get('/single/many?b=CA'), qr/CB/, 'single many end');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/var/string?a=foo&b=Xfoo'), qr/_replaced/, 'complex string');
+like(http_get('/var/string?a=abcdefghijklmnopq&b=Xabcdefghijklmnopq'),
+	qr/_replaced/, 'complex string long');
+
+}
+
+like(http_get('/var/replacement?a=ee&b=aaab'), qr/aee_replaced/,
+	'complex replacement');
 
 ###############################################################################

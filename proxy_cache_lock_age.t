@@ -17,14 +17,14 @@ use IO::Select;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(2)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -67,6 +67,9 @@ like(http_get('/'), qr/request 2/, 'request');
 like(http_get('/'), qr/request 2/, 'request cached');
 
 http_get('/close');
+
+like(http_end($s), qr/request 1/, 'request aged');
+like(http_get('/'), qr/request 1/, 'request aged cached');
 
 ###############################################################################
 

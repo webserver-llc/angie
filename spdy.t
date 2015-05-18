@@ -571,7 +571,7 @@ local $TODO = 'not yet';
 
 $sess = new_session();
 spdy_stream($sess, { path => '/s' }, 2);
-$frames = spdy_read($sess);
+$frames = spdy_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'even stream - GOAWAY frame');
@@ -587,10 +587,10 @@ local $TODO = 'not yet';
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/s' }, 3);
-spdy_read($sess);
+spdy_read($sess, all => [{ type => 'GOAWAY' }]);
 
 $sid2 = spdy_stream($sess, { path => '/s' }, 1);
-$frames = spdy_read($sess);
+$frames = spdy_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'backward stream - GOAWAY frame');
@@ -608,7 +608,7 @@ $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/s' }, 3);
 spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 $sid2 = spdy_stream($sess, { path => '/s' }, 3);
-$frames = spdy_read($sess);
+$frames = spdy_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 ok($frame, 'dup stream - RST_STREAM frame');
@@ -642,7 +642,7 @@ $t->stop();
 TODO: {
 local $TODO = 'not yet';
 
-$frames = spdy_read($sess);
+$frames = spdy_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY on connection close');
@@ -687,17 +687,14 @@ sub spdy_read {
 	my $s = $sess->{socket};
 	my $buf = '';
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-again:
-		alarm(1);
-
+	while (1) {
 		$buf = raw_read($s, $buf, 8);
+		last unless length $buf;
 
 		my $type = unpack("B", $buf);
 		$length = 8 + hex unpack("x5 H6", $buf);
 		$buf = raw_read($s, $buf, $length);
+		last unless length $buf;
 
 		if ($type == 0) {
 			push @got, dframe($buf);
@@ -708,10 +705,8 @@ again:
 		}
 		$buf = substr($buf, $length);
 
-		goto again if test_fin($got[-1], $extra{all});
-		alarm(0);
+		last unless test_fin($got[-1], $extra{all});
 	};
-	alarm(0);
 	return \@got;
 }
 
@@ -957,8 +952,8 @@ sub raw_read {
 	my ($s, $buf, $len) = @_;
 	my $got = '';
 
-	while (length($buf) < $len)  {
-		$s->sysread($got, $len - length($buf)) or die;
+	while (length($buf) < $len && IO::Select->new($s)->can_read(1)) {
+		$s->sysread($got, $len - length($buf)) or last;
 		log_in($got);
 		$buf .= $got;
 	}

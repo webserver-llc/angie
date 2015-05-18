@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(25)
+my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(28)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -88,6 +88,16 @@ http {
             sub_filter aab '${arg_a}_replaced';
             return 200 $arg_b;
         }
+
+        location /lm {
+            sub_filter_last_modified on;
+            proxy_pass http://127.0.0.1:8081/;
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8081;
+        server_name  localhost;
     }
 }
 
@@ -137,5 +147,9 @@ like(http_get('/var/string?a=abcdefghijklmnopq&b=Xabcdefghijklmnopq'),
 
 like(http_get('/var/replacement?a=ee&b=aaab'), qr/aee_replaced/,
 	'complex replacement');
+
+unlike(http_get('/foo.html'), qr/(Last-Modified|ETag)/, 'no last modified');
+like(http_get('/lm/foo.html'), qr/Last-Modified/, 'last modified');
+like(http_get('/lm/foo.html'), qr!ETag: W/"[^"]+"!, 'last modified weak');
 
 ###############################################################################

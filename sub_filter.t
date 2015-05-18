@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(28)
+my $t = Test::Nginx->new()->has(qw/http rewrite sub/)->plan(30)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -104,12 +104,14 @@ http {
 EOF
 
 $t->write_file('foo.html', 'foo');
+$t->write_file('foo_uc.html', 'FOO');
 $t->write_file('foofoo.html', 'foofoo');
 $t->run();
 
 ###############################################################################
 
 like(http_get('/foo.html'), qr/bar/, 'sub_filter');
+like(http_get('/foo_uc.html'), qr/bar/, 'sub_filter caseless');
 like(http_get('/foofoo.html'), qr/barfoo/, 'once default');
 
 like(http_get('/once?b=foofoo'), qr/barfoo/, 'once');
@@ -140,6 +142,8 @@ TODO: {
 local $TODO = 'not yet';
 
 like(http_get('/var/string?a=foo&b=Xfoo'), qr/_replaced/, 'complex string');
+like(http_get('/var/string?a=foo&b=XFOO'), qr/_replaced/,
+	'complex string caseless');
 like(http_get('/var/string?a=abcdefghijklmnopq&b=Xabcdefghijklmnopq'),
 	qr/_replaced/, 'complex string long');
 

@@ -13,6 +13,8 @@ use strict;
 
 use Test::More;
 
+use Config;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -135,7 +137,13 @@ is_deeply(ngx('/'), mem($memd), 'cache::memcached');
 $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers =>
 	[ '127.0.0.1:8081', '127.0.0.1:8082', '127.0.0.1:8083'] });
 
+TODO: {
+local $TODO = 'not yet' unless $Config{byteorder} eq '12345678'
+	or $t->has_version('1.9.1');
+
 is_deeply(ngx('/c'), mem($memd), 'cache::memcached::fast');
+
+}
 
 $memd = new Cache::Memcached(servers => [
 	[ '127.0.0.1:8081', 2 ],
@@ -149,7 +157,13 @@ $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
 	{ address => '127.0.0.1:8082', weight => 3 },
 	{ address => '127.0.0.1:8083', weight => 1 }] });
 
+TODO: {
+local $TODO = 'not yet' unless $Config{byteorder} eq '12345678'
+	or $t->has_version('1.9.1');
+
 is_deeply(ngx('/cw'), mem($memd), 'cache::memcached::fast weight');
+
+}
 
 ###############################################################################
 

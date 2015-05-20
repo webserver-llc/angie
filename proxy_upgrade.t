@@ -2,9 +2,9 @@
 
 # (C) Maxim Dounin
 
-# Tests for http proxy upgrade support.  In contrast to proxy_websocket.t
-# this test doesn't try to use binary WebSocket protocol, but uses simple
-# plain text protocol instead.
+# Tests for http proxy upgrade support.
+# In contrast to proxy_websocket.t, this test doesn't try to use binary
+# WebSocket protocol, but uses simple plain text protocol instead.
 
 ###############################################################################
 
@@ -15,7 +15,6 @@ use Test::More;
 
 use IO::Poll;
 use IO::Select;
-use IO::Socket::INET;
 use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -97,10 +96,11 @@ SKIP: {
 	}
 }
 
+undef $s;
+
 # establish connection with some pipelined data
 # and make sure they are correctly passed upstream
 
-undef $s;
 $s = upgrade_connect(message => "foo");
 ok($s, "handshake pipelined");
 
@@ -113,10 +113,11 @@ SKIP: {
 	is(upgrade_read($s), "bar", "next to pipelined");
 }
 
+undef $s;
+
 # connection should not be upgraded unless upgrade was actually
 # requested and allowed by configuration
 
-undef $s;
 $s = upgrade_connect(noheader => 1);
 ok(!$s, "handshake noupgrade");
 
@@ -127,7 +128,7 @@ sub upgrade_connect {
 
 	my $s = IO::Socket::INET->new(
 		Proto => 'tcp',
-		PeerAddr => '127.0.0.1:8080'
+		PeerAddr => '127.0.0.1:8080',
 	)
 		or die "Can't connect to nginx: $!\n";
 

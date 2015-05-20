@@ -28,7 +28,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy/)
-	->write_file_expand('nginx.conf', <<'EOF')->plan(27);
+	->write_file_expand('nginx.conf', <<'EOF')->plan(30);
 
 %%TEST_GLOBALS%%
 
@@ -39,6 +39,9 @@ events {
 
 http {
     %%TEST_GLOBALS_HTTP%%
+
+    log_format test "$bytes_sent $body_bytes_sent";
+    access_log %%TESTDIR%%/cc.log test;
 
     server {
         listen       127.0.0.1:8080;
@@ -57,6 +60,8 @@ http {
 
 EOF
 
+my $d = $t->testdir();
+
 $t->run_daemon(\&upgrade_fake_daemon);
 $t->run();
 
@@ -67,6 +72,7 @@ $t->waitforsocket('127.0.0.1:8081')
 
 # establish connection
 
+my @r;
 my $s = upgrade_connect();
 ok($s, "handshake");
 
@@ -96,6 +102,7 @@ SKIP: {
 	}
 }
 
+push @r, $s ? ${*$s}->{_upgrade_private}->{r} : 'failed';
 undef $s;
 
 # establish connection with some pipelined data
@@ -113,6 +120,7 @@ SKIP: {
 	is(upgrade_read($s), "bar", "next to pipelined");
 }
 
+push @r, $s ? ${*$s}->{_upgrade_private}->{r} : 'failed';
 undef $s;
 
 # connection should not be upgraded unless upgrade was actually
@@ -120,6 +128,17 @@ undef $s;
 
 $s = upgrade_connect(noheader => 1);
 ok(!$s, "handshake noupgrade");
+
+# bytes sent on upgraded connection
+# verify with 1) data actually read by client, 2) expected data from backend
+
+$t->stop();
+
+open my $f, '<', "$d/cc.log" or die "Can't open cc.log: $!";
+
+is($f->getline(), shift (@r) . " 540793\n", 'log - bytes');
+is($f->getline(), shift (@r) . " 22\n", 'log - bytes pipelined');
+is($f->getline(), "0 0\n", 'log - bytes noupgrade');
 
 ###############################################################################
 
@@ -175,7 +194,7 @@ sub upgrade_getline {
 	my ($s) = @_;
 	my ($h, $buf, $line);
 
-	${*$s}->{_upgrade_private} ||= { b => ''};
+	${*$s}->{_upgrade_private} ||= { b => '', r => 0 };
 	$h = ${*$s}->{_upgrade_private};
 
 	if ($h->{b} =~ /^(.*?\x0a)(.*)/ms) {
@@ -189,6 +208,7 @@ sub upgrade_getline {
 		last unless $n;
 
 		$h->{b} .= $buf;
+		$h->{r} += $n;
 
 		if ($h->{b} =~ /^(.*?\x0a)(.*)/ms) {
 			$h->{b} = $2;

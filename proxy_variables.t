@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http proxy/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -40,21 +40,23 @@ http {
         server 127.0.0.1:8081;
     }
 
-    log_format time $upstream_header_time:$upstream_response_time;
+    log_format time '$upstream_connect_time:$upstream_header_time:'
+                    '$upstream_response_time';
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        add_header X-Connect $upstream_connect_time;
+        add_header X-Header $upstream_header_time;
+        add_header X-Response $upstream_response_time;
+
         location / {
-            add_header X-Header-Time $upstream_header_time;
             proxy_pass http://127.0.0.1:8081;
             access_log %%TESTDIR%%/time.log time;
         }
 
         location /pnu {
-            add_header X-Header-Time $upstream_header_time;
-            add_header X-Response-Time $upstream_response_time;
             proxy_pass http://u/bad;
         }
     }
@@ -63,29 +65,37 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon, 8081);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->try_run('no upstream_connect_time')->plan(15);
+
+$t->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
 my $re = qr/(\d\.\d{3})/;
-my ($ht, $rt, $ht2, $rt2);
+my ($ct, $ht, $rt, $ct2, $ht2, $rt2);
 
-($ht) = http_get('/header') =~ /X-Header-Time: $re/;
+($ct, $ht) = get('/header');
+cmp_ok($ct, '<', 1, 'connect time - slow response header');
 cmp_ok($ht, '>=', 1, 'header time - slow response header');
 
-($ht) = http_get('/body') =~ /X-Header-Time: $re/;
+($ct, $ht) = get('/body');
+cmp_ok($ct, '<', 1, 'connect time - slow response body');
 cmp_ok($ht, '<', 1, 'header time - slow response body');
 
-my $r = http_get('/pnu');
-($ht) = $r =~ /X-Header-Time: ($re)/;
-($rt) = $r =~ /X-Response-Time: ($re)/;
-
+($ct, $ct2, $ht, $ht2, $rt) = get('/pnu', many => 1);
+cmp_ok($ct, '<', 1, 'connect time - next');
+cmp_ok($ct2, '<', 1, 'connect time - next 2');
+cmp_ok($ht, '>=', 1, 'header time - next');
+cmp_ok($ht2, '<', 1, 'header time - next 2');
 is($ht, $rt, 'header time - bad response');
-like($r, qr/X-Header-Time: $re, $re/, 'header time - next');
 
 $t->stop();
 
-($ht, $rt, $ht2, $rt2) = $t->read_file('time.log') =~ /^$re:$re\n$re:$re$/;
+($ct, $ht, $rt, $ct2, $ht2, $rt2)
+	= $t->read_file('time.log') =~ /^$re:$re:$re\n$re:$re:$re$/;
+
+cmp_ok($ct, '<', 1, 'connect time log - slow response header');
+cmp_ok($ct2, '<', 1, 'connect time log - slow response body');
 
 cmp_ok($ht, '>=', 1, 'header time log - slow response header');
 cmp_ok($ht2, '<', 1, 'header time log - slow response body');
@@ -94,6 +104,13 @@ cmp_ok($rt, '>=', 1, 'response time log - slow response header');
 cmp_ok($rt2, '>=', 1, 'response time log - slow response body');
 
 ###############################################################################
+
+sub get {
+	my ($uri, %extra) = @_;
+	my $re = $extra{many} ? qr/$re, $re?/ : $re;
+	my $r = http_get($uri);
+	$r =~ /X-Connect: $re/, $r =~ /X-Header: $re/, $r =~ /X-Response: $re/;
+}
 
 sub http_daemon {
 	my ($port) = @_;

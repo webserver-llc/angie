@@ -120,8 +120,10 @@ $t->waitforsocket('127.0.0.1:8082')
 
 ###############################################################################
 
-my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ]);
-my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:8082' ]);
+my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ],
+	connect_timeout => 1.0);
+my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:8082' ],
+	connect_timeout => 1.0);
 
 $memd1->set('/', 'SEE-THIS');
 $memd2->set('/', 'SEE-THIS');

@@ -87,7 +87,8 @@ $t->waitforsocket('127.0.0.1:8081')
 
 ###############################################################################
 
-my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ]);
+my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ],
+	connect_timeout => 1.0);
 
 # It's possible that stale events occur, i.e. read event handler called
 # for just saved upstream connection without any data available for

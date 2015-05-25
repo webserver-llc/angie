@@ -218,7 +218,7 @@ sub websocket_fake_daemon {
 
 	while (my $client = $server->accept()) {
 		websocket_handle_client($client);
-        }
+	}
 }
 
 sub websocket_handle_client {

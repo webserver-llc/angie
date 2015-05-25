@@ -101,8 +101,8 @@ unlike(http_get('/nested/'), qr/X-Hidden/, 'proxy_hide_header nested');
 ###############################################################################
 
 sub http_get_ims {
-        my ($url) = @_;
-        return http(<<EOF);
+	my ($url) = @_;
+	return http(<<EOF);
 GET $url HTTP/1.0
 Host: localhost
 Connection: close

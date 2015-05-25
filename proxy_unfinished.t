@@ -119,14 +119,14 @@ like(http_get_11('/chunked/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
 # the same with proxy_buffering set to off
 
 like(http_get_11('/un/length'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
-        'unbuffered length no final chunk');
+	'unbuffered length no final chunk');
 like(http_get_11('/un/chunked'), qr/unfinished(?!.*\x0d\x0a?0\x0d\x0a?)/s,
-        'unbuffered chunked no final chunk');
+	'unbuffered chunked no final chunk');
 
 like(http_get_11('/un/length/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
-        'unbuffered length final chunk');
+	'unbuffered length final chunk');
 like(http_get_11('/un/chunked/ok'), qr/finished.*\x0d\x0a?0\x0d\x0a?/s,
-        'unbuffered chunked final chunk');
+	'unbuffered chunked final chunk');
 
 # big responses
 
@@ -190,7 +190,7 @@ sub http_daemon {
 				CRLF .
 				"unfinished" . CRLF;
 
-                } elsif ($uri eq '/length/ok') {
+		} elsif ($uri eq '/length/ok') {
 			print $client
 				"HTTP/1.1 200 OK" . CRLF .
 				"Content-Length: 10" . CRLF .
@@ -199,7 +199,7 @@ sub http_daemon {
 				CRLF .
 				"finished" . CRLF;
 
-                } elsif ($uri eq '/big') {
+		} elsif ($uri eq '/big') {
 			print $client
 				"HTTP/1.1 200 OK" . CRLF .
 				"Content-Length: 1000100" . CRLF .
@@ -211,7 +211,7 @@ sub http_daemon {
 			}
 			print $client "unfinished" . CRLF;
 
-                } elsif ($uri eq '/big/ok') {
+		} elsif ($uri eq '/big/ok') {
 			print $client
 				"HTTP/1.1 200 OK" . CRLF .
 				"Content-Length: 1000010" . CRLF .
@@ -242,7 +242,7 @@ sub http_daemon {
 				CRLF .
 				"a" . CRLF .
 				"finished" . CRLF .
-                                CRLF . "0" . CRLF . CRLF;
+				CRLF . "0" . CRLF . CRLF;
 		}
 	}
 }

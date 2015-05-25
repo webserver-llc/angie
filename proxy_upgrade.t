@@ -258,7 +258,7 @@ sub upgrade_fake_daemon {
 
 	while (my $client = $server->accept()) {
 		upgrade_handle_client($client);
-        }
+	}
 }
 
 sub upgrade_handle_client {

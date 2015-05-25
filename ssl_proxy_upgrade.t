@@ -254,7 +254,10 @@ sub upgrade_write {
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_write(1.5)) {
 		my $n = $s->syswrite($message);
-		last unless $n;
+		unless ($n) {
+			next if $s->errstr() == IO::Socket::SSL->SSL_WANT_WRITE;
+			last;
+		}
 		$message = substr($message, $n);
 		last unless length $message;
 	}

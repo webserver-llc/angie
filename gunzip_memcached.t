@@ -82,7 +82,7 @@ $t->waitforsocket('127.0.0.1:8081')
 my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:8081' ],
 	compress_threshold => 1, connect_timeout => 1.0);
 $memd->set('/', 'TEST' x 10)
-        or die "can't put value into memcached: $!";
+	or die "can't put value into memcached: $!";
 
 ###############################################################################
 

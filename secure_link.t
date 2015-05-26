@@ -135,12 +135,12 @@ my ($expires, $hash);
 $expires = time() + 86400;
 $hash = encode_base64url(md5("secret/expires.html$expires"));
 like(http_get('/expires.html?hash=' . $hash . '&expires=' . $expires),
-        qr/PASSED/, 'request md5 not expired');
+	qr/PASSED/, 'request md5 not expired');
 
 $expires = time() - 86400;
 $hash = encode_base64url(md5("secret/expires.html$expires"));
 like(http_get('/expires.html?hash=' . $hash . '&expires=' . $expires),
-        qr/^HTTP.*403/, 'request md5 expired');
+	qr/^HTTP.*403/, 'request md5 expired');
 
 # old style
 
@@ -154,10 +154,10 @@ like(http_get('/inheritance/test'), qr/PASSED/, 'inheritance');
 ###############################################################################
 
 sub encode_base64url {
-    my $e = encode_base64(shift, "");
-    $e =~ s/=+\z//;
-    $e =~ tr[+/][-_];
-    return $e;
+	my $e = encode_base64(shift, "");
+	$e =~ s/=+\z//;
+	$e =~ tr[+/][-_];
+	return $e;
 }
 
 ###############################################################################

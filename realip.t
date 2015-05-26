@@ -71,7 +71,7 @@ $t->plan(6);
 
 like(http_xff('/1', '192.0.2.1'), qr/^X-IP: 192.0.2.1/m, 'realip');
 like(http_xff('/1', '10.0.0.1, 192.0.2.1'), qr/^X-IP: 192.0.2.1/m,
-        'realip multi');
+	'realip multi');
 like(http_xff('/1', '192.0.2.1, 10.0.1.1, 127.0.0.1'),
 	qr/^X-IP: 127.0.0.1/m, 'realip recursive off');
 like(http_xff('/2', '10.0.1.1, 192.0.2.1, 127.0.0.1'),

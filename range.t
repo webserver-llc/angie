@@ -118,7 +118,7 @@ like($t1, qr/X001XXXXXX\x0d?$/m, 'multipart - content 10-19');
 $t1 = http_get_range('/t1.html', 'Range: bytes=0-9, -10, 100000-, 10-19');
 like($t1, qr/ 206 /, 'multipart big - 206 partial reply');
 like($t1, qr/Content-Type: multipart\/byteranges; boundary=/,
-        'multipart big - content type');
+	'multipart big - content type');
 like($t1, qr/X000XXXXXX/m, 'multipart big - content 0-9');
 like($t1, qr/^X099XXXXXX\x0d?$/m, 'multipart big - content -10 aka 990-999');
 like($t1, qr/X001XXXXXX\x0d?$/m, 'multipart big - content 10-19');

@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(5);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -77,7 +77,5 @@ unlike(http_get('/remote'), qr/HIDDEN/m, 'no additional body proxy');
 $t->stop();
 
 like(`cat ${\($t->testdir())}/access.log`, qr/post/, 'post action in logs');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

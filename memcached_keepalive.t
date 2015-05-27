@@ -25,7 +25,7 @@ eval { require Cache::Memcached; };
 plan(skip_all => 'Cache::Memcached not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http memcached upstream_keepalive rewrite/)
-	->has_daemon('memcached')->plan(16)
+	->has_daemon('memcached')->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -189,9 +189,5 @@ http_get('/memd4');
 is($memd1->stats()->{total}->{total_connections} +
 	$memd2->stats()->{total}->{total_connections}, $total + 2,
 	'connection per backend');
-
-$t->stop();
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

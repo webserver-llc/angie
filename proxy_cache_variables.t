@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -90,7 +90,5 @@ like(http_get('/'), qr/(?<!X-Cache).*SEE-THAT/ms, 'proxy_cache empty');
 $t->write_file('index.html', 'SEE-THOSE');
 
 like(http_get('/'), qr/SEE-THOSE/, 'proxy_cache empty - not cached');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

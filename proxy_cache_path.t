@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(7)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(6)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -83,7 +83,5 @@ $t->write_file('t', 'SEE-THAT');
 like(http_get('/t?c=ON'), qr/HIT.*SEE-THIS/ms, 'temp path cached');
 like(http_get('/t?c=OFF'), qr/HIT.*SEE-THIS/ms, 'temp path cached off');
 like(http_get('/t?c=LEVELS'), qr/HIT.*SEE-THIS/ms, 'temp path cached levels');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

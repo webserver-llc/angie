@@ -25,7 +25,7 @@ eval { require Cache::Memcached; };
 plan(skip_all => 'Cache::Memcached not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http memcached upstream_keepalive rewrite/)
-	->has_daemon('memcached')->plan(2)
+	->has_daemon('memcached')->plan(1)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -117,9 +117,5 @@ for (1 .. 100) {
 
 cmp_ok($memd1->stats()->{total}->{total_connections}, '<=', $total + 2,
 	'only one connection per worker used');
-
-$t->stop();
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

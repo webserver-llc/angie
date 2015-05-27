@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(5)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -84,8 +84,6 @@ like(http_get_range('/cache/t.html', 'Range: bytes=4-'), qr/^THIS/m,
 	'cached range');
 like(http_get_range('/cache/t.html', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 	'cached multipart range');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################
 

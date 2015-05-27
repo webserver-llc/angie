@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache image_filter limit_req/)
-	->has(qw/rewrite shmem/)->plan(4)
+	->has(qw/rewrite shmem/)->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -141,7 +141,5 @@ like(http_get('/t2'), qr/HTTP/, 'image filter and store');
 http_get('/slow');
 http_get('/t3');
 like(http_get('/time.log'), qr!/t3:.*, [1-9]\.!, 'upstream response time');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

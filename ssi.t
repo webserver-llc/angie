@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http ssi cache proxy rewrite shmem/)
-	->plan(28);
+	->plan(27);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -189,7 +189,5 @@ like(http_get('/var_format.html?custom=1'),
 	qr/x\w+, \d\d:\d\d:\d\dx/, 'custom ssi');
 like(http_get('/var_format.html'),
 	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d [\w ]+x/, 'default ssi');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(7)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(6)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -90,8 +90,6 @@ like(http_get_range('/min_uses/t.html?3', 'Range: bytes=4-'),
 
 like(http_get_range('/min_uses/t.html?4', 'Range: bytes=0-2,4-'),
 	qr/^SEE.*^THIS/ms, 'multipart range below min_uses');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################
 

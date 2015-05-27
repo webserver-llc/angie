@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip shmem/)->plan(14)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip shmem/)->plan(13)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -109,8 +109,6 @@ unlink $t->testdir() . '/empty.html';
 like(http_gzip_request('/empty.html'),
 	qr/HTTP.*14\x0d\x0a.{20}\x0d\x0a0\x0d\x0a\x0d\x0a\z/s,
 	'empty get stale');
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################
 

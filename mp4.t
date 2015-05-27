@@ -58,7 +58,7 @@ system('ffmpeg -loglevel quiet -y '
 	. "${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";
 
-$t->run()->plan(14);
+$t->run()->plan(13);
 
 ###############################################################################
 
@@ -85,10 +85,6 @@ unlike(http_head("/test.mp4?end=21"), qr!HTTP/1.1 500!, 'end beyond EOF');
 unlike(http_head("/test.mp4?start=11"), qr!HTTP/1.1 500!,
 	'start beyond short track');
 like(http_head("/test.mp4?start=21"), qr!HTTP/1.1 500!, 'start beyond EOF');
-
-# check for alerts, e.g., "zero buf in output", shouldn't be any
-
-like(`grep -F '[alert]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no alerts');
 
 ###############################################################################
 

@@ -36,6 +36,7 @@ sub new {
 	bless $self;
 
 	$self->{_pid} = $$;
+	$self->{_alerts} = 1;
 
 	$self->{_testdir} = tempdir(
 		'nginx-test-XXXXXXXXXX',
@@ -60,6 +61,14 @@ sub DESTROY {
 
 	$self->stop();
 	$self->stop_daemons();
+
+	if (Test::More->builder->expected_tests) {
+		local $Test::Nginx::TODO = 'alerts' unless $self->{_alerts};
+
+		my $alerts = $self->read_file('error.log');
+		$alerts = join "\n", $alerts =~ /.+\[alert\].+/gm;
+		Test::More::is($alerts, '', 'no alerts');
+	}
 
 	if ($ENV{TEST_NGINX_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
@@ -223,7 +232,15 @@ sub try_run($$) {
 sub plan($) {
 	my ($self, $plan) = @_;
 
-	Test::More::plan(tests => $plan);
+	Test::More::plan(tests => $plan + 1);
+
+	return $self;
+}
+
+sub todo_alerts() {
+	my ($self) = @_;
+
+	$self->{_alerts} = 0;
 
 	return $self;
 }

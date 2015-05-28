@@ -80,7 +80,7 @@ $t->waitforsocket('127.0.0.1:8081')
 
 ###############################################################################
 
-# There are 3 mostly independend modes of upstream operation:
+# There are 3 mostly independent modes of upstream operation:
 #
 # 1. Buffered, i.e. normal mode with "proxy_buffering on;"
 # 2. Unbuffered, i.e. "proxy_buffering off;".

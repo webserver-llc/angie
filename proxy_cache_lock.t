@@ -73,10 +73,10 @@ $t->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
-# sequentional requests
+# sequential requests
 
 for my $i (1 .. 5) {
-	like(http_get('/seq'), qr/request 1/, 'sequentional request ' . $i);
+	like(http_get('/seq'), qr/request 1/, 'sequential request ' . $i);
 }
 
 # parallel requests

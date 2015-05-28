@@ -154,7 +154,7 @@ $t->run();
 
 ###############################################################################
 
-# Ony requests for absent peer are moved to other peers if hash is consistent.
+# Only requests for absent peer are moved to other peers if hash is consistent.
 # Check this by comparing two upstreams with different number of peers.
 
 ok(!cmp_peers([iter('/', 20)], [iter('/2', 20)], 8082), 'inconsistent');

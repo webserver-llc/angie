@@ -480,7 +480,7 @@ $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 7, 'priority 7');
 
-# stream muliplexing + priority
+# stream multiplexing + priority
 
 $sess = new_session();
 $sid1 = spdy_stream($sess, { path => '/t1.html', prio => 7 });

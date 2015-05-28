@@ -72,7 +72,7 @@ $t->run();
 
 ###############################################################################
 
-# Some rewrites and expected (?) behaviour
+# Some rewrites and expected (?) behavior
 #
 # /t1?r=http%3A%2F%2Fexample.com%2F%3Ffrom
 # rewrite ^ $arg_r? redirect;
@@ -119,9 +119,9 @@ location('/t1?r=http%3A%2F%2Fexample.com%0D%0Asplit',
 TODO: {
 local $TODO = 'not yet';
 
-# Fixing this cases will require major changes to the whole aproach and
+# Fixing this cases will require major changes to the whole approach and
 # likely to break some currently working cases.  On the other hand, current
-# behaviour is far from acceptable.  Should be carefully thought.
+# behavior is far from acceptable.  Should be carefully thought.
 
 location('/t1?r=http%3A%2F%2Fexample.com%2F%3Ffrom%3Dblah',
 	'http://example.com/?from=blah', 'escaped argument with complex query');

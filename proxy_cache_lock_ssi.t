@@ -92,7 +92,7 @@ $t->run();
 
 # this doesn't result in an infinite timeout as second subrequest
 # is woken up by the postpone filter once first subrequest completes,
-# but this is suboptimal behavior
+# but this is suboptimal behaviour
 
 my $s = http_get('/locked', start => 1);
 like(http_get('/ssi.html'), qr/end/, 'cache lock ssi');

@@ -58,6 +58,7 @@ EOF
 $t->write_file('ssi.html', 'X<!--# include virtual="test.html" -->X');
 $t->write_file('test.html', 'YY');
 
+$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/;
 $t->run();
 
 ###############################################################################

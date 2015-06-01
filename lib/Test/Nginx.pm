@@ -277,6 +277,20 @@ sub run(;$) {
 	return $self;
 }
 
+sub dump_config() {
+	my ($self) = @_;
+
+	my $testdir = $self->{_testdir};
+
+	my @globals = $self->{_test_globals} ?
+		() : ('-g', "pid $testdir/nginx.pid; "
+		. "error_log $testdir/error.log debug;");
+	my $command = "$NGINX -T -p $testdir/ -c nginx.conf "
+		. join(' ', @globals);
+
+	return qx/$command 2>&1/;
+}
+
 sub waitforfile($;$) {
 	my ($self, $file, $pid) = @_;
 	my $exited;

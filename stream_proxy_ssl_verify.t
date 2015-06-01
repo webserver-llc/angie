@@ -24,6 +24,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
 
+$t->todo_alerts() if $^O eq 'solaris';
+
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(6);
 
 %%TEST_GLOBALS%%

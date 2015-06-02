@@ -73,7 +73,7 @@ is($status{'reading'}, 0, 'not reading');
 
 # pipelined requests
 
-my $s = http(<<EOF);
+http(<<EOF);
 GET / HTTP/1.1
 Host: localhost
 
@@ -89,7 +89,7 @@ is($status{'accepts'}, 4, 'accepts increased by 1');
 
 # states
 
-$s = http('', start => 1);
+my $s = http('', start => 1);
 
 %status = status('/stub');
 is($status{'active'}, 2, 'active');

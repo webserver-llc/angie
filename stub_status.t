@@ -73,20 +73,19 @@ is($status{'reading'}, 0, 'not reading');
 
 # pipelined requests
 
-my $s = http(<<EOF, start => 1);
+my $s = http(<<EOF);
 GET / HTTP/1.1
 Host: localhost
 
 GET / HTTP/1.1
 Host: localhost
+Connection: close
 
 EOF
 
 %status = status('/stub');
 is($status{'requests'}, 5, 'requests increased by 2');
 is($status{'accepts'}, 4, 'accepts increased by 1');
-
-$s->close();
 
 # states
 
@@ -98,7 +97,7 @@ is($status{'waiting'}, 1, 'waiting state');
 is($status{'reading'}, 0, 'waiting state - not reading');
 is($status{'writing'}, 1, 'waiting state - not writing');
 
-http(<<EOF, start => 1, socket => $s);
+http(<<EOF, start => 1, socket => $s, sleep => 0.2);
 GET /rate HTTP/1.0
 EOF
 
@@ -107,7 +106,7 @@ is($status{'waiting'}, 0, 'reading state - not waiting');
 is($status{'reading'}, 1, 'reading state');
 is($status{'writing'}, 1, 'reading state - not writing');
 
-http(<<EOF, start => 1, socket => $s);
+http(<<EOF, start => 1, socket => $s, sleep => 0.2);
 Host: localhost
 
 EOF

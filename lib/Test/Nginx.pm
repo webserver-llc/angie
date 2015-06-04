@@ -622,7 +622,7 @@ sub http_gzip_like {
 
 	SKIP: {
 		eval { require IO::Uncompress::Gunzip; };
-		Test::More->builder->skip(
+		Test::More::skip(
 			"IO::Uncompress::Gunzip not installed", 1) if $@;
 
 		my $in = http_content($text);

@@ -12,6 +12,7 @@ use strict;
 
 use Test::More;
 
+use Config;
 use MIME::Base64;
 use Time::Local;
 
@@ -39,9 +40,6 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    log_format uid '$uid_got:$uid_set';
-    access_log %%TESTDIR%%/userid.log uid;
-
     map $args $uid_reset {
         default      0;
         value        1;
@@ -52,10 +50,13 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        add_header X-Got $uid_got;
+        add_header X-Reset $uid_reset;
+        add_header X-Set $uid_set;
         userid on;
 
         location / {
-            add_header X-Reset $uid_reset;
+            error_log %%TESTDIR%%/error_reset.log info;
         }
 
         location /name {
@@ -94,7 +95,7 @@ http {
         location /expires_max {
             userid_expires max;
 
-            location /expires_max/r {
+            location /expires_max/off {
                 userid_expires off;
             }
         }
@@ -129,16 +130,20 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('expires_time', '');
+$t->write_file('service', '');
+$t->write_file('cv1', '');
+$t->write_file('clog', '');
+$t->write_file('coff', '');
 $t->run();
 
 ###############################################################################
 
 # userid
 
-like(http_get('/'), qr/Set-Cookie:/, 'on cookie');
-like(http_get('/cv1'), qr/Set-Cookie:/, 'v1 cookie');
-unlike(http_get('/clog'), qr/Set-Cookie:/, 'log no cookie');
-unlike(http_get('/coff'), qr/Set-Cookie:/, 'off no cookie');
+like(http_get('/'), qr/Set-Cookie:/, 'cookie on');
+like(http_get('/cv1'), qr/Set-Cookie:/, 'cookie v1');
+unlike(http_get('/clog'), qr/Set-Cookie:/, 'cookie log');
+unlike(http_get('/coff'), qr/Set-Cookie:/, 'cookie off');
 
 # default
 
@@ -149,7 +154,7 @@ is($cookie{'domain'}, undef, 'domain default');
 is($cookie{'expires'}, undef, 'expires default');
 like($cookie{'uid'}, '/\w+={0,2}$/', 'mark default');
 unlike(http_get('/'), qr/P3P/, 'p3p default');
-like(http_get('/'), qr/X-Reset: 0/, 'reset var default');
+like(http_get('/'), qr/X-Reset: 0/, 'uid reset variable default');
 
 # name, path, domain and p3p
 
@@ -176,40 +181,44 @@ is(get_cookie('/expires_off', 'expires'), undef, 'expires off');
 
 # redefinition
 
-unlike(http_get('/expires_max/r'), qr/expires/, 'redefine expires');
+unlike(http_get('/expires_max/off'), qr/expires/, 'redefine expires');
 like(http_get('/path/r'), qr!/9876543210!, 'redefine path');
 
-# log and requests
+# requests
 
-my $uidc = get_cookie('/', 'uid');
-my $uidl = last_set($t);
-isnt($uidl, undef, 'log uid_set');
+$r = http_get('/');
+my ($uid) = uid_set($r);
+isnt($uid, undef, 'uid set variable');
 
-$r = send_uid('/', $uidc);
-is(last_got($t), $uidl, 'log uid_got');
+$r = send_uid('/', cookie($r, 'uid'));
+is(uid_got($r), $uid, 'uid got variable');
 unlike($r, qr/Set-Cookie:/, 'same path request');
 
-$r = send_uid('/coff', $uidc);
+$r = send_uid('/coff', $uid);
 unlike($r, qr/Set-Cookie:/, 'other path request');
 
-$r = send_uid('/?value', $uidc);
-like($r, qr/Set-Cookie:/, 'reset request');
-
-$uidc = cookie($r, 'uid');
-$r = send_uid('/?log', $uidc);
-isnt(last_got($t), $uidc, 'log reset request');
+$r = send_uid('/?value', $uid);
+like($r, qr/Set-Cookie:/, 'uid reset variable value');
 
 # service
 
-http_get('/cv1');
-is(substr(last_set($t), 0, 8), '00000000', 'service default v1');
+is(substr(uid_set(http_get('/cv1')), 0, 8), '00000000', 'service default v1');
 
-http_get('/');
-like(substr(last_set($t), 0, 8), '/[0100007F|F7000010|00000000]/',
-	'service default v2');
+my $bigendian = $Config{byteorder} eq '12345678' ? 0 : 1;
+my $addr = $bigendian ? "7F000001" : "0100007F";
+is(substr(uid_set(http_get('/')), 0, 8), $addr, 'service default v2');
 
-http_get('/service');
-like(substr(last_set($t), 0, 8), '/[0000FEFF|FEFF0000]/', 'service custom');
+$addr = $bigendian ? "0000FFFE" : "FEFF0000";
+is(substr(uid_set(http_get('/service')), 0, 8), $addr, 'service custom');
+
+# reset log
+
+send_uid('/?log', cookie($r, 'uid'));
+
+$t->stop();
+
+like($t->read_file('error_reset.log'),
+	'/userid cookie "uid=\w+" was reset/m', 'uid reset variable log');
 
 ###############################################################################
 
@@ -243,17 +252,15 @@ sub expires2timegm {
 	return timegm($sec, $min, $hour, $day, $months{$month}, $year);
 }
 
-sub last_got {
-	my ($t) = @_;
-	my $log = $t->read_file('userid.log');
-	my ($uid) = $log =~ /uid=(.*):.*\n$/m;
+sub uid_set {
+	my ($r) = @_;
+	my ($uid) = $r =~ /X-Set: uid=(.*)\n/m;
 	return $uid;
 }
 
-sub last_set {
-	my ($t) = @_;
-	my $log = $t->read_file('userid.log');
-	my ($uid) = $log =~ /:uid=(.*)\n$/m;
+sub uid_got {
+	my ($r) = @_;
+	my ($uid) = $r =~ /X-Got: uid=(.*)\n/m;
 	return $uid;
 }
 

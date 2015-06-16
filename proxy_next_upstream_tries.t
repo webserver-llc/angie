@@ -81,21 +81,21 @@ http {
         }
 
         location /timeout {
-            proxy_pass http://u/w;
-            proxy_next_upstream_timeout 1900ms;
+            proxy_pass http://u/w2;
+            proxy_next_upstream_timeout 3800ms;
         }
 
         location /timeout/backup {
-            proxy_pass http://u2/w;
-            proxy_next_upstream_timeout 1900ms;
+            proxy_pass http://u2/w2;
+            proxy_next_upstream_timeout 3800ms;
         }
 
         location /timeout/resolver {
             resolver 127.0.0.1:8083;
             resolver_timeout 1s;
 
-            proxy_pass http://$host:8081/w;
-            proxy_next_upstream_timeout 1900ms;
+            proxy_pass http://$host:8081/w2;
+            proxy_next_upstream_timeout 3800ms;
         }
 
         location /timeout/zero {
@@ -127,10 +127,15 @@ like(http_get('/tries/zero'), qr/x404, 404, 404x/, 'tries zero');
 
 # two tries fit into 1.9s
 
+SKIP: {
+skip 'long tests', 4 unless $ENV{TEST_NGINX_UNSAFE};
+
 like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');
 like(http_get('/timeout/resolver'), qr/x404, 404x/, 'timeout resolved');
 like(http_get('/timeout/zero'), qr/x404, 404, 404x/, 'timeout zero');
+
+}
 
 ###############################################################################
 
@@ -166,6 +171,11 @@ sub http_daemon {
 		if ($uri eq '/w') {
 			Test::Nginx::log_core('||', "$port: sleep(1)");
 			select undef, undef, undef, 1;
+		}
+
+		if ($uri eq '/w2') {
+			Test::Nginx::log_core('||', "$port: sleep(2)");
+			select undef, undef, undef, 2;
 		}
 
 		Test::Nginx::log_core('||', "$port: response, 404");

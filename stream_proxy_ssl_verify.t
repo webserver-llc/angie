@@ -86,12 +86,11 @@ stream {
         proxy_ssl_trusted_certificate 1.example.com.crt;
         proxy_ssl_session_reuse off;
     }
-}
 
-stream {
     server {
         listen      127.0.0.1:8087 ssl;
         proxy_pass  127.0.0.1:8089;
+        proxy_ssl   off;
 
         ssl_certificate 1.example.com.crt;
         ssl_certificate_key 1.example.com.key;
@@ -100,6 +99,7 @@ stream {
     server {
         listen      127.0.0.1:8088 ssl;
         proxy_pass  127.0.0.1:8089;
+        proxy_ssl   off;
 
         ssl_certificate 2.example.com.crt;
         ssl_certificate_key 2.example.com.key;

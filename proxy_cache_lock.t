@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(17)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -113,10 +113,12 @@ for my $i (1 .. 3) {
 	$sockets[$i] = http_get('/nolock', start => 1);
 }
 
-for my $i (1 .. 3) {
-	like(http_end($sockets[$i]), qr/request $i/, 'nolock  ' . $i);
-}
+like(http_end($sockets[1]), qr/request 1/, 'nolock - first');
 
+$rest = http_end($sockets[2]);
+$rest .= http_end($sockets[3]);
+
+like($rest, qr/request (2.*request 3|3.*request 2)/s, 'nolock - rest');
 like(http_get('/nolock'), qr/request 3/, 'nolock - last cached');
 
 ###############################################################################

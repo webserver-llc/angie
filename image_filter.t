@@ -280,6 +280,7 @@ sub has_gdversion {
 	my ($need) = @_;
 
 	my $v_str = `gdlib-config --version 2>&1` or return;
+	($v_str) = $v_str =~ m!([0-9a-z.]+)!;
 	my @v = split(/\./, $v_str);
 	my ($n, $v);
 

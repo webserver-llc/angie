@@ -145,6 +145,8 @@ sub has_module($) {
 		split_clients
 			=> '(?s)^(?!.*--without-http_split_clients_module)',
 		stream	=> '--with-stream(?!\S)',
+		stream_limit_conn =>
+			'(?s)^(?!.*--without-stream_limit_conn_module)',
 		stream_upstream_hash
 			=> '(?s)^(?!.*--without-stream_upstream_hash_module)',
 		stream_upstream_least_conn

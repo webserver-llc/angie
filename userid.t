@@ -204,7 +204,7 @@ like($r, qr/Set-Cookie:/, 'uid reset variable value');
 
 is(substr(uid_set(http_get('/cv1')), 0, 8), '00000000', 'service default v1');
 
-my $bigendian = $Config{byteorder} eq '12345678' ? 0 : 1;
+my $bigendian = $Config{byteorder} =~ '1234' ? 0 : 1;
 my $addr = $bigendian ? "7F000001" : "0100007F";
 is(substr(uid_set(http_get('/')), 0, 8), $addr, 'service default v2');
 

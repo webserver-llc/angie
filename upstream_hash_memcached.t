@@ -141,7 +141,7 @@ $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers =>
 	[ '127.0.0.1:8081', '127.0.0.1:8082', '127.0.0.1:8083'] });
 
 TODO: {
-local $TODO = 'not yet' unless $Config{byteorder} eq '12345678'
+local $TODO = 'not yet' unless $Config{byteorder} =~ '1234'
 	or $t->has_version('1.9.1');
 
 is_deeply(ngx('/c'), mem($memd), 'cache::memcached::fast');
@@ -161,7 +161,7 @@ $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
 	{ address => '127.0.0.1:8083', weight => 1 }] });
 
 TODO: {
-local $TODO = 'not yet' unless $Config{byteorder} eq '12345678'
+local $TODO = 'not yet' unless $Config{byteorder} =~ '1234'
 	or $t->has_version('1.9.1');
 
 is_deeply(ngx('/cw'), mem($memd), 'cache::memcached::fast weight');

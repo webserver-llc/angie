@@ -83,7 +83,7 @@ http {
         }
 
         location /varlog {
-            access_log %%TESTDIR%%/${arg_logname} test;
+            access_log %%TESTDIR%%/varlog_${arg_logname} test;
             return 200 OK;
         }
     }
@@ -202,10 +202,10 @@ is($log, "/multi:200\n", 'multiple logs 2');
 
 # test log destinations with variables
 
-$log = $t->read_file('0');
+$log = $t->read_file('varlog_0');
 is($log, "/varlog:200\n", 'varlog literal zero name');
 
-$log = $t->read_file('filename');
+$log = $t->read_file('varlog_filename');
 is($log, "/varlog:200\n", 'varlog good name');
 
 ###############################################################################

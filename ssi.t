@@ -177,7 +177,7 @@ like(http_get('/unescape3.html'), qr/404 Not Found/,
 
 # handling of embedded date variables
 
-my $re_date_gmt = qr/X-Var: x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d [\w ]+x/;
+my $re_date_gmt = qr/X-Var: x.+, \d\d-.+-\d{4} \d\d:\d\d:\d\d .+x/;
 
 like(http_get('/var_nossi.html'), $re_date_gmt, 'no ssi');
 like(http_get('/var_noformat.html'), $re_date_gmt, 'no format');
@@ -186,8 +186,8 @@ like(http_get('/var_format.html?custom=1'), $re_date_gmt, 'custom header');
 like(http_get('/var_format.html'), $re_date_gmt, 'default header');
 
 like(http_get('/var_format.html?custom=1'),
-	qr/x\w+, \d\d:\d\d:\d\dx/, 'custom ssi');
+	qr/x.+, \d\d:\d\d:\d\dx/, 'custom ssi');
 like(http_get('/var_format.html'),
-	qr/x\w+, \d\d-\w{3}-\d{4} \d\d:\d\d:\d\d [\w ]+x/, 'default ssi');
+	qr/x.+, \d\d-.+-\d{4} \d\d:\d\d:\d\d .+x/, 'default ssi');
 
 ###############################################################################

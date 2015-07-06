@@ -13,7 +13,6 @@ use strict;
 
 use Test::More;
 
-use IO::Socket;
 use MIME::Base64;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }

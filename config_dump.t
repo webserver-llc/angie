@@ -100,5 +100,7 @@ sub getconf {
 	my $prefix = "# configuration file $d/$conf:\n";
 	my $offset = index($string, $prefix) + length($prefix);
 	my $len = length($t->read_file($conf));
-	return substr($string, $offset, $len) =~ tr/\r//rd;
+	my $s = substr($string, $offset, $len);
+	$s =~ tr/\r//d;
+	return $s;
 }

@@ -46,7 +46,6 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        proxy_read_timeout 2s;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
 

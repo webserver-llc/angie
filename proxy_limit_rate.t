@@ -58,8 +58,7 @@ $t->run();
 
 ###############################################################################
 
-my $s = http_get('/', start => 1);
-my $r = http_end_gentle($s);
+my $r = http_get('/');
 
 my ($t1) = $r =~ /X-Msec: (\d+)/;
 my $diff = time() - $t1;
@@ -68,31 +67,5 @@ my $diff = time() - $t1;
 
 cmp_ok(abs($diff - 3), '<=', 1, 'proxy_limit_rate');
 like($r, qr/^(XXXXXXXXXX){4000}\x0d?\x0a?$/m, 'response body');
-
-###############################################################################
-
-sub http_end_gentle {
-	my ($s) = @_;
-	my $reply;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-
-		local $/;
-		$reply = $s->getline();
-
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	log_in($reply);
-	return $reply;
-}
 
 ###############################################################################

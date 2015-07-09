@@ -298,7 +298,7 @@ sub waitforfile($;$) {
 	# wait for file to appear
 	# or specified process to exit
 
-	for (1 .. 30) {
+	for (1 .. 50) {
 		return 1 if -e $file;
 		return 0 if $exited;
 		$exited = waitpid($pid, WNOHANG) != 0 if $pid;
@@ -313,7 +313,7 @@ sub waitforsocket($) {
 
 	# wait for socket to accept connections
 
-	for (1 .. 30) {
+	for (1 .. 50) {
 		my $s = IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => $peer
@@ -541,7 +541,7 @@ sub http_start($;%) {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 
 		$s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
@@ -578,7 +578,7 @@ sub http_end($;%) {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 
 		local $/;
 		$reply = $s->getline();

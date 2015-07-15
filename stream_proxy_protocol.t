@@ -71,7 +71,7 @@ sub stream_get {
 	my ($data, $peer) = @_;
 
 	my $s = stream_connect($peer);
-	my $sockport = $s->sockport;
+	my $sockport = $s->sockport();
 	stream_write($s, $data);
 
 	$data = '';

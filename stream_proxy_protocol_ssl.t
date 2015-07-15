@@ -97,7 +97,7 @@ sub pp_get {
 	my ($data, $peer) = @_;
 
 	my $s = http($data, socket => getconn($peer), start => 1);
-	my $sockport = $s->sockport;
+	my $sockport = $s->sockport();
 	$data = http_end($s);
 	return ('data' => $data, 'sp' => $sockport);
 }

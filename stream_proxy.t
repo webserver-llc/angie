@@ -18,6 +18,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -49,70 +50,18 @@ $t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
 
-my $s = stream_connect();
+my $s = stream();
 
-stream_write($s, 'foo1');
-is(stream_read($s), 'bar1', 'proxy connection');
+is($s->io('foo1', length => 4), 'bar1', 'proxy connection');
+is($s->io('foo3', length => 4), 'bar3', 'proxy connection again');
+is($s->io('close'), 'close', 'proxy connection close');
+is($s->io('test'), '', 'proxy connection closed');
 
-stream_write($s, 'foo3');
-is(stream_read($s), 'bar3', 'proxy connection again');
-
-stream_write($s, 'close');
-is(stream_read($s), 'close', 'proxy connection close');
-
-stream_write($s, 'test');
-is(stream_read($s), '', 'proxy connection closed');
-
-$s = stream_connect();
+$s = stream();
 
 sleep 3;
 
-stream_write($s, 'foo');
-is(stream_read($s), 'bar', 'proxy connect timeout');
-
-###############################################################################
-
-sub stream_connect {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
-
-sub stream_write {
-	my ($s, $message) = @_;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		$message = substr($message, $n);
-		last unless length $message;
-	}
-
-	if (length $message) {
-		$s->close();
-	}
-}
-
-sub stream_read {
-	my ($s) = @_;
-	my ($buf);
-
-	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
-		$s->sysread($buf, 1024);
-	};
-
-	log_in($buf);
-	return $buf;
-}
+is($s->io('foo', length => 3), 'bar', 'proxy connect timeout');
 
 ###############################################################################
 

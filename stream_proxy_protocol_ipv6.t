@@ -19,6 +19,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -66,66 +67,9 @@ $t->waitforsocket('127.0.0.1:8082');
 
 ###############################################################################
 
-like(stream_get('close'), qr/PROXY TCP6 ::1 ::1 \d+ 8080$CRLF/, 'protocol on');
-unlike(stream_get('close', '127.0.0.1:8081'), qr/PROXY/, 'protocol off');
-
-###############################################################################
-
-sub stream_get {
-	my ($data, $peer) = @_;
-
-	my $s = stream_connect($peer);
-	stream_write($s, $data);
-
-	$data = '';
-	while (my $buf = stream_read($s)) {
-		$data .= $buf;
-	}
-
-	return $data;
-}
-
-sub stream_connect {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
-
-sub stream_write {
-	my ($s, $message) = @_;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		$message = substr($message, $n);
-		last unless length $message;
-	}
-
-	if (length $message) {
-		$s->close();
-	}
-}
-
-sub stream_read {
-	my ($s) = @_;
-	my ($buf);
-
-	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
-		$s->sysread($buf, 1024);
-	};
-
-	log_in($buf);
-	return $buf;
-}
+like(stream()->io('close'), qr/PROXY TCP6 ::1 ::1 \d+ 8080$CRLF/,
+	'protocol on');
+unlike(stream('127.0.0.1:8081')->io('close'), qr/PROXY/, 'protocol off');
 
 ###############################################################################
 

@@ -19,6 +19,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -62,68 +63,12 @@ $t->run()->waitforsocket('127.0.0.1:8080');
 ###############################################################################
 
 my $str = '1234567890' x 10 . 'F';
+my $length = length($str);
 
-is(stream_get($str, '127.0.0.1:8081'), $str, 'tcp_nodelay off');
-is(stream_get($str, '127.0.0.1:8082'), $str, 'tcp_nodelay on');
-
-###############################################################################
-
-sub stream_get {
-	my ($data, $peer) = @_;
-	my $data_length = length $data;
-
-	my $s = stream_connect($peer);
-	stream_write($s, $data);
-
-	$data = '';
-	while (length $data < $data_length) {
-		my $buf = stream_read($s);
-		$data .= $buf;
-	}
-	return $data;
-}
-
-sub stream_connect {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
-
-sub stream_write {
-	my ($s, $message) = @_;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		$message = substr($message, $n);
-		last unless length $message;
-	}
-
-	if (length $message) {
-		$s->close();
-	}
-}
-
-sub stream_read {
-	my ($s) = @_;
-	my ($buf);
-
-	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
-		$s->sysread($buf, 1024);
-	};
-
-	log_in($buf);
-	return $buf;
-}
+is(stream('127.0.0.1:8081')->io($str, length => $length), $str,
+	'tcp_nodelay off');
+is(stream('127.0.0.1:8082')->io($str, length => $length), $str,
+	'tcp_nodelay on');
 
 ###############################################################################
 

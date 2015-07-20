@@ -18,6 +18,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -95,10 +96,10 @@ $t->waitforsocket('127.0.0.1:8090');
 
 my $str = '1234567890' x 100;
 
-my %r = stream_get($str, peer => '127.0.0.1:8081');
+my %r = response($str, peer => '127.0.0.1:8081');
 is($r{'data'}, $str, 'exact limit');
 
-%r = stream_get($str, peer => '127.0.0.1:8082');
+%r = response($str, peer => '127.0.0.1:8082');
 is($r{'data'}, $str, 'unlimited');
 
 SKIP: {
@@ -107,10 +108,10 @@ skip 'unsafe on VM', 2 unless $ENV{TEST_NGINX_UNSAFE};
 # if interaction between backend and client is slow then proxy can add extra
 # bytes to upload/download data
 
-%r = stream_get($str, peer => '127.0.0.1:8083', readonce => 1);
+%r = response($str, peer => '127.0.0.1:8083', readonce => 1);
 is($r{'data'}, '1', 'download - one byte');
 
-%r = stream_get($str, peer =>  '127.0.0.1:8084');
+%r = response($str, peer =>  '127.0.0.1:8084');
 is($r{'data'}, '1', 'upload - one byte');
 
 }
@@ -119,75 +120,37 @@ is($r{'data'}, '1', 'upload - one byte');
 # the first four chunks are quarters of test string
 # and the fifth one is some extra data from backend.
 
-%r = stream_get($str, peer =>  '127.0.0.1:8085');
+%r = response($str, peer =>  '127.0.0.1:8085');
 my $diff = time() - $r{'time'};
 cmp_ok($diff, '>=', 4, 'download - time');
 is($r{'data'}, $str, 'download - data');
 
 my $time = time();
-%r = stream_get($str . 'close', peer => '127.0.0.1:8086');
+%r = response($str . 'close', peer => '127.0.0.1:8086');
 $diff = time() - $time;
 cmp_ok($diff, '>=', 4, 'upload - time');
 is($r{'data'}, $str . 'close', 'upload - data');
 
 ###############################################################################
 
-sub stream_get {
-	my ($data, %extra) = @_;
+sub response {
+ 	my ($data, %extra) = @_;
 
-	my $s = stream_connect($extra{'peer'});
-	stream_write($s, $data);
+	my $s = stream($extra{peer});
+	$s->write($data);
 
 	$data = '';
-	while (my $buf = stream_read($s)) {
+	while (1) {
+		my $buf = $s->read();
+		last unless length($buf);
+
 		$data .= $buf;
+
 		last if $extra{'readonce'};
 	}
 	$data =~ /([\S]*)\s?(\d+)?/;
 
-	return ('data' => $1, 'time' => $2);
-}
-
-sub stream_connect {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
-
-sub stream_write {
-	my ($s, $message) = @_;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		$message = substr($message, $n);
-		last unless length $message;
-	}
-
-	if (length $message) {
-		$s->close();
-	}
-}
-
-sub stream_read {
-	my ($s) = @_;
-	my ($buf);
-
-	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
-		$s->sysread($buf, 1024);
-	};
-
-	log_in($buf);
-	return $buf;
+	return ('data' => $1, 'time' => $2)
 }
 
 ###############################################################################

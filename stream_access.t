@@ -12,12 +12,11 @@ use strict;
 
 use Test::More;
 
-use IO::Select;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -159,97 +158,39 @@ my $str = 'SEE-THIS';
 
 # allow all
 
-is(stream_get($str, '127.0.0.1:8081'), $str, 'inet allow all');
-is(stream_get($str, '127.0.0.1:8082'), $str, 'inet6 allow all');
-is(stream_get($str, '127.0.0.1:8083'), $str, 'unix allow all');
+is(stream('127.0.0.1:8081')->io($str), $str, 'inet allow all');
+is(stream('127.0.0.1:8082')->io($str), $str, 'inet6 allow all');
+is(stream('127.0.0.1:8083')->io($str), $str, 'unix allow all');
 
 # deny all
 
-is(stream_get($str, '127.0.0.1:8084'), '', 'inet deny all');
-is(stream_get($str, '127.0.0.1:8085'), '', 'inet6 deny all');
-is(stream_get($str, '127.0.0.1:8086'), '', 'unix deny all');
+is(stream('127.0.0.1:8084')->io($str), '', 'inet deny all');
+is(stream('127.0.0.1:8085')->io($str), '', 'inet6 deny all');
+is(stream('127.0.0.1:8086')->io($str), '', 'unix deny all');
 
 # allow unix
 
-is(stream_get($str, '127.0.0.1:8087'), $str, 'inet allow unix');
-is(stream_get($str, '127.0.0.1:8088'), $str, 'inet6 allow unix');
-is(stream_get($str, '127.0.0.1:8089'), $str, 'unix allow unix');
+is(stream('127.0.0.1:8087')->io($str), $str, 'inet allow unix');
+is(stream('127.0.0.1:8088')->io($str), $str, 'inet6 allow unix');
+is(stream('127.0.0.1:8089')->io($str), $str, 'unix allow unix');
 
 # deny inet
 
-is(stream_get($str, '127.0.0.1:8090'), '', 'inet deny inet');
-is(stream_get($str, '127.0.0.1:8091'), $str, 'inet6 deny inet');
-is(stream_get($str, '127.0.0.1:8092'), $str, 'unix deny inet');
+is(stream('127.0.0.1:8090')->io($str), '', 'inet deny inet');
+is(stream('127.0.0.1:8091')->io($str), $str, 'inet6 deny inet');
+is(stream('127.0.0.1:8092')->io($str), $str, 'unix deny inet');
 
 # deny inet6
 
-is(stream_get($str, '127.0.0.1:8093'), $str, 'inet deny inet6');
-is(stream_get($str, '127.0.0.1:8094'), '', 'inet6 deny inet6');
-is(stream_get($str, '127.0.0.1:8095'), $str, 'unix deny inet6');
+is(stream('127.0.0.1:8093')->io($str), $str, 'inet deny inet6');
+is(stream('127.0.0.1:8094')->io($str), '', 'inet6 deny inet6');
+is(stream('127.0.0.1:8095')->io($str), $str, 'unix deny inet6');
 
 # deny unix
 
-is(stream_get($str, '127.0.0.1:8096'), $str, 'inet deny unix');
-is(stream_get($str, '127.0.0.1:8097'), $str, 'inet6 deny unix');
-is(stream_get($str, '127.0.0.1:8098'), '', 'unix deny unix');
-
-###############################################################################
-
-sub stream_get {
-	my ($data, $peer) = @_;
-
-	my $s = stream_connect($peer);
-	stream_write($s, $data);
-
-	$data = '';
-	while (my $buf = stream_read($s)) {
-		$data .= $buf;
-	}
-
-	return $data;
-}
-
-sub stream_connect {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
-
-sub stream_write {
-	my ($s, $message) = @_;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		$message = substr($message, $n);
-		last unless length $message;
-	}
-
-	if (length $message) {
-		$s->close();
-	}
-}
-
-sub stream_read {
-	my ($s) = @_;
-	my ($buf);
-
-	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
-		$s->sysread($buf, 1024);
-	};
-
-	log_in($buf);
-	return $buf;
-}
+is(stream('127.0.0.1:8096')->io($str), $str, 'inet deny unix');
+is(stream('127.0.0.1:8097')->io($str), $str, 'inet6 deny unix');
+is(stream('127.0.0.1:8098')->io($str), '', 'unix deny unix');
 
 ###############################################################################
 

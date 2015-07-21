@@ -71,13 +71,13 @@ stream {
     server {
         listen               127.0.0.1:8085;
         proxy_pass           127.0.0.1:8080;
-        proxy_download_rate  500;
+        proxy_download_rate  250;
     }
 
     server {
         listen               127.0.0.1:8086;
         proxy_pass           127.0.0.1:8090;
-        proxy_upload_rate    500;
+        proxy_upload_rate    250;
     }
 }
 
@@ -115,19 +115,19 @@ is($r{'data'}, '1', 'upload - one byte');
 
 }
 
-# Three chunks are split with two 1s delays + 1s error:
+# Five chunks are split with four 1s delays + 2s error:
 # the first two chunks are halfs of test string 
 # and the third one is some extra data from backend.
 
 %r = stream_get($str, peer =>  '127.0.0.1:8085');
 my $diff = time() - $r{'time'};
-cmp_ok(abs($diff - 2), '<=', 1, 'download - time');
+cmp_ok(abs($diff - 4), '<=', 2, 'download - time');
 is($r{'data'}, $str, 'download - data');
 
 my $time = time();
 %r = stream_get($str . 'close', peer => '127.0.0.1:8086');
 $diff = time() - $time;
-cmp_ok(abs($diff - 2), '<=', 1, 'upload - time');
+cmp_ok(abs($diff - 4), '<=', 2, 'upload - time');
 is($r{'data'}, $str . 'close', 'upload - data');
 
 ###############################################################################

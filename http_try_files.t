@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -66,6 +66,11 @@ http {
             try_files /directory =404;
         }
 
+        location ~ /alias_re.html {
+            alias %%TESTDIR%%/directory;
+            try_files $uri =404;
+        }
+
         location /fallback {
             proxy_pass http://127.0.0.1:8081/fallback;
         }
@@ -88,6 +93,7 @@ http {
 EOF
 
 mkdir($t->testdir() . '/directory');
+$t->write_file('directory/alias_re.html', 'SEE THIS');
 $t->write_file('found.html', 'SEE THIS');
 $t->run();
 
@@ -102,5 +108,12 @@ like(http_get('/file-file/'), qr!SEE THIS!, 'file matches file');
 like(http_get('/file-dir/'), qr!404 Not!, 'file does not match dir');
 like(http_get('/dir-dir/'), qr!301 Moved Permanently!, 'dir matches dir');
 like(http_get('/dir-file/'), qr!404 Not!, 'dir does not match file');
+
+SKIP: {
+skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE};
+
+like(http_get('/alias_re.html'), qr!SEE THIS!, 'alias in regex location');
+
+}
 
 ###############################################################################

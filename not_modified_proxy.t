@@ -26,8 +26,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(9)
-	->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(12)
+	->write_file_expand('nginx.conf', <<'EOF')->todo_alerts();
 
 %%TEST_GLOBALS%%
 
@@ -42,6 +42,7 @@ http {
     proxy_cache_path %%TESTDIR%%/cache keys_zone=one:1m;
 
     proxy_set_header If-Modified-Since "";
+    proxy_set_header If-Unmodified-Since "";
     proxy_set_header If-None-Match "";
 
     server {
@@ -86,6 +87,12 @@ like(http_get_ims('/t', $lm), qr/ 304 /, 'if-modified-since');
 like(http_get_ims('/proxy/t', $lm), qr/ 200 /, 'ims proxy ignored');
 like(http_get_ims('/cache/t', $lm), qr/ 304 /, 'ims from cache');
 
+$t1 = 'Fri, 05 Jul 1985 14:30:52 GMT';
+
+like(http_get_iums('/t', $t1), qr/ 412 /, 'if-unmodified-since');
+like(http_get_iums('/proxy/t', $t1), qr/ 200 /, 'iums proxy ignored');
+like(http_get_iums('/cache/t', $t1), qr/ 412 /, 'iums from cache');
+
 like(http_get_inm('/t', $etag), qr/ 304 /, 'if-none-match');
 like(http_get_inm('/proxy/t', $etag), qr/ 200 /, 'inm proxy ignored');
 like(http_get_inm('/cache/t', $etag), qr/ 304 /, 'inm from cache');
@@ -107,6 +114,16 @@ sub http_get_ims {
 GET $url HTTP/1.0
 Host: localhost
 If-Modified-Since: $ims
+
+EOF
+}
+
+sub http_get_iums {
+	my ($url, $ims) = @_;
+	return http(<<EOF);
+GET $url HTTP/1.0
+Host: localhost
+If-Unmodified-Since: $ims
 
 EOF
 }

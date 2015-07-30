@@ -153,10 +153,10 @@ my $sid1 = spdy_stream($sess, { path => '/s' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-ok($frame, 'SYN_REPLAY frame');
-is($frame->{sid}, $sid1, 'SYN_REPLAY stream');
-is($frame->{headers}->{':status'}, 200, 'SYN_REPLAY status');
-is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLAY header');
+ok($frame, 'SYN_REPLY frame');
+is($frame->{sid}, $sid1, 'SYN_REPLY stream');
+is($frame->{headers}->{':status'}, 200, 'SYN_REPLY status');
+is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLY header');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 ok($frame, 'DATA frame');
@@ -169,13 +169,13 @@ my $sid2 = spdy_stream($sess, { path => '/s' });
 $frames = spdy_read($sess, all => [{ sid => $sid2, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-is($frame->{sid}, $sid2, 'SYN_REPLAY stream 2');
-is($frame->{headers}->{':status'}, 200, 'SYN_REPLAY status 2');
-is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLAY header 2');
+is($frame->{sid}, $sid2, 'SYN_REPLY stream 2');
+is($frame->{headers}->{':status'}, 200, 'SYN_REPLY status 2');
+is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLY header 2');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 ok($frame, 'DATA frame 2');
-is($frame->{sid}, $sid2, 'SYN_REPLAY stream 2');
+is($frame->{sid}, $sid2, 'SYN_REPLY stream 2');
 is($frame->{length}, length 'body', 'DATA length 2');
 is($frame->{data}, 'body', 'DATA payload 2');
 
@@ -186,9 +186,9 @@ $sid1 = spdy_stream($sess, { path => '/s', method => 'HEAD' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-is($frame->{sid}, $sid1, 'SYN_REPLAY stream HEAD');
-is($frame->{headers}->{':status'}, 200, 'SYN_REPLAY status HEAD');
-is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLAY header HEAD');
+is($frame->{sid}, $sid1, 'SYN_REPLY stream HEAD');
+is($frame->{headers}->{':status'}, 200, 'SYN_REPLY status HEAD');
+is($frame->{headers}->{'x-header'}, 'X-Foo', 'SYN_REPLY header HEAD');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame, undef, 'HEAD no body');
@@ -201,7 +201,7 @@ $sid1 = spdy_stream($sess, { path => '/pp' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-ok($frame, 'PROXY SYN_REPLAY frame');
+ok($frame, 'PROXY SYN_REPLY frame');
 is($frame->{headers}->{'x-pp'}, '192.0.2.1', 'PROXY remote addr');
 
 # request header
@@ -213,7 +213,7 @@ $sid1 = spdy_stream($sess, { path => '/t1.html',
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-is($frame->{headers}->{':status'}, 206, 'SYN_REPLAY status range');
+is($frame->{headers}->{':status'}, 206, 'SYN_REPLY status range');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{length}, 10, 'DATA length range');
@@ -301,7 +301,7 @@ $sid1 = spdy_stream($sess, { path => '/redirect' });
 $frames = spdy_read($sess, all => [{ sid => $sid1, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "SYN_REPLY" } @$frames;
-is($frame->{headers}->{':status'}, 405, 'SYN_REPLAY status with redirect');
+is($frame->{headers}->{':status'}, 405, 'SYN_REPLY status with redirect');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 ok($frame, 'DATA frame with redirect');

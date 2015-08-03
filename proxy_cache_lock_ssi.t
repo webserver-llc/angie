@@ -50,7 +50,7 @@ http {
             proxy_cache_lock on;
             proxy_cache_lock_timeout 100ms;
 
-            proxy_read_timeout 2s;
+            proxy_read_timeout 3s;
 
             add_header X-Msec $msec;
         }
@@ -97,6 +97,6 @@ $t->run();
 my $s = http_get('/locked', start => 1);
 like(http_get('/ssi.html'), qr/end/, 'cache lock ssi');
 my ($start) = http_end($s) =~ /X-Msec: (\d+)/;
-cmp_ok(time() - $start, '<=', 3, 'parallel execution after lock timeout');
+cmp_ok(time() - $start, '<=', 5, 'parallel execution after lock timeout');
 
 ###############################################################################

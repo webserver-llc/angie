@@ -37,7 +37,7 @@ my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
 
 $t->todo_alerts() if $^O eq 'solaris';
 
-$t->plan(5)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(7)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -74,6 +74,7 @@ stream {
         listen      127.0.0.1:8083 ssl;
         proxy_pass  127.0.0.1:8081;
 
+        ssl_session_cache builtin:1000;
         ssl_password_file password_fifo;
     }
 
@@ -81,6 +82,7 @@ stream {
         listen      127.0.0.1:8084 ssl;
         proxy_pass  127.0.0.1:8081;
 
+        ssl_session_cache shared:SSL:1m;
         ssl_certificate_key inherits.key;
         ssl_certificate inherits.crt;
     }
@@ -139,13 +141,25 @@ like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl');
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8080, $ses);
-is(Net::SSLeay::session_reused($ssl), 1, 'session reused');
+is(Net::SSLeay::session_reused($ssl), 1, 'builtin session reused');
 
 ($s, $ssl) = get_ssl_socket(8082);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8082, $ses);
 isnt(Net::SSLeay::session_reused($ssl), 1, 'session not reused');
+
+($s, $ssl) = get_ssl_socket(8083);
+$ses = Net::SSLeay::get_session($ssl);
+
+($s, $ssl) = get_ssl_socket(8083, $ses);
+is(Net::SSLeay::session_reused($ssl), 1, 'builtin size session reused');
+
+($s, $ssl) = get_ssl_socket(8084);
+$ses = Net::SSLeay::get_session($ssl);
+
+($s, $ssl) = get_ssl_socket(8084, $ses);
+is(Net::SSLeay::session_reused($ssl), 1, 'shared session reused');
 
 # ssl_certificate inheritance
 

@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for proxy with proxy certificate to ssl backend.
+# Tests for http proxy module with proxy certificate to ssl backend.
 # The proxy_ssl_certificate and proxy_ssl_password_file directives.
 
 ###############################################################################
@@ -134,8 +134,6 @@ $t->write_file('index.html', '');
 $t->run();
 
 ###############################################################################
-
-my $cert;
 
 like(http_get('/verify'), qr/X-Verify: SUCCESS/ms, 'verify certificate');
 like(http_get('/fail'), qr/X-Verify: FAILED/ms, 'fail certificate');

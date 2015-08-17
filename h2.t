@@ -773,7 +773,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - encoding');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is(gunzip($frame->{data}), 'SEE-THIS', 'gzip - DATA');
+gunzip_like($frame->{data}, qr/^SEE-THIS\Z/, 'gzip - DATA');
 
 # simple proxy cache test
 
@@ -1904,7 +1904,7 @@ sub hunpack {
 		my ($h, $n, $v) = @_;
 		return $h->{$n} = $v unless exists $h->{$n};
 		$h->{$n} = [ $h->{$n} ];
-		push $h->{$n}, $v;
+		push @{$h->{$n}}, $v;
 	}
 
 	while ($skip < $length) {
@@ -2236,8 +2236,8 @@ sub dehuff {
 
 ###############################################################################
 
-sub gunzip {
-	my ($in) = @_;
+sub gunzip_like {
+	my ($in, $re, $name) = @_;
 
 	SKIP: {
 		eval { require IO::Uncompress::Gunzip; };
@@ -2248,7 +2248,7 @@ sub gunzip {
 
 		IO::Uncompress::Gunzip::gunzip(\$in => \$out);
 
-		return $out;
+		like($out, $re, $name);
 	}
 }
 

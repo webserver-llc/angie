@@ -25,8 +25,14 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+eval { require IO::Socket::SSL; };
+plan(skip_all => 'IO::Socket::SSL not installed') if $@;
+eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
+plan(skip_all => 'IO::Socket::SSL too old') if $@;
+
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
-	->has(qw/limit_conn rewrite realip shmem/)->plan(139);
+	->has(qw/limit_conn rewrite realip shmem/)
+	->has_daemon('openssl')->plan(142);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -75,6 +81,9 @@ http {
             real_ip_header proxy_protocol;
             alias %%TESTDIR%%/t2.html;
             add_header X-PP $remote_addr;
+        }
+        location /h2 {
+            return 200 $http2;
         }
         location /redirect {
             error_page 405 /;
@@ -520,8 +529,48 @@ is($frame->{headers}->{':status'}, 206, 'range - HEADERS status');
 is($frame->{length}, 10, 'range - DATA length');
 is($frame->{data}, '002XXXX000', 'range - DATA payload');
 
+# $http2
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/h2' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'h2c', 'http variable - h2c');
+
+# SSL/TLS connection, NPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_npn() or die; };
+skip 'OpenSSL NPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, npn => 'h2');
+$sid = new_stream($sess, { path => '/h2' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'h2', 'http variable - npn');
+
+}
+
+# SSL/TLS connection, ALPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_alpn() or die; };
+skip 'OpenSSL ALPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, alpn => 'h2');
+$sid = new_stream($sess, { path => '/h2' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'h2', 'http variable - alpn');
+
+}
+
 # CONTINUATION
 
+$sess = new_session();
 $sid = new_stream($sess, { continuation => 1, headers => [
 	{ name => ':method', value => 'HEAD', mode => 1 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -1637,7 +1686,7 @@ sub raw_read {
 	my $got = '';
 
 	while (length($buf) < $len && IO::Select->new($s)->can_read(1))  {
-		$s->sysread($got, $len - length($buf)) or last;
+		$s->sysread($got, 16384) or last;
 		log_in($got);
 		$buf .= $got;
 	}
@@ -1662,7 +1711,7 @@ sub new_session {
 	my ($port, %extra) = @_;
 	my ($s);
 
-	$s = new_socket($port);
+	$s = new_socket($port, %extra);
 
 	if ($extra{proxy}) {
 		raw_write($s, $extra{proxy});
@@ -1679,7 +1728,9 @@ sub new_session {
 }
 
 sub new_socket {
-	my ($port) = @_;
+	my ($port, %extra) = @_;
+	my $npn = $extra{'npn'};
+	my $alpn = $extra{'alpn'};
 	my $s;
 
 	$port = 8080 unless defined $port;
@@ -1692,6 +1743,12 @@ sub new_socket {
 			Proto => 'tcp',
 			PeerAddr => "127.0.0.1:$port",
 		);
+		IO::Socket::SSL->start_SSL($s,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+			SSL_npn_protocols => $npn ? [ $npn ] : undef,
+			SSL_alpn_protocols => $alpn ? [ $alpn ] : undef,
+			SSL_error_trap => sub { die $_[1] }
+		) if $extra{'SSL'};
 		alarm(0);
 	};
 	alarm(0);

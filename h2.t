@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(142);
+	->has_daemon('openssl')->plan(145);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -84,6 +84,10 @@ http {
         }
         location /h2 {
             return 200 $http2;
+        }
+        location /chunk_size {
+            http2_chunk_size 1;
+            return 200 'body';
         }
         location /redirect {
             error_page 405 /;
@@ -568,6 +572,17 @@ is($frame->{data}, 'h2', 'http variable - alpn');
 
 }
 
+# http2_chunk_size=1
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/chunk_size' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+my @data = grep { $_->{type} eq "DATA" } @$frames;
+is(@data, 4, 'chunk_size frames');
+is(join(' ', map { $_->{data} } @data), 'b o d y', 'chunk_size data');
+is(join(' ', map { $_->{flags} } @data), '0 0 0 1', 'chunk_size flags');
+
 # CONTINUATION
 
 $sess = new_session();
@@ -907,7 +922,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 # with the default http2_chunk_size, data is divided into 8 data frames
 
-my @data = grep { $_->{type} eq "DATA" } @$frames;
+@data = grep { $_->{type} eq "DATA" } @$frames;
 my $lengths = join ' ', map { $_->{length} } @data;
 is($lengths, '8192 8192 8192 8192 8192 8192 8192 8191',
 	'iws - stream blocked on initial window size');

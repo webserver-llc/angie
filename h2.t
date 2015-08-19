@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(148);
+	->has_daemon('openssl')->plan(147);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -273,7 +273,8 @@ is($frame->{data}, 'body', 'DATA payload 2');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 }]});
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -284,7 +285,8 @@ is($frame->{headers}->{':status'}, 200, 'indexed header field');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 1, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 1, huff => 0 },
-	{ name => ':path', value => '/', mode => 1, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 1, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -293,7 +295,8 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 1, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 1, huff => 1 },
-	{ name => ':path', value => '/', mode => 1, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 1, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -304,7 +307,8 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing - huffman');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 2, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 2, huff => 0 },
-	{ name => ':path', value => '/', mode => 2, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 2, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 2, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -313,7 +317,8 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing - new');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 2, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 2, huff => 1 },
-	{ name => ':path', value => '/', mode => 2, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 2, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 2, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -324,7 +329,8 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing - new huffman');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 3, huff => 0 },
-	{ name => ':path', value => '/', mode => 3, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 3, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 3, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -333,7 +339,8 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 3, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 3, huff => 1 },
-	{ name => ':path', value => '/', mode => 3, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 3, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 3, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -344,7 +351,8 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing - huffman');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 4, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 4, huff => 0 },
-	{ name => ':path', value => '/', mode => 4, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 4, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 4, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -353,7 +361,8 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing - new');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 4, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 4, huff => 1 },
-	{ name => ':path', value => '/', mode => 4, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 4, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 4, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -364,7 +373,8 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing - new huffman'
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 5, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 5, huff => 0 },
-	{ name => ':path', value => '/', mode => 5, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 5, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 5, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -373,7 +383,8 @@ is($frame->{headers}->{':status'}, 200, 'literal never indexed');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 5, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 5, huff => 1 },
-	{ name => ':path', value => '/', mode => 5, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 5, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 5, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -384,7 +395,8 @@ is($frame->{headers}->{':status'}, 200, 'literal never indexed - huffman');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 6, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 6, huff => 0 },
-	{ name => ':path', value => '/', mode => 6, huff => 0 }]});
+	{ name => ':path', value => '/', mode => 6, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 6, huff => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -393,7 +405,8 @@ is($frame->{headers}->{':status'}, 200, 'literal never indexed - new');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 6, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 6, huff => 1 },
-	{ name => ':path', value => '/', mode => 6, huff => 1 }]});
+	{ name => ':path', value => '/', mode => 6, huff => 1 },
+	{ name => ':authority', value => 'localhost', mode => 6, huff => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -406,6 +419,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'referer', value => 'foo', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -416,6 +430,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 0 },
 	{ name => 'referer', value => 'foo', mode => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -426,6 +441,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 0 },
 	{ name => 'x-foo', value => 'X-Bar', mode => 2 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -438,34 +454,25 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 0 },
 	{ name => 'x-foo', value => 'X-Bar', mode => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'X-Bar', 'name with indexing - indexed');
 
-# reuse literal with indexing - reused value with moved index
-
-$sid = new_stream($sess, { headers => [
-	{ name => ':method', value => 'GET', mode => 0 },
-	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 },
-	{ name => 'referer', value => 'foo', mode => 0 }]});
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-referer'}, 'foo', 'moved index in dynamic table');
-
 # 6.3.  Dynamic Table Size Update
 
-# remove one of two indexed headers from the dynamic table
+# remove some indexed headers from the dynamic table
+# by maintaining dynamic table space only for index 0
 # 'x-foo' has index 0, and 'referer' has index 1
 
 $sid = new_stream($sess, { table_size => 61, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
-	{ name => 'x-foo', value => 'X-Bar', mode => 0 }]});
+	{ name => 'x-foo', value => 'X-Bar', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -475,6 +482,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'referer', value => 'foo', mode => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -525,6 +533,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t1.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'range', value => 'bytes=10-19', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -591,7 +600,8 @@ $sess = new_session();
 $sid = new_stream($sess, { continuation => 1, headers => [
 	{ name => ':method', value => 'HEAD', mode => 1 },
 	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 }]});
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 h2_continue($sess, $sid, { continuation => 1, headers => [
 	{ name => 'x-foo', value => 'X-Bar', mode => 2 }]});
 h2_continue($sess, $sid, { headers => [
@@ -611,7 +621,8 @@ $sess = new_session();
 $sid = new_stream($sess, { padding => 42, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 }]});
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -620,7 +631,8 @@ is($frame->{headers}->{':status'}, 200, 'padding - HEADERS status');
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 }]});
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -637,6 +649,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/cookie', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'cookie', value => 'a=b', mode => 2},
 	{ name => 'cookie', value => 'c=d', mode => 2}]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
@@ -662,6 +675,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/proxy/cookie', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'cookie', value => 'a=b', mode => 2 },
 	{ name => 'cookie', value => 'c=d', mode => 2 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
@@ -838,6 +852,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/gzip.html' },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'accept-encoding', value => 'gzip' }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -866,6 +881,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/proxy2/t2.html?2' },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'if-none-match', value => $etag }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -1357,7 +1373,8 @@ local $TODO = 'not yet';
 $sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
-	{ name => ':path', value => '/', mode => 0 }]});
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

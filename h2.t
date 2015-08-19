@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(145);
+	->has_daemon('openssl')->plan(148);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -108,6 +108,8 @@ http {
             proxy_pass http://127.0.0.1:8083/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
+            proxy_set_header X-Cookie-a $cookie_a;
+            proxy_set_header X-Cookie-c $cookie_c;
         }
         location /proxy2/ {
             add_header X-Body "$request_body";
@@ -665,8 +667,14 @@ $sid = new_stream($sess, { headers => [
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-cookie'}, 'a=b; c=d',
+is($frame->{headers}->{'x-sent-cookie'}, 'a=b; c=d',
 	'multiple request header fields proxied - semi-colon');
+is($frame->{headers}->{'x-sent-cookie2'}, '',
+	'multiple request header fields proxied - dublicate cookie');
+is($frame->{headers}->{'x-sent-cookie-a'}, 'b',
+	'multiple request header fields proxied - cookie 1');
+is($frame->{headers}->{'x-sent-cookie-c'}, 'd',
+	'multiple request header fields proxied - cookie 2');
 
 # response header field with multiple values
 
@@ -2345,7 +2353,6 @@ sub http_daemon {
 
 		my $headers = '';
 		my $uri = '';
-		my $cookie = '';
 
 		while (<$client>) {
 			$headers .= $_;
@@ -2354,14 +2361,23 @@ sub http_daemon {
 
 		next if $headers eq '';
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
-		$cookie = $1 if $headers =~ /Cookie: (.+)/i;
 
 		if ($uri eq '/cookie') {
+
+			my ($cookie, $cookie2) = $headers =~ /Cookie: (.+)/ig;
+			$cookie2 = '' unless defined $cookie2;
+
+			my ($cookie_a, $cookie_c) = ('', '');
+			$cookie_a = $1 if $headers =~ /X-Cookie-a: (.+)/i;
+			$cookie_c = $1 if $headers =~ /X-Cookie-c: (.+)/i;
 
 			print $client <<EOF;
 HTTP/1.1 200 OK
 Connection: close
-X-Cookie: $cookie
+X-Sent-Cookie: $cookie
+X-Sent-Cookie2: $cookie2
+X-Sent-Cookie-a: $cookie_a
+X-Sent-Cookie-c: $cookie_c
 
 EOF
 

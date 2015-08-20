@@ -110,7 +110,8 @@ like(http_get('/dir-dir/'), qr!301 Moved Permanently!, 'dir matches dir');
 like(http_get('/dir-file/'), qr!404 Not!, 'dir does not match file');
 
 SKIP: {
-skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'leaves coredump', 1 unless $t->has_version('1.9.4')
+	or $ENV{TEST_NGINX_UNSAFE};
 
 like(http_get('/alias_re.html'), qr!SEE THIS!, 'alias in regex location');
 

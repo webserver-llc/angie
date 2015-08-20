@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(147);
+	->has_daemon('openssl')->plan(150);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -146,6 +146,13 @@ http {
         listen       127.0.0.1:8085 http2;
         server_name  localhost2;
         return 200   second;
+    }
+
+    server {
+        listen       127.0.0.1:8086 http2;
+        server_name  localhost;
+
+        http2_max_concurrent_streams 1;
     }
 }
 
@@ -1307,6 +1314,28 @@ local $TODO = 'not yet';
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');
 
 }
+
+# http2_max_concurrent_streams
+
+$sess = new_session(8086);
+$frames = h2_read($sess, all => [{ type => 'SETTINGS' }]);
+
+($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
+is($frame->{3}, 1, 'http2_max_concurrent_streams SETTINGS');
+
+h2_window($sess, 2**18);
+
+$sid = new_stream($sess, { path => '/t1.html' });
+$frames = h2_read($sess, all => [{ sid => $sid, length => 2 ** 16 - 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
+is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams');
+
+$sid2 = new_stream($sess, { path => '/t1.html' });
+$frames = h2_read($sess);
+
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
+isnt($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 2');
 
 
 # some invalid cases below

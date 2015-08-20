@@ -139,7 +139,7 @@ like(http_get('/single/many?b=CAAC'), qr/CBBC/, 'single many middle');
 like(http_get('/single/many?b=CA'), qr/CB/, 'single many end');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.4');
 
 like(http_get('/var/string?a=foo&b=Xfoo'), qr/_replaced/, 'complex string');
 like(http_get('/var/string?a=foo&b=XFOO'), qr/_replaced/,

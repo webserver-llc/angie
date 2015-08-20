@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(150);
+	->has_daemon('openssl')->plan(152);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -221,6 +221,7 @@ is($frame->{length}, 4, 'WINDOW_UPDATE fixed length');
 ($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
 ok($frame, 'SETTINGS frame');
 is($frame->{flags}, 0, 'SETTINGS flags');
+is($frame->{sid}, 0, 'SETTINGS stream');
 
 h2_settings($sess, 1);
 h2_settings($sess, 0);
@@ -240,6 +241,7 @@ $frames = h2_read($sess, all => [{ type => 'PING' }]);
 ok($frame, 'PING frame');
 is($frame->{value}, 'SEE-THIS', 'PING payload');
 is($frame->{flags}, 1, 'PING flags ack');
+is($frame->{sid}, 0, 'PING stream');
 
 # GET
 
@@ -1583,16 +1585,23 @@ sub h2_read {
 		my $type = unpack('x3C', $buf);
 		my $flags = unpack('x4C', $buf);
 
-		$buf = raw_read($s, $buf, $length + 9);
+		my $stream = unpack "x5 B32", $buf;
+		substr($stream, 0, 1) = 0;
+		$stream = unpack("N", pack("B32", $stream));
+
+		$buf = raw_read($s, $buf, $length);
 		last unless length $buf;
+
+		$buf = substr($buf, 9);
 
 		my $frame = $cframe{$type}{value}($sess, $buf, $length);
 		$frame->{length} = $length;
 		$frame->{type} = $cframe{$type}{name};
 		$frame->{flags} = $flags;
+		$frame->{sid} = $stream;
 		push @got, $frame;
 
-		$buf = substr($buf, $length + 9);
+		$buf = substr($buf, $length);
 
 		last unless test_fin($got[-1], $extra{all});
 	};
@@ -1631,46 +1640,18 @@ sub test_fin {
 
 sub headers {
 	my ($ctx, $buf, $len) = @_;
-	my %payload;
-	my $skip = 9;
-
-	my $stream = unpack "x5 B32", $buf;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$payload{sid} = $stream;
-
-	my $headers = substr($buf, $skip);
-	$payload{headers} = hunpack($ctx, $headers, $len);
-
-
-	return \%payload;
+	return { headers => hunpack($ctx, $buf, $len) };
 }
 
 sub data {
 	my ($ctx, $buf, $len) = @_;
-	my %frame;
-
-	my $stream = unpack "x5 B32", $buf;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$frame{sid} = $stream;
-
-	$frame{data} = substr($buf, 9, $len);
-	return \%frame;
+	return { data => substr($buf, 0, $len) };
 }
 
 sub settings {
 	my ($ctx, $buf, $len) = @_;
 	my %payload;
-	my $skip = 9;
-
-	my $stream = unpack "x5 B32", $buf;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$payload{sid} = $stream;
-
-	fail("stream identifier field is anything other than 0x0")
-		if $stream;
+	my $skip = 0;
 
 	for (1 .. $len / 6) {
 		my $id = hex unpack "\@$skip n", $buf; $skip += 2;
@@ -1681,65 +1662,33 @@ sub settings {
 
 sub ping {
 	my ($ctx, $buf, $len) = @_;
-	my %payload;
-	my $skip = 9;
-
-	$payload{value} = unpack "\@$skip a8", $buf;
-	return \%payload;
+	return { value => unpack "a8", $buf };
 }
 
 sub rst_stream {
 	my ($ctx, $buf, $len) = @_;
-	my %payload;
-	my $skip = 9;
-
-	my $stream = unpack "x5 B32", $buf;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$payload{sid} = $stream;
-
-	$payload{code} = unpack "\@$skip N", $buf;
-	return \%payload;
+	return { code => unpack "N", $buf };
 }
 
 sub goaway {
 	my ($ctx, $buf, $len) = @_;
 	my %payload;
-	my $skip = 9;
 
-	my $stream = unpack "x5 B32", $buf;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$payload{sid} = $stream;
-
-	fail("stream identifier field is anything other than 0x0")
-		if $stream;
-
-	$stream = unpack "\@$skip B32", $buf;
+	my $stream = unpack "B32", $buf;
 	substr($stream, 0, 1) = 0;
 	$stream = unpack("N", pack("B32", $stream));
 	$payload{last_sid} = $stream;
-	$skip += 4;
 
-	$len = $len - $skip;
-	$payload{debug} = unpack "\@$skip H$len", $buf;
+	$len -= 4;
+	$payload{debug} = unpack "x4 H$len", $buf;
 	return \%payload;
 }
 
 sub window_update {
 	my ($ctx, $buf, $len) = @_;
-	my %payload;
-	my $skip = 5;
-
-	my $stream = unpack "\@$skip B32", $buf; $skip += 4;
-	substr($stream, 0, 1) = 0;
-	$stream = unpack("N", pack("B32", $stream));
-	$payload{sid} = $stream;
-
-	my $value = unpack "\@$skip B32", $buf;
+	my $value = unpack "B32", $buf;
 	substr($value, 0, 1) = 0;
-	$payload{wdelta} = unpack("N", pack("B32", $value));
-	return \%payload;
+	return { wdelta => unpack("N", pack("B32", $value)) };
 }
 
 sub pack_length {

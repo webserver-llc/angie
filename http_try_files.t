@@ -43,7 +43,7 @@ http {
         }
 
         location /nouri/ {
-            try_files $uri /fallback_nouri;
+            try_files $uri /fallback-nouri;
         }
 
         location /short/ {
@@ -66,7 +66,7 @@ http {
             try_files /directory =404;
         }
 
-        location ~ /alias_re.html {
+        location ~ /alias-re.html {
             alias %%TESTDIR%%/directory;
             try_files $uri =404;
         }
@@ -81,7 +81,7 @@ http {
         location /fallback {
             proxy_pass http://127.0.0.1:8081/fallback;
         }
-        location /fallback_nouri {
+        location /fallback-nouri {
             proxy_pass http://127.0.0.1:8081;
         }
     }
@@ -100,7 +100,7 @@ http {
 EOF
 
 mkdir($t->testdir() . '/directory');
-$t->write_file('directory/alias_re.html', 'SEE THIS');
+$t->write_file('directory/alias-re.html', 'SEE THIS');
 $t->write_file('found.html', 'SEE THIS');
 $t->run();
 
@@ -120,7 +120,7 @@ SKIP: {
 skip 'leaves coredump', 1 unless $t->has_version('1.9.4')
 	or $ENV{TEST_NGINX_UNSAFE};
 
-like(http_get('/alias_re.html'), qr!SEE THIS!, 'alias in regex location');
+like(http_get('/alias-re.html'), qr!SEE THIS!, 'alias in regex location');
 
 }
 

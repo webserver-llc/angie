@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -71,6 +71,13 @@ http {
             try_files $uri =404;
         }
 
+        location /alias-nested/ {
+            alias %%TESTDIR%%/;
+            location ~ html {
+                try_files $uri =404;
+            }
+        }
+
         location /fallback {
             proxy_pass http://127.0.0.1:8081/fallback;
         }
@@ -114,6 +121,14 @@ skip 'leaves coredump', 1 unless $t->has_version('1.9.4')
 	or $ENV{TEST_NGINX_UNSAFE};
 
 like(http_get('/alias_re.html'), qr!SEE THIS!, 'alias in regex location');
+
+}
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.9.4');
+
+like(http_get('/alias-nested/found.html'), qr!SEE THIS!,
+	'alias with nested location');
 
 }
 

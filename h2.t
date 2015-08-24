@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(152);
+	->has_daemon('openssl')->plan(153);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1338,6 +1338,15 @@ $frames = h2_read($sess);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 isnt($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 2');
+
+h2_window($sess, 2**16, $sid);
+h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+$sid = new_stream($sess, { path => '/t2.html' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
+is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 
 # some invalid cases below

@@ -1680,7 +1680,7 @@ sub goaway {
 	$payload{last_sid} = $stream;
 
 	$len -= 4;
-	$payload{debug} = unpack "x4 H$len", $buf;
+	$payload{debug} = unpack "x4 A$len", $buf;
 	return \%payload;
 }
 

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(153);
+	->has_daemon('openssl')->plan(155);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1269,6 +1269,70 @@ $frames = h2_read($sess, all => [
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sids = join ' ', map { $_->{sid} } @data;
 is($sids, "$sid $sid2", 'dependency - HEADERS PRIORITY 2');
+
+# PRIORITY frame, weighted dependencies
+
+$sess = new_session();
+
+h2_priority($sess, 16, 5, 0);
+h2_priority($sess, 255, 1, 5);
+h2_priority($sess, 0, 3, 5);
+
+$sid = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+$sid2 = new_stream($sess, { path => '/t2.html' });
+h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+
+my $sid3 = new_stream($sess, { path => '/t2.html' });
+h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+
+h2_window($sess, 2**16, 1);
+h2_window($sess, 2**16, 3);
+h2_window($sess, 2**16, 5);
+h2_window($sess, 2**16);
+
+$frames = h2_read($sess, all => [
+	{ sid => $sid, fin => 1 },
+	{ sid => $sid2, fin => 1 },
+	{ sid => $sid3, fin => 1 },
+]);
+
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sids = join ' ', map { $_->{sid} } @data;
+is($sids, "$sid3 $sid $sid2", 'weighted dependency - PRIORITY 1');
+
+# and vice versa
+
+$sess = new_session();
+
+h2_priority($sess, 16, 5, 0);
+h2_priority($sess, 0, 1, 5);
+h2_priority($sess, 255, 3, 5);
+
+$sid = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+$sid2 = new_stream($sess, { path => '/t2.html' });
+h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+
+$sid3 = new_stream($sess, { path => '/t2.html' });
+h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+
+h2_window($sess, 2**16, 1);
+h2_window($sess, 2**16, 3);
+h2_window($sess, 2**16, 5);
+h2_window($sess, 2**16);
+
+$frames = h2_read($sess, all => [
+	{ sid => $sid, fin => 1 },
+	{ sid => $sid2, fin => 1 },
+	{ sid => $sid3, fin => 1 },
+]);
+
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sids = join ' ', map { $_->{sid} } @data;
+is($sids, "$sid3 $sid2 $sid", 'weighted dependency - PRIORITY 2');
 
 # limit_conn
 

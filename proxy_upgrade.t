@@ -138,7 +138,7 @@ open my $f, '<', "$d/cc.log" or die "Can't open cc.log: $!";
 
 is($f->getline(), shift (@r) . " 540793\n", 'log - bytes');
 is($f->getline(), shift (@r) . " 22\n", 'log - bytes pipelined');
-is($f->getline(), "0 0\n", 'log - bytes noupgrade');
+like($f->getline(), qr/\d+ 0\n/, 'log - bytes noupgrade');
 
 ###############################################################################
 

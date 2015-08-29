@@ -59,13 +59,24 @@ http {
         location /pnu {
             proxy_pass http://u/bad;
         }
+
+        location /vars {
+            proxy_pass http://127.0.0.1:8080/stub;
+
+            add_header X-Proxy-Host $proxy_host;
+            add_header X-Proxy-Port $proxy_port;
+            add_header X-Proxy-Forwarded $proxy_add_x_forwarded_for;
+        }
+
+        location /stub { }
     }
 }
 
 EOF
 
+$t->write_file('stub', '');
 $t->run_daemon(\&http_daemon, 8081);
-$t->try_run('no upstream_connect_time')->plan(15);
+$t->try_run('no upstream_connect_time')->plan(18);
 
 $t->waitforsocket('127.0.0.1:8081');
 
@@ -73,6 +84,11 @@ $t->waitforsocket('127.0.0.1:8081');
 
 my $re = qr/(\d\.\d{3})/;
 my ($ct, $ht, $rt, $ct2, $ht2, $rt2);
+
+like(http_get('/vars'), qr/X-Proxy-Host:\s127\.0\.0\.1:8080/, 'proxy_host');
+like(http_get('/vars'), qr/X-Proxy-Port:\s8080/, 'proxy_port');
+like(http_xff('/vars', '192.0.2.1'), qr/X-Proxy-Forwarded:.*192\.0\.2\.1/,
+	'proxy_add_x_forwarded_for');
 
 ($ct, $ht) = get('/header');
 cmp_ok($ct, '<', 1, 'connect time - slow response header');
@@ -110,6 +126,16 @@ sub get {
 	my $re = $extra{many} ? qr/$re, $re?/ : $re;
 	my $r = http_get($uri);
 	$r =~ /X-Connect: $re/, $r =~ /X-Header: $re/, $r =~ /X-Response: $re/;
+}
+
+sub http_xff {
+	my ($uri, $xff) = @_;
+	return http(<<EOF);
+GET $uri HTTP/1.0
+Host: localhost
+X-Forwarded-For: $xff
+
+EOF
 }
 
 sub http_daemon {

@@ -1373,13 +1373,8 @@ is($frame->{headers}->{':status'}, 200, 'RST_STREAM 1');
 $sid2 = new_stream($sess, { path => '/t3.html' });
 $frames = h2_read($sess, all => [{ sid => $sid2, fin => 0 }]);
 
-TODO: {
-local $TODO = 'not yet';
-
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');
-
-}
 
 # http2_max_concurrent_streams
 
@@ -1403,16 +1398,11 @@ $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 isnt($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 2');
 
-TODO: {
-local $TODO = 'not yet';
-
 ($frame) = grep { $_->{type} eq "RST_STREAM" && $_->{sid} == $sid2 } @$frames;
 is($frame->{sid}, $sid2, 'http2_max_concurrent_streams RST_STREAM sid');
 is($frame->{length}, 4, 'http2_max_concurrent_streams RST_STREAM length');
 is($frame->{flags}, 0, 'http2_max_concurrent_streams RST_STREAM flags');
 is($frame->{code}, 7, 'http2_max_concurrent_streams RST_STREAM code');
-
-}
 
 h2_window($sess, 2**16, $sid);
 h2_read($sess, all => [{ sid => $sid, fin => 1 }]);

@@ -506,7 +506,7 @@ TODO: {
 local $TODO = 'not yet';
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-isnt($frame, undef, 'updated table size - invalid index GOAWAY');
+ok($frame, 'updated table size - invalid index GOAWAY');
 
 }
 
@@ -1428,11 +1428,15 @@ $frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'even stream - GOAWAY frame');
 is($frame->{code}, 1, 'even stream - error code');
-is($frame->{sid}, 0, 'even stream - last used stream');
+is($frame->{last_sid}, 0, 'even stream - last stream');
 
 }
 
 # GOAWAY on SYN_STREAM with backward StreamID
+
+# 5.1.1.  Stream Identifiers
+#   The first use of a new stream identifier implicitly closes all
+#   streams in the "idle" state <..> with a lower-valued stream identifier.
 
 TODO: {
 local $TODO = 'not yet';
@@ -1447,11 +1451,11 @@ $frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'backward stream - GOAWAY frame');
 is($frame->{code}, 1, 'backward stream - error code');
-is($frame->{sid}, $sid, 'backward stream - last used stream');
+is($frame->{last_sid}, $sid, 'backward stream - last stream');
 
 }
 
-# RST_STREAM on the second SYN_STREAM with same StreamID
+# GOAWAY on the second SYN_STREAM with same StreamID
 
 TODO: {
 local $TODO = 'not yet';
@@ -1461,12 +1465,12 @@ $sid = new_stream($sess, { path => '/' });
 h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 $sid2 = new_stream($sess, { path => '/' }, $sid);
-$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 
-($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
-ok($frame, 'dup stream - RST_STREAM frame');
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'dup stream - GOAWAY frame');
 is($frame->{code}, 1, 'dup stream - error code');
-is($frame->{sid}, $sid, 'dup stream - stream');
+is($frame->{last_sid}, $sid, 'dup stream - last stream');
 
 }
 

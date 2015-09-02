@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(159);
+	->has_daemon('openssl')->plan(161);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -496,7 +496,7 @@ $sid = new_stream($sess, { headers => [
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame, undef, 'updated table size - invalid index');
+is($frame, undef, 'invalid index');
 
 # 5.4.1.  Connection Error Handling
 #   An endpoint that encounters a connection error SHOULD first send a
@@ -506,9 +506,13 @@ TODO: {
 local $TODO = 'not yet';
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-ok($frame, 'updated table size - invalid index GOAWAY');
+ok($frame, 'invalid index - GOAWAY');
 
 }
+
+h2_ping($sess, 'SEE-THIS');
+is(@{h2_read($sess, all => [{ type => 'PING' }])}, 0, 'invalid index - PING');
+is($sess->{socket}->connected, undef, 'invalid index - connection close');
 
 # HEAD
 

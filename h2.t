@@ -1740,7 +1740,7 @@ sub settings {
 
 sub ping {
 	my ($ctx, $buf, $len) = @_;
-	return { value => unpack "a8", $buf };
+	return { value => unpack "A$len", $buf };
 }
 
 sub rst_stream {
@@ -1758,7 +1758,8 @@ sub goaway {
 	$payload{last_sid} = $stream;
 
 	$len -= 4;
-	$payload{debug} = unpack "x4 A$len", $buf;
+	$payload{code} = unpack "x4 N", $buf;
+	$payload{debug} = unpack "x8 A$len", $buf;
 	return \%payload;
 }
 

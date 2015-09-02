@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(161);
+	->has_daemon('openssl')->plan(162);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1494,6 +1494,19 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{':status'}, 400, 'incomplete headers');
 
 }
+
+# empty request header ':authority'
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 400, 'empty authority');
 
 # GOAWAY - force closing a connection by server
 

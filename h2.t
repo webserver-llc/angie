@@ -1930,7 +1930,7 @@ sub static_table {
 
 sub hpack {
 	my ($ctx, $name, $value, %extra) = @_;
-	my @table = @{$ctx->{dynamic_encode}};
+	my $table = $ctx->{dynamic_encode};
 	my $mode = defined $extra{mode} ? $extra{mode} : 1;
 	my $huff = $extra{huff};
 
@@ -1939,19 +1939,19 @@ sub hpack {
 	# 6.1.  Indexed Header Field Representation
 
 	if ($mode == 0) {
-		++$index until $index > $#table
-			or $table[$index][0] eq $name
-			and $table[$index][1] eq $value;
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name
+			and $table->[$index][1] eq $value;
 		$buf = pack('B*', '1' . sprintf("%7b", $index));
 	}
 
 	# 6.2.1.  Literal Header Field with Incremental Indexing
 
 	if ($mode == 1) {
-		splice @{$ctx->{dynamic_encode}}, $ctx->{static_table_size}, 0,
-			[ $name, $value ];
+		splice @$table, $ctx->{static_table_size}, 0, [ $name, $value ];
 
-		++$index until $index > $#table or $table[$index][0] eq $name;
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
 		$buf = pack('B*', '01' . sprintf("%6b", $index)
@@ -1962,8 +1962,7 @@ sub hpack {
 	# 6.2.1.  Literal Header Field with Incremental Indexing -- New Name
 
 	if ($mode == 2) {
-		splice @{$ctx->{dynamic_encode}}, $ctx->{static_table_size}, 0,
-			[ $name, $value ];
+		splice @$table, $ctx->{static_table_size}, 0, [ $name, $value ];
 
 		my $name = $huff ? huff($name) : $name;
 		my $value = $huff ? huff($value) : $value;
@@ -1979,7 +1978,8 @@ sub hpack {
 	# 6.2.2.  Literal Header Field without Indexing
 
 	if ($mode == 3) {
-		++$index until $index > $#table or $table[$index][0] eq $name;
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
 		$buf = pack('B*', '0000' . sprintf("%4b", $index)
@@ -2004,7 +2004,8 @@ sub hpack {
 	# 6.2.3.  Literal Header Field Never Indexed
 
 	if ($mode == 5) {
-		++$index until $index > $#table or $table[$index][0] eq $name;
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
 		$buf = pack('B*', '0001' . sprintf("%4b", $index)
@@ -2031,7 +2032,7 @@ sub hpack {
 
 sub hunpack {
 	my ($ctx, $data, $length) = @_;
-	my @table = @{$ctx->{dynamic_decode}};
+	my $table = $ctx->{dynamic_decode};
 	my %headers;
 	my $skip = 0;
 	my ($name, $value);
@@ -2066,26 +2067,27 @@ sub hunpack {
 
 		if (substr($ib, 0, 1) eq '1') {
 			my $index = &index($ib, 1);
-			add(\%headers, $table[$index][0], $table[$index][1]);
+			add(\%headers,
+				$table->[$index][0], $table->[$index][1]);
 			$skip += 1;
 			next;
 		}
 
 		if (substr($ib, 0, 2) eq '01') {
-			$name = $table[&index($ib, 2)][0];
+			$name = $table->[&index($ib, 2)][0];
 			$skip++;
 
 			($name, $skip) = field($data, $skip) unless $name;
 			($value, $skip) = field($data, $skip);
 
-			splice @{$ctx->{dynamic_decode}},
+			splice @$table,
 				$ctx->{static_table_size}, 0, [ $name, $value ];
 			add(\%headers, $name, $value);
 			next;
 		}
 
 		if (substr($ib, 0, 4) eq '0000') {
-			$name = $table[&index($ib, 4)][0];
+			$name = $table->[&index($ib, 4)][0];
 			$skip++;
 
 			($name, $skip) = field($data, $skip) unless $name;

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(163);
+	->has_daemon('openssl')->plan(168);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1421,6 +1421,10 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 # some invalid cases below
 
 # ensure that request header field value with newline doesn't get split
+#
+# 10.3.  Intermediary Encapsulation Attacks
+#   Any request or response that contains a character not permitted
+#   in a header field value MUST be treated as malformed.
 
 $sess = new_session();
 $sid = new_stream($sess, { headers => [
@@ -1431,8 +1435,33 @@ $sid = new_stream($sess, { headers => [
 	{ name => 'x-foo', value => "x-bar\r\nreferer:see-this", mode => 2 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
+# 10.3.  Intermediary Encapsulation Attacks
+#   An intermediary therefore cannot translate an HTTP/2 request or response
+#   containing an invalid field name into an HTTP/1.1 message.
+
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 isnt($frame->{headers}->{'x-referer'}, 'see-this', 'newline in request header');
+
+# 8.1.2.6.  Malformed Requests and Responses
+#   For malformed requests, a server MAY send an HTTP response prior to
+#   closing or resetting the stream.
+
+is($frame->{headers}->{':status'}, 400, 'newline in request header - status');
+
+# 8.1.2.6.  Malformed Requests and Responses
+#   Malformed requests or responses that are detected MUST be treated
+#   as a stream error (Section 5.4.2) of type PROTOCOL_ERROR.
+
+TODO: {
+local $TODO = 'not yet';
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+is($frame->{sid}, $sid, 'newline in request header - RST_STREAM sid');
+is($frame->{length}, 4, 'newline in request header - RST_STREAM length');
+is($frame->{flags}, 0, 'newline in request header - RST_STREAM flags');
+is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
+
+}
 
 # GOAWAY on SYN_STREAM with even StreamID
 

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(162);
+	->has_daemon('openssl')->plan(163);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1419,6 +1419,20 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 
 # some invalid cases below
+
+# ensure that request header field value with newline doesn't get split
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/proxy2/', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x-foo', value => "x-bar\r\nreferer:see-this", mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+isnt($frame->{headers}->{'x-referer'}, 'see-this', 'newline in request header');
 
 # GOAWAY on SYN_STREAM with even StreamID
 

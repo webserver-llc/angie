@@ -37,7 +37,7 @@ http {
 
     proxy_cache_path %%TESTDIR%%/cache keys_zone=cache:1m;
 
-    limit_req_zone $binary_remote_addr zone=limit:1m rate=50r/m;
+    limit_req_zone $binary_remote_addr zone=limit:1m rate=25r/m;
 
     log_format time "$request_uri:$status:$upstream_response_time";
     access_log time.log time;

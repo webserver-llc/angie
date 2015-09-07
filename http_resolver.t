@@ -55,7 +55,7 @@ http {
             proxy_pass  http://$host:8080/backend;
         }
         location /valid {
-            resolver    127.0.0.1:8081 valid=3s;
+            resolver    127.0.0.1:8081 valid=5s;
             proxy_pass  http://$host:8080/backend;
         }
         location /case {
@@ -208,7 +208,7 @@ sleep 2;
 like(http_host_header('ttl.example.net', '/valid'), qr/200 OK/,
 	'valid overrides ttl');
 
-sleep 2;
+sleep 4;
 
 # expired "valid" value causes nginx to make actual query
 

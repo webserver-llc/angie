@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(170);
+	->has_daemon('openssl')->plan(178);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -158,6 +158,20 @@ http {
         server_name  localhost;
 
         http2_max_concurrent_streams 1;
+    }
+
+    server {
+        listen       127.0.0.1:8087 http2;
+        server_name  localhost;
+
+        http2_max_field_size 32;
+    }
+
+    server {
+        listen       127.0.0.1:8088 http2;
+        server_name  localhost;
+
+        http2_max_header_size 64;
     }
 }
 
@@ -1068,6 +1082,104 @@ h2_window($sess, 2**18);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 is($data[0]->{length}, 2**15, 'max frame size - custom');
+
+# max_field_size
+
+$sess = new_session(8087);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname10', value => 'valu5' x 4 . 'x', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'field size less');
+
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname10', value => 'valu5' x 4 . 'x', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'field size second');
+
+$sess = new_session(8087);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname10', value => 'valu5' x 4 . 'xx', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'field size equal');
+
+$sess = new_session(8087);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname10', value => 'valu5' x 4 . 'xxx', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+is($frame, undef, 'field size greater');
+
+# max_header_size
+
+$sess = new_session(8088);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname9', value => 'x', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'header size less');
+
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname9', value => 'x', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'header size second');
+
+$sess = new_session(8088);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname9', value => 'xx', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+ok($frame, 'header size equal');
+
+$sess = new_session(8088);
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/t2.html', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'longname9', value => 'xxx', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+is($frame, undef, 'header size greater');
 
 # stream multiplexing + WINDOW_UPDATE
 

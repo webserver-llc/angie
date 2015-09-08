@@ -44,7 +44,6 @@ http {
 
         location / {
             add_header X-Server $server_name;
-            return 204;
         }
     }
 
@@ -54,7 +53,6 @@ http {
 
         location / {
             add_header X-Server $server_name;
-            return 204;
         }
     }
 
@@ -64,7 +62,6 @@ http {
 
         location / {
             add_header X-Server $server_name;
-            return 204;
         }
     }
 
@@ -75,7 +72,6 @@ http {
         location / {
             add_header X-Server $server_name;
             add_header X-Match  $name;
-            return 204;
         }
     }
 
@@ -86,25 +82,14 @@ http {
         location / {
             add_header X-Server $server_name;
             add_header X-Match  $name;
-            return 204;
         }
     }
 }
 
 EOF
 
+$t->write_file('index.html', '');
 $t->run();
-
-###############################################################################
-
-sub http_server($) {
-	my ($host) = @_;
-	return http(<<EOF);
-GET / HTTP/1.0
-Host: $host
-
-EOF
-}
 
 ###############################################################################
 
@@ -129,5 +114,16 @@ like(http_server('www01.example.com'), qr/X-Match: www01/,
 	'\p{N} in named capture');
 like(http_server('WWW01.EXAMPLE.COM'), qr/X-Match: www01/,
 	'\p{N} in named capture uppercase');
+
+###############################################################################
+
+sub http_server {
+	my ($host) = @_;
+	return http(<<EOF);
+GET / HTTP/1.0
+Host: $host
+
+EOF
+}
 
 ###############################################################################

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(178);
+	->has_daemon('openssl')->plan(177);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1581,25 +1581,14 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 isnt($frame->{headers}->{'x-referer'}, 'see-this', 'newline in request header');
 
 # 8.1.2.6.  Malformed Requests and Responses
-#   For malformed requests, a server MAY send an HTTP response prior to
-#   closing or resetting the stream.
-
-is($frame->{headers}->{':status'}, 400, 'newline in request header - status');
-
-# 8.1.2.6.  Malformed Requests and Responses
 #   Malformed requests or responses that are detected MUST be treated
 #   as a stream error (Section 5.4.2) of type PROTOCOL_ERROR.
-
-TODO: {
-local $TODO = 'not yet';
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{sid}, $sid, 'newline in request header - RST_STREAM sid');
 is($frame->{length}, 4, 'newline in request header - RST_STREAM length');
 is($frame->{flags}, 0, 'newline in request header - RST_STREAM flags');
 is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
-
-}
 
 # GOAWAY on SYN_STREAM with even StreamID
 

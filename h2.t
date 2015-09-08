@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(168);
+	->has_daemon('openssl')->plan(170);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -75,6 +75,11 @@ http {
             gzip on;
             gzip_min_length 0;
             alias %%TESTDIR%%/t2.html;
+        }
+        location /frame_size {
+            http2_chunk_size 64k;
+            alias %%TESTDIR%%/t1.html;
+            output_buffers 2 1m;
         }
         location /pp {
             set_real_ip_from 127.0.0.1/32;
@@ -1042,6 +1047,27 @@ $frames = h2_read($sess, all => [{ sid => $sid, length => 1 }]);
 is(@$frames, 1, 'positive window');
 is(@$frames[0]->{type}, 'DATA', 'positive window - data');
 is(@$frames[0]->{length}, 1, 'positive window - data length');
+
+# SETTINGS_MAX_FRAME_SIZE
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/frame_size' });
+h2_window($sess, 2**18, 1);
+h2_window($sess, 2**18);
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+is($data[0]->{length}, 2**14, 'max frame size - default');
+
+$sess = new_session();
+h2_settings($sess, 0, 0x5 => 2**15);
+$sid = new_stream($sess, { path => '/frame_size' });
+h2_window($sess, 2**18, 1);
+h2_window($sess, 2**18);
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+is($data[0]->{length}, 2**15, 'max frame size - custom');
 
 # stream multiplexing + WINDOW_UPDATE
 

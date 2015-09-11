@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(20)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -128,7 +128,25 @@ http {
 
     server {
         listen       127.0.0.1:8080;
+        server_name  *.pref.wc.example.com;
+
+        location / {
+            add_header X-Server $server_name;
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8080;
         server_name  wc2.example.*;
+
+        location / {
+            add_header X-Server $server_name;
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8080;
+        server_name  wc2.example.com.*;
 
         location / {
             add_header X-Server $server_name;
@@ -187,8 +205,12 @@ like(http_server('many4.example.com'), qr/\QX-Server: many3.example.com/,
 
 like(http_server('www.wc.example.com'),
 	qr/\QX-Server: *.wc.example.com/, 'wildcard first');
+like(http_server('www.pref.wc.example.com'),
+	qr/\QX-Server: *.pref.wc.example.com/, 'wildcard first most specific');
 like(http_server('wc2.example.net'),
 	qr/\QX-Server: wc2.example.*/, 'wildcard last');
+like(http_server('wc2.example.com.pref'),
+	qr/\QX-Server: wc2.example.com.*/, 'wildcard last most specific');
 
 like(http_server('www.dot.example.com'), qr/\QX-Server: dot.example.com/,
 	'wildcard dot');

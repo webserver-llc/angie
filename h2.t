@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(177);
+	->has_daemon('openssl')->plan(179);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -526,6 +526,17 @@ local $TODO = 'not yet';
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid index - GOAWAY');
+
+# RFC 7541, 2.3.3.  Index Address Space
+#   Indices strictly greater than the sum of the lengths of both tables
+#   MUST be treated as a decoding error.
+
+# 4.3.  Header Compression and Decompression
+#   A decoding error in a header block MUST be treated
+#   as a connection error of type COMPRESSION_ERROR.
+
+is($frame->{last_sid}, $sid, 'invalid index - GOAWAY last stream');
+is($frame->{code}, 9, 'invalid index - GOAWAY COMPRESSION_ERROR');
 
 }
 

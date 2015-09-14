@@ -1778,23 +1778,7 @@ sub new_stream {
 		} @$headers if $headers;
 	}
 
-	# 5.1.  Integer Representation
-
-	sub intpack {
-		my $d = shift;
-		return pack('B8', '001' . sprintf("%5b", $d)) if $d < 31;
-
-		my $o = '00111111';
-		$d -= 31;
-		while ($d >= 128) {
-			$o .= sprintf("%8b", $d % 128 + 128);
-			$d /= 128;
-		}
-		$o .= sprintf("%08b", $d);
-		return pack('B*', $o);
-	}
-
-	$input = intpack($uri->{table_size}) . $input
+	$input = pack("B*", '001' . ipack(5, $uri->{table_size})) . $input
 		if defined $uri->{table_size};
 
 	# set length, attach headers, padding, priority
@@ -2101,6 +2085,44 @@ sub static_table {
 	[ 'www-authenticate',	''		],
 }
 
+# RFC 7541, 5.1.  Integer Representation
+
+sub ipack {
+	my ($base, $d) = @_;
+	return sprintf("%.*b", $base, $d) if $d < 2**$base - 1;
+
+	my $o = sprintf("%${base}b", 2**$base - 1);
+	$d -= 2**$base - 1;
+	while ($d >= 128) {
+		$o .= sprintf("%8b", $d % 128 + 128);
+		$d /= 128;
+	}
+	$o .= sprintf("%08b", $d);
+	return $o;
+}
+
+sub iunpack {
+	my ($base, $b, $s) = @_;
+
+	my $len = unpack("\@$s B8", $b); $s++;
+	my $prefix = substr($len, 0, 8 - $base);
+	$len = '0' x (8 - $base) . substr($len, 8 - $base);
+	$len = unpack("C", pack("B8", $len));
+
+	return ($len, $s, $prefix) if $len < 2**$base - 1;
+
+	my $m = 0;
+	my $d;
+
+	do {
+		$d = unpack("\@$s C", $b); $s++;
+		$len += ($d & 127) * 2**$m;
+		$m += $base;
+	} while (($d & 128) == 128);
+
+	return ($len, $s, $prefix);
+}
+
 sub hpack {
 	my ($ctx, $name, $value, %extra) = @_;
 	my $table = $ctx->{dynamic_encode};
@@ -2115,7 +2137,7 @@ sub hpack {
 		++$index until $index > $#$table
 			or $table->[$index][0] eq $name
 			and $table->[$index][1] eq $value;
-		$buf = pack('B*', '1' . sprintf("%7b", $index));
+		$buf = pack('B*', '1' . ipack(7, $index));
 	}
 
 	# 6.2.1.  Literal Header Field with Incremental Indexing
@@ -2127,8 +2149,8 @@ sub hpack {
 			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
-		$buf = pack('B*', '01' . sprintf("%6b", $index)
-			. ($huff ? '1' : '0') . sprintf("%7b", length($value)));
+		$buf = pack('B*', '01' . ipack(6, $index)
+			. ($huff ? '1' : '0') . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2142,9 +2164,9 @@ sub hpack {
 		my $hbit = ($huff ? '1' : '0');
 
 		$buf = pack('B*', '01000000');
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($name)));
+		$buf .= pack('B*', $hbit . ipack(7, length($name)));
 		$buf .= $name;
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($value)));
+		$buf .= pack('B*', $hbit . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2155,8 +2177,8 @@ sub hpack {
 			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
-		$buf = pack('B*', '0000' . sprintf("%4b", $index)
-			. ($huff ? '1' : '0') . sprintf("%7b", length($value)));
+		$buf = pack('B*', '0000' . ipack(4, $index)
+			. ($huff ? '1' : '0') . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2168,9 +2190,9 @@ sub hpack {
 		my $hbit = ($huff ? '1' : '0');
 
 		$buf = pack('B*', '00000000');
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($name)));
+		$buf .= pack('B*', $hbit . ipack(7, length($name)));
 		$buf .= $name;
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($value)));
+		$buf .= pack('B*', $hbit . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2181,8 +2203,8 @@ sub hpack {
 			or $table->[$index][0] eq $name;
 		my $value = $huff ? huff($value) : $value;
 
-		$buf = pack('B*', '0001' . sprintf("%4b", $index)
-			. ($huff ? '1' : '0') . sprintf("%7b", length($value)));
+		$buf = pack('B*', '0001' . ipack(4, $index)
+			. ($huff ? '1' : '0') . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2194,9 +2216,9 @@ sub hpack {
 		my $hbit = ($huff ? '1' : '0');
 
 		$buf = pack('B*', '00010000');
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($name)));
+		$buf .= pack('B*', $hbit . ipack(7, length($name)));
 		$buf .= $name;
-		$buf .= pack('B*', $hbit . sprintf("%7b", length($value)));
+		$buf .= pack('B*', $hbit . ipack(7, length($value)));
 		$buf .= $value;
 	}
 
@@ -2208,19 +2230,11 @@ sub hunpack {
 	my $table = $ctx->{dynamic_decode};
 	my %headers;
 	my $skip = 0;
-	my ($name, $value);
-
-	sub index {
-		my ($b, $i) = @_;
-		unpack("C", pack("B8", '0' x $i . substr($b, $i, 8 - $i)));
-	}
+	my ($index, $name, $value);
 
 	sub field {
-		my ($b, $s) = @_;
-		my $len = unpack("\@$s B8", $b);
-		my $huff = substr($len, 0, 1) ? 1 : 0;
-		$len = unpack("C", pack("B8", '0' . substr($len, 1, 8)));
-		$s++;
+		my ($b) = @_;
+		my ($len, $s, $huff) = iunpack(7, @_);
 
 		my $field = substr($b, $s, $len);
 		$field = $huff ? dehuff($field) : $field;
@@ -2239,16 +2253,15 @@ sub hunpack {
 		my $ib = unpack("\@$skip B8", $data);
 
 		if (substr($ib, 0, 1) eq '1') {
-			my $index = &index($ib, 1);
+			($index, $skip) = iunpack(7, $data, $skip);
 			add(\%headers,
 				$table->[$index][0], $table->[$index][1]);
-			$skip += 1;
 			next;
 		}
 
 		if (substr($ib, 0, 2) eq '01') {
-			$name = $table->[&index($ib, 2)][0];
-			$skip++;
+			($index, $skip) = iunpack(6, $data, $skip);
+			$name = $table->[$index][0];
 
 			($name, $skip) = field($data, $skip) unless $name;
 			($value, $skip) = field($data, $skip);
@@ -2260,8 +2273,8 @@ sub hunpack {
 		}
 
 		if (substr($ib, 0, 4) eq '0000') {
-			$name = $table->[&index($ib, 4)][0];
-			$skip++;
+			($index, $skip) = iunpack(4, $data, $skip);
+			$name = $table->[$index][0];
 
 			($name, $skip) = field($data, $skip) unless $name;
 			($value, $skip) = field($data, $skip);

@@ -521,9 +521,6 @@ is($frame, undef, 'invalid index');
 #   An endpoint that encounters a connection error SHOULD first send a
 #   GOAWAY frame <..>
 
-TODO: {
-local $TODO = 'not yet';
-
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid index - GOAWAY');
 
@@ -537,8 +534,6 @@ ok($frame, 'invalid index - GOAWAY');
 
 is($frame->{last_sid}, $sid, 'invalid index - GOAWAY last stream');
 is($frame->{code}, 9, 'invalid index - GOAWAY COMPRESSION_ERROR');
-
-}
 
 h2_ping($sess, 'SEE-THIS');
 is(@{h2_read($sess, all => [{ type => 'PING' }])}, 0, 'invalid index - PING');
@@ -1603,9 +1598,6 @@ is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
 
 # GOAWAY on SYN_STREAM with even StreamID
 
-TODO: {
-local $TODO = 'not yet';
-
 $sess = new_session();
 new_stream($sess, { path => '/' }, 2);
 $frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
@@ -1615,16 +1607,11 @@ ok($frame, 'even stream - GOAWAY frame');
 is($frame->{code}, 1, 'even stream - error code');
 is($frame->{last_sid}, 0, 'even stream - last stream');
 
-}
-
 # GOAWAY on SYN_STREAM with backward StreamID
 
 # 5.1.1.  Stream Identifiers
 #   The first use of a new stream identifier implicitly closes all
 #   streams in the "idle" state <..> with a lower-valued stream identifier.
-
-TODO: {
-local $TODO = 'not yet';
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/' }, 3);
@@ -1638,12 +1625,7 @@ ok($frame, 'backward stream - GOAWAY frame');
 is($frame->{code}, 1, 'backward stream - error code');
 is($frame->{last_sid}, $sid, 'backward stream - last stream');
 
-}
-
 # GOAWAY on the second SYN_STREAM with same StreamID
-
-TODO: {
-local $TODO = 'not yet';
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/' });
@@ -1656,8 +1638,6 @@ $frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 ok($frame, 'dup stream - GOAWAY frame');
 is($frame->{code}, 1, 'dup stream - error code');
 is($frame->{last_sid}, $sid, 'dup stream - last stream');
-
-}
 
 # missing mandatory request header ':scheme'
 
@@ -1696,15 +1676,10 @@ h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet';
-
 $frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY on connection close');
-
-}
 
 ###############################################################################
 

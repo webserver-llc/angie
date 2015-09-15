@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(179);
+	->has_daemon('openssl')->plan(193);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -59,6 +59,7 @@ http {
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
+        http2_max_field_size 128k;
 
         location / {
             add_header X-Header X-Foo;
@@ -80,6 +81,16 @@ http {
             http2_chunk_size 64k;
             alias %%TESTDIR%%/t1.html;
             output_buffers 2 1m;
+        }
+        location /continuation {
+            add_header X-LongHeader $arg_h;
+            add_header X-LongHeader $arg_h;
+            add_header X-LongHeader $arg_h;
+            return 200 body;
+
+            location /continuation/204 {
+                return 204;
+            }
         }
         location /pp {
             set_real_ip_from 127.0.0.1/32;
@@ -218,7 +229,7 @@ my %cframe = (
 	6 => { name => 'PING', value => \&ping },
 	7 => { name => 'GOAWAY', value => \&goaway },
 	8 => { name => 'WINDOW_UPDATE', value => \&window_update },
-#	9 => { name => 'CONTINUATION', value => \&continuation },
+	9 => { name => 'CONTINUATION', value => \&headers },
 );
 
 ###############################################################################
@@ -1088,6 +1099,38 @@ h2_window($sess, 2**18);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 is($data[0]->{length}, 2**15, 'max frame size - custom');
+
+# CONTINUATION in response
+# put three long header fields (not less than SETTINGS_MAX_FRAME_SIZE/2)
+# to break header block into separate frames, one such field per frame
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**13 });
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
+@data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
+is(@data, 3, 'response CONTINUATION - header block frames');
+is($data[0]->{type}, 'HEADERS', 'response CONTINUATION - first');
+is($data[0]->{flags}, 0, 'response CONTINUATION - first flags');
+is($data[1]->{type}, 'CONTINUATION', 'response CONTINUATION - second');
+is($data[1]->{flags}, 0, 'response CONTINUATION - second flags');
+is($data[2]->{type}, 'CONTINUATION', 'response CONTINUATION - third');
+is($data[2]->{flags}, 4, 'response CONTINUATION - third flags');
+
+# same but without response DATA frames
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/continuation/204?h=' . 'x' x 2**13 });
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
+@data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
+is(@data, 3, 'no body CONTINUATION - header block frames');
+is($data[0]->{type}, 'HEADERS', 'no body CONTINUATION - first');
+is($data[0]->{flags}, 1, 'no body CONTINUATION - first flags');
+is($data[1]->{type}, 'CONTINUATION', 'no body CONTINUATION - second');
+is($data[1]->{flags}, 0, 'no body CONTINUATION - second flags');
+is($data[2]->{type}, 'CONTINUATION', 'no body CONTINUATION - third');
+is($data[2]->{flags}, 4, 'no body CONTINUATION - third flags');
 
 # max_field_size
 

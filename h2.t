@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(194);
+	->has_daemon('openssl')->plan(195);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -60,6 +60,7 @@ http {
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
         http2_max_field_size 128k;
+        http2_max_header_size 128k;
 
         location / {
             add_header X-Header X-Foo;
@@ -1131,6 +1132,21 @@ is($data[1]->{type}, 'CONTINUATION', 'no body CONTINUATION - second');
 is($data[1]->{flags}, 0, 'no body CONTINUATION - second flags');
 is($data[2]->{type}, 'CONTINUATION', 'no body CONTINUATION - third');
 is($data[2]->{flags}, 4, 'no body CONTINUATION - third flags');
+
+# response header block is always split by SETTINGS_MAX_FRAME_SIZE
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**14 });
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
+@data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
+@data = sort { $a <=> $b } map { $_->{length} } @data;
+cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
+
+}
 
 # max_field_size
 

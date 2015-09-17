@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(195);
+	->has_daemon('openssl')->plan(196);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -664,6 +664,24 @@ is($frame, undef, 'CONTINUATION - fragment 1');
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'X-Bar', 'CONTINUATION - fragment 2');
 is($frame->{headers}->{'x-referer'}, 'foo', 'CONTINUATION - fragment 3');
+
+# CONTINUATION - in the middle of request header field
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { continuation => [ 2, 4, 1, 5 ], headers => [
+	{ name => ':method', value => 'HEAD', mode => 1 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'CONTINUATION - in header field');
+
+}
 
 # frame padding
 
@@ -1815,6 +1833,7 @@ sub new_stream {
 	my $body = $uri->{body};
 	my $prio = $uri->{prio};
 	my $dep = $uri->{dep};
+	my $split = ref $uri->{continuation} && $uri->{continuation} || [];
 
 	my $pad = defined $uri->{padding} ? $uri->{padding} : 0;
 	my $padlen = defined $uri->{padding} ? 1 : 0;
@@ -1857,16 +1876,34 @@ sub new_stream {
 	$input = pack("B*", '001' . ipack(5, $uri->{table_size})) . $input
 		if defined $uri->{table_size};
 
+	my @input;
+	for my $length (@$split) {
+		my $offset = length($input[-1]) || 0;
+		push @input, substr $input, $offset, $length, "";
+	}
+	push @input, $input;
+
 	# set length, attach headers, padding, priority
 
-	my $hlen = length($input) + $pad + $padlen;
+	my $hlen = length($input[0]) + $pad + $padlen;
 	$hlen += 5 if $flags & 0x20;
 	$buf |= pack_length($hlen);
 
 	$buf .= pack 'C', $pad if $padlen;		# Pad Length?
 	$buf .= pack 'NC', $dep, $prio if $flags & 0x20;
-	$buf .= $input;
+	$buf .= $input[0];
 	$buf .= (pack 'C', 0) x $pad if $padlen;	# Padding
+
+	shift @input;
+
+	while (@input) {
+		$input = shift @input;
+		$flags = @input ? 0x0 : 0x4;
+		$buf .= pack_length(length($input));
+		$buf .= pack("CC", 0x9, $flags);
+		$buf .= pack("N", $ctx->{last_stream});
+		$buf .= $input;
+	}
 
 	if (defined $body) {
 		$buf .= pack_length(length($body) + $bpad + $bpadlen);

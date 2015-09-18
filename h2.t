@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(196);
+	->has_daemon('openssl')->plan(194);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -546,10 +546,6 @@ ok($frame, 'invalid index - GOAWAY');
 
 is($frame->{last_sid}, $sid, 'invalid index - GOAWAY last stream');
 is($frame->{code}, 9, 'invalid index - GOAWAY COMPRESSION_ERROR');
-
-h2_ping($sess, 'SEE-THIS');
-is(@{h2_read($sess, all => [{ type => 'PING' }])}, 0, 'invalid index - PING');
-is($sess->{socket}->connected, undef, 'invalid index - connection close');
 
 # HEAD
 

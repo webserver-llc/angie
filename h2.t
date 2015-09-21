@@ -1872,11 +1872,7 @@ sub new_stream {
 	$input = pack("B*", '001' . ipack(5, $uri->{table_size})) . $input
 		if defined $uri->{table_size};
 
-	my @input;
-	for my $length (@$split) {
-		my $offset = length($input[-1]) || 0;
-		push @input, substr $input, $offset, $length, "";
-	}
+	my @input = map { substr $input, 0, $_, "" } @$split;
 	push @input, $input;
 
 	# set length, attach headers, padding, priority

@@ -667,9 +667,6 @@ is($frame->{headers}->{'x-referer'}, 'foo', 'CONTINUATION - fragment 3');
 
 # CONTINUATION - in the middle of request header field
 
-TODO: {
-local $TODO = 'not yet';
-
 $sess = new_session();
 $sid = new_stream($sess, { continuation => [ 2, 4, 1, 5 ], headers => [
 	{ name => ':method', value => 'HEAD', mode => 1 },
@@ -680,8 +677,6 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'CONTINUATION - in header field');
-
-}
 
 # frame padding
 

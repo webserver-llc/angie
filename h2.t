@@ -52,7 +52,6 @@ http {
 
     proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
     limit_conn_zone  $binary_remote_addr  zone=conn:1m;
-    output_buffers 2 16k;
 
     server {
         listen       127.0.0.1:8080 http2;
@@ -1026,9 +1025,6 @@ is(@$frames, 0, 'iws - updated stream window');
 
 h2_window($sess, 2**16);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-
-# with the default output_buffers, the remain data would be split
-# on buffers boundary into separate data frames
 
 @data = grep { $_->{type} eq "DATA" } @$frames;
 my $sum = eval join '+', map { $_->{length} } @data;

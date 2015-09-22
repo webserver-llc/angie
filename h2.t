@@ -32,7 +32,11 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(194);
+	->has_daemon('openssl')->plan(196);
+
+# FreeBSD has a bug in not treating zero iovcnt as EINVAL
+
+$t->todo_alerts() unless $^O eq 'freebsd';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -215,7 +219,7 @@ $t->run()->waitforsocket('127.0.0.1:8083');
 $t->write_file('t1.html',
 	join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('tbig.html',
-	join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
+	join('', map { sprintf "XX%06dXX", $_ } (1 .. 100000)));
 
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('t3.html', 'SEE-THIS');
@@ -1093,6 +1097,23 @@ $frames = h2_read($sess, all => [{ sid => $sid, length => 1 }]);
 is(@$frames, 1, 'positive window');
 is(@$frames[0]->{type}, 'DATA', 'positive window - data');
 is(@$frames[0]->{length}, 1, 'positive window - data length');
+
+# ask write handler in sending large response
+
+$sid = new_stream($sess, { path => '/tbig.html' });
+
+h2_window($sess, 2**30, $sid);
+h2_window($sess, 2**30);
+
+sleep 1;
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'large response - HEADERS');
+
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 1000000, 'large response - DATA');
 
 # SETTINGS_MAX_FRAME_SIZE
 

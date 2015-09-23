@@ -117,7 +117,7 @@ sub stream_read {
 	my ($buf);
 
 	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(3)) {
+	if (IO::Select->new($s)->can_read(5)) {
 		$s->sysread($buf, 1024);
 	};
 

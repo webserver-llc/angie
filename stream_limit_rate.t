@@ -116,8 +116,8 @@ is($r{'data'}, '1', 'upload - one byte');
 }
 
 # Five chunks are split with four 1s delays + 2s error:
-# the first two chunks are halfs of test string
-# and the third one is some extra data from backend.
+# the first four chunks are quarters of test string
+# and the fifth one is some extra data from backend.
 
 %r = stream_get($str, peer =>  '127.0.0.1:8085');
 my $diff = time() - $r{'time'};

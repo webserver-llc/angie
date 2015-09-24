@@ -1086,8 +1086,14 @@ h2_window($sess, 1, $sid);
 
 $frames = h2_read($sess, all => [{ sid => $sid, length => 1 }]);
 is(@$frames, 1, 'positive window');
+
+SKIP: {
+skip 'failed connection', 2 unless @$frames;
+
 is(@$frames[0]->{type}, 'DATA', 'positive window - data');
 is(@$frames[0]->{length}, 1, 'positive window - data length');
+
+}
 
 # ask write handler in sending large response
 

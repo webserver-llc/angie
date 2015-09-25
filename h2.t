@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(196);
+	->has_daemon('openssl')->plan(202);
 
 # FreeBSD has a bug in not treating zero iovcnt as EINVAL
 
@@ -188,6 +188,20 @@ http {
 
         http2_max_header_size 64;
     }
+
+    server {
+        listen       127.0.0.1:8089 http2;
+        server_name  localhost;
+
+        http2_recv_timeout 1s;
+    }
+
+    server {
+        listen       127.0.0.1:8090 http2;
+        server_name  localhost;
+
+        http2_idle_timeout 1s;
+    }
 }
 
 EOF
@@ -277,8 +291,38 @@ is($frame->{value}, 'SEE-THIS', 'PING payload');
 is($frame->{flags}, 1, 'PING flags ack');
 is($frame->{sid}, 0, 'PING stream');
 
+# timeouts
+
+push my @sess, new_session(8089);
+push @sess, new_session(8089);
+h2_ping($sess[-1], 'SEE-THIS');
+push @sess, new_session(8090);
+push @sess, new_session(8090);
+h2_ping($sess[-1], 'SEE-THIS');
+
+select undef, undef, undef, 2.1;
+
+$frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'recv timeout - new connection GOAWAY');
+is($frame->{code}, 1, 'recv timeout - new connection code');
+
+$frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame, undef, 'recv timeout - idle connection GOAWAY');
+
+$frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame, undef, 'idle timeout - new connection GOAWAY');
+
+$frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'idle timeout - idle connection GOAWAY');
+is($frame->{code}, 0, 'idle timeout - idle connection code');
+
 # GET
 
+$sess = new_session();
 my $sid = new_stream($sess);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 

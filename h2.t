@@ -1687,10 +1687,48 @@ is($frame->{length}, 4, 'http2_max_concurrent_streams RST_STREAM length');
 is($frame->{flags}, 0, 'http2_max_concurrent_streams RST_STREAM flags');
 is($frame->{code}, 7, 'http2_max_concurrent_streams RST_STREAM code');
 
+# properly skip header field that's not/never indexed from discarded streams
+
+$sid2 = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/', mode => 6 },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'x-foo', value => 'Foo', mode => 2 }]});
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+# also if split across writes
+
+$sid2 = new_stream($sess, { split => [ 22 ], headers => [
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/', mode => 6 },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'x-bar', value => 'Bar', mode => 2 }]});
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+# also if split across frames
+
+$sid2 = new_stream($sess, { continuation => [ 17 ], headers => [
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/', mode => 6 },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'x-baz', value => 'Baz', mode => 2 }]});
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
 h2_window($sess, 2**16, $sid);
 h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
-$sid = new_stream($sess, { path => '/t2.html' });
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/t2.html' },
+	{ name => ':authority', value => 'localhost' },
+# make sure that discarded streams updated dynamic table
+	{ name => 'x-foo', value => 'Foo', mode => 0 },
+	{ name => 'x-bar', value => 'Bar', mode => 0 },
+	{ name => 'x-baz', value => 'Baz', mode => 0 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
@@ -1967,6 +2005,12 @@ sub new_stream {
 		$buf .= pack 'C', $bpad if $bpadlen;	# DATA Pad Length?
 		$buf .= $body;
 		$buf .= (pack 'C', 0) x $bpad if $bpadlen;	# DATA Padding
+	}
+
+	$split = ref $uri->{split} && $uri->{split} || [];
+	for (@$split) {
+		raw_write($ctx->{socket}, substr($buf, 0, $_, ""));
+		select undef, undef, undef, 0.2;
 	}
 
 	raw_write($ctx->{socket}, $buf);

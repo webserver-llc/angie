@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(202);
+	->has_daemon('openssl')->plan(211);
 
 # FreeBSD has a bug in not treating zero iovcnt as EINVAL
 
@@ -104,6 +104,15 @@ http {
         }
         location /h2 {
             return 200 $http2;
+        }
+        location /sp {
+            return 200 $server_protocol;
+        }
+        location /scheme {
+            return 200 $scheme;
+        }
+        location /https {
+            return 200 $https;
         }
         location /chunk_size {
             http2_chunk_size 1;
@@ -673,6 +682,138 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'h2', 'http variable - alpn');
+
+}
+
+# $server_protocol
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/sp' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'HTTP/2.0', 'server_protocol variable');
+
+}
+
+# $server_protocol - SSL/TLS connection, NPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_npn() or die; };
+skip 'OpenSSL NPN support required', 1 if $@;
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session(8084, SSL => 1, npn => 'h2');
+$sid = new_stream($sess, { path => '/sp' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'HTTP/2.0', 'server_protocol variable - npn');
+
+}
+
+}
+
+# $server_protocol - SSL/TLS connection, ALPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_alpn() or die; };
+skip 'OpenSSL ALPN support required', 1 if $@;
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session(8084, SSL => 1, alpn => 'h2');
+$sid = new_stream($sess, { path => '/sp' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'HTTP/2.0', 'server_protocol variable - alpn');
+
+}
+
+}
+
+# $scheme
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/scheme' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'http', 'scheme variable');
+
+# $scheme - SSL/TLS connection, NPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_npn() or die; };
+skip 'OpenSSL NPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, npn => 'h2');
+$sid = new_stream($sess, { path => '/scheme' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'https', 'scheme variable - npn');
+
+}
+
+# $scheme - SSL/TLS connection, ALPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_alpn() or die; };
+skip 'OpenSSL ALPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, alpn => 'h2');
+$sid = new_stream($sess, { path => '/scheme' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'https', 'scheme variable - alpn');
+
+}
+
+# $https
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/https' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, '', 'https variable');
+
+# $https - SSL/TLS connection, NPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_npn() or die; };
+skip 'OpenSSL NPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, npn => 'h2');
+$sid = new_stream($sess, { path => '/https' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'on', 'https variable - npn');
+
+}
+
+# $https - SSL/TLS connection, ALPN
+
+SKIP: {
+eval { IO::Socket::SSL->can_alpn() or die; };
+skip 'OpenSSL ALPN support required', 1 if $@;
+
+$sess = new_session(8084, SSL => 1, alpn => 'h2');
+$sid = new_stream($sess, { path => '/https' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'on', 'https variable - alpn');
 
 }
 

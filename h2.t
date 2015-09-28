@@ -2597,7 +2597,7 @@ sub hunpack {
 	sub add {
 		my ($h, $n, $v) = @_;
 		return $h->{$n} = $v unless exists $h->{$n};
-		$h->{$n} = [ $h->{$n} ];
+		$h->{$n} = [ $h->{$n} ] unless ref $h->{$n};
 		push @{$h->{$n}}, $v;
 	}
 

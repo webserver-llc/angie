@@ -252,7 +252,7 @@ my %cframe = (
 #	2 => { name => 'PRIORITY', value => \&priority },
 	3 => { name => 'RST_STREAM', value => \&rst_stream },
 	4 => { name => 'SETTINGS', value => \&settings },
-#	5 => { name => 'PUSH_PROIMSE', value => \&push_promise },
+#	5 => { name => 'PUSH_PROMISE', value => \&push_promise },
 	6 => { name => 'PING', value => \&ping },
 	7 => { name => 'GOAWAY', value => \&goaway },
 	8 => { name => 'WINDOW_UPDATE', value => \&window_update },

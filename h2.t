@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(211);
+	->has_daemon('openssl')->plan(207);
 
 # FreeBSD has a bug in not treating zero iovcnt as EINVAL
 
@@ -1327,13 +1327,16 @@ $sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**13 });
 
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
-is(@data, 3, 'response CONTINUATION - header block frames');
-is($data[0]->{type}, 'HEADERS', 'response CONTINUATION - first');
-is($data[0]->{flags}, 0, 'response CONTINUATION - first flags');
-is($data[1]->{type}, 'CONTINUATION', 'response CONTINUATION - second');
-is($data[1]->{flags}, 0, 'response CONTINUATION - second flags');
-is($data[2]->{type}, 'CONTINUATION', 'response CONTINUATION - third');
-is($data[2]->{flags}, 4, 'response CONTINUATION - third flags');
+is(@{$data[-1]->{headers}{'x-longheader'}}, 3,
+	'response CONTINUATION - headers');
+is($data[-1]->{headers}{'x-longheader'}[0], 'x' x 2**13,
+	'response CONTINUATION - header 1');
+is($data[-1]->{headers}{'x-longheader'}[1], 'x' x 2**13,
+	'response CONTINUATION - header 2');
+is($data[-1]->{headers}{'x-longheader'}[2], 'x' x 2**13,
+	'response CONTINUATION - header 3');
+@data = sort { $a <=> $b } map { $_->{length} } @data;
+cmp_ok($data[-1], '<=', 2**14, 'response CONTINUATION - max frame size');
 
 # same but without response DATA frames
 
@@ -1342,13 +1345,16 @@ $sid = new_stream($sess, { path => '/continuation/204?h=' . 'x' x 2**13 });
 
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
-is(@data, 3, 'no body CONTINUATION - header block frames');
-is($data[0]->{type}, 'HEADERS', 'no body CONTINUATION - first');
-is($data[0]->{flags}, 1, 'no body CONTINUATION - first flags');
-is($data[1]->{type}, 'CONTINUATION', 'no body CONTINUATION - second');
-is($data[1]->{flags}, 0, 'no body CONTINUATION - second flags');
-is($data[2]->{type}, 'CONTINUATION', 'no body CONTINUATION - third');
-is($data[2]->{flags}, 4, 'no body CONTINUATION - third flags');
+is(@{$data[-1]->{headers}{'x-longheader'}}, 3,
+	'no body CONTINUATION - headers');
+is($data[-1]->{headers}{'x-longheader'}[0], 'x' x 2**13,
+	'no body CONTINUATION - header 1');
+is($data[-1]->{headers}{'x-longheader'}[1], 'x' x 2**13,
+	'no body CONTINUATION - header 2');
+is($data[-1]->{headers}{'x-longheader'}[2], 'x' x 2**13,
+	'no body CONTINUATION - header 3');
+@data = sort { $a <=> $b } map { $_->{length} } @data;
+cmp_ok($data[-1], '<=', 2**14, 'no body CONTINUATION - max frame size');
 
 # response header block is always split by SETTINGS_MAX_FRAME_SIZE
 
@@ -2062,6 +2068,8 @@ sub new_stream {
 	my ($input, $buf);
 	my ($d, $status);
 
+	$ctx->{headers} = '';
+
 	my $host = $uri->{host} || '127.0.0.1:8080';
 	my $method = $uri->{method} || 'GET';
 	my $scheme = $uri->{scheme} || 'http';
@@ -2181,7 +2189,7 @@ sub h2_read {
 
 		$buf = substr($buf, 9);
 
-		my $frame = $cframe{$type}{value}($sess, $buf, $length);
+		my $frame = $cframe{$type}{value}($sess, $buf, $length, $flags);
 		$frame->{length} = $length;
 		$frame->{type} = $cframe{$type}{name};
 		$frame->{flags} = $flags;
@@ -2226,8 +2234,10 @@ sub test_fin {
 }
 
 sub headers {
-	my ($ctx, $buf, $len) = @_;
-	return { headers => hunpack($ctx, $buf, $len) };
+	my ($ctx, $buf, $len, $flags) = @_;
+	$ctx->{headers} .= substr($buf, 0, $len);
+	return unless $flags & 0x4;
+	{ headers => hunpack($ctx, $ctx->{headers}, length($ctx->{headers})) };
 }
 
 sub data {

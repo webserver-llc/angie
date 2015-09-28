@@ -1362,7 +1362,7 @@ TODO: {
 local $TODO = 'not yet';
 
 $sess = new_session();
-$sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**14 });
+$sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**15 });
 
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;

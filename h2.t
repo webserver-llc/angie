@@ -241,7 +241,7 @@ $t->run()->waitforsocket('127.0.0.1:8083');
 $t->write_file('t1.html',
 	join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('tbig.html',
-	join('', map { sprintf "XX%06dXX", $_ } (1 .. 100000)));
+	join('', map { sprintf "XX%06dXX", $_ } (1 .. 500000)));
 
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('t3.html', 'SEE-THIS');
@@ -1280,7 +1280,7 @@ is($frame->{headers}->{':status'}, 200, 'large response - HEADERS');
 
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
-is($sum, 1000000, 'large response - DATA');
+is($sum, 5000000, 'large response - DATA');
 
 # SETTINGS_MAX_FRAME_SIZE
 

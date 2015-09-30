@@ -2208,7 +2208,7 @@ sub h2_read {
 		$stream = unpack("N", pack("B32", $stream));
 
 		$buf = raw_read($s, $buf, $length + 9);
-		last unless length $buf;
+		last if length($buf) < $length + 9;
 
 		$buf = substr($buf, 9);
 

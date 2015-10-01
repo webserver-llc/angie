@@ -36,7 +36,6 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     add_header X-IP $remote_addr;
-    add_header X-Port $remote_port;
     set_real_ip_from  127.0.0.1/32;
     set_real_ip_from  10.0.1.0/24;
 

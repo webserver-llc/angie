@@ -40,6 +40,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     limit_req_zone   $binary_remote_addr$arg_r  zone=req:1m rate=1r/s;
+    limit_req_zone   $binary_remote_addr        zone=re2:1m rate=1r/s;
     limit_conn_zone  $binary_remote_addr$arg_c  zone=conn:1m;
 
     server {
@@ -52,11 +53,15 @@ http {
 
         location /w {
             limit_conn conn 1;
-            proxy_pass http://127.0.0.1:8080/req;
+            proxy_pass http://127.0.0.1:8080/req2;
         }
 
         location /req {
             limit_req  zone=req burst=2;
+        }
+
+        location /req2 {
+            limit_req  zone=re2 burst=2;
         }
     }
 }
@@ -82,6 +87,8 @@ $s = http_get('/req?r=2', start => 1);
 ok(IO::Select->new($s)->can_read(0.1), 'limit_req different key');
 
 # limit_conn tests
+
+http_get('/req2');
 
 $s = http_get('/w', start => 1);
 select undef, undef, undef, 0.2;

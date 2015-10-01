@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(210);
+	->has_daemon('openssl')->plan(212);
 
 # FreeBSD has a bug in not treating zero iovcnt as EINVAL
 
@@ -1906,6 +1906,16 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 
 # some invalid cases below
+
+# invalid PROXY protocol string
+
+$sess = new_session(8082, proxy => 'bogus');
+$sid = new_stream($sess, { path => '/pp' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'invalid PROXY - GOAWAY frame');
+is($frame->{code}, 1, 'invalid PROXY - error code');
 
 # ensure that request header field value with newline doesn't get split
 #

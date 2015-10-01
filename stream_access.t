@@ -149,8 +149,8 @@ stream {
 
 EOF
 
-$t->run_daemon(\&stream_daemon);
 $t->try_run('no inet6 and/or unix support')->plan(18);
+$t->run_daemon(\&stream_daemon);
 $t->waitforsocket('127.0.0.1:8080');
 
 ###############################################################################

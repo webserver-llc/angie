@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(216);
+	->has_daemon('openssl')->plan(219);
 
 # FreeBSD has a bug in not treating zero iovcnt as EINVAL
 
@@ -602,6 +602,22 @@ ok($frame, 'invalid index - GOAWAY');
 
 is($frame->{last_sid}, $sid, 'invalid index - GOAWAY last stream');
 is($frame->{code}, 9, 'invalid index - GOAWAY COMPRESSION_ERROR');
+
+# invalid table size update
+
+$sess = new_session();
+$sid = new_stream($sess, { table_size => 4097, headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => 'x-foo', value => 'X-Bar', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'invalid table size - GOAWAY');
+is($frame->{last_sid}, $sid, 'invalid table size - GOAWAY last stream');
+is($frame->{code}, 9, 'invalid table size - GOAWAY COMPRESSION_ERROR');
 
 # HEAD
 

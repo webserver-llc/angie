@@ -34,9 +34,9 @@ my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
 	->has_daemon('openssl')->plan(219);
 
-# FreeBSD has a bug in not treating zero iovcnt as EINVAL
+# Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
-$t->todo_alerts() unless $^O eq 'freebsd';
+$t->todo_alerts() if $^O eq 'darwin';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

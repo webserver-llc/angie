@@ -37,9 +37,9 @@ plan(skip_all => 'Compress::Raw::Zlib not installed') if $@;
 my $t = Test::Nginx->new()
 	->has(qw/http proxy cache limit_conn rewrite spdy realip shmem/);
 
-# FreeBSD has a bug in not treating zero iovcnt as EINVAL
+# Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
-$t->todo_alerts() unless $^O eq 'freebsd';
+$t->todo_alerts() if $^O eq 'darwin';
 
 $t->plan(84)->write_file_expand('nginx.conf', <<'EOF');
 

@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->plan(4)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(5)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -59,6 +59,11 @@ http {
             proxy_pass https://127.0.0.1:8081/;
             proxy_ssl_session_reuse off;
         }
+
+        location /timeout {
+            proxy_pass https://127.0.0.1:8081/;
+            proxy_connect_timeout 1s;
+        }
     }
 }
 
@@ -92,5 +97,11 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+
+my $s = http('', start => 1);
+
+sleep 2;
+
+like(http_get('/timeout', socket => $s), qr/200 OK/, 'proxy connect timeout');
 
 ###############################################################################

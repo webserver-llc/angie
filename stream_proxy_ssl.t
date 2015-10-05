@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl http http_ssl/)
-	->has_daemon('openssl')->plan(4);
+	->has_daemon('openssl')->plan(5);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -37,6 +37,7 @@ events {
 stream {
     proxy_ssl on;
     proxy_ssl_session_reuse on;
+    proxy_connect_timeout 1s;
 
     server {
         listen      127.0.0.1:8080;
@@ -102,6 +103,19 @@ like(http_get('/', socket => getconn('127.0.0.1:8080')),
 	qr/200 OK.*X-Session: \./s, 'ssl reuse session');
 like(http_get('/', socket => getconn('127.0.0.1:8081')),
 	qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+
+my $s = http('', start => 1);
+
+sleep 2;
+
+my $r = http_get('/', socket => $s);
+
+TODO: {
+todo_skip 'not yet', 1 unless $r;
+
+like($r, qr/200 OK/, 'proxy connect timeout');
+
+}
 
 ###############################################################################
 

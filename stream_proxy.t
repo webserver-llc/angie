@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/stream/)->plan(5)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -62,6 +62,13 @@ is(stream_read($s), 'close', 'proxy connection close');
 
 stream_write($s, 'test');
 is(stream_read($s), '', 'proxy connection closed');
+
+$s = stream_connect();
+
+sleep 2;
+
+stream_write($s, 'foo');
+is(stream_read($s), 'bar', 'proxy connect timeout');
 
 ###############################################################################
 

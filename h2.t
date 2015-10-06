@@ -2662,7 +2662,7 @@ sub hunpack {
 	my $skip = 0;
 	my ($index, $name, $value);
 
-	sub field {
+	my $field = sub {
 		my ($b) = @_;
 		my ($len, $s, $huff) = iunpack(7, @_);
 
@@ -2670,21 +2670,21 @@ sub hunpack {
 		$field = $huff ? dehuff($field) : $field;
 		$s += $len;
 		return ($field, $s);
-	}
+	};
 
-	sub add {
+	my $add = sub {
 		my ($h, $n, $v) = @_;
 		return $h->{$n} = $v unless exists $h->{$n};
 		$h->{$n} = [ $h->{$n} ] unless ref $h->{$n};
 		push @{$h->{$n}}, $v;
-	}
+	};
 
 	while ($skip < $length) {
 		my $ib = unpack("\@$skip B8", $data);
 
 		if (substr($ib, 0, 1) eq '1') {
 			($index, $skip) = iunpack(7, $data, $skip);
-			add(\%headers,
+			$add->(\%headers,
 				$table->[$index][0], $table->[$index][1]);
 			next;
 		}
@@ -2693,12 +2693,12 @@ sub hunpack {
 			($index, $skip) = iunpack(6, $data, $skip);
 			$name = $table->[$index][0];
 
-			($name, $skip) = field($data, $skip) unless $name;
-			($value, $skip) = field($data, $skip);
+			($name, $skip) = $field->($data, $skip) unless $name;
+			($value, $skip) = $field->($data, $skip);
 
 			splice @$table,
 				$ctx->{static_table_size}, 0, [ $name, $value ];
-			add(\%headers, $name, $value);
+			$add->(\%headers, $name, $value);
 			next;
 		}
 
@@ -2706,10 +2706,10 @@ sub hunpack {
 			($index, $skip) = iunpack(4, $data, $skip);
 			$name = $table->[$index][0];
 
-			($name, $skip) = field($data, $skip) unless $name;
-			($value, $skip) = field($data, $skip);
+			($name, $skip) = $field->($data, $skip) unless $name;
+			($value, $skip) = $field->($data, $skip);
 
-			add(\%headers, $name, $value);
+			$add->(\%headers, $name, $value);
 			next;
 		}
 	}

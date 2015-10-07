@@ -108,14 +108,7 @@ my $s = http('', start => 1);
 
 sleep 2;
 
-my $r = http_get('/', socket => $s);
-
-TODO: {
-todo_skip 'not yet', 1 unless $r;
-
-like($r, qr/200 OK/, 'proxy connect timeout');
-
-}
+like(http_get('/', socket => $s), qr/200 OK/, 'proxy connect timeout');
 
 ###############################################################################
 

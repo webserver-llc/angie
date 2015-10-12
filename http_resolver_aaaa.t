@@ -47,7 +47,7 @@ http {
 
             proxy_next_upstream http_504 timeout error;
             proxy_intercept_errors on;
-            proxy_connect_timeout 50ms;
+            proxy_connect_timeout 100ms;
             error_page 504 502 /50x;
         }
         location /two {

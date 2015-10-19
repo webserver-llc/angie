@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(219);
+	->has_daemon('openssl')->plan(222);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1507,6 +1507,57 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
 is($frame->{code}, 0xb, 'header size indexed greater');
+
+# HPACK table boundary
+
+$sess = new_session();
+h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x' x 2016, value => 'x' x 2048, mode => 2 }]}), fin => 1 }]);
+$frames = h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x' x 2016, value => 'x' x 2048, mode => 0 }]}), fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame, 'HPACK table boundary');
+
+h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x' x 33, value => 'x' x 4031, mode => 2 }]}), fin => 1 }]);
+$frames = h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x' x 33, value => 'x' x 4031, mode => 0 }]}), fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame, 'HPACK table boundary - header field name');
+
+h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x', value => 'x' x 64, mode => 2 }]}), fin => 1 }]);
+$frames = h2_read($sess, all => [{ sid => new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => '', mode => 0 },
+	{ name => 'x', value => 'x' x 64, mode => 0 }]}), fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame, 'HPACK table boundary - header field value');
 
 # stream multiplexing + WINDOW_UPDATE
 

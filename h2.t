@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(223);
+	->has_daemon('openssl')->plan(225);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -260,6 +260,25 @@ my %cframe = (
 );
 
 ###############################################################################
+
+# Upgrade mechanism
+
+my $r = http(<<EOF);
+GET / HTTP/1.1
+Host: localhost
+Connection: Upgrade, HTTP2-Settings
+Upgrade: h2c
+HTTP2-Settings: AAMAAABkAAQAAP__
+
+EOF
+
+SKIP: {
+skip 'no Upgrade-based negotiation', 2 if $r !~ m!HTTP/1.1 101!;
+
+like($r, qr!Connection: Upgrade!, 'upgrade - connection');
+like($r, qr!Upgrade: h2c!, 'upgrade - token');
+
+}
 
 # SETTINGS
 

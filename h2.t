@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(228);
+	->has_daemon('openssl')->plan(232);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -473,6 +473,26 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal without indexing - huffman');
 
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
+	{ name => ':scheme', value => 'http', mode => 3, huff => 0 },
+	{ name => ':path', value => '/', mode => 3, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 3, huff => 0 },
+	{ name => 'referer', value => 'foo', mode => 3, huff => 0 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'literal without indexing - multibyte index');
+is($frame->{headers}->{'x-referer'}, 'foo',
+	'literal without indexing - multibyte index value');
+
+}
+
 # 6.2.2. Literal Header Field without Indexing -- New Name
 
 $sess = new_session();
@@ -521,6 +541,21 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal never indexed - huffman');
 
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 5, huff => 0 },
+	{ name => ':scheme', value => 'http', mode => 5, huff => 0 },
+	{ name => ':path', value => '/', mode => 5, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 5, huff => 0 },
+	{ name => 'referer', value => 'foo', mode => 5, huff => 0 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'literal never indexed - multibyte index');
+is($frame->{headers}->{'x-referer'}, 'foo',
+	'literal never indexed - multibyte index value');
+
 # 6.2.2. Literal Header Field Never Indexed -- New Name
 
 $sess = new_session();
@@ -545,7 +580,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal never indexed - new huffman');
 
-# reuse literal with indexing
+# reuse literal with multibyte indexing
 
 $sess = new_session();
 $sid = new_stream($sess, { headers => [
@@ -582,7 +617,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'X-Bar', 'name with indexing - new');
 
-# reuse literal with indexing - reused name
+# reuse literal with multibyte indexing - reused name
 
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
@@ -595,7 +630,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'X-Bar', 'name with indexing - indexed');
 
-# reuse literal with indexing - reused name only
+# reuse literal with multibyte indexing - reused name only
 
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },

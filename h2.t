@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(225);
+	->has_daemon('openssl')->plan(227);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -645,6 +645,24 @@ ok($frame, 'invalid index - GOAWAY');
 
 is($frame->{last_sid}, $sid, 'invalid index - GOAWAY last stream');
 is($frame->{code}, 9, 'invalid index - GOAWAY COMPRESSION_ERROR');
+
+# HPACK zero index
+
+# RFC 7541, 6.1  Indexed Header Field Representation
+#   The index value of 0 is not used.  It MUST be treated as a decoding
+#   error if found in an indexed header field representation.
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => '', value => '', mode => 0 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+ok($frame, 'zero index - GOAWAY');
+is($frame->{code}, 9, 'zero index - GOAWAY COMPRESSION_ERROR');
 
 # invalid table size update
 

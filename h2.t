@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(222);
+	->has_daemon('openssl')->plan(223);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -557,11 +557,35 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'X-Bar', 'name with indexing - indexed');
 
+# reuse literal with indexing - reused name only
+
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 0 },
+	{ name => 'x-foo', value => 'X-Baz', mode => 1 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-sent-foo'}, 'X-Baz',
+	'name with indexing - indexed name');
+
 # 6.3.  Dynamic Table Size Update
 
 # remove some indexed headers from the dynamic table
 # by maintaining dynamic table space only for index 0
 # 'x-foo' has index 0, and 'referer' has index 1
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'referer', value => 'foo', mode => 1 },
+	{ name => 'x-foo', value => 'X-Bar', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 $sid = new_stream($sess, { table_size => 61, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },

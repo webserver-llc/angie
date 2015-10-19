@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(227);
+	->has_daemon('openssl')->plan(228);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1358,6 +1358,25 @@ is($frame->{headers}->{':status'}, 200, 'large response - HEADERS');
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 5000000, 'large response - DATA');
+
+# stream with large response queued on write - RST_STREAM handling
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/tbig.html' });
+
+h2_window($sess, 2**30, $sid);
+h2_window($sess, 2**30);
+
+select undef, undef, undef, 0.4;
+
+h2_rst($sess, $sid, 8);
+h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+$sid = new_stream($sess);
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{sid}, 3, 'large response - queued with RST_STREAM');
 
 # SETTINGS_MAX_FRAME_SIZE
 

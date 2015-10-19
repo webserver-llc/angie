@@ -155,9 +155,11 @@ $t->stop();
 
 # verify that by default, 'combined' format is used, 'off' disables logging
 
+my $addr = IO::Socket::INET->new(LocalAddr => '127.0.0.1')->sockhost();
+
 $log = $t->read_file('combined.log');
 like($log,
-	qr!^\Q127.0.0.1 - - [\E .*
+	qr!^\Q$addr - - [\E .*
 		\Q] "GET /combined HTTP/1.0" 200 2 "-" "-"\E$!x,
 	'default log format');
 

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(232);
+	->has_daemon('openssl')->plan(233);
 
 # Some systems have a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1297,6 +1297,16 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'request body with padding - next');
 
+# request body sent in multiple DATA frames (uses proxied response)
+
+$sess = new_session();
+$sid = new_stream($sess,
+	{ path => '/proxy2/t2.html', body => 'TEST', body_split => [2] });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
+
 # initial window size, client side
 
 # 6.9.2.  Initial Flow-Control Window Size
@@ -2332,6 +2342,7 @@ sub new_stream {
 	my $prio = $uri->{prio};
 	my $dep = $uri->{dep};
 	my $split = ref $uri->{continuation} && $uri->{continuation} || [];
+	my $bsplit = ref $uri->{body_split} && $uri->{body_split} || [];
 
 	my $pad = defined $uri->{padding} ? $uri->{padding} : 0;
 	my $padlen = defined $uri->{padding} ? 1 : 0;
@@ -2399,12 +2410,30 @@ sub new_stream {
 		$buf .= $input;
 	}
 
-	if (defined $body) {
-		$buf .= pack_length(length($body) + $bpad + $bpadlen);
-		my $flags = $bpadlen ? 0x8 : 0x0;
-		$buf .= pack 'CC', 0x0, 0x1 | $flags;	# DATA, END_STREAM
+	my @body = map { substr $body, 0, $_, "" } @$bsplit;
+	push @body, $body;
+
+	if (defined $body[0]) {
+		$buf .= pack_length(length($body[0]) + $bpad + $bpadlen);
+		my $flags = defined $uri->{body_split} ? 0x0 : 0x1;
+		$flags |= 0x8 if $bpadlen;
+		$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
 		$buf .= pack 'N', $ctx->{last_stream};
 		$buf .= pack 'C', $bpad if $bpadlen;	# DATA Pad Length?
+		$buf .= $body[0];
+		$buf .= (pack 'C', 0) x $bpad if $bpadlen;	# DATA Padding
+	}
+
+	shift @body;
+
+	while (@body) {
+		$body = shift @body;
+		$buf .= pack_length(length($body) + $bpad + $bpadlen);
+		my $flags = @body ? 0x0 : 0x1;
+		$flags |= 0x8 if $bpadlen;
+		$buf .= pack 'CC', 0x0, $flags;
+		$buf .= pack 'N', $ctx->{last_stream};
+		$buf .= pack 'C', $bpad if $bpadlen;
 		$buf .= $body;
 		$buf .= (pack 'C', 0) x $bpad if $bpadlen;	# DATA Padding
 	}

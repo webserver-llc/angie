@@ -390,6 +390,7 @@ is($frame->{data}, 'body', 'DATA payload 2');
 
 # 6.1. Indexed Header Field Representation
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -402,6 +403,7 @@ is($frame->{headers}->{':status'}, 200, 'indexed header field');
 
 # 6.2.1. Literal Header Field with Incremental Indexing
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 1, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 1, huff => 0 },
@@ -412,6 +414,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal with indexing');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 1, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 1, huff => 1 },
@@ -424,6 +427,7 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing - huffman');
 
 # 6.2.1. Literal Header Field with Incremental Indexing -- New Name
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 2, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 2, huff => 0 },
@@ -434,6 +438,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal with indexing - new');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 2, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 2, huff => 1 },
@@ -446,6 +451,7 @@ is($frame->{headers}->{':status'}, 200, 'literal with indexing - new huffman');
 
 # 6.2.2. Literal Header Field without Indexing
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 3, huff => 0 },
@@ -456,6 +462,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal without indexing');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 3, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 3, huff => 1 },
@@ -468,6 +475,7 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing - huffman');
 
 # 6.2.2. Literal Header Field without Indexing -- New Name
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 4, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 4, huff => 0 },
@@ -478,6 +486,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal without indexing - new');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 4, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 4, huff => 1 },
@@ -490,6 +499,7 @@ is($frame->{headers}->{':status'}, 200, 'literal without indexing - new huffman'
 
 # 6.2.3. Literal Header Field Never Indexed
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 5, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 5, huff => 0 },
@@ -500,6 +510,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal never indexed');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 5, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 5, huff => 1 },
@@ -512,6 +523,7 @@ is($frame->{headers}->{':status'}, 200, 'literal never indexed - huffman');
 
 # 6.2.2. Literal Header Field Never Indexed -- New Name
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 6, huff => 0 },
 	{ name => ':scheme', value => 'http', mode => 6, huff => 0 },
@@ -522,6 +534,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal never indexed - new');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 6, huff => 1 },
 	{ name => ':scheme', value => 'http', mode => 6, huff => 1 },
@@ -557,11 +570,12 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-referer'}, 'foo', 'value with indexing - indexed');
 
+$sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
-	{ name => ':authority', value => 'localhost', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'x-foo', value => 'X-Bar', mode => 2 }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 

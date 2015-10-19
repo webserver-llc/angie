@@ -515,7 +515,8 @@ $sid = new_stream($sess, { headers => [
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{':status'}, 200, 'literal without indexing - new huffman');
+is($frame->{headers}->{':status'}, 200,
+	'literal without indexing - new huffman');
 
 # 6.2.3. Literal Header Field Never Indexed
 

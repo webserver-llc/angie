@@ -47,8 +47,9 @@ http {
 
             proxy_next_upstream http_504 timeout error;
             proxy_intercept_errors on;
-            proxy_connect_timeout 100ms;
+            proxy_connect_timeout 50ms;
             error_page 504 502 /50x;
+            add_header X-Host $upstream_addr;
         }
         location /two {
             resolver    127.0.0.1:8081 127.0.0.1:8082;
@@ -86,7 +87,7 @@ like(http_host_header('cname.example.net', '/'), qr/\[fe80::1\]/,
 # CNAME + AAAA combined answer
 # demonstrates the name in answer section different from what is asked
 
-like(http_host_header('cname_a.example.net', '/'), qr/200 OK/, 'CNAME + AAAA');
+like(http_host_header('cname_a.example.net', '/'), qr/\[::1\]/, 'CNAME + AAAA');
 
 # many AAAA records in round robin
 # nonexisting IPs enumerated with proxy_next_upstream

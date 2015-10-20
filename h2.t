@@ -473,9 +473,6 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'literal without indexing - huffman');
 
-TODO: {
-local $TODO = 'not yet';
-
 $sess = new_session();
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
@@ -490,8 +487,6 @@ is($frame->{headers}->{':status'}, 200,
 	'literal without indexing - multibyte index');
 is($frame->{headers}->{'x-referer'}, 'foo',
 	'literal without indexing - multibyte index value');
-
-}
 
 # 6.2.2. Literal Header Field without Indexing -- New Name
 

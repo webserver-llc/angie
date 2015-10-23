@@ -49,7 +49,7 @@ http {
 
             proxy_cache   NAME;
 
-            proxy_cache_valid   200 302  1s;
+            proxy_cache_valid   200 302  2s;
             proxy_cache_valid   301      1d;
             proxy_cache_valid   any      1m;
 
@@ -99,7 +99,7 @@ like(http_get_range('/t.html', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 like(http_get('/empty.html'), qr/MISS/, 'empty get first');
 like(http_get('/empty.html'), qr/HIT/, 'empty get second');
 
-select(undef, undef, undef, 2.1);
+select(undef, undef, undef, 3.1);
 unlink $t->testdir() . '/t.html';
 like(http_gzip_request('/t.html'),
 	qr/HTTP.*STALE.*1c\x0d\x0a.{28}\x0d\x0a0\x0d\x0a\x0d\x0a\z/s,

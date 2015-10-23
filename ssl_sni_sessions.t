@@ -131,12 +131,9 @@ $t->run();
 
 ###############################################################################
 
-my $ctx = IO::Socket::SSL::SSL_Context->new(
-	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-	SSL_session_cache_size => 100
-);
-
 # check that everything works fine with default server
+
+my $ctx = get_ssl_context();
 
 like(get('default', 8443, $ctx), qr!default:\.!, 'default server');
 like(get('default', 8443, $ctx), qr!default:r!, 'default server reused');
@@ -154,11 +151,15 @@ local $TODO = 'not yet' unless $t->has_version('1.9.6');
 # creating new sessions, uses callbacks from the default server context, but
 # provides access to the SNI-selected server context only (ticket #235)
 
+$ctx = get_ssl_context();
+
 like(get('nocache', 8443, $ctx), qr!nocache:\.!, 'without cache');
 like(get('nocache', 8443, $ctx), qr!nocache:r!, 'without cache reused');
 
 # make sure tickets can be used if an SNI-based virtual server
 # uses a different set of session ticket keys explicitly set
+
+$ctx = get_ssl_context();
 
 like(get('tickets', 8444, $ctx), qr!tickets:\.!, 'tickets');
 like(get('tickets', 8444, $ctx), qr!tickets:r!, 'tickets reused');
@@ -166,6 +167,13 @@ like(get('tickets', 8444, $ctx), qr!tickets:r!, 'tickets reused');
 }
 
 ###############################################################################
+
+sub get_ssl_context {
+	return IO::Socket::SSL::SSL_Context->new(
+		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+		SSL_session_cache_size => 100
+	);
+}
 
 sub get_ssl_socket {
 	my ($host, $port, $ctx) = @_;
@@ -180,7 +188,6 @@ sub get_ssl_socket {
 			PeerAddr => '127.0.0.1',
 			PeerPort => $port,
 			SSL_hostname => $host,
-			SSL_session_key => "$host:$port",
 			SSL_reuse_ctx => $ctx,
 			SSL_error_trap => sub { die $_[1] }
 		);

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(243);
+	->has_daemon('openssl')->plan(247);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -357,6 +357,41 @@ $frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'idle timeout - idle connection GOAWAY');
 is($frame->{code}, 0, 'idle timeout - idle connection code');
+
+# GOAWAY
+
+h2_goaway(new_session(), 0, 0, 5);
+h2_goaway(new_session(), 0, 0, 5, 'foobar');
+h2_goaway(new_session(), 0, 0, 5, 'foobar', split => [ 8, 8, 4 ]);
+
+$sess = new_session();
+h2_goaway($sess, 0, 0, 5);
+h2_goaway($sess, 0, 0, 5);
+
+$sess = new_session();
+h2_goaway($sess, 0, 0, 5, 'foobar', len => 0);
+$frames = h2_read($sess, all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'GOAWAY invalid length - GOAWAY frame');
+is($frame->{code}, 6, 'GOAWAY invalid length - GOAWAY FRAME_SIZE_ERROR');
+
+# 6.8.  GOAWAY
+#   An endpoint MUST treat a GOAWAY frame with a stream identifier other
+#   than 0x0 as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+h2_goaway($sess, 1, 0, 5, 'foobar');
+$frames = h2_read($sess, all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'GOAWAY invalid stream - GOAWAY frame');
+is($frame->{code}, 1, 'GOAWAY invalid stream - GOAWAY PROTOCOL_ERROR');
+
+}
 
 # GET
 
@@ -2449,6 +2484,20 @@ sub h2_rst {
 	my ($sess, $stream, $error) = @_;
 
 	raw_write($sess->{socket}, pack("x2C2xNN", 4, 0x3, $stream, $error));
+}
+
+sub h2_goaway {
+	my ($sess, $stream, $lstream, $err, $debug, %extra) = @_;
+	$debug = '' unless defined $debug;
+	my $len = defined $extra{len} ? $extra{len} : 8 + length($debug);
+	my $buf = pack("x2C2xN3A*", $len, 0x7, $stream, $lstream, $err, $debug);
+
+	my @bufs = map {
+		raw_write($sess->{socket}, substr $buf, 0, $_, "");
+		select undef, undef, undef, 0.4;
+	} @{$extra{split}};
+
+	raw_write($sess->{socket}, $buf);
 }
 
 sub h2_priority {

@@ -135,13 +135,14 @@ http {
             add_header X-UC-a $upstream_cookie_a;
             add_header X-UC-c $upstream_cookie_c;
             proxy_pass http://127.0.0.1:8083/;
-            proxy_cache NAME;
-            proxy_cache_valid 1m;
             proxy_set_header X-Cookie-a $cookie_a;
             proxy_set_header X-Cookie-c $cookie_c;
         }
         location /proxy2/ {
             add_header X-Body "$request_body";
+            proxy_pass http://127.0.0.1:8081/;
+        }
+        location /cache/ {
             proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
@@ -270,6 +271,7 @@ $t->write_file('tbig.html',
 
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('t3.html', 'SEE-THIS');
+$t->write_file('t4.html', 'SEE-THIS');
 
 my %cframe = (
 	0 => { name => 'DATA', value => \&data },
@@ -1300,7 +1302,7 @@ gunzip_like($frame->{data}, qr/^SEE-THIS\Z/, 'gzip - DATA');
 # simple proxy cache test
 
 $sess = new_session();
-$sid = new_stream($sess, { path => '/proxy2/t2.html?2' });
+$sid = new_stream($sess, { path => '/cache/t4.html' });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1312,10 +1314,12 @@ my $etag = $frame->{headers}->{'etag'};
 is($frame->{length}, length 'SEE-THIS', 'proxy cache - DATA');
 is($frame->{data}, 'SEE-THIS', 'proxy cache - DATA payload');
 
+$t->write_file('t4.html', 'NOOP');
+
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/proxy2/t2.html?2' },
+	{ name => ':path', value => '/cache/t4.html' },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'if-none-match', value => $etag }]});
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
@@ -1326,7 +1330,7 @@ is($frame->{headers}->{':status'}, 304, 'proxy cache conditional');
 # HEADERS could be received with fin, followed by DATA
 
 $sess = new_session();
-$sid = new_stream($sess, { path => '/proxy2/t2.html', method => 'HEAD' });
+$sid = new_stream($sess, { path => '/cache/t2.html?1', method => 'HEAD' });
 
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }])};

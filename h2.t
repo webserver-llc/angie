@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(233);
+	->has_daemon('openssl')->plan(237);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1883,6 +1883,23 @@ $frames = h2_read($sess, all => [
 $sids = join ' ', map { $_->{sid} } @data;
 is($sids, "$sid $sid2", 'dependency - PRIORITY 2');
 
+# PRIORITY - self dependency
+
+# 5.3.1.  Stream Dependencies
+#   A stream cannot depend on itself.  An endpoint MUST treat this as a
+#   stream error of type PROTOCOL_ERROR.
+
+$sess = new_session();
+$sid = new_stream($sess);
+h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+h2_priority($sess, 0, $sid, $sid);
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+is($frame->{sid}, $sid, 'dependency - PRIORITY self - RST_STREAM');
+is($frame->{code}, 1, 'dependency - PRIORITY self - PROTOCOL_ERROR');
+
 # HEADERS PRIORITY flag, reprioritize prior PRIORITY frame records
 
 $sess = new_session();
@@ -1934,6 +1951,21 @@ $frames = h2_read($sess, all => [
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sids = join ' ', map { $_->{sid} } @data;
 is($sids, "$sid $sid2", 'dependency - HEADERS PRIORITY 2');
+
+# HEADERS - self dependency
+
+SKIP: {
+skip 'leaves coredump', 2 unless $ENV{TEST_NGINX_UNSAFE};
+
+$sess = new_session();
+$sid = new_stream($sess, { dep => 1 });
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+is($frame->{sid}, $sid, 'dependency - HEADERS self - RST_STREAM');
+is($frame->{code}, 1, 'dependency - HEADERS self - PROTOCOL_ERROR');
+
+}
 
 # PRIORITY frame, weighted dependencies
 

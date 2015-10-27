@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(282);
+	->has_daemon('openssl')->plan(284);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1397,6 +1397,33 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
+
+# malformed request body length not equal to content-length
+
+$sess = new_session();
+$sid = new_stream($sess,
+	{ path => '/proxy2/t2.html', body => 'TEST', headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/client_max_body_size', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'content-length', value => '5', mode => 1 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
+
+$sid = new_stream($sess,
+	{ path => '/proxy2/t2.html', body => 'TEST', headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/client_max_body_size', mode => 1 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'content-length', value => '3', mode => 1 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 400, 'request body more than content-length');
 
 # client_max_body_size
 

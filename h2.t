@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(276);
+	->has_daemon('openssl')->plan(279);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1335,6 +1335,22 @@ $sid = new_stream($sess, { path => '/cache/t2.html?1', method => 'HEAD' });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }])};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
+
+# proxy cache - expect no stray empty DATA frame
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/cache/t2.html?2' });
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+@data = grep ({ $_->{type} eq "DATA" } @$frames);
+is(@data, 1, 'proxy cache write - data frames');
+is(join(' ', map { $_->{data} } @data), 'SEE-THIS', 'proxy cache write - data');
+is(join(' ', map { $_->{flags} } @data), '1', 'proxy cache write - flags');
+
+}
 
 # HEAD on empty cache with proxy_buffering off
 

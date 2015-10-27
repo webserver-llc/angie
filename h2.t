@@ -2247,6 +2247,11 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'empty authority');
 
+# aborted stream with zero HEADERS payload followed by client connection close
+
+new_stream(new_session(), { split => [ 9 ], abort => 1 })
+	if $ENV{TEST_NGINX_UNSAFE};
+
 # unknown frame type
 
 $sess = new_session();
@@ -2436,10 +2441,12 @@ sub new_stream {
 	$split = ref $uri->{split} && $uri->{split} || [];
 	for (@$split) {
 		raw_write($ctx->{socket}, substr($buf, 0, $_, ""));
+		goto done if $uri->{abort};
 		select undef, undef, undef, 0.2;
 	}
 
 	raw_write($ctx->{socket}, $buf);
+done:
 	return $ctx->{last_stream};
 }
 

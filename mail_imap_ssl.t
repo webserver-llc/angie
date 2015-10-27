@@ -142,9 +142,9 @@ $t->run();
 
 my $cred = encode_base64("\0test\@example.com\0secret", '');
 my %ssl = (
-	'SSL' => 1,
-	'SSL_verify_mode' => 'IO::Socket::SSL::SSL_VERIFY_NONE()',
-	'SSL_error_trap' => 'sub { die $_[1] }',
+	SSL => 1,
+	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+	SSL_error_trap => sub { die $_[1] },
 );
 
 # no ssl connection

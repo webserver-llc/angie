@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(240);
+	->has_daemon('openssl')->plan(243);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -2089,6 +2089,57 @@ is($frame->{length}, 81, 'removed dependency - last stream');
 
 }
 
+# PRIORITY - reprioritization with circular dependency - exclusive [5]
+# 1 <- [5] <- 3
+
+SKIP: {
+skip 'leaves coredump', 3 unless $ENV{TEST_NGINX_UNSAFE};
+
+$sess = new_session();
+
+h2_window($sess, 2**18);
+
+h2_priority($sess, 16, 1, 0);
+h2_priority($sess, 16, 3, 1);
+h2_priority($sess, 16, 5, 1, excl => 1);
+
+$sid = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+$sid2 = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid2, length => 2**16 - 1 }]);
+
+$sid3 = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid3, length => 2**16 - 1 }]);
+
+h2_window($sess, 2**16, $sid);
+
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sids = join ' ', map { $_->{sid} } grep { $_->{type} eq "DATA" } @$frames;
+is($sids, $sid, 'exclusive dependency - parent removed');
+
+# make circular dependency
+# 5 <- 3 -- current dependency tree before reprioritization
+# 3 <- 5
+
+h2_priority($sess, 16, 5, 3);
+
+h2_window($sess, 2**16, $sid2);
+h2_window($sess, 2**16, $sid3);
+
+$frames = h2_read($sess, all => [
+	{ sid => $sid2, fin => 1 },
+	{ sid => $sid3, fin => 1 },
+]);
+
+($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid2 } @$frames;
+is($frame->{length}, 81, 'exclusive dependency - first stream');
+
+($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid3 } @$frames;
+is($frame->{length}, 81, 'exclusive dependency - last stream');
+
+}
+
 # limit_conn
 
 $sess = new_session();
@@ -2401,10 +2452,11 @@ sub h2_rst {
 }
 
 sub h2_priority {
-	my ($sess, $w, $stream, $dep) = @_;
+	my ($sess, $w, $stream, $dep, %extra) = @_;
 
 	$stream = 0 unless defined $stream;
 	$dep = 0 unless defined $dep;
+	$dep |= $extra{excl} << 31 if exists $extra{excl};
 	raw_write($sess->{socket}, pack("x2C2xNNC", 5, 0x2, $stream, $dep, $w));
 }
 

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(275);
+	->has_daemon('openssl')->plan(276);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -223,6 +223,13 @@ http {
             add_header X-Body "$request_body";
             proxy_pass http://127.0.0.1:8081/;
         }
+    }
+
+    server {
+        listen       127.0.0.1:8091 http2;
+        server_name  localhost;
+
+        send_timeout 1s;
     }
 }
 
@@ -1703,6 +1710,20 @@ is($frame->{headers}->{':status'}, 200, 'large response - HEADERS');
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 5000000, 'large response - DATA');
+
+# write event send timeout
+
+$sess = new_session(8091);
+$sid = new_stream($sess, { path => '/tbig.html' });
+h2_window($sess, 2**30, $sid);
+h2_window($sess, 2**30);
+
+select undef, undef, undef, 2.1;
+
+h2_ping($sess, 'SEE-THIS');
+
+$frames = h2_read($sess, all => [{ type => 'PING' }]);
+ok(!grep ({ $_->{type} eq "PING" } @$frames), 'large response - send timeout');
 
 # stream with large response queued on write - RST_STREAM handling
 

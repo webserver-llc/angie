@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(251);
+	->has_daemon('openssl')->plan(275);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -151,6 +151,14 @@ http {
             proxy_cache NAME;
             proxy_cache_valid 1m;
             proxy_buffering off;
+        }
+        location /client_max_body_size {
+            add_header X-Body $request_body;
+            add_header X-Body-File $request_body_file;
+            client_body_in_single_buffer on;
+            client_body_in_file_only on;
+            proxy_pass http://127.0.0.1:8081/;
+            client_max_body_size 10;
         }
         location /set-cookie {
             add_header Set-Cookie a=b;
@@ -1362,6 +1370,222 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
+
+# client_max_body_size
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST12' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'client_max_body_size - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'client_max_body_size - body');
+
+# client_max_body_size - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST123' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413, 'client_max_body_size - limited');
+
+# client_max_body_size - many DATA frames
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST12', body_split => [2] });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'client_max_body_size many - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'client_max_body_size many - body');
+
+# client_max_body_size - many DATA frames - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST123', body_split => [2] });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413, 'client_max_body_size many - limited');
+
+# client_max_body_size - padded DATA
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST12', body_padding => 42 });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'client_max_body_size pad - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'client_max_body_size pad - body');
+
+# client_max_body_size - padded DATA - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST123', body_padding => 42 });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413, 'client_max_body_size pad - limited');
+
+# client_max_body_size - many padded DATA frames
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST12', body_padding => 42, body_split => [2] });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'client_max_body_size many pad - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'client_max_body_size many pad - body');
+
+# client_max_body_size - many padded DATA frames - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
+	body => 'TESTTEST123', body_padding => 42, body_split => [2] });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413,
+	'client_max_body_size many pad - limited');
+
+# request body without content-length
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST12', headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'request body without content-length - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'request body without content-length - body');
+
+# request body without content-length - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST123', headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413,
+	'request body without content-length - limited');
+
+# request body without content-length - many DATA frames
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST12', body_split => [2],
+	headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'request body without content-length many - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'request body without content-length many - body');
+
+# request body without content-length - many DATA frames - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST123', body_split => [2],
+	headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413,
+	'request body without content-length many - limited');
+
+# request body without content-length - padding
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST12', body_padding => 42, 
+	headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'request body without content-length pad - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
+	'request body without content-length pad - body');
+
+# request body without content-length - padding - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42, 
+	headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413,
+	'request body without content-length pad - limited');
+
+# request body without content-length - padding with many DATA frames
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST', body_padding => 42, 
+	body_split => [2], headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200,
+	'request body without content-length many pad - status');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST',
+	'request body without content-length many pad - body');
+
+# request body without content-length - padding with many DATA frames - limited
+
+$sess = new_session();
+$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42, 
+	body_split => [2], headers => [
+	{ name => ':method', value => 'GET', mode => 2 },
+	{ name => ':scheme', value => 'http', mode => 2 },
+	{ name => ':path', value => '/client_max_body_size', mode => 2 },
+	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 413,
+	'request body without content-length many pad - limited');
 
 # initial window size, client side
 
@@ -3458,6 +3682,15 @@ sub dehuff {
 }
 
 ###############################################################################
+
+sub read_body_file {
+	my ($path) = @_;
+	open FILE, $path or return "$!";
+	local $/;
+	my $content = <FILE>;
+	close FILE;
+	return $content;
+}
 
 sub gunzip_like {
 	my ($in, $re, $name) = @_;

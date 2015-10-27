@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(249);
+	->has_daemon('openssl')->plan(251);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1024,6 +1024,16 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'CONTINUATION - in header field');
+
+# CONTINUATION on a closed stream
+
+h2_continue($sess, 1, { headers => [
+	{ name => 'x-foo', value => 'X-Bar', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => 1, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame->{type}, 'GOAWAY', 'GOAWAY - CONTINUATION closed stream');
+is($frame->{code}, 1, 'GOAWAY - CONTINUATION closed stream - PROTOCOL_ERROR');
 
 # frame padding
 

@@ -34,9 +34,9 @@ my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
 	->has_daemon('openssl')->plan(233);
 
-# Some systems have a bug in not treating zero writev iovcnt as EINVAL
+# Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
-$t->todo_alerts() if $^O eq 'darwin';
+$t->todo_alerts();
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -210,6 +210,11 @@ http {
         server_name  localhost;
 
         http2_idle_timeout 1s;
+
+        location /proxy2/ {
+            add_header X-Body "$request_body";
+            proxy_pass http://127.0.0.1:8081/;
+        }
     }
 }
 
@@ -2266,6 +2271,23 @@ is($frame->{value}, 'SEE-THIS', 'unknown frame type');
 
 $sid = new_stream($sess, { path => 't1.html' });
 h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+# graceful shutdown with stream waiting on HEADERS payload
+
+my $grace = new_session(8089);
+new_stream($grace, { split => [ 9 ], abort => 1 });
+
+# graceful shutdown with stream waiting on WINDOW_UPDATE
+
+my $grace2 = new_session(8089);
+$sid = new_stream($grace2, { path => '/t1.html' });
+h2_read($grace2, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+# graceful shutdown waiting on incomplete request body DATA frames
+
+my $grace3 = new_session(8090);
+$sid = new_stream($grace3, { path => '/proxy2/t2.html', body => 'TEST',
+	body_split => [ 2 ], split => [ 67 ], abort => 1 });
 
 $t->stop();
 

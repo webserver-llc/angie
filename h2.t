@@ -2335,9 +2335,6 @@ is($sids, "$sid $sid2", 'dependency - HEADERS PRIORITY 2');
 
 # HEADERS - self dependency
 
-SKIP: {
-skip 'leaves coredump', 2 unless $ENV{TEST_NGINX_UNSAFE};
-
 $sess = new_session();
 $sid = new_stream($sess, { dep => 1 });
 $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
@@ -2345,8 +2342,6 @@ $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{sid}, $sid, 'dependency - HEADERS self - RST_STREAM');
 is($frame->{code}, 1, 'dependency - HEADERS self - PROTOCOL_ERROR');
-
-}
 
 # PRIORITY frame, weighted dependencies
 
@@ -2416,9 +2411,6 @@ is($sids, "$sid3 $sid2 $sid", 'weighted dependency - PRIORITY 2');
 # initial dependency tree:
 # 1 <- [3] <- 5
 
-SKIP: {
-skip 'leaves codedump', 3 unless $ENV{TEST_NGINX_UNSAFE};
-
 $sess = new_session();
 
 h2_window($sess, 2**18);
@@ -2468,13 +2460,8 @@ is($frame->{length}, 81, 'removed dependency - first stream');
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid3 } @$frames;
 is($frame->{length}, 81, 'removed dependency - last stream');
 
-}
-
 # PRIORITY - reprioritization with circular dependency - exclusive [5]
 # 1 <- [5] <- 3
-
-SKIP: {
-skip 'leaves coredump', 3 unless $ENV{TEST_NGINX_UNSAFE};
 
 $sess = new_session();
 
@@ -2518,8 +2505,6 @@ is($frame->{length}, 81, 'exclusive dependency - first stream');
 
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid3 } @$frames;
 is($frame->{length}, 81, 'exclusive dependency - last stream');
-
-}
 
 # limit_conn
 
@@ -2776,8 +2761,7 @@ is($frame->{headers}->{':status'}, 400, 'empty authority');
 
 # aborted stream with zero HEADERS payload followed by client connection close
 
-new_stream(new_session(), { split => [ 9 ], abort => 1 })
-	if $ENV{TEST_NGINX_UNSAFE};
+new_stream(new_session(), { split => [ 9 ], abort => 1 });
 
 # unknown frame type
 

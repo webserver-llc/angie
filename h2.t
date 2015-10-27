@@ -1860,10 +1860,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 @data = sort { $a <=> $b } map { $_->{length} } @data;
 cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
 
-# max_field_size
-
-TODO: {
-local $TODO = 'not yet';
+# max_field_size - header field name
 
 $sess = new_session(8087);
 $sid = new_stream($sess, { headers => [
@@ -1900,8 +1897,6 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field name size equal');
 
-}
-
 $sess = new_session(8087);
 $sid = new_stream($sess, { headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
@@ -1914,8 +1909,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 is($frame, undef, 'field name size greater');
 
-TODO: {
-local $TODO = 'not yet';
+# max_field_size - header field value
 
 $sess = new_session(8087);
 $sid = new_stream($sess, { headers => [
@@ -1940,8 +1934,6 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field value size equal');
-
-}
 
 $sess = new_session(8087);
 $sid = new_stream($sess, { headers => [

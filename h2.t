@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(247);
+	->has_daemon('openssl')->plan(249);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -392,6 +392,17 @@ ok($frame, 'GOAWAY invalid stream - GOAWAY frame');
 is($frame->{code}, 1, 'GOAWAY invalid stream - GOAWAY PROTOCOL_ERROR');
 
 }
+
+# client-initiated PUSH_PROMISE, just to ensure nothing went wrong
+# N.B. other implementation returns zero code, which is not anyhow regulated
+
+$sess = new_session();
+raw_write($sess->{socket}, pack("x2C2xN", 4, 0x5, 1));
+$frames = h2_read($sess, all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'client-initiated PUSH_PROMISE - GOAWAY frame');
+is($frame->{code}, 1, 'client-initiated PUSH_PROMISE - GOAWAY PROTOCOL_ERROR');
 
 # GET
 

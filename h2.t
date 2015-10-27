@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(237);
+	->has_daemon('openssl')->plan(240);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -2030,6 +2030,64 @@ $frames = h2_read($sess, all => [
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sids = join ' ', map { $_->{sid} } @data;
 is($sids, "$sid3 $sid2 $sid", 'weighted dependency - PRIORITY 2');
+
+# PRIORITY - reprioritization with circular dependency - after [3] removed
+# initial dependency tree:
+# 1 <- [3] <- 5
+
+SKIP: {
+skip 'leaves codedump', 3 unless $ENV{TEST_NGINX_UNSAFE};
+
+$sess = new_session();
+
+h2_window($sess, 2**18);
+
+h2_priority($sess, 16, 1, 0);
+h2_priority($sess, 16, 3, 1);
+h2_priority($sess, 16, 5, 3);
+
+$sid = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+$sid2 = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid2, length => 2**16 - 1 }]);
+
+$sid3 = new_stream($sess, { path => '/t1.html' });
+h2_read($sess, all => [{ sid => $sid3, length => 2**16 - 1 }]);
+
+h2_window($sess, 2**16, $sid2);
+
+$frames = h2_read($sess, all => [{ sid => $sid2, fin => 1 }]);
+$sids = join ' ', map { $_->{sid} } grep { $_->{type} eq "DATA" } @$frames;
+is($sids, $sid2, 'removed dependency');
+
+for (1 .. 40) {
+	h2_read($sess, all => [{ sid => new_stream($sess), fin => 1 }]);
+}
+
+# make circular dependency
+# 1 <- 5 -- current dependency tree before reprioritization
+# 5 <- 1
+# 1 <- 5
+
+h2_priority($sess, 16, 1, 5);
+h2_priority($sess, 16, 5, 1);
+
+h2_window($sess, 2**16, $sid);
+h2_window($sess, 2**16, $sid3);
+
+$frames = h2_read($sess, all => [
+	{ sid => $sid, fin => 1 },
+	{ sid => $sid3, fin => 1 },
+]);
+
+($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid } @$frames;
+is($frame->{length}, 81, 'removed dependency - first stream');
+
+($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == $sid3 } @$frames;
+is($frame->{length}, 81, 'removed dependency - last stream');
+
+}
 
 # limit_conn
 

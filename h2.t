@@ -1580,7 +1580,7 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length - padding
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST12', body_padding => 42, 
+$sid = new_stream($sess, { body => 'TESTTEST12', body_padding => 42,
 	headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
@@ -1597,7 +1597,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 # request body without content-length - padding - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42, 
+$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42,
 	headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
@@ -1612,7 +1612,7 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length - padding with many DATA frames
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST', body_padding => 42, 
+$sid = new_stream($sess, { body => 'TESTTEST', body_padding => 42,
 	body_split => [2], headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
@@ -1629,7 +1629,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST',
 # request body without content-length - padding with many DATA frames - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42, 
+$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42,
 	body_split => [2], headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },

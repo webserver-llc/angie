@@ -388,6 +388,7 @@ sub write_file($$) {
 
 	open F, '>' . $self->{_testdir} . '/' . $name
 		or die "Can't create $name: $!";
+	binmode F;
 	print F $content;
 	close F;
 

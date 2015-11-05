@@ -23,6 +23,7 @@ select STDOUT; $| = 1;
 
 eval { require IO::Compress::Gzip; };
 plan(skip_all => "IO::Compress::Gzip not found") if $@;
+plan(skip_all => "IO::Compress::Gzip on win32") if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http perl gzip/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');

@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(284);
+	->has_daemon('openssl')->plan(286);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -52,6 +52,7 @@ http {
 
     proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
     limit_conn_zone  $binary_remote_addr  zone=conn:1m;
+    limit_req_zone   $binary_remote_addr  zone=req:1m rate=1r/s;
 
     server {
         listen       127.0.0.1:8080 http2;
@@ -141,6 +142,11 @@ http {
         location /proxy2/ {
             add_header X-Body "$request_body";
             proxy_pass http://127.0.0.1:8081/;
+        }
+        location /proxy_limit_req/ {
+            add_header X-Body $request_body;
+            proxy_pass http://127.0.0.1:8081/;
+            limit_req  zone=req burst=2;
         }
         location /cache/ {
             proxy_pass http://127.0.0.1:8081/;
@@ -1397,6 +1403,27 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
+
+# request body delayed in limit_req
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/proxy_limit_req/', body => 'TEST' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-body'}, 'TEST', 'request body - limit req');
+
+SKIP: {
+skip 'leaves coredump', 1 unless $t->has_version('1.9.7');
+
+$sid = new_stream($sess, { path => '/proxy_limit_req/', body => 'TEST2' });
+select undef, undef, undef, 1.1;
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-body'}, 'TEST2', 'request body - limit req 2');
+
+}
 
 # malformed request body length not equal to content-length
 

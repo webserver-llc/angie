@@ -641,9 +641,6 @@ sub http_gzip_like {
 		eval { require IO::Uncompress::Gunzip; };
 		Test::More::skip(
 			"IO::Uncompress::Gunzip not installed", 1) if $@;
-		Test::More::skip(
-			"IO::Uncompress::Gunzip on win32", 1)
-			if $^O eq 'MSWin32';
 
 		my $in = http_content($text);
 		my $out;

@@ -566,7 +566,7 @@ sub reply_handler {
 	}
 
 	$len = @name;
-	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+	pack("n6 (C/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
 		0, 0, @name, $type, $class) . join('', @rdata);
 }
 

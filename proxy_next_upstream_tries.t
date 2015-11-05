@@ -220,7 +220,7 @@ sub reply_handler {
 	@rdata = map { rd_addr($ttl, '127.0.0.1') } (1 .. 3) if $type == A;
 
 	$len = @name;
-	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+	pack("n6 (C/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
 		0, 0, @name, $type, $class) . join('', @rdata);
 }
 

@@ -312,7 +312,7 @@ sub reply_handler {
 		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq 'awide.example.net' && $type == A) {
-		push @rdata, pack '(w/a*)3x n2N nC4',
+		push @rdata, pack '(C/a*)3x n2N nC4',
 			('awide', 'example', 'net'), A, IN, $ttl,
 			4, (127, 0, 0, 1);
 
@@ -338,7 +338,7 @@ sub reply_handler {
 
 		my @dname = ('example', 'net');
 		my $rdlen = length(join '', @dname) + @dname + 1;
-		push @rdata, pack("n3N n(w/a*)* x", 0xc012, DNAME, IN, $ttl,
+		push @rdata, pack("n3N n(C/a*)* x", 0xc012, DNAME, IN, $ttl,
 			$rdlen, @dname);
 
 		# alias.example.com. 3600 IN CNAME alias.example.net.
@@ -429,7 +429,7 @@ sub reply_handler {
 	}
 
 	$len = @name;
-	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+	pack("n6 (C/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
 		0, 0, @name, $type, $class) . join('', @rdata);
 }
 

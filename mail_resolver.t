@@ -298,7 +298,7 @@ sub reply_handler {
 		} elsif ($port == 8085) {
 			# uncompressed answer
 
-			push @rdata, pack("(w/a*)6x n2N n(w/a*)3x",
+			push @rdata, pack("(C/a*)6x n2N n(C/a*)3x",
 				('1', '0', '0', '127', 'in-addr', 'arpa'),
 				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
 
@@ -311,7 +311,7 @@ sub reply_handler {
 	}
 
 	$len = @name;
-	pack("n6 (w/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
+	pack("n6 (C/a*)$len x n2", $id, $hdr | $rcode, 1, scalar @rdata,
 		0, 0, @name, $type, $class) . join('', @rdata);
 }
 
@@ -321,7 +321,7 @@ sub rd_name {
 
 	@rdname = split /\./, $name;
 	$rdlen = length(join '', @rdname) + @rdname + 1;
-	pack("n3N n(w/a*)* x", 0xc00c, $type, IN, $ttl, $rdlen, @rdname);
+	pack("n3N n(C/a*)* x", 0xc00c, $type, IN, $ttl, $rdlen, @rdname);
 }
 
 sub rd_addr {

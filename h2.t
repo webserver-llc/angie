@@ -2385,7 +2385,7 @@ $sid2 = new_stream($sess, { path => '/t2.html' });
 h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
 
 my $sid3 = new_stream($sess, { path => '/t2.html' });
-h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+h2_read($sess, all => [{ sid => $sid3, fin => 0x4 }]);
 
 h2_window($sess, 2**16, 1);
 h2_window($sess, 2**16, 3);
@@ -2417,7 +2417,7 @@ $sid2 = new_stream($sess, { path => '/t2.html' });
 h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
 
 $sid3 = new_stream($sess, { path => '/t2.html' });
-h2_read($sess, all => [{ sid => $sid2, fin => 0x4 }]);
+h2_read($sess, all => [{ sid => $sid3, fin => 0x4 }]);
 
 h2_window($sess, 2**16, 1);
 h2_window($sess, 2**16, 3);
@@ -2694,7 +2694,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':path', value => '/proxy2/', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'x-foo', value => "x-bar\r\nreferer:see-this", mode => 2 }]});
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 # 10.3.  Intermediary Encapsulation Attacks
 #   An intermediary therefore cannot translate an HTTP/2 request or response

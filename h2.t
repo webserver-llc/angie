@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(286);
+	->has_daemon('openssl')->plan(287);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -2712,6 +2712,26 @@ is($frame->{sid}, $sid, 'newline in request header - RST_STREAM sid');
 is($frame->{length}, 4, 'newline in request header - RST_STREAM length');
 is($frame->{flags}, 0, 'newline in request header - RST_STREAM flags');
 is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
+
+# invalid header name as seen with underscore should not lead to ignoring rest
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x_foo', value => "x-bar", mode => 2 },
+	{ name => 'referer', value => "see-this", mode => 1 }]});
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
+
+}
 
 # GOAWAY on SYN_STREAM with even StreamID
 

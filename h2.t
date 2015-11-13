@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(287);
+	->has_daemon('openssl')->plan(290);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -59,6 +59,7 @@ http {
         listen       127.0.0.1:8081;
         listen       127.0.0.1:8082 proxy_protocol http2;
         listen       127.0.0.1:8084 http2 ssl;
+        listen       127.0.0.1:8092 http2 sndbuf=128;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -83,6 +84,9 @@ http {
             alias %%TESTDIR%%/t2.html;
         }
         location /frame_size {
+            add_header X-LongHeader $arg_h;
+            add_header X-LongHeader $arg_h;
+            add_header X-LongHeader $arg_h;
             http2_chunk_size 64k;
             alias %%TESTDIR%%/t1.html;
             output_buffers 2 1m;
@@ -1886,6 +1890,41 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
 @data = sort { $a <=> $b } map { $_->{length} } @data;
 cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
+
+# response header frame sent in parts
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session(8092);
+h2_settings($sess, 0, 0x5 => 2**17);
+
+$sid = new_stream($sess, { path => '/frame_size?h=' . 'x' x 2**15 });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame, 'response header - parts');
+
+SKIP: {
+skip 'response header failed', 1 unless $frame;
+
+ok(join('', @{$frame->{headers}->{'x-longheader'}}) eq 'x' x 2**15 x 3,
+	'response header - headers');
+
+}
+
+# response header block split and sent in parts
+
+$sess = new_session(8092);
+$sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**15 });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
+
+@data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
+$lengths = join ' ', map { $_->{length} } @data;
+like($lengths, qr/16384 16384 16384 16384 16384 16384 \d+/,
+	'response header split - parts');
+
+}
 
 # max_field_size - header field name
 

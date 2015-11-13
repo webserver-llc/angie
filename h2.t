@@ -3048,7 +3048,7 @@ sub h2_read {
 
 	while (1) {
 		$buf = raw_read($s, $buf, 9);
-		last unless length $buf;
+		last if length $buf < 9;
 
 		my $length = unpack_length($buf);
 		my $type = unpack('x3C', $buf);

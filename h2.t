@@ -3519,6 +3519,7 @@ sub hunpack {
 			$add->(\%headers, $name, $value);
 			next;
 		}
+		last;
 	}
 
 	return \%headers;

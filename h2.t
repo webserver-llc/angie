@@ -1894,7 +1894,7 @@ cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
 # response header frame sent in parts
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.7');
 
 $sess = new_session(8092);
 h2_settings($sess, 0, 0x5 => 2**17);
@@ -2755,7 +2755,7 @@ is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
 # invalid header name as seen with underscore should not lead to ignoring rest
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.7');
 
 $sess = new_session();
 $sid = new_stream($sess, { headers => [

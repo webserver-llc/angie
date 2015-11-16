@@ -115,19 +115,19 @@ is($r{'data'}, '1', 'upload - one byte');
 
 }
 
-# Five chunks are split with four 1s delays + 2s error:
+# Five chunks are split with four 1s delays:
 # the first four chunks are quarters of test string
 # and the fifth one is some extra data from backend.
 
 %r = stream_get($str, peer =>  '127.0.0.1:8085');
 my $diff = time() - $r{'time'};
-cmp_ok(abs($diff - 4), '<=', 2, 'download - time');
+cmp_ok($diff, '>=', 4, 'download - time');
 is($r{'data'}, $str, 'download - data');
 
 my $time = time();
 %r = stream_get($str . 'close', peer => '127.0.0.1:8086');
 $diff = time() - $time;
-cmp_ok(abs($diff - 4), '<=', 2, 'upload - time');
+cmp_ok($diff, '>=', 4, 'upload - time');
 is($r{'data'}, $str . 'close', 'upload - data');
 
 ###############################################################################

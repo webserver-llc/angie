@@ -63,9 +63,9 @@ my $r = http_get('/');
 my ($t1) = $r =~ /X-Msec: (\d+)/;
 my $diff = time() - $t1;
 
-# four chunks are split with three 1s delays + 1s error
+# four chunks are split with three 1s delays
 
-cmp_ok(abs($diff - 3), '<=', 1, 'proxy_limit_rate');
+cmp_ok($diff, '>=', 3, 'proxy_limit_rate');
 like($r, qr/^(XXXXXXXXXX){4000}\x0d?\x0a?$/m, 'response body');
 
 ###############################################################################

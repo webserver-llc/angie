@@ -72,7 +72,8 @@ http {
             access_log syslog:server=127.0.0.1:8080,facility=user;
         }
         location /as {
-            access_log syslog:server=127.0.0.1:8080,severity=alert;
+            # put severity inside to catch possible parsing programming errors
+            access_log syslog:severity=alert,server=127.0.0.1:8080;
         }
         location /at {
             access_log syslog:server=127.0.0.1:8080,tag=SEETHIS;

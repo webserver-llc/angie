@@ -47,7 +47,7 @@ http {
             proxy_pass    http://127.0.0.1:8081;
             proxy_cache   one;
 
-            proxy_cache_valid  200 404  1s;
+            proxy_cache_valid  200 404  2s;
 
             add_header X-Cache-Status $upstream_cache_status;
         }
@@ -104,7 +104,7 @@ like(http_get('/t3'), qr/SEE/, 'cache before 404');
 
 # wait for a while for cached responses to expire
 
-select undef, undef, undef, 2.5;
+select undef, undef, undef, 3.5;
 
 # 1st document isn't modified, and should be revalidated on first request
 # (a 304 status code will appear in backend's logs), then cached again
@@ -148,7 +148,7 @@ unlike(http_get('/201'), qr/X-If-Modified/, 'other status no revalidation');
 
 # wait for a while for a cached 404 response to expire
 
-select undef, undef, undef, 2.5;
+select undef, undef, undef, 3.5;
 
 # check that conditional requests are not used to revalidate 404 response
 

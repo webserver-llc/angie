@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(291);
+	->has_daemon('openssl')->plan(292);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1788,6 +1788,30 @@ is($frame->{headers}->{':status'}, 200, 'large response - HEADERS');
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 5000000, 'large response - DATA');
+
+# Make sure http2 write handler doesn't break a connection.
+# Some buggy systems tolerate ill-use of writev() triggered by write handler,
+# while others, such as darwin and NetBSD, follow POSIX strictly, which causes
+# a connection to close in nginx.  While this also breaks the 'no alerts' test,
+# it doesn't suit well, because error.log is currently polluted with much more
+# alerts due to other various bugs in ngx_http_v2_module.  We catch it here in
+# a separate test as well to make it clear.
+
+SKIP: {
+skip 'tolerant operating system', 1 unless $^O eq 'darwin' or $^O eq 'netbsd';
+
+TODO: {
+local $TODO = 'not yet';
+
+$sid = new_stream($sess);
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'new stream after large response');
+
+}
+
+}
 
 # write event send timeout
 

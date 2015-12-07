@@ -38,7 +38,7 @@ stream {
     server {
         listen      127.0.0.1:8080;
         proxy_pass  127.0.0.1:8081;
-        proxy_connect_timeout 1s;
+        proxy_connect_timeout 2s;
     }
 }
 
@@ -65,7 +65,7 @@ is(stream_read($s), '', 'proxy connection closed');
 
 $s = stream_connect();
 
-sleep 2;
+sleep 3;
 
 stream_write($s, 'foo');
 is(stream_read($s), 'bar', 'proxy connect timeout');

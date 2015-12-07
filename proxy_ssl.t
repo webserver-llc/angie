@@ -62,7 +62,7 @@ http {
 
         location /timeout {
             proxy_pass https://127.0.0.1:8081/;
-            proxy_connect_timeout 1s;
+            proxy_connect_timeout 2s;
         }
     }
 }
@@ -100,7 +100,7 @@ like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
 
 my $s = http('', start => 1);
 
-sleep 2;
+sleep 3;
 
 like(http_get('/timeout', socket => $s), qr/200 OK/, 'proxy connect timeout');
 

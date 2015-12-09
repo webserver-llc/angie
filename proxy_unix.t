@@ -45,7 +45,7 @@ http {
         server_name  localhost;
 
         location / {
-            proxy_pass http://unix:/%%TESTDIR%%/unix.sock;
+            proxy_pass http://unix:%%TESTDIR%%/unix.sock;
             proxy_read_timeout 1s;
             proxy_connect_timeout 2s;
         }
@@ -59,15 +59,15 @@ http {
 
 EOF
 
-my $d = $t->testdir();
+my $path = $t->testdir() . '/unix.sock';
 
-$t->run_daemon(\&http_daemon, $d);
+$t->run_daemon(\&http_daemon, $path);
 $t->run();
 
 # wait for unix socket to appear
 
 for (1 .. 50) {
-	last if -S "$d/unix.sock";
+	last if -S $path;
 	select undef, undef, undef, 0.1;
 }
 
@@ -78,16 +78,14 @@ like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
-like(http_get("/var?b=unix:/$d/unix.sock:/"), qr/SEE-THIS/, 'proxy variables');
+like(http_get("/var?b=unix:$path:/"), qr/SEE-THIS/, 'proxy with variables');
 
 ###############################################################################
 
 sub http_daemon {
-	my ($d) = @_;
-
 	my $server = IO::Socket::UNIX->new(
 		Proto => 'tcp',
-		Local => "$d/unix.sock",
+		Local => shift,
 		Listen => 5,
 		Reuse => 1
 	)

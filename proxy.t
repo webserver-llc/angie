@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(5);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -34,6 +34,10 @@ events {
 
 http {
     %%TEST_GLOBALS_HTTP%%
+
+    upstream u {
+        server 127.0.0.1:8081;
+    }
 
     server {
         listen       127.0.0.1:8080;
@@ -65,6 +69,7 @@ like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
 like(http_get('/var?b=127.0.0.1:8081/'), qr/SEE-THIS/, 'proxy with variables');
+like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
 
 my $s = http('', start => 1);
 

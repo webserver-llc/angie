@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 eval { require SCGI; };
 plan(skip_all => 'SCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http scgi/)->plan(6)
+my $t = Test::Nginx->new()->has(qw/http scgi/)->plan(7)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -36,6 +36,10 @@ events {
 
 http {
     %%TEST_GLOBALS_HTTP%%
+
+    upstream u {
+        server 127.0.0.1:8081;
+    }
 
     server {
         listen       127.0.0.1:8080;
@@ -74,6 +78,7 @@ like(http_get_headers('/headers'), qr/SEE-THIS/,
 	'scgi request with many ignored headers');
 
 like(http_get('/var?b=127.0.0.1:8081'), qr/SEE-THIS/, 'scgi with variables');
+like(http_get('/var?b=u'), qr/SEE-THIS/, 'scgi with variables to upstream');
 
 ###############################################################################
 

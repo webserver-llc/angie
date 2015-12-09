@@ -35,8 +35,11 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail mail_ssl imap http rewrite/)->has_daemon('openssl')
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)->plan(12)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon)->plan(12);
+
+$t->todo_alerts() if $^O eq 'solaris';
+
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

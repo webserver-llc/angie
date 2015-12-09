@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 eval { require IO::Socket::UNIX; };
 plan(skip_all => 'IO::Socket::UNIX not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(4);
+my $t = Test::Nginx->new()->has(qw/http proxy unix/)->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

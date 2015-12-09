@@ -78,12 +78,7 @@ like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
-TODO: {
-local $TODO = 'not yet';
-
 like(http_get("/var?b=unix:/$d/unix.sock:/"), qr/SEE-THIS/, 'proxy variables');
-
-}
 
 ###############################################################################
 

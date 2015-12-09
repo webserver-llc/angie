@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http uwsgi/)->has_daemon('uwsgi')->plan(3)
+my $t = Test::Nginx->new()->has(qw/http uwsgi/)->has_daemon('uwsgi')->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -42,6 +42,11 @@ http {
             uwsgi_pass 127.0.0.1:8081;
             uwsgi_param SERVER_PROTOCOL $server_protocol;
             uwsgi_param HTTP_X_BLAH "blah";
+        }
+
+        location /var {
+            uwsgi_pass $arg_b;
+            uwsgi_param SERVER_PROTOCOL $server_protocol;
         }
     }
 }
@@ -80,6 +85,8 @@ unlike(http_head('/head'), qr/SEE-THIS/, 'no data in HEAD');
 
 like(http_get_headers('/headers'), qr/SEE-THIS/,
 	'uwsgi request with many ignored headers');
+
+like(http_get('/var?b=127.0.0.1:8081'), qr/SEE-THIS/, 'uwsgi with variables');
 
 ###############################################################################
 

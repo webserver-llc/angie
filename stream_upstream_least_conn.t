@@ -89,31 +89,6 @@ sub many {
 	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
 }
 
-sub parallel {
-	my ($data, $count, %opts) = @_;
-	my (@sockets, %ports, $peer);
-
-	$peer = $opts{peer} || undef;
-
-	for (1 .. $count) {
-		my $s = stream_connect($peer);
-		push @sockets, $s;
-		stream_write($s, $data);
-		select undef, undef, undef, 0.2;
-	}
-
-	for (1 .. $count) {
-		my $s = pop @sockets;
-		if (stream_read($s) =~ /(\d+)/) {
-			$ports{$1} = 0 unless defined $ports{$1};
-			$ports{$1}++;
-		}
-		close $s;
-	}
-
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
-}
-
 sub stream_get {
 	my ($data, $peer) = @_;
 

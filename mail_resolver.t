@@ -252,6 +252,7 @@ sub reply_handler {
 	use constant A		=> 1;
 	use constant CNAME	=> 5;
 	use constant PTR	=> 12;
+	use constant DNAME      => 39;
 
 	use constant IN 	=> 1;
 
@@ -303,7 +304,8 @@ sub reply_handler {
 				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
 
 		} elsif ($port == 8086) {
-			push @rdata, rd_name(CNAME, $ttl, 'a.example.net');
+			push @rdata, rd_name(DNAME, $ttl, 'a.example.net');
+
 		}
 
 	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type == PTR) {

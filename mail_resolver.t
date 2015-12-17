@@ -81,6 +81,13 @@ mail {
         protocol  smtp;
         resolver  127.0.0.1:8086;
     }
+
+    server {
+        listen    127.0.0.1:8032;
+        protocol  smtp;
+        resolver  127.0.0.1:8087;
+    }
+
 }
 
 http {
@@ -107,16 +114,16 @@ http {
 
 EOF
 
-for (8081 .. 8086) {
+for (8081 .. 8087) {
 	$t->run_daemon(\&dns_daemon, $_, $t);
 }
 $t->run();
 
-for (8081 .. 8086) {
+for (8081 .. 8087) {
 	$t->waitforfile($t->testdir . "/$_");
 }
 
-$t->plan(7);
+$t->plan(8);
 
 ###############################################################################
 
@@ -193,7 +200,7 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100');
 $s->read();
 
 $s->send('RCPT TO:<test@example.com>');
-$s->ok('PTR with CNAME');
+$s->ok('CNAME');
 
 $s->send('QUIT');
 $s->read();
@@ -232,6 +239,26 @@ $s->read();
 
 $s->send('RCPT TO:<test@example.com>');
 $s->check(qr/TEMPUNAVAIL/, 'PTR type');
+
+$s->send('QUIT');
+$s->read();
+
+}
+
+# CNAME and PTR in one answer section
+
+TODO: {
+local $TODO = 'not yet';
+
+$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8032");
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+$s->send('MAIL FROM:<test@example.com> SIZE=100');
+$s->read();
+
+$s->send('RCPT TO:<test@example.com>');
+$s->ok('CNAME with PTR');
 
 $s->send('QUIT');
 $s->read();
@@ -306,6 +333,13 @@ sub reply_handler {
 		} elsif ($port == 8086) {
 			push @rdata, rd_name(DNAME, $ttl, 'a.example.net');
 
+		} elsif ($port == 8087) {
+			# PTR answered with CNAME+PTR
+
+			push @rdata, rd_name(CNAME, $ttl,
+				'1.1.0.0.127.in-addr.arpa');
+			push @rdata, pack("n3N n(C/a*)3 x", 0xc034,
+				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
 		}
 
 	} elsif ($name eq '1.1.0.0.127.in-addr.arpa' && $type == PTR) {

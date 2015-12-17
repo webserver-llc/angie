@@ -61,7 +61,7 @@ $t->run()->waitforsocket('127.0.0.1:8080');
 
 ###############################################################################
 
-my $str = '1234567890' x 10;
+my $str = '1234567890' x 10 . 'F';
 
 is(stream_get($str, '127.0.0.1:8081'), $str, 'tcp_nodelay off');
 is(stream_get($str, '127.0.0.1:8082'), $str, 'tcp_nodelay on');
@@ -164,11 +164,13 @@ sub stream_handle_client {
 
 	log2i("$client $buffer");
 
+	my $close = $buffer =~ /F/;
+
 	log2o("$client $buffer");
 
 	$client->syswrite($buffer);
 
-	return 0;
+	return $close;
 }
 
 sub log2i { Test::Nginx::log_core('|| <<', @_); }

@@ -69,7 +69,6 @@ http {
 
         location /tries/resolver {
             resolver 127.0.0.1:8083;
-            resolver_timeout 1s;
 
             proxy_pass http://$host:8081;
             proxy_next_upstream_tries 2;
@@ -92,7 +91,6 @@ http {
 
         location /timeout/resolver {
             resolver 127.0.0.1:8083;
-            resolver_timeout 1s;
 
             proxy_pass http://$host:8081/w2;
             proxy_next_upstream_timeout 3800ms;

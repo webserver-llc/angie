@@ -3143,7 +3143,7 @@ sub h2_read {
 
 		$buf = substr($buf, $length);
 
-		last unless test_fin($got[-1], $extra{all});
+		last unless $extra{all} && test_fin($got[-1], $extra{all});
 	};
 	return \@got;
 }

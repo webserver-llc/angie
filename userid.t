@@ -153,7 +153,7 @@ is($cookie{'path'}, '/', 'path default');
 is($cookie{'domain'}, undef, 'domain default');
 is($cookie{'expires'}, undef, 'expires default');
 like($cookie{'uid'}, '/\w+={0,2}$/', 'mark default');
-unlike(http_get('/'), qr/P3P/, 'p3p default');
+unlike(http_get('/'), qr/^P3P/m, 'p3p default');
 like(http_get('/'), qr/X-Reset: 0/, 'uid reset variable default');
 
 # name, path, domain and p3p

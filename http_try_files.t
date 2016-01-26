@@ -116,20 +116,8 @@ like(http_get('/file-dir/'), qr!404 Not!, 'file does not match dir');
 like(http_get('/dir-dir/'), qr!301 Moved Permanently!, 'dir matches dir');
 like(http_get('/dir-file/'), qr!404 Not!, 'dir does not match file');
 
-SKIP: {
-skip 'leaves coredump', 1 unless $t->has_version('1.9.4')
-	or $ENV{TEST_NGINX_UNSAFE};
-
 like(http_get('/alias-re.html'), qr!SEE THIS!, 'alias in regex location');
-
-}
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.4');
-
 like(http_get('/alias-nested/found.html'), qr!SEE THIS!,
 	'alias with nested location');
-
-}
 
 ###############################################################################

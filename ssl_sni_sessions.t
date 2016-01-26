@@ -138,9 +138,6 @@ my $ctx = get_ssl_context();
 like(get('default', 8443, $ctx), qr!default:\.!, 'default server');
 like(get('default', 8443, $ctx), qr!default:r!, 'default server reused');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.6');
-
 # check that sessions are still properly saved and restored
 # when using an SNI-based virtual server with different session cache;
 # as session resumption happens before SNI, only default server
@@ -163,8 +160,6 @@ $ctx = get_ssl_context();
 
 like(get('tickets', 8444, $ctx), qr!tickets:\.!, 'tickets');
 like(get('tickets', 8444, $ctx), qr!tickets:r!, 'tickets reused');
-
-}
 
 ###############################################################################
 

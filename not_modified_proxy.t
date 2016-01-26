@@ -28,8 +28,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache shmem/)->plan(12);
 
-$t->todo_alerts() unless $t->has_version('1.9.5');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

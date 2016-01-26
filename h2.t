@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(293);
+	->has_daemon('openssl')->plan(296);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -146,6 +146,10 @@ http {
         location /proxy2/ {
             add_header X-Body "$request_body";
             proxy_pass http://127.0.0.1:8081/;
+        }
+        location /limit_req {
+            limit_req  zone=req burst=2;
+            alias %%TESTDIR%%/t2.html;
         }
         location /proxy_limit_req/ {
             add_header X-Body $request_body;
@@ -1445,6 +1449,46 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body'}, 'TEST2', 'request body - limit req 2');
+
+}
+
+# partial request body data frame received (to be discarded) within request
+# delayed in limit_req, the rest of data frame is received after response
+
+$sess = new_session();
+
+TODO: {
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
+
+$sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
+	split_delay => 1.1 });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, '200', 'discard body - limit req - limited');
+
+}
+
+$sid = new_stream($sess, { path => '/' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, '200', 'discard body - limit req - next');
+
+# ditto, but instead of receiving the rest of data frame, the connection is closed
+# 'http request already closed while closing request' alert can be produced
+
+TODO: {
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
+
+$sess = new_session();
+$sid = new_stream($sess, { split => [61], abort => 1, path => '/limit_req', body => 'TEST' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, '200', 'discard body - limit req - eof');
+
+undef $sess;
 
 }
 
@@ -3127,7 +3171,7 @@ sub new_stream {
 	for (@$split) {
 		raw_write($ctx->{socket}, substr($buf, 0, $_, ""));
 		goto done if $uri->{abort};
-		select undef, undef, undef, 0.2;
+		select undef, undef, undef, ($uri->{split_delay} || 0.2);
 	}
 
 	raw_write($ctx->{socket}, $buf);

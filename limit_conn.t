@@ -21,10 +21,11 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req shmem/)
-	->plan(8);
+my $t = Test::Nginx->new()->has(qw/http proxy limit_conn limit_req shmem/);
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->todo_alerts() if $^O eq 'solaris';
+
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(8);
 
 %%TEST_GLOBALS%%
 

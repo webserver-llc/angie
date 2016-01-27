@@ -91,7 +91,7 @@ $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 $t->run_daemon(\&dns_daemon, 8089, $t);
 
-$t->run()->plan(32);
+$t->run()->plan(34);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
@@ -102,6 +102,7 @@ $t->waitforfile($t->testdir . '/8089');
 # schedule resend test, which takes about 5 seconds to complete
 
 my $s = http_host_header('id.example.net', '/resend', start => 1);
+my $fe = http_host_header('fe.example.net', '/resend', start => 1);
 
 like(http_host_header('a.example.net', '/'), qr/200 OK/, 'A');
 
@@ -229,12 +230,15 @@ like(http_host_header('cname_a_ttl2.example.net', '/'), qr/502 Bad/,
 like(http_host_header('example.net', '/invalid'), qr/502 Bad/, 'no resolver');
 
 like(http_end($s), qr/200 OK/, 'resend after malformed response');
+like(http_end($fe), qr/200 OK/, 'resend after format error');
 
 $s = http_get('/bad', start => 1);
 my $s2 = http_get('/bad', start => 1);
 
 http_end($s);
 ok(http_end($s2), 'timeout handler on 2nd request');
+
+like(http_host_header('fe_id.example.net', '/'), qr/502 Bad/, 'format error');
 
 ###############################################################################
 
@@ -264,6 +268,7 @@ sub reply_handler {
 	my (@name, @rdata);
 
 	use constant NOERROR	=> 0;
+	use constant FORMERR	=> 1;
 	use constant SERVFAIL	=> 2;
 	use constant NXDOMAIN	=> 3;
 
@@ -296,6 +301,17 @@ sub reply_handler {
 		if ($type == A || $type == CNAME) {
 			push @rdata, rd_addr($ttl, '127.0.0.1');
 		}
+
+	} elsif ($name eq 'fe.example.net' && $type == A) {
+		if (++$state->{fecnt} > 1) {
+			$rcode = FORMERR;
+		}
+
+		push @rdata, rd_addr($ttl, '127.0.0.1');
+
+	} elsif ($name eq 'fe_id.example.net' && $type == A) {
+		$id = 42;
+		$rcode = FORMERR;
 
 	} elsif ($name eq 'case.example.net' && $type == A) {
 		if (++$state->{casecnt} > 1) {
@@ -466,6 +482,7 @@ sub dns_daemon {
 		manycnt      => 0,
 		casecnt      => 0,
 		idcnt        => 0,
+		fecnt        => 0,
 	);
 
 	# signal we are ready

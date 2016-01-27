@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(300);
+	->has_daemon('openssl')->plan(301);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -2051,26 +2051,23 @@ ok($frame, 'response header - parts');
 SKIP: {
 skip 'response header failed', 1 unless $frame;
 
-ok(join('', @{$frame->{headers}->{'x-longheader'}}) eq 'x' x 2**15 x 3,
+is(length join('', @{$frame->{headers}->{'x-longheader'}}), 98304,
 	'response header - headers');
 
 }
 
 # response header block split and sent in parts
 
-SKIP: {
-skip 'broken by header compression', 1 unless $ENV{TEST_NGINX_UNSAFE};
-
 $sess = new_session(8092);
 $sid = new_stream($sess, { path => '/continuation?h=' . 'x' x 2**15 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 0x4 }]);
 
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
-$lengths = join ' ', map { $_->{length} } @data;
-like($lengths, qr/16384 16384 16384 16384 16384 16384 \d+/,
-	'response header split - parts');
+($lengths) = sort { $b <=> $a } map { $_->{length} } @data;
+cmp_ok($lengths, '<=', 16384, 'response header split - max size');
 
-}
+is(length join('', @{@$frames[-1]->{headers}->{'x-longheader'}}), 98304,
+	'response header split - headers');
 
 }
 

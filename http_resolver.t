@@ -65,6 +65,11 @@ http {
         location /invalid {
             proxy_pass  http://$host:8080/backend;
         }
+        location /long {
+            resolver    127.0.0.1:8081;
+            resolver_timeout 4s;
+            proxy_pass  http://$host:8080/backend;
+        }
         location /resend {
             resolver    127.0.0.1:8081;
             resolver_timeout 8s;
@@ -91,7 +96,7 @@ $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
 $t->run_daemon(\&dns_daemon, 8089, $t);
 
-$t->run()->plan(34);
+$t->run()->plan(35);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
@@ -240,6 +245,19 @@ ok(http_end($s2), 'timeout handler on 2nd request');
 
 like(http_host_header('fe_id.example.net', '/'), qr/502 Bad/, 'format error');
 
+# several requests waiting on same name query
+# 1st request aborts before name is resolved
+# 2nd request completes on resolver timeout
+
+$s = http_host_header('timeout.example.net', '/long', start => 1);
+$s2 = http_host_header('timeout.example.net', '/long', start => 1);
+
+select undef, undef, undef, 1.1;
+
+close $s;
+
+like(http_end($s2), qr/502 Bad/, 'timeout after aborted request');
+
 ###############################################################################
 
 sub http_host_header {
@@ -369,6 +387,10 @@ sub reply_handler {
 		}
 		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
 			8, 5, 'alias', 0xc012);
+
+	} elsif ($name eq 'timeout.example.net') {
+		select undef, undef, undef, 2.1;
+		return;
 
 	} elsif ($name eq 'cname_a.example.net') {
 		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,

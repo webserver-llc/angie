@@ -60,7 +60,7 @@ http_get('/');
 
 select undef, undef, undef, 0.1;
 is($t->read_file('debug1.log'), '', 'no debug_connection file 1');
-is($t->read_file('debug2.log'), '', 'no debug_connection file 1');
+is($t->read_file('debug2.log'), '', 'no debug_connection file 2');
 
 http_get('/debug');
 

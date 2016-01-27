@@ -1475,14 +1475,15 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'discard body - limit req - next');
 
-# ditto, but instead of receiving the rest of data frame, the connection is closed
+# ditto, but instead of receiving the rest of data frame, connection is closed
 # 'http request already closed while closing request' alert can be produced
 
 TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
 
 $sess = new_session();
-$sid = new_stream($sess, { split => [61], abort => 1, path => '/limit_req', body => 'TEST' });
+$sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
+	abort => 1 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

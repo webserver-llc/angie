@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(296);
+	->has_daemon('openssl')->plan(300);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -245,6 +245,18 @@ http {
         server_name  localhost;
 
         send_timeout 1s;
+    }
+
+    server {
+        listen       127.0.0.1:8093 http2;
+        server_name  localhost;
+
+        client_header_timeout 1s;
+        client_body_timeout 1s;
+
+        location /proxy/ {
+            proxy_pass http://127.0.0.1:8081/;
+        }
     }
 }
 
@@ -1492,6 +1504,49 @@ is($frame->{headers}->{':status'}, '200', 'discard body - limit req - eof');
 undef $sess;
 
 }
+
+# partial request header frame received (field split),
+# the rest of frame is received after client header timeout
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session(8093);
+$sid = new_stream($sess, { path => '/t2.html', split => [35],
+	split_delay => 2.1 });
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'client header timeout');
+
+}
+
+h2_ping($sess, 'SEE-THIS');
+$frames = h2_read($sess, all => [{ type => 'PING' }]);
+
+($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
+ok($frame, 'client header timeout - PING');
+
+# partial request body data frame received, the rest is after body timeout
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session(8093);
+$sid = new_stream($sess, { path => '/proxy/t2.html', body => 'TEST',
+	split => [67], split_delay => 2.1 });
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'client body timeout');
+
+}
+
+h2_ping($sess, 'SEE-THIS');
+$frames = h2_read($sess, all => [{ type => 'PING' }]);
+
+($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
+ok($frame, 'client body timeout - PING');
 
 # malformed request body length not equal to content-length
 
@@ -2981,6 +3036,15 @@ h2_read($grace2, all => [{ sid => $sid, length => 2**16 - 1 }]);
 my $grace3 = new_session(8090);
 $sid = new_stream($grace3, { path => '/proxy2/t2.html', body => 'TEST',
 	body_split => [ 2 ], split => [ 67 ], abort => 1 });
+
+# partial request body data frame with connection close after body timeout
+
+my $grace4 = new_session(8093);
+$sid = new_stream($grace4, { path => '/proxy/t2.html', body => 'TEST',
+	split => [67], abort => 1 });
+
+select undef, undef, undef, 1.1;
+undef $grace4;
 
 $t->stop();
 

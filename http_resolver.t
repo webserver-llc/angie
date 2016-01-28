@@ -83,7 +83,7 @@ http {
             proxy_pass  http://$host:8080/backend;
         }
         location /tcp {
-            resolver    127.0.0.1:8083 127.0.0.1:8084;
+            resolver    127.0.0.1:8083 127.0.0.1:8082;
             resolver_timeout 1s;
             proxy_pass  http://$host:8080/backend;
             proxy_connect_timeout 1s;
@@ -495,6 +495,7 @@ sub reply_handler {
 		}
 
 	} elsif ($name =~ /tcp2?.example.net/) {
+		$rcode = FORMERR if $port == 8082;
 		$hdr |= 0x0300 unless $extra{tcp};
 		push @rdata, rd_addr($ttl, $extra{tcp}
 			? '127.0.0.1' : '127.0.0.201') if $type == A;

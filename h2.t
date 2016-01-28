@@ -1501,6 +1501,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'discard body - limit req - eof');
 
+select undef, undef, undef, 1.1;
 undef $sess;
 
 }

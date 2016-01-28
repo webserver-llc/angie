@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -80,6 +82,19 @@ http {
             resolver_timeout 1s;
             proxy_pass  http://$host:8080/backend;
         }
+        location /tcp {
+            resolver    127.0.0.1:8083 127.0.0.1:8084;
+            resolver_timeout 1s;
+            proxy_pass  http://$host:8080/backend;
+            proxy_connect_timeout 1s;
+            add_header X-IP $upstream_addr;
+            error_page 504 502 /50x;
+
+            location /tcp2 {
+                resolver_timeout 8s;
+                proxy_pass  http://$host:8080/backend;
+            }
+        }
 
         location /backend {
             return 200;
@@ -94,12 +109,14 @@ EOF
 
 $t->run_daemon(\&dns_daemon, 8081, $t);
 $t->run_daemon(\&dns_daemon, 8082, $t);
+$t->run_daemon(\&dns_daemon, 8083, $t, tcp => 1);
 $t->run_daemon(\&dns_daemon, 8089, $t);
 
-$t->run()->plan(35);
+$t->run()->plan(38);
 
 $t->waitforfile($t->testdir . '/8081');
 $t->waitforfile($t->testdir . '/8082');
+$t->waitforfile($t->testdir . '/8083');
 $t->waitforfile($t->testdir . '/8089');
 
 ###############################################################################
@@ -258,6 +275,18 @@ close $s;
 
 like(http_end($s2), qr/502 Bad/, 'timeout after aborted request');
 
+# resend DNS query over TCP once UDP response came truncated
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.9.11');
+
+unlike(http_host_header('tcp.example.net', '/tcp'), qr/127.0.0.201/, 'tc');
+like(http_host_header('tcp.example.net', '/tcp'), qr/X-IP: 127.0.0.1/, 'tcp');
+like(http_host_header('tcp2.example.net', '/tcp2'), qr/X-IP: 127.0.0.1/,
+	'tcp with resend');
+
+}
+
 ###############################################################################
 
 sub http_host_header {
@@ -281,7 +310,7 @@ EOF
 ###############################################################################
 
 sub reply_handler {
-	my ($recv_data, $port, $state) = @_;
+	my ($recv_data, $port, $state, %extra) = @_;
 
 	my (@name, @rdata);
 
@@ -464,6 +493,11 @@ sub reply_handler {
 		if ($type == A) {
 			push @rdata, rd_addr($ttl, '127.0.0.1');
 		}
+
+	} elsif ($name =~ /tcp2?.example.net/) {
+		$hdr |= 0x0300 unless $extra{tcp};
+		push @rdata, rd_addr($ttl, $extra{tcp}
+			? '127.0.0.1' : '127.0.0.201') if $type == A;
 	}
 
 	$len = @name;
@@ -482,7 +516,7 @@ sub rd_addr {
 }
 
 sub dns_daemon {
-	my ($port, $t) = @_;
+	my ($port, $t, %extra) = @_;
 
 	my ($data, $recv_data);
 	my $socket = IO::Socket::INET->new(
@@ -491,6 +525,23 @@ sub dns_daemon {
 		Proto        => 'udp',
 	)
 		or die "Can't create listening socket: $!\n";
+
+	my $sel = IO::Select->new($socket);
+	my $tcp = 0;
+
+	if ($extra{tcp}) {
+		$tcp = IO::Socket::INET->new(
+			Proto => 'tcp',
+			LocalHost => "127.0.0.1:$port",
+			Listen => 5,
+			Reuse => 1
+		)
+			or die "Can't create listening socket: $!\n";
+
+		$sel->add($tcp);
+	}
+
+	local $SIG{PIPE} = 'IGNORE';
 
 	# track number of relevant queries
 
@@ -512,11 +563,38 @@ sub dns_daemon {
 	open my $fh, '>', $t->testdir() . '/' . $port;
 	close $fh;
 
-	while (1) {
-		$socket->recv($recv_data, 65536);
-		next if $port == 8089;
-		$data = reply_handler($recv_data, $port, \%state);
-		$socket->send($data);
+	while (my @ready = $sel->can_read) {
+		foreach my $fh (@ready) {
+			if ($tcp == $fh) {
+				my $new = $fh->accept;
+				$new->autoflush(1);
+				$sel->add($new);
+
+			} elsif ($socket == $fh) {
+				$fh->recv($recv_data, 65536);
+				$data = reply_handler($recv_data, $port,
+					\%state);
+				$fh->send($data);
+
+			} else {
+				$fh->recv($recv_data, 65536);
+				unless (length $recv_data) {
+					$sel->remove($fh);
+					$fh->close;
+					next;
+				}
+
+again:
+				my $len = unpack("n", $recv_data);
+				$data = substr $recv_data, 2, $len;
+				$data = reply_handler($data, $port, \%state,
+					tcp => 1);
+				$data = pack("n", length $data) . $data;
+				$fh->send($data);
+				$recv_data = substr $recv_data, 2 + $len;
+				goto again if length $recv_data;
+			}
+		}
 	}
 }
 

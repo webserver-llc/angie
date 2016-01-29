@@ -270,6 +270,8 @@ EOF
 
 		$client = $server->accept();
 
+		log2c("(new connection $client)");
+
 		alarm(0);
 	};
 	alarm(0);
@@ -279,6 +281,8 @@ EOF
 	}
 
 	$client->sysread(my $buf, 1024);
+	log2i($buf);
+
 	$body = '';
 
 	while (my $h = fastcgi_read_record(\$buf)) {
@@ -314,8 +318,12 @@ EOF
 			local $SIG{PIPE} = sub { die "sigpipe\n" };
 			alarm(5);
 
+			log_out($buf);
 			$s->write($buf);
+
 			$client->sysread($buf, 1024);
+			log2i($buf);
+
 			$body = '';
 
 			while (my $h = fastcgi_read_record(\$buf)) {
@@ -355,6 +363,8 @@ EOF
 			alarm(5);
 
 			$s->sysread($buf, 1024);
+			log_in($buf);
+
 			$s->close();
 
 			alarm(0);
@@ -369,6 +379,10 @@ EOF
 	};
 	return $f;
 }
+
+sub log2i { Test::Nginx::log_core('|| <<', @_); }
+sub log2o { Test::Nginx::log_core('|| >>', @_); }
+sub log2c { Test::Nginx::log_core('||', @_); }
 
 ###############################################################################
 

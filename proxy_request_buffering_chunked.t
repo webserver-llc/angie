@@ -242,6 +242,8 @@ EOF
 
 		$client = $server->accept();
 
+		log2c("(new connection $client)");
+
 		alarm(0);
 	};
 	alarm(0);
@@ -251,6 +253,8 @@ EOF
 	}
 
 	$client->sysread(my $buf, 1024);
+	log2i($buf);
+
 	$buf =~ s/.*?\x0d\x0a?\x0d\x0a?(.*)/$1/ms;
 
 	my $f = { preread => $buf };
@@ -276,8 +280,11 @@ EOF
 			local $SIG{PIPE} = sub { die "sigpipe\n" };
 			alarm(5);
 
+			log_out($buf);
 			$s->write($buf);
+
 			$client->sysread($buf, 1024);
+			log2i($buf);
 
 			alarm(0);
 		};
@@ -308,6 +315,8 @@ EOF
 			alarm(5);
 
 			$s->sysread($buf, 1024);
+			log_in($buf);
+
 			$s->close();
 
 			alarm(0);
@@ -322,5 +331,9 @@ EOF
 	};
 	return $f;
 }
+
+sub log2i { Test::Nginx::log_core('|| <<', @_); }
+sub log2o { Test::Nginx::log_core('|| >>', @_); }
+sub log2c { Test::Nginx::log_core('||', @_); }
 
 ###############################################################################

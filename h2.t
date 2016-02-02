@@ -1104,7 +1104,7 @@ is($frame->{headers}->{':status'}, 200, 'padding - next stream');
 # padding followed by CONTINUATION
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.11');
 
 $sess = new_session();
 $sid = new_stream($sess, { padding => 42, continuation => [ 2, 4, 1, 5 ],

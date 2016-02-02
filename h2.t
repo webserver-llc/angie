@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(302);
+	->has_daemon('openssl')->plan(304);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1533,6 +1533,7 @@ $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 ok($frame, 'client header timeout');
+is($frame->{code}, 1, 'client header timeout - protocol error');
 
 }
 
@@ -1554,6 +1555,7 @@ $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 ok($frame, 'client body timeout');
+is($frame->{code}, 1, 'client body timeout - protocol error');
 
 }
 

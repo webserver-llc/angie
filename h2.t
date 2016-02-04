@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(304);
+	->has_daemon('openssl')->plan(306);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -145,6 +145,8 @@ http {
         }
         location /proxy2/ {
             add_header X-Body "$request_body";
+            add_header X-Body-File $request_body_file;
+            client_body_in_file_only on;
             proxy_pass http://127.0.0.1:8081/;
         }
         location /limit_req {
@@ -153,6 +155,8 @@ http {
         }
         location /proxy_limit_req/ {
             add_header X-Body $request_body;
+            add_header X-Body-File $request_body_file;
+            client_body_in_file_only on;
             proxy_pass http://127.0.0.1:8081/;
             limit_req  zone=req burst=2;
         }
@@ -1419,7 +1423,7 @@ h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-body'}, 'TEST', 'request body');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST', 'request body');
 
 # request body with padding (uses proxied response)
 
@@ -1429,7 +1433,8 @@ h2_body($sess, 'TEST', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-body'}, 'TEST', 'request body with padding');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
+	'request body with padding');
 
 $sid = new_stream($sess);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
@@ -1445,7 +1450,8 @@ h2_body($sess, 'TEST', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
+	'request body in multiple frames');
 
 # request body with an empty DATA frame
 # "zero size buf in output" alerts seen
@@ -1458,6 +1464,21 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request body - empty');
 
+TODO: {
+local $TODO = 'not yet';
+
+ok($frame->{headers}{'x-body-file'}, 'request body - empty body file');
+
+}
+
+TODO: {
+todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
+
+is(read_body_file($frame->{headers}{'x-body-file'}), '',
+	'request body - empty content');
+
+}
+
 # request body delayed in limit_req
 
 $sess = new_session();
@@ -1466,7 +1487,8 @@ h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-body'}, 'TEST', 'request body - limit req');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
+	'request body - limit req');
 
 # predict send windows
 
@@ -1483,7 +1505,8 @@ select undef, undef, undef, 1.1;
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{'x-body'}, 'TEST2', 'request body - limit req 2');
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST2',
+	'request body - limit req 2');
 
 }
 

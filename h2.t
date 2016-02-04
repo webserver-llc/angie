@@ -338,7 +338,7 @@ like($r, qr!Upgrade: h2c!, 'upgrade - token');
 
 # SETTINGS
 
-my $sess = new_session();
+my $sess = new_session(8080, pure => 1);
 my $frames = h2_read($sess, all => [
 	{ type => 'WINDOW_UPDATE' },
 	{ type => 'SETTINGS'}
@@ -1414,7 +1414,8 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 # request body (uses proxied response)
 
 $sess = new_session();
-$sid = new_stream($sess, { path => '/proxy2/t2.html', body => 'TEST' });
+$sid = new_stream($sess, { path => '/proxy2/t2.html', body_more => 1 });
+h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1423,8 +1424,8 @@ is($frame->{headers}->{'x-body'}, 'TEST', 'request body');
 # request body with padding (uses proxied response)
 
 $sess = new_session();
-$sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body => 'TEST', body_padding => 42 });
+$sid = new_stream($sess, { path => '/proxy2/t2.html', body_more => 1 });
+h2_body($sess, 'TEST', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1439,8 +1440,8 @@ is($frame->{headers}->{':status'}, '200', 'request body with padding - next');
 # request body sent in multiple DATA frames (uses proxied response)
 
 $sess = new_session();
-$sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body => 'TEST', body_split => [2] });
+$sid = new_stream($sess, { path => '/proxy2/t2.html', body_more => 1 });
+h2_body($sess, 'TEST', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1450,11 +1451,8 @@ is($frame->{headers}->{'x-body'}, 'TEST', 'request body in multiple frames');
 # "zero size buf in output" alerts seen
 
 $sess = new_session();
-$sid = new_stream($sess, { body => '', headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/proxy2/', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+$sid = new_stream($sess, { path => '/proxy2/', body_more => 1 });
+h2_body($sess, '');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1463,15 +1461,23 @@ is($frame->{headers}->{':status'}, 200, 'request body - empty');
 # request body delayed in limit_req
 
 $sess = new_session();
-$sid = new_stream($sess, { path => '/proxy_limit_req/', body => 'TEST' });
+$sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
+h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body'}, 'TEST', 'request body - limit req');
 
+# predict send windows
+
+$sid = new_stream($sess);
+my ($maxwin) = sort {$a <=> $b} $sess->{streams}{$sid}, $sess->{conn_window};
+
 SKIP: {
 skip 'leaves coredump', 1 unless $t->has_version('1.9.7');
+skip 'not enough window', 1 if $maxwin < 5;
 
+$sess = new_session();
 $sid = new_stream($sess, { path => '/proxy_limit_req/', body => 'TEST2' });
 select undef, undef, undef, 1.1;
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
@@ -1486,6 +1492,9 @@ is($frame->{headers}->{'x-body'}, 'TEST2', 'request body - limit req 2');
 
 $sess = new_session();
 
+SKIP: {
+skip 'not enough window', 1 if $maxwin < 4;
+
 TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
 
@@ -1498,6 +1507,8 @@ is($frame->{headers}->{':status'}, '200', 'discard body - limit req - limited');
 
 }
 
+}
+
 $sid = new_stream($sess, { path => '/' });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
@@ -1506,6 +1517,9 @@ is($frame->{headers}->{':status'}, '200', 'discard body - limit req - next');
 
 # ditto, but instead of receiving the rest of data frame, connection is closed
 # 'http request already closed while closing request' alert can be produced
+
+SKIP: {
+skip 'not enough window', 1 if $maxwin < 4;
 
 TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
@@ -1520,6 +1534,8 @@ is($frame->{headers}->{':status'}, '200', 'discard body - limit req - eof');
 
 select undef, undef, undef, 1.1;
 undef $sess;
+
+}
 
 }
 
@@ -1552,8 +1568,8 @@ TODO: {
 local $TODO = 'not yet';
 
 $sess = new_session(8093);
-$sid = new_stream($sess, { path => '/proxy/t2.html', body => 'TEST',
-	split => [67], split_delay => 2.1 });
+$sid = new_stream($sess, { path => '/proxy/t2.html', body_more => 1 });
+h2_body($sess, 'TEST', { split => [10], split_delay => 2.1 });
 $frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
@@ -1572,24 +1588,26 @@ ok($frame, 'client body timeout - PING');
 
 $sess = new_session();
 $sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body => 'TEST', headers => [
+	{ path => '/proxy2/t2.html', body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'content-length', value => '5', mode => 1 }]});
+h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
 
 $sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body => 'TEST', headers => [
+	{ path => '/proxy2/t2.html', body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'content-length', value => '3', mode => 1 }]});
+h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1599,7 +1617,8 @@ is($frame->{headers}->{':status'}, 400, 'request body more than content-length')
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST12' });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST12');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1611,7 +1630,8 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST123' });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST123');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1621,7 +1641,8 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size - limited');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST12', body_split => [2] });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST12', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1633,7 +1654,8 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST123', body_split => [2] });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST123', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1643,7 +1665,8 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size many - limited');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST12', body_padding => 42 });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST12', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1655,7 +1678,8 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST123', body_padding => 42 });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST123', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1665,7 +1689,8 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size pad - limited');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST12', body_padding => 42, body_split => [2] });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST12', { body_padding => 42, body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1678,7 +1703,8 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/client_max_body_size/t2.html',
-	body => 'TESTTEST123', body_padding => 42, body_split => [2] });
+	body_more => 1 });
+h2_body($sess, 'TESTTEST123', { body_padding => 42, body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1688,11 +1714,12 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST12', headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST12');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1704,11 +1731,12 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 # request body without content-length - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST123');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1718,12 +1746,12 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length - many DATA frames
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST12', body_split => [2],
-	headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST12', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1735,12 +1763,12 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 # request body without content-length - many DATA frames - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', body_split => [2],
-	headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST123', { body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1750,12 +1778,12 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length - padding
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST12', body_padding => 42,
-	headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST12', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1767,12 +1795,12 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 # request body without content-length - padding - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42,
-	headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST123', { body_padding => 42 });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1782,12 +1810,12 @@ is($frame->{headers}->{':status'}, 413,
 # request body without content-length - padding with many DATA frames
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST', body_padding => 42,
-	body_split => [2], headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST', { body_padding => 42, body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1799,12 +1827,12 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST',
 # request body without content-length - padding with many DATA frames - limited
 
 $sess = new_session();
-$sid = new_stream($sess, { body => 'TESTTEST123', body_padding => 42,
-	body_split => [2], headers => [
+$sid = new_stream($sess, { body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 2 },
 	{ name => ':scheme', value => 'http', mode => 2 },
 	{ name => ':path', value => '/client_max_body_size', mode => 2 },
 	{ name => ':authority', value => 'localhost', mode => 2 }]});
+h2_body($sess, 'TESTTEST123', { body_padding => 42, body_split => [2] });
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -2781,7 +2809,7 @@ is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');
 
 # http2_max_concurrent_streams
 
-$sess = new_session(8086);
+$sess = new_session(8086, pure => 1);
 $frames = h2_read($sess, all => [{ type => 'SETTINGS' }]);
 
 ($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
@@ -2859,17 +2887,16 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 # invalid connection preface
 
-$sess = new_session(8080, preface => 'bogus preface');
-$sid = new_stream($sess, { path => '/pp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sess = new_session(8080, preface => 'x' x 16, pure => 1);
+$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid preface - GOAWAY frame');
 is($frame->{code}, 1, 'invalid preface - error code');
 
-$sess = new_session(8080, preface => 'PRI * HTTP/2.0' . CRLF . CRLF . 'bogus');
-$sid = new_stream($sess, { path => '/pp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sess = new_session(8080, preface => 'PRI * HTTP/2.0' . CRLF . CRLF . 'x' x 8,
+	pure => 1);
+$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid preface 2 - GOAWAY frame');
@@ -2877,9 +2904,9 @@ is($frame->{code}, 1, 'invalid preface 2 - error code');
 
 # invalid PROXY protocol string
 
-$sess = new_session(8082, proxy => 'bogus');
-$sid = new_stream($sess, { path => '/pp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sess = new_session(8082, proxy => 'BOGUS TCP4 192.0.2.1 192.0.2.2 1234 5678',
+	pure => 1);
+$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid PROXY - GOAWAY frame');
@@ -3051,14 +3078,14 @@ h2_read($grace2, all => [{ sid => $sid, length => 2**16 - 1 }]);
 # graceful shutdown waiting on incomplete request body DATA frames
 
 my $grace3 = new_session(8090);
-$sid = new_stream($grace3, { path => '/proxy2/t2.html', body => 'TEST',
-	body_split => [ 2 ], split => [ 67 ], abort => 1 });
+$sid = new_stream($grace3, { path => '/proxy2/t2.html', body_more => 1 });
+h2_body($grace3, 'TEST', { body_more => 1 });
 
 # partial request body data frame with connection close after body timeout
 
 my $grace4 = new_session(8093);
-$sid = new_stream($grace4, { path => '/proxy/t2.html', body => 'TEST',
-	split => [67], abort => 1 });
+$sid = new_stream($grace4, { path => '/proxy/t2.html', body_more => 1 });
+h2_body($grace4, 'TEST', { split => [ 12 ], abort => 1 });
 
 select undef, undef, undef, 1.1;
 undef $grace4;
@@ -3137,6 +3164,43 @@ sub h2_continue {
 	return new_stream($ctx, $uri, $stream);
 }
 
+sub h2_body {
+	my ($sess, $body, $extra) = @_;
+	$extra = {} unless defined $extra;
+
+	my $len = length $body;
+	my $sid = $sess->{last_stream};
+
+	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
+		h2_read($sess, all => [{ type => 'WINDOW_UPDATE' }]);
+	}
+
+	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
+		return;
+	}
+
+	$sess->{conn_window} -= $len;
+	$sess->{streams}{$sid} -= $len;
+
+	my $buf;
+
+	my $split = ref $extra->{body_split} && $extra->{body_split} || [];
+	for (@$split) {
+		$buf .= pack_body($sess, substr($body, 0, $_, ""), 0x0, $extra);
+	}
+
+	$buf .= pack_body($sess, $body, 0x1, $extra) if defined $body;
+
+	$split = ref $extra->{split} && $extra->{split} || [];
+	for (@$split) {
+		raw_write($sess->{socket}, substr($buf, 0, $_, ""));
+		return if $extra->{abort};
+		select undef, undef, undef, ($extra->{split_delay} || 0.2);
+	}
+
+	raw_write($sess->{socket}, $buf);
+}
+
 sub pack_body {
 	my ($ctx, $body, $flags, $extra) = @_;
 
@@ -3145,6 +3209,7 @@ sub pack_body {
 
 	my $buf = pack_length(length($body) + $pad + $padlen);
 	$flags |= 0x8 if $padlen;
+	vec($flags, 0, 1) = 0 if $extra->{body_more};
 	$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
 	$buf .= pack 'N', $ctx->{last_stream};
 	$buf .= pack 'C', $pad if $padlen;	# DATA Pad Length?
@@ -3174,7 +3239,7 @@ sub new_stream {
 
 	my $type = defined $uri->{h2_continue} ? 0x9 : 0x1;
 	my $flags = defined $uri->{continuation} ? 0x0 : 0x4;
-	$flags |= 0x1 unless defined $body;
+	$flags |= 0x1 unless defined $body || defined $uri->{body_more};
 	$flags |= 0x8 if $padlen;
 	$flags |= 0x20 if defined $dep || defined $prio;
 
@@ -3182,6 +3247,7 @@ sub new_stream {
 		$ctx->{last_stream} = $stream;
 	} else {
 		$ctx->{last_stream} += 2;
+		$ctx->{streams}{$ctx->{last_stream}} = $ctx->{iws};
 	}
 
 	$buf = pack("xxx");			# Length stub
@@ -3276,7 +3342,8 @@ sub h2_read {
 
 		$buf = substr($buf, 9);
 
-		my $frame = $cframe{$type}{value}($sess, $buf, $length, $flags);
+		my $frame = $cframe{$type}{value}($sess, $buf, $length, $flags,
+			$stream);
 		$frame->{length} = $length;
 		$frame->{type} = $cframe{$type}{name};
 		$frame->{flags} = $flags;
@@ -3340,6 +3407,8 @@ sub settings {
 	for (1 .. $len / 6) {
 		my $id = hex unpack "\@$skip n", $buf; $skip += 2;
 		$payload{$id} = unpack "\@$skip N", $buf; $skip += 4;
+
+		$ctx->{iws} = $payload{$id} if $id == 4;
 	}
 	return \%payload;
 }
@@ -3370,10 +3439,21 @@ sub goaway {
 }
 
 sub window_update {
-	my ($ctx, $buf, $len) = @_;
+	my ($ctx, $buf, $len, $flags, $sid) = @_;
 	my $value = unpack "B32", $buf;
 	substr($value, 0, 1) = 0;
-	return { wdelta => unpack("N", pack("B32", $value)) };
+	$value = unpack("N", pack("B32", $value));
+
+	unless ($sid) {
+		$ctx->{conn_window} += $value;
+
+	} else {
+		$ctx->{streams}{$sid} = $ctx->{iws}
+			unless defined $ctx->{streams}{$sid};
+		$ctx->{streams}{$sid} += $value;
+	}
+
+	return { wdelta => $value };
 }
 
 sub pack_length {
@@ -3425,10 +3505,22 @@ sub new_session {
 
 	raw_write($s, $preface);
 
-	return { socket => $s, last_stream => -1,
+	my $ctx = { socket => $s, last_stream => -1,
 		dynamic_encode => [ static_table() ],
 		dynamic_decode => [ static_table() ],
-		static_table_size => scalar @{[static_table()]} };
+		static_table_size => scalar @{[static_table()]},
+		iws => 65535, conn_window => 65535, streams => {}};
+
+	return $ctx if $extra{pure};
+
+	# update windows, if any
+
+	h2_read($ctx, all => [
+		{ type => 'WINDOW_UPDATE' },
+		{ type => 'SETTINGS'}
+	]);
+
+	return $ctx;
 }
 
 sub new_socket {

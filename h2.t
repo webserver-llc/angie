@@ -3137,6 +3137,22 @@ sub h2_continue {
 	return new_stream($ctx, $uri, $stream);
 }
 
+sub pack_body {
+	my ($ctx, $body, $flags, $extra) = @_;
+
+	my $pad = defined $extra->{body_padding} ? $extra->{body_padding} : 0;
+	my $padlen = defined $extra->{body_padding} ? 1 : 0;
+
+	my $buf = pack_length(length($body) + $pad + $padlen);
+	$flags |= 0x8 if $padlen;
+	$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
+	$buf .= pack 'N', $ctx->{last_stream};
+	$buf .= pack 'C', $pad if $padlen;	# DATA Pad Length?
+	$buf .= $body;
+	$buf .= pack "x$pad" if $padlen;	# DATA Padding
+	return $buf;
+}
+
 sub new_stream {
 	my ($ctx, $uri, $stream) = @_;
 	my ($input, $buf);
@@ -3152,13 +3168,9 @@ sub new_stream {
 	my $body = $uri->{body};
 	my $prio = $uri->{prio};
 	my $dep = $uri->{dep};
-	my $split = ref $uri->{continuation} && $uri->{continuation} || [];
-	my $bsplit = ref $uri->{body_split} && $uri->{body_split} || [];
 
 	my $pad = defined $uri->{padding} ? $uri->{padding} : 0;
 	my $padlen = defined $uri->{padding} ? 1 : 0;
-	my $bpad = defined $uri->{body_padding} ? $uri->{body_padding} : 0;
-	my $bpadlen = defined $uri->{body_padding} ? 1 : 0;
 
 	my $type = defined $uri->{h2_continue} ? 0x9 : 0x1;
 	my $flags = defined $uri->{continuation} ? 0x0 : 0x4;
@@ -3196,6 +3208,7 @@ sub new_stream {
 	$input = pack("B*", '001' . ipack(5, $uri->{table_size})) . $input
 		if defined $uri->{table_size};
 
+	my $split = ref $uri->{continuation} && $uri->{continuation} || [];
 	my @input = map { substr $input, 0, $_, "" } @$split;
 	push @input, $input;
 
@@ -3221,33 +3234,12 @@ sub new_stream {
 		$buf .= $input;
 	}
 
-	my @body = map { substr $body, 0, $_, "" } @$bsplit;
-	push @body, $body;
-
-	if (defined $body[0]) {
-		$buf .= pack_length(length($body[0]) + $bpad + $bpadlen);
-		my $flags = defined $uri->{body_split} ? 0x0 : 0x1;
-		$flags |= 0x8 if $bpadlen;
-		$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
-		$buf .= pack 'N', $ctx->{last_stream};
-		$buf .= pack 'C', $bpad if $bpadlen;	# DATA Pad Length?
-		$buf .= $body[0];
-		$buf .= (pack 'C', 0) x $bpad if $bpadlen;	# DATA Padding
+	$split = ref $uri->{body_split} && $uri->{body_split} || [];
+	for (@$split) {
+		$buf .= pack_body($ctx, substr($body, 0, $_, ""), 0x0, $uri);
 	}
 
-	shift @body;
-
-	while (@body) {
-		$body = shift @body;
-		$buf .= pack_length(length($body) + $bpad + $bpadlen);
-		my $flags = @body ? 0x0 : 0x1;
-		$flags |= 0x8 if $bpadlen;
-		$buf .= pack 'CC', 0x0, $flags;
-		$buf .= pack 'N', $ctx->{last_stream};
-		$buf .= pack 'C', $bpad if $bpadlen;
-		$buf .= $body;
-		$buf .= (pack 'C', 0) x $bpad if $bpadlen;	# DATA Padding
-	}
+	$buf .= pack_body($ctx, $body, 0x1, $uri) if defined $body;
 
 	$split = ref $uri->{split} && $uri->{split} || [];
 	for (@$split) {

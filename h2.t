@@ -226,6 +226,8 @@ http {
         server_name  localhost;
 
         http2_recv_timeout 1s;
+        client_header_timeout 1s;
+        send_timeout 1s;
     }
 
     server {
@@ -233,6 +235,7 @@ http {
         server_name  localhost;
 
         http2_idle_timeout 1s;
+        client_body_timeout 1s;
 
         location /proxy2/ {
             add_header X-Body "$request_body";

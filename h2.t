@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(307);
+	->has_daemon('openssl')->plan(308);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -81,6 +81,7 @@ http {
         location /gzip.html {
             gzip on;
             gzip_min_length 0;
+            gzip_vary on;
             alias %%TESTDIR%%/t2.html;
         }
         location /frame_size {
@@ -1351,6 +1352,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - encoding');
+is($frame->{headers}->{'vary'}, 'Accept-Encoding', 'gzip - vary');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 gunzip_like($frame->{data}, qr/^SEE-THIS\Z/, 'gzip - DATA');

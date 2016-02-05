@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(306);
+	->has_daemon('openssl')->plan(307);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -188,6 +188,10 @@ http {
             add_header X-Cookie $http_cookie;
             add_header X-Cookie-a $cookie_a;
             add_header X-Cookie-c $cookie_c;
+            return 200;
+        }
+        location /charset {
+            charset utf-8;
             return 200;
         }
     }
@@ -1350,6 +1354,15 @@ is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - encoding');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 gunzip_like($frame->{data}, qr/^SEE-THIS\Z/, 'gzip - DATA');
+
+# charset
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/charset' });
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'content-type'}, 'text/plain; charset=utf-8', 'charset');
 
 # simple proxy cache test
 

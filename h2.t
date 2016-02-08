@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(310);
+	->has_daemon('openssl')->plan(312);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -746,7 +746,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{'x-sent-foo'}, 'X-Baz',
 	'name with indexing - indexed name');
 
-# header field with characters not suitable for huffman encoding
+# response header field with characters not suitable for huffman encoding
 
 $sess = new_session();
 $sid = new_stream($sess, { headers => [
@@ -760,6 +760,28 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, '{{{{{', 'rare chars');
 like($sess->{headers}, qr/\Q{{{{{/, 'rare chars - no huffman encoding');
+
+# response header field with huffman encoding
+# NB: implementation detail, not obligated
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x-foo', value => 'aaaaa', mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-sent-foo'}, 'aaaaa', 'well known chars');
+
+TODO: {
+local $TODO = 'not yet';
+
+unlike($sess->{headers}, qr/aaaaa/, 'well known chars - huffman encoding');
+
+}
 
 # 6.3.  Dynamic Table Size Update
 

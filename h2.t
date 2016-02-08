@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(312);
+	->has_daemon('openssl')->plan(314);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -780,6 +780,30 @@ TODO: {
 local $TODO = 'not yet';
 
 unlike($sess->{headers}, qr/aaaaa/, 'well known chars - huffman encoding');
+
+}
+
+# response header field with huffman encoding - complete table mod \0, CR, LF
+# first saturate with short-encoded characters (NB: implementation detail)
+
+my $field = pack "C*", ((map { 97 } (1 .. 862)), 1 .. 9, 11, 12, 14 .. 255);
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x-foo', value => $field, mode => 2 }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-sent-foo'}, $field, 'all chars');
+
+TODO: {
+local $TODO = 'not yet';
+
+unlike($sess->{headers}, qr/abcde/, 'all chars - huffman encoding');
 
 }
 

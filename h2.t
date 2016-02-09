@@ -658,7 +658,7 @@ is($frame->{headers}->{':status'}, 200,
 is($frame->{headers}->{'x-referer'}, 'foo',
 	'literal never indexed - multibyte index value');
 
-# 6.2.2. Literal Header Field Never Indexed -- New Name
+# 6.2.3. Literal Header Field Never Indexed -- New Name
 
 $sess = new_session();
 $sid = new_stream($sess, { headers => [

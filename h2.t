@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(314);
+	->has_daemon('openssl')->plan(316);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1937,6 +1937,26 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 413,
 	'request body without content-length many pad - limited');
+
+# proxied request with logging pristine request header field (e.g., referer)
+
+$sess = new_session();
+$sid = new_stream($sess, { headers => [
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/proxy2/' },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'referer', value => 'foo' }]});
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'proxy with logging request headers');
+
+$sid = new_stream($sess);
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame->{headers}, 'proxy with logging request headers - next');
 
 # initial window size, client side
 

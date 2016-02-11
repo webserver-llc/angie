@@ -20,6 +20,7 @@ our %EXPORT_TAGS = (
 ###############################################################################
 
 use File::Path qw/ rmtree /;
+use File::Spec qw//;
 use File::Temp qw/ tempdir /;
 use IO::Socket;
 use POSIX qw/ waitpid WNOHANG /;
@@ -95,7 +96,7 @@ sub has_module($) {
 
 	my %regex = (
 		sni	=> 'TLS SNI support enabled',
-		mail	=> '--with-mail(?!\S)',
+		mail	=> '--with-mail((?!\S)|=dynamic)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',
 		auth_request
@@ -144,7 +145,7 @@ sub has_module($) {
 		pcre	=> '(?s)^(?!.*--without-pcre)',
 		split_clients
 			=> '(?s)^(?!.*--without-http_split_clients_module)',
-		stream	=> '--with-stream(?!\S)',
+		stream	=> '--with-stream((?!\S)|=dynamic)',
 		stream_access => '(?s)^(?!.*--without-stream_access_module)',
 		stream_limit_conn
 			=> '(?s)^(?!.*--without-stream_limit_conn_module)',
@@ -450,7 +451,32 @@ sub test_globals() {
 	$s .= $ENV{TEST_NGINX_GLOBALS}
 		if $ENV{TEST_NGINX_GLOBALS};
 
+	$s .= $self->test_globals_modules();
+
 	$self->{_test_globals} = $s;
+}
+
+sub test_globals_modules() {
+	my ($self) = @_;
+
+	my $modules = File::Spec->rel2abs((File::Spec->splitpath($NGINX))[1]);
+	$modules =~ s!\\!/!g if $^O eq 'MSWin32';
+
+	my $s = '';
+
+	$s .= "load_module $modules/ngx_http_image_filter_module.so;\n"
+		if $self->has_module('image_filter\S+=dynamic');
+
+	$s .= "load_module $modules/ngx_http_xslt_filter_module.so;\n"
+		if $self->has_module('xslt\S+=dynamic');
+
+	$s .= "load_module $modules/ngx_mail_module.so;\n"
+		if $self->has_module('mail=dynamic');
+
+	$s .= "load_module $modules/ngx_stream_module.so;\n"
+		if $self->has_module('stream=dynamic');
+
+	return $s;
 }
 
 sub test_globals_http() {

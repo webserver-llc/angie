@@ -777,7 +777,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{'x-sent-foo'}, 'aaaaa', 'well known chars');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
 unlike($sess->{headers}, qr/aaaaa/, 'well known chars - huffman encoding');
 
@@ -801,7 +801,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{'x-sent-foo'}, $field, 'all chars');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
 unlike($sess->{headers}, qr/abcde/, 'all chars - huffman encoding');
 

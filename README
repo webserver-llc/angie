@@ -18,6 +18,10 @@ TEST_NGINX_BINARY
 
     Sets path to nginx binary to be tested, defaults to "../nginx/objs/nginx".
 
+TEST_NGINX_MODULES
+
+    Sets path to modules directory, defaults to dirname of TEST_NGINX_BINARY.
+
 TEST_NGINX_VERBOSE
 
     Be a bit more verbose (in particular, print requests sent and responses

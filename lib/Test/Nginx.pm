@@ -459,7 +459,14 @@ sub test_globals() {
 sub test_globals_modules() {
 	my ($self) = @_;
 
-	my $modules = File::Spec->rel2abs((File::Spec->splitpath($NGINX))[1]);
+	my $modules = $ENV{TEST_NGINX_MODULES};
+
+	if (!defined $modules) {
+		my ($volume, $dir) = File::Spec->splitpath($NGINX);
+		$modules = File::Spec->catpath($volume, $dir, '');
+	}
+
+	$modules = File::Spec->rel2abs($modules);
 	$modules =~ s!\\!/!g if $^O eq 'MSWin32';
 
 	my $s = '';

@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(25)
+my $t = Test::Nginx->new()->has(qw/http/)->plan(27)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -42,6 +42,8 @@ http {
 
         add_header   X-URI $uri;
         add_header   X-Always $uri always;
+        add_header   ETag foo always;
+        add_header   ETag '' always;
         expires      epoch;
 
         location /t1 {
@@ -123,11 +125,19 @@ $r = http_get('/t1');
 like($r, qr/Cache-Control/, 'good expires');
 like($r, qr/X-URI/, 'good add_header');
 like($r, qr/X-Always/, 'good add_header always');
+unlike($r, qr/ETag/, 'good add_header always empty');
 
 $r = http_get('/nx');
 unlike($r, qr/Cache-Control/, 'bad expires');
 unlike($r, qr/X-URI/, 'bad add_header');
 like($r, qr/X-Always/, 'bad add_header always');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.9.12');
+
+unlike($r, qr/ETag/, 'bad add_header always empty');
+
+}
 
 # various expires variants
 

@@ -1595,7 +1595,8 @@ SKIP: {
 skip 'not enough window', 1 if $maxwin < 4;
 
 TODO: {
-todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.9.12');
 
 $sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
 	split_delay => 1.1 });
@@ -1621,7 +1622,8 @@ SKIP: {
 skip 'not enough window', 1 if $maxwin < 4;
 
 TODO: {
-todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE};
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.9.12');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
@@ -1642,7 +1644,7 @@ undef $sess;
 # the rest of frame is received after client header timeout
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
 $sess = new_session(8093);
 $sid = new_stream($sess, { path => '/t2.html', split => [35],
@@ -1664,7 +1666,7 @@ ok($frame, 'client header timeout - PING');
 # partial request body data frame received, the rest is after body timeout
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
 $sess = new_session(8093);
 $sid = new_stream($sess, { path => '/proxy/t2.html', body_more => 1 });

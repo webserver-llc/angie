@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(317);
+	->has_daemon('openssl')->plan(318);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1584,6 +1584,16 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body - limit req');
+
+# request body delayed in limit_req - with an empty DATA frame
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
+h2_body($sess, '');
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'request body - limit req - empty');
 
 # predict send windows
 

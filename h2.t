@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(316);
+	->has_daemon('openssl')->plan(317);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -60,6 +60,7 @@ http {
         listen       127.0.0.1:8082 proxy_protocol http2;
         listen       127.0.0.1:8084 http2 ssl;
         listen       127.0.0.1:8092 http2 sndbuf=128;
+        listen       127.0.0.1:8094 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -149,6 +150,9 @@ http {
             add_header X-Body-File $request_body_file;
             client_body_in_file_only on;
             proxy_pass http://127.0.0.1:8081/;
+        }
+        location /proxy_ssl/ {
+            proxy_pass https://127.0.0.1:8094/;
         }
         location /limit_req {
             limit_req  zone=req burst=2;
@@ -1552,6 +1556,21 @@ todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
 
 is(read_body_file($frame->{headers}{'x-body-file'}), '',
 	'request body - empty content');
+
+}
+
+# same as above but proxied to ssl backend
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/proxy_ssl/', body_more => 1 });
+h2_body($sess, '');
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'request body - empty - proxy ssl');
 
 }
 

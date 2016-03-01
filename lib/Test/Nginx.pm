@@ -71,6 +71,12 @@ sub DESTROY {
 		Test::More::is($alerts, '', 'no alerts');
 	}
 
+	if (Test::More->builder->expected_tests) {
+		my $errors = $self->read_file('error.log');
+		$errors = join "\n", $errors =~ /.+Sanitizer.+/gm;
+		Test::More::is($errors, '', 'no sanitizer errors');
+	}
+
 	if ($ENV{TEST_NGINX_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
 	}
@@ -240,7 +246,7 @@ sub try_run($$) {
 sub plan($) {
 	my ($self, $plan) = @_;
 
-	Test::More::plan(tests => $plan + 1);
+	Test::More::plan(tests => $plan + 2);
 
 	return $self;
 }

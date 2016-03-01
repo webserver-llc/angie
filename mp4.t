@@ -13,6 +13,8 @@ use strict;
 
 use Test::More;
 
+use Config;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -70,7 +72,14 @@ is(durations($t, 6, 9), '3.0 3.0', 'start end integer');
 is(durations($t, 2.7, 5.6), '2.9 2.9', 'start end float');
 
 is(durations($t, undef, 9), '9.0 9.0', 'end integer');
+
+TODO: {
+local $TODO = 'not yet'
+	if $Config{myarchname} =~ /i.86/ && $t->has_module('built by gcc 5');
+
 is(durations($t, undef, 5.6), '5.6 5.6', 'end float');
+
+}
 
 # invalid range results in ignoring end argument
 

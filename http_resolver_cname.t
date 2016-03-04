@@ -133,7 +133,7 @@ like(http_end(pop @s), qr/502 Bad/, 'CNAME ttl - last');
 push @s, http_host('cn09.example.net', '/long', start => 1);
 push @s, http_host('cn09.example.net', '/long', start => 1);
 
-sleep 2;
+select undef, undef, undef, 0.4;	# let resolver hang on CNAME
 
 close(shift @s);
 
@@ -223,7 +223,8 @@ sub reply_handler {
 
 	} elsif ($name eq 'cn09.example.net') {
 		if ($type == A) {
-			select undef, undef, undef, 1.1;
+			# await both HTTP requests
+			select undef, undef, undef, 0.2;
 		}
 		push @rdata, pack("n3N nCa1n", 0xc00c, CNAME, IN, $ttl,
 			4, 1, "b", 0xc011);

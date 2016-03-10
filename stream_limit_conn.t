@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http stream stream_limit_conn shmem/)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->plan(8)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -81,7 +81,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->try_run('no stream limit_conn')->plan(8);
+$t->run();
 
 ###############################################################################
 

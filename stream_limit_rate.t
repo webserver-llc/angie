@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/)
+my $t = Test::Nginx->new()->has(qw/stream/)->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -86,8 +86,7 @@ EOF
 
 $t->run_daemon(\&stream_daemon, 8080);
 $t->run_daemon(\&stream_daemon, 8090);
-
-$t->try_run('no proxy_download_rate and/or proxy_upload_rate')->plan(8);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:8080');
 $t->waitforsocket('127.0.0.1:8090');

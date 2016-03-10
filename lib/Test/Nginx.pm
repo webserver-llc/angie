@@ -480,6 +480,9 @@ sub test_globals_modules() {
 	$s .= "load_module $modules/ngx_http_image_filter_module.so;\n"
 		if $self->has_module('image_filter\S+=dynamic');
 
+	$s .= "load_module $modules/ngx_http_perl_module.so;\n"
+		if $self->has_module('perl\S+=dynamic');
+
 	$s .= "load_module $modules/ngx_http_xslt_filter_module.so;\n"
 		if $self->has_module('xslt\S+=dynamic');
 

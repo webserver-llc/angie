@@ -1718,7 +1718,7 @@ ok($frame, 'client body timeout - PING');
 
 $sess = new_session();
 $sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body_more => 1, headers => [
+	{ body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },
@@ -1731,7 +1731,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
 
 $sid = new_stream($sess,
-	{ path => '/proxy2/t2.html', body_more => 1, headers => [
+	{ body_more => 1, headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },

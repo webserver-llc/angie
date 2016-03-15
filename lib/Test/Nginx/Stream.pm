@@ -11,7 +11,7 @@ use warnings;
 use strict;
 
 use base qw/ Exporter /;
-our @EXPORT_OK = qw/ stream /;
+our @EXPORT_OK = qw/ stream dgram /;
 
 use Test::More qw//;
 use IO::Select;
@@ -21,6 +21,16 @@ use Test::Nginx;
 
 sub stream {
 	return Test::Nginx::Stream->new(@_);
+}
+
+sub dgram {
+	unshift(@_, "PeerAddr") if @_ == 1;
+
+	return Test::Nginx::Stream->new(
+		Proto => "udp",
+		PeerAddr => '127.0.0.1:8080',
+		@_
+	);
 }
 
 sub new {
@@ -88,11 +98,17 @@ sub io {
 
 	my ($data, %extra) = @_;
 	my $length = $extra{length};
+	my $read = $extra{read};
+
+	$read = 1 if !defined $read
+		&& $self->{_socket}->socktype() == &SOCK_DGRAM;
 
 	$self->write($data);
 
 	$data = '';
 	while (1) {
+		last if defined $read && --$read < 0;
+
 		my $buf = $self->read();
 		last unless length($buf);
 

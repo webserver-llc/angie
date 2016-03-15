@@ -37,10 +37,6 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    map $arg_st $server_tokens {
-        default  $arg_st;
-    }
-
     server {
         listen          127.0.0.1:8080;
 
@@ -89,7 +85,7 @@ http {
         }
 
         location /var {
-            server_tokens $server_tokens;
+            server_tokens $arg_st;
 
             location /var/200 {
                 return 200;

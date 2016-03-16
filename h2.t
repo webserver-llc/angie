@@ -32,7 +32,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
 	->has(qw/limit_conn rewrite realip shmem/)
-	->has_daemon('openssl')->plan(318);
+	->has_daemon('openssl')->plan(319);
 
 # Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
 
@@ -1522,7 +1522,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'request body with padding - next');
 
-# request body sent in multiple DATA frames (uses proxied response)
+# request body sent in multiple DATA frames in a single packet
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/proxy2/t2.html', body_more => 1 });
@@ -1532,6 +1532,19 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body in multiple frames');
+
+# request body sent in multiple DATA frames, each in its own packet
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/proxy2/t2.html', body_more => 1 });
+h2_body($sess, 'TEST', { body_more => 1 });
+select undef, undef, undef, 0.1;
+h2_body($sess, 'MOREDATA');
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTMOREDATA',
+	'request body in multiple frames separately');
 
 # request body with an empty DATA frame
 # "zero size buf in output" alerts seen

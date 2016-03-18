@@ -101,7 +101,7 @@ http {
     log_format  test  '$http_auth_ssl:$http_auth_ssl_verify:'
                       '$http_auth_ssl_subject:$http_auth_ssl_issuer:'
                       '$http_auth_ssl_serial:$http_auth_ssl_fingerprint:'
-                      '$http_auth_ssl_cert';
+                      '$http_auth_ssl_cert:$http_auth_pass';
 
     server {
         listen       127.0.0.1:8080;
@@ -143,7 +143,7 @@ $t->run();
 
 ###############################################################################
 
-my $cred = encode_base64("\0test\@example.com\0secret", '');
+my $cred = sub { encode_base64("\0test\@example.com\0$_[0]", '') };
 my %ssl = (
 	SSL => 1,
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
@@ -154,7 +154,7 @@ my %ssl = (
 
 my $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:8142');
 $s->ok('plain connection');
-$s->send('1 AUTHENTICATE PLAIN ' . $cred);
+$s->send('1 AUTHENTICATE PLAIN ' . $cred->("s1"));
 
 # no cert
 
@@ -165,7 +165,7 @@ $s->check(qr/BYE No required SSL certificate/, 'no cert');
 
 $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:8145', %ssl);
 $s->ok('no optional cert');
-$s->send('1 AUTHENTICATE PLAIN ' . $cred);
+$s->send('1 AUTHENTICATE PLAIN ' . $cred->("s2"));
 
 # wrong cert with ssl_verify_client optional
 
@@ -186,7 +186,7 @@ $s = Test::Nginx::IMAP->new(
 	%ssl,
 );
 $s->ok('bad optional_no_ca cert');
-$s->send('1 AUTHENTICATE PLAIN ' . $cred);
+$s->send('1 AUTHENTICATE PLAIN ' . $cred->("s3"));
 
 # matching cert with ssl_verify_client optional
 
@@ -197,7 +197,7 @@ $s = Test::Nginx::IMAP->new(
 	%ssl,
 );
 $s->ok('good cert');
-$s->send('1 AUTHENTICATE PLAIN ' . $cred);
+$s->send('1 AUTHENTICATE PLAIN ' . $cred->("s4"));
 
 # trusted cert with ssl_verify_client optional
 
@@ -208,27 +208,22 @@ $s = Test::Nginx::IMAP->new(
 	%ssl,
 );
 $s->ok('trusted cert');
-$s->send('1 AUTHENTICATE PLAIN ' . $cred);
+$s->send('1 AUTHENTICATE PLAIN ' . $cred->("s5"));
 $s->read();
 
 # test auth_http request header fields with access_log
 
 $t->stop();
 
-open my $f, '<', $t->testdir() . '/' . 'auth.log'
-	or die "Can't open auth.log: $!";
+my $f = $t->read_file('auth.log');
 
-like($f->getline(), qr/^-:-:-:-:-:-:-\x0d?\x0a?$/, 'log - plain connection');
-like($f->getline(), qr/^on:NONE:-:-:-:-:-\x0d?\x0a?$/,
-	'log - no cert');
-like($f->getline(),
-	qr!^on:FAILED:/CN=1.example.com:/CN=1.example.com:\w+:\w+:[^:]+$!,
+like($f, qr/^-:-:-:-:-:-:-\x0d?\x0a?:s1$/m, 'log - plain connection');
+like($f, qr/^on:NONE:-:-:-:-:-\x0d?\x0a?:s2$/m, 'log - no cert');
+like($f, qr!^on:FAILED:/CN=1.example.com:/CN=1.example.com:\w+:\w+:[^:]+:s3$!m,
 	'log - bad cert');
-like($f->getline(),
-	qr!^on:SUCCESS:/CN=2.example.com:/CN=2.example.com:\w+:\w+:[^:]+$!,
+like($f, qr!^on:SUCCESS:/CN=2.example.com:/CN=2.example.com:\w+:\w+:[^:]+:s4$!m,
 	'log - good cert');
-like($f->getline(),
-	qr!^on:SUCCESS:/CN=3.example.com:/CN=3.example.com:\w+:\w+:[^:]+$!,
+like($f, qr!^on:SUCCESS:/CN=3.example.com:/CN=3.example.com:\w+:\w+:[^:]+:s5$!m,
 	'log - trusted cert');
 
 ###############################################################################

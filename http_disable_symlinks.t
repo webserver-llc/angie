@@ -155,7 +155,7 @@ http {
 EOF
 
 my $uid = getuid();
-my ($extfile) = grep { -f "$_" && $uid != (stat($_))[4] }
+my ($extfile) = grep { -f && !-l && $uid != (stat())[4] }
 	('/etc/resolv.conf', '/etc/protocols', '/etc/host.conf');
 
 plan(skip_all => 'no external file found')

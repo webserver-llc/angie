@@ -116,9 +116,9 @@ like(http_get('/on/200'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 200');
 like(http_get('/on/404'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 404');
 like(http_body('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 404 body');
 
-unlike(http_get('/empty/200'), qr/Server:/, 'tokens empty 200');
-unlike(http_get('/empty/404'), qr/Server:/, 'tokens empty 404');
-unlike(http_body('/empty/404'), qr/nginx/, 'tokens empty 404 body');
+like(http_get('/empty/200'), qr/Server: nginx${CRLF}/, 'tokens empty 200');
+like(http_get('/empty/404'), qr/Server: nginx${CRLF}/, 'tokens empty 404');
+like(http_body('/empty/404'), qr/nginx(?!\/)/, 'tokens empty 404 body');
 
 like(http_get('/var/200?st=off'), qr/Server: nginx${CRLF}/,
 	'tokens var off 200');
@@ -133,9 +133,9 @@ like(http_get('/var/404?st=on'), qr/Server: nginx\/\d+\.\d+\.\d+/,
 like(http_body('/var/404?st=on'), qr/nginx\/\d+\.\d+\.\d+/,
 	'tokens var on 404 body');
 
-unlike(http_get('/var/200'), qr/Server:/, 'tokens var empty 200');
-unlike(http_get('/var/404'), qr/Server:/, 'tokens var empty 404');
-unlike(http_body('/var/404'), qr/nginx/, 'tokens var empty 404 body');
+like(http_get('/var/200'), qr/Server: nginx${CRLF}/, 'tokens var empty 200');
+like(http_get('/var/404'), qr/Server: nginx${CRLF}/, 'tokens var empty 404');
+like(http_body('/var/404'), qr/nginx(?!\/)/, 'tokens var empty 404 body');
 
 ###############################################################################
 

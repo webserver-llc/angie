@@ -110,7 +110,7 @@ sub io {
 		last if defined $read && --$read < 0;
 
 		my $buf = $self->read();
-		last unless length($buf);
+		last unless defined $buf and length($buf);
 
 		$data .= $buf;
 		last if defined $length && length($data) >= $length;

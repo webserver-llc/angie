@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -71,36 +71,12 @@ http {
                 return 404;
             }
         }
-
-        location /empty {
-            server_tokens "";
-
-            location /empty/200 {
-                return 200;
-            }
-
-            location /empty/404 {
-                return 404;
-            }
-        }
-
-        location /var {
-            server_tokens $arg_st;
-
-            location /var/200 {
-                return 200;
-            }
-
-            location /var/404 {
-                return 404;
-            }
-        }
     }
 }
 
 EOF
 
-$t->try_run('no server_tokens variable support')->plan(21);
+$t->run();
 
 ###############################################################################
 
@@ -115,27 +91,6 @@ like(http_body('/off/404'), qr/nginx(?!\/)/, 'tokens off 404 body');
 like(http_get('/on/200'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 200');
 like(http_get('/on/404'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 404');
 like(http_body('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 404 body');
-
-like(http_get('/empty/200'), qr/Server: nginx${CRLF}/, 'tokens empty 200');
-like(http_get('/empty/404'), qr/Server: nginx${CRLF}/, 'tokens empty 404');
-like(http_body('/empty/404'), qr/nginx(?!\/)/, 'tokens empty 404 body');
-
-like(http_get('/var/200?st=off'), qr/Server: nginx${CRLF}/,
-	'tokens var off 200');
-like(http_get('/var/404?st=off'), qr/Server: nginx${CRLF}/,
-	'tokens var off 404');
-like(http_body('/var/404?st=off'), qr/nginx(?!\/)/, 'tokens var off 404 body');
-
-like(http_get('/var/200?st=on'), qr/Server: nginx\/\d+\.\d+\.\d+/,
-	'tokens var on 200');
-like(http_get('/var/404?st=on'), qr/Server: nginx\/\d+\.\d+\.\d+/,
-	'tokens var on 404');
-like(http_body('/var/404?st=on'), qr/nginx\/\d+\.\d+\.\d+/,
-	'tokens var on 404 body');
-
-like(http_get('/var/200'), qr/Server: nginx${CRLF}/, 'tokens var empty 200');
-like(http_get('/var/404'), qr/Server: nginx${CRLF}/, 'tokens var empty 404');
-like(http_body('/var/404'), qr/nginx(?!\/)/, 'tokens var empty 404 body');
 
 ###############################################################################
 

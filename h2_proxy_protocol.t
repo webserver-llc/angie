@@ -70,9 +70,8 @@ is($frame->{headers}->{'x-pp'}, '192.0.2.1', 'PROXY remote addr');
 
 # invalid PROXY protocol string
 
-$sess = new_session(8081, proxy => 'BOGUS TCP4 192.0.2.1 192.0.2.2 1234 5678',
-	pure => 1);
-$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
+my $s = http('BOGUS TCP4 192.0.2.1 192.0.2.2 1234 5678', start => 1);
+$frames = h2_read({ socket => $s }, all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid PROXY - GOAWAY frame');

@@ -12,8 +12,6 @@ use strict;
 
 use Test::More;
 
-use Socket qw/ $CRLF /;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -80,16 +78,16 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/200'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens default 200');
-like(http_get('/404'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens default 404');
+like(http_get_server('/200'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens default 200');
+like(http_get_server('/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens default 404');
 like(http_body('/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens default 404 body');
 
-like(http_get('/off/200'), qr/Server: nginx${CRLF}/, 'tokens off 200');
-like(http_get('/off/404'), qr/Server: nginx${CRLF}/, 'tokens off 404');
+is(http_get_server('/off/200'), 'nginx', 'tokens off 200');
+is(http_get_server('/off/404'), 'nginx', 'tokens off 404');
 like(http_body('/off/404'), qr/nginx(?!\/)/, 'tokens off 404 body');
 
-like(http_get('/on/200'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 200');
-like(http_get('/on/404'), qr/Server: nginx\/\d+\.\d+\.\d+/, 'tokens on 404');
+like(http_get_server('/on/200'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 200');
+like(http_get_server('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 404');
 like(http_body('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 404 body');
 
 ###############################################################################
@@ -97,6 +95,12 @@ like(http_body('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'tokens on 404 body');
 sub http_body {
 	my ($uri) = shift;
 	return http_get($uri) =~ /.*?\x0d\x0a?\x0d\x0a?(.*)/ms && $1;
+}
+
+sub http_get_server {
+	my ($url) = @_;
+	http_get($url) =~ /^Server:\s(.+?)\x0d?$/mi;
+	return $1;
 }
 
 ###############################################################################

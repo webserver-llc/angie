@@ -88,6 +88,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 $sess = new_session();
 $sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
 h2_body($sess, '');
+select undef, undef, undef, 1.1;
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

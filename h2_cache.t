@@ -16,14 +16,14 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2;
+use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 cache/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http http_v2 cache/)->plan(11)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -91,6 +91,21 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 304, 'proxy cache conditional');
+
+# request body with cached response
+
+$sid = new_stream($sess, { path => '/cache/t.html', body_more => 1 });
+h2_body($sess, 'TEST');
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'proxy cache - request body');
+
+h2_ping($sess, 'SEE-THIS');
+$frames = h2_read($sess, all => [{ type => 'PING' }]);
+
+($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
+ok($frame, 'proxy cache - request body - next');
 
 # HEADERS could be received with fin, followed by DATA
 

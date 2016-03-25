@@ -92,6 +92,8 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 304, 'proxy cache conditional');
 
+$t->write_file('t.html', 'SEE-THIS');
+
 # request body with cached response
 
 $sid = new_stream($sess, { path => '/cache/t.html', body_more => 1 });

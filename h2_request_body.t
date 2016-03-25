@@ -23,9 +23,7 @@ use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy/)->plan(35);
-
-# Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(34);
 
 $t->todo_alerts();
 
@@ -44,7 +42,6 @@ http {
     server {
         listen       127.0.0.1:8080 http2;
         listen       127.0.0.1:8081;
-        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
 
         location / { }
@@ -53,9 +50,6 @@ http {
             add_header X-Body-File $request_body_file;
             client_body_in_file_only on;
             proxy_pass http://127.0.0.1:8081/;
-        }
-        location /proxy_ssl/ {
-            proxy_pass https://127.0.0.1:8082/;
         }
         location /client_max_body_size {
             add_header X-Body $request_body;
@@ -150,21 +144,6 @@ todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
 
 is(read_body_file($frame->{headers}{'x-body-file'}), '',
 	'request body - empty content');
-
-}
-
-# same as above but proxied to ssl backend
-
-TODO: {
-local $TODO = 'not yet';
-
-$sess = new_session();
-$sid = new_stream($sess, { path => '/proxy_ssl/', body_more => 1 });
-h2_body($sess, '');
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{':status'}, 200, 'request body - empty - proxy ssl');
 
 }
 

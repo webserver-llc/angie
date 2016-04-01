@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(34);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(35);
 
 $t->todo_alerts();
 
@@ -144,6 +144,21 @@ todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
 
 is(read_body_file($frame->{headers}{'x-body-file'}), '',
 	'request body - empty content');
+
+}
+
+# request body discarded
+# RST_STREAM with zero code received
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { body_more => 1 });
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+is($frame->{code}, 0, 'request body discarded - zero RST_STREAM');
 
 }
 

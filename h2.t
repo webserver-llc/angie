@@ -27,9 +27,9 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(137);
 
-# Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
+# Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
 
-$t->todo_alerts();
+$t->todo_alerts() if $^O eq 'darwin' or $^O eq 'netbsd';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

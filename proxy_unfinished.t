@@ -33,8 +33,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache sub shmem/)->plan(15);
 
-$t->todo_alerts() if $^O eq 'solaris';
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

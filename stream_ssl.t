@@ -35,8 +35,6 @@ plan(skip_all => 'Net::SSLeay not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
 
-$t->todo_alerts() if $^O eq 'solaris';
-
 $t->plan(7)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

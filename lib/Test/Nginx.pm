@@ -66,9 +66,14 @@ sub DESTROY {
 	if (Test::More->builder->expected_tests) {
 		local $Test::Nginx::TODO = 'alerts' unless $self->{_alerts};
 
-		my $alerts = $self->read_file('error.log');
-		$alerts = join "\n", $alerts =~ /.+\[alert\].+/gm;
-		Test::More::is($alerts, '', 'no alerts');
+		my @alerts = $self->read_file('error.log') =~ /.+\[alert\].+/gm;
+
+		if ($^O eq 'solaris') {
+			$Test::Nginx::TODO = 'alerts' if @alerts
+				&& ! grep { $_ !~ /phantom event/ } @alerts;
+		}
+
+		Test::More::is(join("\n", @alerts), '', 'no alerts');
 	}
 
 	if (Test::More->builder->expected_tests) {

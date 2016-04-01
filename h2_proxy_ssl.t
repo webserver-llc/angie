@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy/)
 	->has_daemon('openssl')->plan(1);
 
-$t->todo_alerts();
+$t->todo_alerts() unless $t->has_version('1.9.14');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -84,7 +84,7 @@ $t->run();
 # "zero size buf in output" alerts seen
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.14');
 
 my $sess = new_session();
 my $sid = new_stream($sess, { path => '/proxy_ssl/', body_more => 1 });

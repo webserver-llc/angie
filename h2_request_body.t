@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(35);
 
-$t->todo_alerts();
+$t->todo_alerts() unless $t->has_version('1.9.14');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -133,7 +133,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{':status'}, 200, 'request body - empty');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.14');
 
 ok($frame->{headers}{'x-body-file'}, 'request body - empty body file');
 
@@ -151,7 +151,7 @@ is(read_body_file($frame->{headers}{'x-body-file'}), '',
 # RST_STREAM with zero code received
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.14');
 
 $sess = new_session();
 $sid = new_stream($sess, { body_more => 1 });

@@ -26,9 +26,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite limit_req/)
 	->plan(6);
 
-# Some systems may have also a bug in not treating zero writev iovcnt as EINVAL
-
-$t->todo_alerts();
+$t->todo_alerts() unless $t->has_version('1.9.14');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -84,6 +82,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body - limit req');
 
 # request body delayed in limit_req - with an empty DATA frame
+# "zero size buf in output" alerts seen
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });

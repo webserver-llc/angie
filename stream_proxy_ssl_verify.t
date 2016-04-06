@@ -153,36 +153,32 @@ $t->waitforsocket('127.0.0.1:8089');
 
 # subjectAltName
 
-like(http_get('/', socket => getconn('127.0.0.1:8080')),
-	qr/200 OK/, 'verify');
-like(http_get('/', socket => getconn('127.0.0.1:8081')),
-	qr/200 OK/, 'verify wildcard');
-unlike(http_get('/', socket => getconn('127.0.0.1:8082')),
-	qr/200 OK/, 'verify fail');
+like(get('/', '127.0.0.1:8080'), qr/200 OK/, 'verify');
+like(get('/', '127.0.0.1:8081'), qr/200 OK/, 'verify wildcard');
+unlike(get('/', '127.0.0.1:8082'), qr/200 OK/, 'verify fail');
 
 # commonName
 
-like(http_get('/', socket => getconn('127.0.0.1:8083')),
-	qr/200 OK/, 'verify cn');
-unlike(http_get('/', socket => getconn('127.0.0.1:8084')),
-	qr/200 OK/, 'verify cn fail');
+like(get('/', '127.0.0.1:8083'), qr/200 OK/, 'verify cn');
+unlike(get('/', '127.0.0.1:8084'), qr/200 OK/, 'verify cn fail');
 
 # untrusted
 
-unlike(http_get('/', socket => getconn('127.0.0.1:8085')),
-	qr/200 OK/, 'untrusted');
+unlike(get('/', '127.0.0.1:8085'), qr/200 OK/, 'untrusted');
 
 ###############################################################################
 
-sub getconn {
-	my $peer = shift;
+sub get {
+	my ($uri, $peer) = @_;
+
 	my $s = IO::Socket::INET->new(
 		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
+		PeerAddr => $peer
 	)
 		or die "Can't connect to nginx: $!\n";
 
-	return $s;
+	my $r = http_get($uri, socket => $s);
+	return defined $r ? $r : '';
 }
 
 ###############################################################################

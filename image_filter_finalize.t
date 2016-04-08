@@ -142,4 +142,10 @@ http_get('/slow');
 http_get('/t3');
 like(http_get('/time.log'), qr!/t3:.*, [1-9]\.!, 'upstream response time');
 
+# "aio_write" is used to produce the following alert on some platforms:
+# "readv() failed (9: Bad file descriptor) while reading upstream"
+
+$t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio_write on/
+	and $t->read_file('nginx.conf') =~ /aio threads/;
+
 ###############################################################################

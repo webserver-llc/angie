@@ -456,10 +456,16 @@ sub new_session {
 
 	# update windows, if any
 
-	h2_read($ctx, all => [
+	my $frames = h2_read($ctx, all => [
 		{ type => 'WINDOW_UPDATE' },
 		{ type => 'SETTINGS'}
 	]);
+
+	# 6.5.3.  Settings Synchronization
+
+	if (grep { $_->{type} eq "SETTINGS" && $_->{flags} == 0 } @$frames) {
+		h2_settings($ctx, 1);
+	}
 
 	return $ctx;
 }

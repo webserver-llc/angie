@@ -226,11 +226,11 @@ is($frame->{sid}, 0, 'PING stream');
 
 # timeouts
 
-push my @sess, new_session(8089);
-push @sess, new_session(8089);
+push my @sess, new_session(8089, pure => 1);
+push @sess, new_session(8089, pure => 1);
 h2_ping($sess[-1], 'SEE-THIS');
-push @sess, new_session(8090);
-push @sess, new_session(8090);
+push @sess, new_session(8090, pure => 1);
+push @sess, new_session(8090, pure => 1);
 h2_ping($sess[-1], 'SEE-THIS');
 
 select undef, undef, undef, 2.1;

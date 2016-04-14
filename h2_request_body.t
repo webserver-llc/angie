@@ -151,7 +151,7 @@ is(read_body_file($frame->{headers}{'x-body-file'}), '',
 # RST_STREAM with zero code received
 
 TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.14');
+local $TODO = 'not yet';
 
 $sess = new_session();
 $sid = new_stream($sess, { body_more => 1 });

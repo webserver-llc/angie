@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy access ipv6/);
+my $t = Test::Nginx->new()->has(qw/http proxy access ipv6 unix/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -80,7 +80,7 @@ http {
 
 EOF
 
-$t->try_run('no inet6 and/or unix support')->plan(12);
+$t->try_run('no inet6 support')->plan(12);
 
 ###############################################################################
 

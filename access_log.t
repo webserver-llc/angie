@@ -127,7 +127,6 @@ http_get('/varlog?logname=');
 http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
 
-
 # wait for file to appear with nonzero size thanks to the flush parameter
 
 for (1 .. 10) {
@@ -157,8 +156,7 @@ $t->stop();
 
 my $addr = IO::Socket::INET->new(LocalAddr => '127.0.0.1')->sockhost();
 
-$log = $t->read_file('combined.log');
-like($log,
+like($t->read_file('combined.log'),
 	qr!^\Q$addr - - [\E .*
 		\Q] "GET /combined HTTP/1.0" 200 2 "-" "-"\E$!x,
 	'default log format');
@@ -167,7 +165,6 @@ like($log,
 
 $log = $t->read_file('filtered.log');
 is($log, "/filtered/good:200\n/filtered/work:200\n", 'log filtering');
-
 
 # verify "if=" argument works with complex value
 
@@ -180,9 +177,7 @@ my $exp_complex = <<'EOF';
 /filtered/complex/either4:200
 EOF
 
-$log = $t->read_file('complex.log');
-is($log, $exp_complex, 'if with complex value');
-
+is($t->read_file('complex.log'), $exp_complex, 'if with complex value');
 
 # buffer created with false "if" is not reused among multiple access_log
 
@@ -190,24 +185,17 @@ $log = $t->read_file('/noreuse.log');
 is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
 	'log filtering with buffering');
 
-
 # multiple logs in a same location
 
-$log = $t->read_file('multi1.log');
-is($log, "/multi:200\n", 'multiple logs 1');
+is($t->read_file('multi1.log'), "/multi:200\n", 'multiple logs 1');
 
 # same content in the second log
 
-$log = $t->read_file('multi2.log');
-is($log, "/multi:200\n", 'multiple logs 2');
-
+is($t->read_file('multi2.log'), "/multi:200\n", 'multiple logs 2');
 
 # test log destinations with variables
 
-$log = $t->read_file('varlog_0');
-is($log, "/varlog:200\n", 'varlog literal zero name');
-
-$log = $t->read_file('varlog_filename');
-is($log, "/varlog:200\n", 'varlog good name');
+is($t->read_file('varlog_0'), "/varlog:200\n", 'varlog literal zero name');
+is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
 
 ###############################################################################

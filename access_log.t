@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -35,6 +35,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     log_format test "$uri:$status";
+    log_format binary $binary_remote_addr;
 
     server {
         listen       127.0.0.1:8080;
@@ -86,6 +87,10 @@ http {
             access_log %%TESTDIR%%/varlog_${arg_logname} test;
             return 200 OK;
         }
+
+        location /binary {
+            access_log %%TESTDIR%%/binary.log binary;
+        }
     }
 }
 
@@ -126,6 +131,8 @@ http_get('/varlog');
 http_get('/varlog?logname=');
 http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
+
+http_get('/binary');
 
 # wait for file to appear with nonzero size thanks to the flush parameter
 
@@ -197,5 +204,9 @@ is($t->read_file('multi2.log'), "/multi:200\n", 'multiple logs 2');
 
 is($t->read_file('varlog_0'), "/varlog:200\n", 'varlog literal zero name');
 is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
+
+# binary data is escaped
+
+is($t->read_file('binary.log'), "\\x7F\\x00\\x00\\x01\n", 'binary');
 
 ###############################################################################

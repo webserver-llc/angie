@@ -176,7 +176,7 @@ $t->write_file('gif', $im->gif);
 $t->write_file('png', $im->png);
 $t->write_file('txt', 'SEE-THIS');
 
-$t->run_daemon(\&http_daemon, $t->testdir());
+$t->run_daemon(\&http_daemon, $t);
 $t->run()->waitforsocket('127.0.0.1:8081');
 
 ###############################################################################
@@ -298,7 +298,7 @@ sub has_gdversion {
 # serve static files without Content-Length
 
 sub http_daemon {
-	my ($root) = @_;
+	my ($t) = @_;
 
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
@@ -324,11 +324,7 @@ sub http_daemon {
 
 		next if $headers eq '';
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
-
-		open my $fh, '<', $root . $uri or next;
-		local $/;
-		my $data = <$fh>;
-		close $fh;
+		my $data = $t->read_file($uri);
 
 		print $client <<EOF;
 HTTP/1.1 200 OK

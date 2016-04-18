@@ -74,16 +74,7 @@ http_get('/redefine');
 
 $t->stop();
 
-my $log;
-
-{
-	open LOG, $t->testdir() . '/cc.log'
-		or die("Can't open nginx access log file.\n");
-	local $/;
-	$log = <LOG>;
-	close LOG;
-}
-
+my $log = $t->read_file('cc.log');
 like($log, qr!^: -$!m, 'no uri');
 like($log, qr!^/: -$!m, 'no header');
 like($log, qr!^/set: max-age=3600[,;] private[,;] must-revalidate$!m,

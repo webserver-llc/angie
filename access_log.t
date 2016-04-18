@@ -188,7 +188,7 @@ is($t->read_file('complex.log'), $exp_complex, 'if with complex value');
 
 # buffer created with false "if" is not reused among multiple access_log
 
-$log = $t->read_file('/noreuse.log');
+$log = $t->read_file('noreuse.log');
 is($log, "/filtered/noreuse1/good:200\n/filtered/noreuse2/good:200\n",
 	'log filtering with buffering');
 

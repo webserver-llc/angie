@@ -61,13 +61,13 @@ EOF
 
 $t->run();
 
-plan(skip_all => 'no unbuffered request body') unless get_body('/chunked');
+my $f = get_body('/chunked');
+plan(skip_all => 'no unbuffered request body') unless $f;
+$f->{http_end}();
 
 $t->plan(48);
 
 ###############################################################################
-
-my ($f);
 
 # unbuffered request body
 

@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite limit_req/)
-	->plan(6);
+	->plan(7);
 
 $t->todo_alerts() unless $t->has_version('1.9.14');
 
@@ -80,6 +80,21 @@ my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body - limit req');
+
+TODO: {
+local $TODO = 'not yet';
+
+$sess = new_session();
+$sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
+h2_body($sess, 'TEST');
+select undef, undef, undef, 1.1;
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
+	'request body - limit req - limited');
+
+}
 
 # request body delayed in limit_req - with an empty DATA frame
 # "zero size buf in output" alerts seen
@@ -171,6 +186,7 @@ undef $sess;
 
 sub read_body_file {
 	my ($path) = @_;
+	return unless $path;
 	open FILE, $path or return "$!";
 	local $/;
 	my $content = <FILE>;

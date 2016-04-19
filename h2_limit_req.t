@@ -86,8 +86,8 @@ local $TODO = 'not yet' unless $t->has_version('1.9.15');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
-h2_body($sess, 'TEST');
 select undef, undef, undef, 1.1;
+h2_body($sess, 'TEST');
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

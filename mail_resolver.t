@@ -43,7 +43,7 @@ mail {
     server_name  locahost;
 
     # prevent useless resend
-    resolver_timeout 1s;
+    resolver_timeout 2s;
 
     server {
         listen    127.0.0.1:8025;

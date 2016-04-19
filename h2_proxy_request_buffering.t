@@ -110,7 +110,7 @@ ok($f->{headers}, 'empty');
 is($f->{upload}('', body_more => 1), '', 'empty - part');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.15');
 
 is($f->{window}, undef, 'empty - part - window');
 

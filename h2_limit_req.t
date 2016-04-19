@@ -82,7 +82,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body - limit req');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.9.15');
 
 $sess = new_session();
 $sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });

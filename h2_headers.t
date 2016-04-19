@@ -1009,17 +1009,6 @@ is($frame->{code}, 1, 'invalid path');
 
 ###############################################################################
 
-sub read_body_file {
-	my ($path) = @_;
-	open FILE, $path or return "$!";
-	local $/;
-	my $content = <FILE>;
-	close FILE;
-	return $content;
-}
-
-###############################################################################
-
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',

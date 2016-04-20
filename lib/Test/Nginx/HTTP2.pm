@@ -23,6 +23,7 @@ use Test::More qw//;
 use IO::Select;
 use IO::Socket;
 use Socket qw/ CRLF /;
+use Data::Dumper;
 
 use Test::Nginx;
 
@@ -265,6 +266,8 @@ sub h2_read {
 	my $s = $sess->{socket};
 	my $buf = '';
 
+	local $Data::Dumper::Terse = 1;
+
 	while (1) {
 		$buf = raw_read($s, $buf, 9);
 		last if length $buf < 9;
@@ -289,6 +292,8 @@ sub h2_read {
 		$frame->{flags} = $flags;
 		$frame->{sid} = $stream;
 		push @got, $frame;
+
+		Test::Nginx::log_core('||', $_) for split "\n", Dumper $frame;
 
 		$buf = substr($buf, $length);
 

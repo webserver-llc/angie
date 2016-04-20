@@ -77,6 +77,7 @@ sub DESTROY {
 	}
 
 	if (Test::More->builder->expected_tests) {
+		local $Test::Nginx::TODO;
 		my $errors = $self->read_file('error.log');
 		$errors = join "\n", $errors =~ /.+Sanitizer.+/gm;
 		Test::More::is($errors, '', 'no sanitizer errors');

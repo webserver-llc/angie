@@ -40,7 +40,7 @@ mail {
     server {
         listen     127.0.0.1:8025;
         protocol   smtp;
-        smtp_greeting_delay  100ms;
+        smtp_greeting_delay  1s;
     }
 }
 

@@ -27,7 +27,7 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
+my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
 	->has_daemon('softhsm')->has_daemon('pkcs11-tool')->plan(1);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 cache/)->plan(11)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache/)->plan(11)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

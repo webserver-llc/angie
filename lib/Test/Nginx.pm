@@ -72,6 +72,11 @@ sub DESTROY {
 			$Test::Nginx::TODO = 'alerts' if @alerts
 				&& ! grep { $_ !~ /phantom event/ } @alerts;
 		}
+		if ($^O eq 'MSWin32') {
+			my $re = qr/CloseHandle|TerminateProcess/;
+			$Test::Nginx::TODO = 'alerts' if @alerts
+				&& ! grep { $_ !~ $re } @alerts;
+		}
 
 		Test::More::is(join("\n", @alerts), '', 'no alerts');
 	}

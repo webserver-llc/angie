@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # (C) Andrey Zelenkov
-# (C) Nginx, Inc
+# (C) Nginx, Inc.
 
 # Tests for request_id variable.
 

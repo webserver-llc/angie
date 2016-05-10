@@ -196,7 +196,7 @@ is(syslog_lines('/error', '[error]'), 1, 'error');
 
 is(syslog_lines('/low', '[error]'), 2, 'low');
 is(syslog_lines('/dup', '[error]'), 2, 'dup');
-is(syslog_lines('/high', '[error'), 1, 'high');
+is(syslog_lines('/high', '[error]'), 1, 'high');
 
 # check for the presence of the syslog messages in the global and http contexts
 

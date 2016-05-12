@@ -11,6 +11,8 @@ use strict;
 
 use Test::More;
 
+use Socket;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -72,7 +74,8 @@ like(http_get('/var?b=127.0.0.1:8081/'), qr/SEE-THIS/, 'proxy with variables');
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
 
 SKIP: {
-skip 'no ipv6', 1 unless $t->has_module('ipv6');
+skip 'no ipv6', 1 unless $t->has_module('ipv6')
+	and socket(my $s, &AF_INET6, &SOCK_STREAM, 0);
 
 TODO: {
 todo_skip 'heap-buffer-overflow', 1

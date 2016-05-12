@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -70,6 +70,19 @@ unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
 like(http_get('/var?b=127.0.0.1:8081/'), qr/SEE-THIS/, 'proxy with variables');
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
+
+SKIP: {
+skip 'no ipv6', 1 unless $t->has_module('ipv6');
+
+TODO: {
+todo_skip 'heap-buffer-overflow', 1
+	unless $ENV{TEST_NGINX_UNSAFE} or $t->has_version('1.11.0');
+
+ok(http_get("/var?b=[::]"), 'proxy with variables - no ipv6 port');
+
+}
+
+}
 
 my $s = http('', start => 1);
 

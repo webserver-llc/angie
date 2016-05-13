@@ -42,7 +42,7 @@ http {
         default  foo:$y;
     }
 
-    map $args    $y {
+    map $args $y {
         default  bar;
         same     baz;
     }

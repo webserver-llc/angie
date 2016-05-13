@@ -154,8 +154,7 @@ is($f->{http_end}(), 200, 'cl split - response');
 
 sub fastcgi_read_record($) {
 	my ($buf) = @_;
-
-	my ($n, $h, $header);
+	my $h;
 
 	return undef unless length $$buf;
 

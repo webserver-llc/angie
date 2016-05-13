@@ -155,8 +155,7 @@ sub http_get_body {
 
 sub fastcgi_read_record($) {
 	my ($buf) = @_;
-
-	my ($n, $h, $header);
+	my $h;
 
 	return undef unless length $$buf;
 

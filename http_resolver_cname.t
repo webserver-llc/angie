@@ -155,7 +155,7 @@ EOF
 ###############################################################################
 
 sub reply_handler {
-	my ($recv_data, $port) = @_;
+	my ($recv_data) = @_;
 
 	my (@name, @rdata);
 
@@ -274,7 +274,7 @@ sub dns_daemon {
 
 	while (1) {
 		$socket->recv($recv_data, 65536);
-		$data = reply_handler($recv_data, $port);
+		$data = reply_handler($recv_data);
 		$socket->send($data);
 	}
 }

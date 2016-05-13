@@ -242,7 +242,7 @@ sub websocket_handle_client {
 		my $p = $poll->poll(0.5);
 		log2c("(poll $p)");
 
-		foreach my $reader ($poll->handles(POLLIN)) {
+		foreach ($poll->handles(POLLIN)) {
 			$n = $client->sysread(my $chunk, 65536);
 			return unless $n;
 

@@ -219,7 +219,7 @@ sub upgrade_connect {
 
 sub upgrade_getline {
 	my ($s) = @_;
-	my ($h, $buf, $line);
+	my ($h, $buf);
 
 	${*$s}->{_upgrade_private} ||= { b => '', r => 0 };
 	$h = ${*$s}->{_upgrade_private};
@@ -314,7 +314,7 @@ sub upgrade_handle_client {
 		my $p = $poll->poll(0.5);
 		log2c("(poll $p)");
 
-		foreach my $reader ($poll->handles(POLLIN)) {
+		foreach ($poll->handles(POLLIN)) {
 			$n = $client->sysread(my $chunk, 65536);
 			return unless $n;
 

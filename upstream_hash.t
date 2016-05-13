@@ -218,7 +218,7 @@ sub many {
 	my ($uri, $count) = @_;
 	my %ports;
 
-	for my $i (1 .. $count) {
+	for (1 .. $count) {
 		if (http_get($uri) =~ /X-Port: (\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;

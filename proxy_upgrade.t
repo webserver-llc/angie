@@ -192,7 +192,7 @@ sub upgrade_connect {
 
 sub upgrade_getline {
 	my ($s) = @_;
-	my ($h, $buf, $line);
+	my ($h, $buf);
 
 	${*$s}->{_upgrade_private} ||= { b => '', r => 0 };
 	$h = ${*$s}->{_upgrade_private};

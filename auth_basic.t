@@ -54,8 +54,6 @@ http {
 
 EOF
 
-my $d = $t->testdir();
-
 $t->write_file('index.html', 'SEETHIS');
 
 $t->write_file(

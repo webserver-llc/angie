@@ -112,10 +112,8 @@ sub fastcgi_daemon {
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 
-	my ($body, $len);
-
 	while( $request->Accept() >= 0 ) {
-		read(STDIN, $body, $ENV{'CONTENT_LENGTH'});
+		read(STDIN, my $body, $ENV{'CONTENT_LENGTH'});
 		my $len = length $body;
 
 		sleep 3 if $port == 8081;

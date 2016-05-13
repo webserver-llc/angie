@@ -167,7 +167,6 @@ sub levels {
 sub get_syslog {
 	my ($data, $peer, $port) = @_;
 	my ($s);
-	my $rfd = '';
 
 	$port = 8080 unless defined $port;
 

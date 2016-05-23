@@ -439,7 +439,7 @@ sub raw_write {
 sub new_session {
 	my ($port, %extra) = @_;
 
-	my $s = new_socket($port, %extra);
+	my $s = $extra{socket} || new_socket($port, %extra);
 	my $preface = $extra{preface}
 		|| 'PRI * HTTP/2.0' . CRLF . CRLF . 'SM' . CRLF . CRLF;
 

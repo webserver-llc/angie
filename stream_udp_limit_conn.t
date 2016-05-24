@@ -87,18 +87,22 @@ my $s = dgram('127.0.0.1:8081');
 
 is($s->io('1'), '1', 'passed');
 
-is(dgram('127.0.0.1:8081')->io('1'), '', 'rejected same zone');
+is(dgram('127.0.0.1:8081')->io('1', read_timeout => 0.1), '',
+	'rejected same zone');
 is(dgram('127.0.0.1:8082')->io('1'), '1', 'passed different zone');
 is(dgram('127.0.0.1:8083')->io('1'), '1', 'passed same zone unlimited');
 
-is($s->io('2', read => 2), '12', 'long connection');
+sleep 1;	# waiting for proxy_timeout to expire
+
+is($s->io('2', read => 2), '12', 'new connection after proxy_timeout');
 
 is(dgram('127.0.0.1:8081')->io('2', read => 2), '12', 'passed 2');
 
 # zones proxy chain
 
 is(dgram('127.0.0.1:8084')->io('1'), '1', 'passed proxy');
-is(dgram('127.0.0.1:8085')->io('1'), '', 'rejected proxy');
+is(dgram('127.0.0.1:8085')->io('1', read_timeout => 0.1), '',
+	'rejected proxy');
 
 ###############################################################################
 

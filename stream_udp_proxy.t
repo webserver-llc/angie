@@ -65,12 +65,12 @@ $t->waitforfile($t->testdir . '/8081');
 ###############################################################################
 
 my $s = dgram('127.0.0.1:8080');
-is($s->io('1', read => 1), '', 'proxy responses 0');
+is($s->io('1', read => 1, read_timeout => 0.5), '', 'proxy responses 0');
 
 $s = dgram('127.0.0.1:8082');
 is($s->io('1'), '1', 'proxy responses 1');
 is($s->io('2', read => 2), '12', 'proxy responses 2');
-is($s->io('3', read => 3), '12', 'proxy responses 3');
+is($s->io('3', read => 3, read_timeout => 0.5), '12', 'proxy responses 3');
 
 $s = dgram('127.0.0.1:8083');
 is($s->io('3', read => 3), '123', 'proxy responses default');

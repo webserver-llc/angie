@@ -58,13 +58,13 @@ sub new {
 }
 
 sub write {
-	my ($self, $message) = @_;
+	my ($self, $message, %extra) = @_;
 	my $s = $self->{_socket};
 
 	local $SIG{PIPE} = 'IGNORE';
 
 	$s->blocking(0);
-	while (IO::Select->new($s)->can_write(1.5)) {
+	while (IO::Select->new($s)->can_write($extra{write_timeout} || 1.5)) {
 		my $n = $s->syswrite($message);
 		log_out(substr($message, 0, $n));
 		last unless $n;
@@ -79,13 +79,13 @@ sub write {
 }
 
 sub read {
-	my ($self) = @_;
+	my ($self, %extra) = @_;
 	my ($s, $buf);
 
 	$s = $self->{_socket};
 
 	$s->blocking(0);
-	if (IO::Select->new($s)->can_read(5)) {
+	if (IO::Select->new($s)->can_read($extra{read_timeout} || 5)) {
 		$s->sysread($buf, 1024);
 	};
 
@@ -103,13 +103,13 @@ sub io {
 	$read = 1 if !defined $read
 		&& $self->{_socket}->socktype() == &SOCK_DGRAM;
 
-	$self->write($data);
+	$self->write($data, %extra);
 
 	$data = '';
 	while (1) {
 		last if defined $read && --$read < 0;
 
-		my $buf = $self->read();
+		my $buf = $self->read(%extra);
 		last unless defined $buf and length($buf);
 
 		$data .= $buf;

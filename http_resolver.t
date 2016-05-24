@@ -323,7 +323,7 @@ sub reply_handler {
 	use constant CNAME	=> 5;
 	use constant DNAME	=> 39;
 
-	use constant IN 	=> 1;
+	use constant IN		=> 1;
 
 	# default values
 
@@ -412,7 +412,7 @@ sub reply_handler {
 	} elsif ($name eq 'cname.example.net') {
 		$state->{cnamecnt}++;
 		if ($state->{cnamecnt} > 2) {
-		        $rcode = SERVFAIL;
+			$rcode = SERVFAIL;
 		}
 		push @rdata, pack("n3N nCa5n", 0xc00c, CNAME, IN, $ttl,
 			8, 5, 'alias', 0xc012);
@@ -436,7 +436,7 @@ sub reply_handler {
 		push @rdata, pack("n3N nCa18n", 0xc00c, CNAME, IN, 1,
 			21, 18, 'cname_a_ttl2_alias', 0xc019);
 		if (++$state->{cttl2cnt} >= 2) {
-		        $rcode = SERVFAIL;
+			$rcode = SERVFAIL;
 		}
 		push @rdata, pack('n3N nC4', 0xc036, A, IN, $ttl,
 			4, split(/\./, '127.0.0.1'));
@@ -521,9 +521,9 @@ sub dns_daemon {
 
 	my ($data, $recv_data);
 	my $socket = IO::Socket::INET->new(
-		LocalAddr    => '127.0.0.1',
-		LocalPort    => $port,
-		Proto        => 'udp',
+		LocalAddr => '127.0.0.1',
+		LocalPort => $port,
+		Proto => 'udp',
 	)
 		or die "Can't create listening socket: $!\n";
 
@@ -547,16 +547,16 @@ sub dns_daemon {
 	# track number of relevant queries
 
 	my %state = (
-		cnamecnt     => 0,
-		twocnt       => 0,
-		ttlcnt       => 0,
-		ttl0cnt      => 0,
-		cttlcnt      => 0,
-		cttl2cnt     => 0,
-		manycnt      => 0,
-		casecnt      => 0,
-		idcnt        => 0,
-		fecnt        => 0,
+		cnamecnt	=> 0,
+		twocnt		=> 0,
+		ttlcnt		=> 0,
+		ttl0cnt		=> 0,
+		cttlcnt		=> 0,
+		cttl2cnt	=> 0,
+		manycnt		=> 0,
+		casecnt		=> 0,
+		idcnt		=> 0,
+		fecnt		=> 0,
 	);
 
 	# signal we are ready

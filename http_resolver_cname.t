@@ -164,7 +164,7 @@ sub reply_handler {
 	use constant A		=> 1;
 	use constant CNAME	=> 5;
 
-	use constant IN 	=> 1;
+	use constant IN		=> 1;
 
 	# default values
 
@@ -261,9 +261,9 @@ sub dns_daemon {
 
 	my ($data, $recv_data);
 	my $socket = IO::Socket::INET->new(
-		LocalAddr    => '127.0.0.1',
-		LocalPort    => $port,
-		Proto        => 'udp',
+		LocalAddr => '127.0.0.1',
+		LocalPort => $port,
+		Proto => 'udp',
 	)
 		or die "Can't create listening socket: $!\n";
 

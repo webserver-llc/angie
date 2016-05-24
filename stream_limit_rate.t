@@ -133,7 +133,7 @@ is($r{'data'}, $str . 'close', 'upload - data');
 ###############################################################################
 
 sub response {
- 	my ($data, %extra) = @_;
+	my ($data, %extra) = @_;
 
 	my $s = stream($extra{peer});
 	$s->write($data);

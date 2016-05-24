@@ -65,7 +65,7 @@ my $f = get_body('/chunked');
 plan(skip_all => 'no unbuffered request body') unless $f;
 $f->{http_end}();
 
-$t->plan(70);
+$t->plan(48);
 
 ###############################################################################
 
@@ -74,62 +74,42 @@ $t->plan(70);
 $f = get_body('/', 'content-length' => 10);
 ok($f->{headers}, 'request');
 is($f->{upload}('01234', body_more => 1), '01234', 'part');
-is($f->{window}, 10, 'part - window');
 is($f->{upload}('56789'), '56789', 'part 2');
-is($f->{window}, 5, 'part 2 - window');
 is($f->{http_end}(), 200, 'response');
 
 $f = get_body('/', 'content-length' => 10);
 ok($f->{headers}, 'much');
 is($f->{upload}('0123456789', body_more => 1), '0123456789', 'much - part');
-is($f->{window}, 10, 'much - part - window');
 is($f->{upload}('many'), '', 'much - part 2');
-is($f->{window}, 10, 'much - part 2 - window');
 is($f->{http_end}(), 400, 'much - response');
 
 $f = get_body('/', 'content-length' => 10);
 ok($f->{headers}, 'less');
 is($f->{upload}('0123', body_more => 1), '0123', 'less - part');
-is($f->{window}, 10, 'less - part - window');
 is($f->{upload}('56789'), '', 'less - part 2');
-is($f->{window}, 4, 'less - part 2 - window');
 is($f->{http_end}(), 400, 'less - response');
 
 $f = get_body('/', 'content-length' => 18);
 ok($f->{headers}, 'many');
 is($f->{upload}('01234many', body_split => [ 5 ], body_more => 1),
 	'01234many', 'many - part');
-is($f->{window}, 18, 'many - part - window');
 is($f->{upload}('56789many', body_split => [ 5 ]),
 	'56789many', 'many - part 2');
-is($f->{window}, 9, 'many - part 2 - window');
 is($f->{http_end}(), 200, 'many - response');
 
 $f = get_body('/', 'content-length' => 0);
 ok($f->{headers}, 'empty');
 is($f->{upload}('', body_more => 1), '', 'empty - part');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.15');
-
-is($f->{window}, undef, 'empty - part - window');
-
-}
-
 is($f->{upload}(''), '', 'empty - part 2');
-is($f->{window}, undef, 'empty - part 2 - window');
 is($f->{http_end}(), 200, 'empty - response');
 
 $f = get_body('/', 'content-length' => 1536);
 ok($f->{headers}, 'buffer');
 is($f->{upload}('0123' x 128, body_more => 1), '0123' x 128,
 	'buffer - below');
-is($f->{window}, 1024, 'buffer - below - window');
 is($f->{upload}('4567' x 128, body_more => 1), '4567' x 128,
 	'buffer - equal');
-is($f->{window}, 512, 'buffer - equal - window');
 is($f->{upload}('89AB' x 128), '89AB' x 128, 'buffer - above');
-is($f->{window}, 512, 'buffer - above - window');
 is($f->{http_end}(), 200, 'buffer - response');
 
 $f = get_body('/', 'content-length' => 10);
@@ -143,43 +123,34 @@ $f = get_body('/chunked');
 ok($f->{headers}, 'chunked');
 is($f->{upload}('01234', body_more => 1), '5' . CRLF . '01234' . CRLF,
 	'chunked - part');
-is($f->{window}, 1024, 'chunked - part - window');
 is($f->{upload}('56789'), '5' . CRLF . '56789' . CRLF . '0' . CRLF . CRLF,
 	'chunked - part 2');
-is($f->{window}, 5, 'chunked - part 2 - window');
 is($f->{http_end}(), 200, 'chunked - response');
 
 $f = get_body('/chunked');
 ok($f->{headers}, 'chunked buffer');
 is($f->{upload}('0123' x 128, body_more => 1),
 	'200' . CRLF . '0123' x 128 . CRLF, 'chunked buffer - below');
-is($f->{window}, 1024, 'chunked buffer - below - window');
 is($f->{upload}('4567' x 128, body_more => 1),
 	'200' . CRLF . '4567' x 128 . CRLF, 'chunked buffer - equal');
-is($f->{window}, 512, 'chunked buffer - equal - window');
 is($f->{upload}('89AB' x 128),
 	'200' . CRLF . '89AB' x 128 . CRLF . '0' . CRLF . CRLF,
 	'chunked buffer - above');
-is($f->{window}, 512, 'chunked buffer - above - window');
 is($f->{http_end}(), 200, 'chunked buffer - response');
 
 $f = get_body('/chunked');
 ok($f->{headers}, 'chunked many');
 is($f->{upload}('01234many', body_split => [ 5 ], body_more => 1),
 	'9' . CRLF . '01234many' . CRLF, 'chunked many - part');
-is($f->{window}, 1024, 'chunked many - part - window');
 is($f->{upload}('56789many', body_split => [ 5 ]),
 	'9' . CRLF . '56789many' . CRLF . '0' . CRLF . CRLF,
 	'chunked many - part 2');
-is($f->{window}, 9, 'chunked many - part 2 - window');
 is($f->{http_end}(), 200, 'chunked many - response');
 
 $f = get_body('/chunked');
 ok($f->{headers}, 'chunked empty');
 is($f->{upload}('', body_more => 1), '', 'chunked empty - part');
-is($f->{window}, 1024, 'chunked empty - part - window');
 is($f->{upload}(''), '0' . CRLF . CRLF, 'chunked empty - part 2');
-is($f->{window}, undef, 'chunked empty - part 2 - window');
 is($f->{http_end}(), 200, 'chunked empty - response');
 
 $f = get_body('/chunked');
@@ -244,11 +215,6 @@ sub get_body {
 
 	$f->{upload} = sub {
 		my ($body, %extra) = @_;
-
-		my $frames = h2_read($sess,
-			all => [{ type => 'WINDOW_UPDATE' }]);
-		my ($frame) = grep { $_->{type} eq "WINDOW_UPDATE" } @$frames;
-		$f->{window} = $frame->{wdelta};
 
 		h2_body($sess, $body, { %extra });
 

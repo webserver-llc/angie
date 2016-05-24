@@ -75,7 +75,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream udp')->plan(8);
+$t->try_run('no stream udp')->plan(9);
 $t->run_daemon(\&udp_daemon, $t);
 $t->waitforfile($t->testdir . '/8080');
 
@@ -87,6 +87,10 @@ my $s = dgram('127.0.0.1:8081');
 
 is($s->io('1'), '1', 'passed');
 
+# if not all responses were sent to client, then new request
+# in same socket will be treated as new connection
+
+is($s->io('1', read_timeout => 0.1), '', 'rejected new connection');
 is(dgram('127.0.0.1:8081')->io('1', read_timeout => 0.1), '',
 	'rejected same zone');
 is(dgram('127.0.0.1:8082')->io('1'), '1', 'passed different zone');

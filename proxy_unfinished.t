@@ -143,6 +143,8 @@ chmod(0000, $t->testdir() . '/proxy_temp');
 like(http_get_11('/proxy/big.html', sleep => 0.5),
 	qr/X(?!.*\x0d\x0a?0\x0d\x0a?)|finished/s, 'no proxy temp');
 
+chmod(0700, $t->testdir() . '/proxy_temp');
+
 ###############################################################################
 
 sub http_get_11 {

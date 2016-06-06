@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite limit_req/)
-	->plan(6);
+	->plan(7);
 
 $t->todo_alerts() unless $t->has_version('1.9.14');
 
@@ -172,7 +172,9 @@ $sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
 	abort => 1 });
 
 select undef, undef, undef, 1.1;
-undef $sess;
+close $sess->{socket};
+
+pass('discard body - limit req - eof');
 
 }
 

@@ -90,7 +90,7 @@ $t->write_file('t1.html', '');
 $t->write_file('t1.html.gz', '');
 
 my $in = 'X' x 99;
-my $out;
+my $out = '';
 
 eval {
 	require IO::Compress::Gzip;

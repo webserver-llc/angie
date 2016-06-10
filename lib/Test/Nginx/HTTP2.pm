@@ -166,7 +166,7 @@ sub new_stream {
 
 	$ctx->{headers} = '';
 
-	my $host = $uri->{host} || '127.0.0.1:8080';
+	my $host = $uri->{host} || 'localhost';
 	my $method = $uri->{method} || 'GET';
 	my $scheme = $uri->{scheme} || 'http';
 	my $path = $uri->{path} || '/';

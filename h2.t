@@ -492,7 +492,7 @@ $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 301, 'return 301 relative - status');
-is($frame->{headers}->{'location'}, 'http://127.0.0.1:8080/',
+is($frame->{headers}->{'location'}, 'http://localhost:8080/',
 	'return 301 relative - location');
 
 # return 301 with relative URI and ':authority' request header field

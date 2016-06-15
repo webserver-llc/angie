@@ -962,7 +962,7 @@ $sid = new_stream($sess, { headers => [
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'x_foo', value => "x-bar", mode => 2 },
 	{ name => 'referer', value => "see-this", mode => 1 }]});
-$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+$frames = h2_read($sess, all => [{ type => 'HEADERS' }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');

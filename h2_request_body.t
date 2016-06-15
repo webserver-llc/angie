@@ -155,7 +155,7 @@ local $TODO = 'not yet';
 
 $sess = new_session();
 $sid = new_stream($sess, { body_more => 1 });
-$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }]);
+$frames = h2_read($sess, all => [{ type => 'RST_STREAM' }], wait => 0.5);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{code}, 0, 'request body discarded - zero RST_STREAM');

@@ -226,6 +226,9 @@ is($frame->{sid}, 0, 'PING stream');
 
 # timeouts
 
+SKIP: {
+skip 'long tests', 6 unless $ENV{TEST_NGINX_UNSAFE};
+
 push my @sess, new_session(8089, pure => 1);
 push @sess, new_session(8089, pure => 1);
 h2_ping($sess[-1], 'SEE-THIS');
@@ -252,6 +255,8 @@ $frames = h2_read(shift @sess, all => [{ type => "GOAWAY" }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'idle timeout - idle connection GOAWAY');
 is($frame->{code}, 0, 'idle timeout - idle connection code');
+
+}
 
 # GOAWAY
 
@@ -280,7 +285,7 @@ local $TODO = 'not yet';
 
 $sess = new_session();
 h2_goaway($sess, 1, 0, 5, 'foobar');
-$frames = h2_read($sess, all => [{ type => "GOAWAY" }]);
+$frames = h2_read($sess, all => [{ type => "GOAWAY" }], wait => 0.5);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY invalid stream - GOAWAY frame');
@@ -706,7 +711,7 @@ $frames = h2_read($sess, all => [{ type => 'PING' }]);
 ok($frame, 'iws - PING not blocked');
 
 h2_window($sess, 2**16, $sid);
-$frames = h2_read($sess);
+$frames = h2_read($sess, wait => 0.2);
 is(@$frames, 0, 'iws - updated stream window');
 
 h2_window($sess, 2**16);
@@ -765,7 +770,7 @@ is($frame, undef, 'negative window - no data');
 
 h2_window($sess, 2**16 - 1 - 42 - 1024, $sid);
 
-$frames = h2_read($sess);
+$frames = h2_read($sess, wait => 0.2);
 is(@$frames, 0, 'zero window - no data');
 
 h2_window($sess, 1, $sid);
@@ -847,7 +852,7 @@ h2_window($sess, 2**30);
 select undef, undef, undef, 0.4;
 
 h2_rst($sess, $sid, 8);
-h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+h2_read($sess, all => [{ sid => $sid, fin => 1 }], wait => 0.2);
 
 $sid = new_stream($sess);
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);

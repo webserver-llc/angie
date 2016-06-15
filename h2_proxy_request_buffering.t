@@ -99,8 +99,8 @@ is($f->{http_end}(), 200, 'many - response');
 
 $f = get_body('/', 'content-length' => 0);
 ok($f->{headers}, 'empty');
-is($f->{upload}('', body_more => 1), '', 'empty - part');
-is($f->{upload}(''), '', 'empty - part 2');
+is($f->{upload}('', body_more => 1, wait => 0.2), '', 'empty - part');
+is($f->{upload}('', wait => 0.2), '', 'empty - part 2');
 is($f->{http_end}(), 200, 'empty - response');
 
 $f = get_body('/', 'content-length' => 1536);
@@ -149,7 +149,7 @@ is($f->{http_end}(), 200, 'chunked many - response');
 
 $f = get_body('/chunked');
 ok($f->{headers}, 'chunked empty');
-is($f->{upload}('', body_more => 1), '', 'chunked empty - part');
+is($f->{upload}('', body_more => 1, wait => 0.2), '', 'chunked empty - part');
 is($f->{upload}(''), '0' . CRLF . CRLF, 'chunked empty - part 2');
 is($f->{http_end}(), 200, 'chunked empty - response');
 
@@ -197,11 +197,11 @@ sub get_body {
 	my $chunked = $f->{headers} =~ /chunked/;
 
 	my $body_read = sub {
-		my ($s, $buf, $len) = @_;
+		my ($s, $buf, $len, $wait) = @_;
 
 		for (1 .. 10) {
-			$buf = raw_read($s, $buf, length($buf) + 1, \&log2i)
-				or return '';
+			$buf = raw_read($s, $buf, length($buf) + 1, \&log2i,
+				$wait) or return '';
 
 			my $got = 0;
 			$got += $chunked ? hex $_ : $_ for $chunked
@@ -218,7 +218,7 @@ sub get_body {
 
 		h2_body($sess, $body, { %extra });
 
-		return $body_read->($client, '', length($body));
+		return $body_read->($client, '', length($body), $extra{wait});
 	};
 	$f->{http_end} = sub {
 		$client->write(<<EOF);

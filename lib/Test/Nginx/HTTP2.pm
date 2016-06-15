@@ -60,7 +60,7 @@ sub h2_goaway {
 
 	my @bufs = map {
 		raw_write($sess->{socket}, substr $buf, 0, $_, "");
-		select undef, undef, undef, 0.4;
+		select undef, undef, undef, 0.2;
 	} @{$extra{split}};
 
 	raw_write($sess->{socket}, $buf);
@@ -265,11 +265,12 @@ sub h2_read {
 	my (@got);
 	my $s = $sess->{socket};
 	my $buf = '';
+	my $wait = $extra{wait};
 
 	local $Data::Dumper::Terse = 1;
 
 	while (1) {
-		$buf = raw_read($s, $buf, 9);
+		$buf = raw_read($s, $buf, 9, \&log_in, $wait);
 		last if length $buf < 9;
 
 		my $length = unpack_length($buf);
@@ -280,7 +281,7 @@ sub h2_read {
 		substr($stream, 0, 1) = 0;
 		$stream = unpack("N", pack("B32", $stream));
 
-		$buf = raw_read($s, $buf, $length + 9);
+		$buf = raw_read($s, $buf, $length + 9, \&log_in, $wait);
 		last if length($buf) < $length + 9;
 
 		$buf = substr($buf, 9);
@@ -410,11 +411,12 @@ sub unpack_length {
 }
 
 sub raw_read {
-	my ($s, $buf, $len, $log) = @_;
+	my ($s, $buf, $len, $log, $timo) = @_;
 	$log = \&log_in unless defined $log;
+	$timo = 3 unless $timo;
 	my $got = '';
 
-	while (length($buf) < $len && IO::Select->new($s)->can_read(1))  {
+	while (length($buf) < $len && IO::Select->new($s)->can_read($timo)) {
 		$s->sysread($got, 16384) or last;
 		$log->($got);
 		$buf .= $got;

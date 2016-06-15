@@ -65,7 +65,7 @@ my ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{':status'}, 200, 'limit_conn first stream');
 
 my $sid2 = new_stream($sess, { path => '/t.html' });
-$frames = h2_read($sess, all => [{ sid => $sid2, fin => 0 }]);
+$frames = h2_read($sess, all => [{ sid => $sid2, length => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 503, 'limit_conn rejected');
@@ -90,7 +90,7 @@ h2_rst($sess, $sid, 5);
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 1');
 
 $sid2 = new_stream($sess, { path => '/t.html' });
-$frames = h2_read($sess, all => [{ sid => $sid2, fin => 0 }]);
+$frames = h2_read($sess, all => [{ sid => $sid2, length => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');

@@ -114,8 +114,8 @@ ok($frame, 'proxy cache - request body - next');
 $sess = new_session();
 $sid = new_stream($sess, { path => '/cache/t.html?1', method => 'HEAD' });
 
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }])};
+$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }], wait => 0.2);
+push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
 
 # proxy cache - expect no stray empty DATA frame
@@ -141,7 +141,7 @@ $sid = new_stream($sess,
 	{ path => '/proxy_buffering_off/t.html?1', method => 'HEAD' });
 
 $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }])};
+push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 	'proxy cache HEAD buffering off - no body');
 

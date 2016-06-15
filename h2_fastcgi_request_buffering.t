@@ -87,7 +87,7 @@ is($f->{http_end}(), 200, 'many - response');
 
 $f = get_body('/');
 ok($f->{headers}, 'empty');
-is($f->{upload}('', body_more => 1), '', 'empty - part');
+is($f->{upload}('', body_more => 1, wait => 0.2), '', 'empty - part');
 is($f->{upload}(''), '_eos', 'empty - part 2');
 is($f->{http_end}(), 200, 'empty - response');
 
@@ -137,7 +137,7 @@ is($f->{http_end}(), 200, 'cl many - response');
 
 $f = get_body('/', 'content-length' => 0);
 ok($f->{headers}, 'cl empty');
-is($f->{upload}('', body_more => 1), '', 'cl empty - part');
+is($f->{upload}('', body_more => 1, wait => 0.2), '', 'cl empty - part');
 is($f->{upload}(''), '_eos', 'cl empty - part 2');
 is($f->{http_end}(), 200, 'cl empty - response');
 
@@ -222,13 +222,14 @@ sub get_body {
 	$f->{upload} = sub {
 		my ($body, %extra) = @_;
 		my $len = length($body);
+		my $wait = $extra{wait};
 
 		h2_body($sess, $body, { %extra });
 
 		$body = '';
 
 		for (1 .. 10) {
-			my $buf = raw_read($client, '', 1, \&log2i)
+			my $buf = raw_read($client, '', 1, \&log2i, $wait)
 				or return '';
 
 			while (my $h = fastcgi_read_record(\$buf)) {

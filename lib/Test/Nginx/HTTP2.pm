@@ -31,62 +31,104 @@ my %cframe = (
 	9 => { name => 'CONTINUATION', value => \&headers },
 );
 
-sub h2_ping {
-	my ($sess, $payload) = @_;
+sub new {
+	my $class = shift;
+	my ($port, %extra) = @_;
 
-	raw_write($sess->{socket}, pack("x2C2x5a8", 8, 0x6, $payload));
+	my $s = $extra{socket} || new_socket($port, %extra);
+	my $preface = $extra{preface}
+		|| 'PRI * HTTP/2.0' . CRLF . CRLF . 'SM' . CRLF . CRLF;
+
+	if ($extra{proxy}) {
+		raw_write($s, $extra{proxy});
+	}
+
+	# preface
+
+	raw_write($s, $preface);
+
+	my $self = bless {
+		socket => $s, last_stream => -1,
+		dynamic_encode => [ static_table() ],
+		dynamic_decode => [ static_table() ],
+		static_table_size => scalar @{[static_table()]},
+		iws => 65535, conn_window => 65535, streams => {}
+	}, $class;
+
+	return $self if $extra{pure};
+
+	# update windows, if any
+
+	my $frames = $self->read(all => [
+		{ type => 'WINDOW_UPDATE' },
+		{ type => 'SETTINGS'}
+	]);
+
+	# 6.5.3.  Settings Synchronization
+
+	if (grep { $_->{type} eq "SETTINGS" && $_->{flags} == 0 } @$frames) {
+		$self->h2_settings(1);
+	}
+
+	return $self;
+}
+
+sub h2_ping {
+	my ($self, $payload) = @_;
+
+	raw_write($self->{socket}, pack("x2C2x5a8", 8, 0x6, $payload));
 }
 
 sub h2_rst {
-	my ($sess, $stream, $error) = @_;
+	my ($self, $stream, $error) = @_;
 
-	raw_write($sess->{socket}, pack("x2C2xNN", 4, 0x3, $stream, $error));
+	raw_write($self->{socket}, pack("x2C2xNN", 4, 0x3, $stream, $error));
 }
 
 sub h2_goaway {
-	my ($sess, $stream, $lstream, $err, $debug, %extra) = @_;
+	my ($self, $stream, $lstream, $err, $debug, %extra) = @_;
 	$debug = '' unless defined $debug;
 	my $len = defined $extra{len} ? $extra{len} : 8 + length($debug);
 	my $buf = pack("x2C2xN3A*", $len, 0x7, $stream, $lstream, $err, $debug);
 
 	my @bufs = map {
-		raw_write($sess->{socket}, substr $buf, 0, $_, "");
+		raw_write($self->{socket}, substr $buf, 0, $_, "");
 		select undef, undef, undef, 0.2;
 	} @{$extra{split}};
 
-	raw_write($sess->{socket}, $buf);
+	raw_write($self->{socket}, $buf);
 }
 
 sub h2_priority {
-	my ($sess, $w, $stream, $dep, %extra) = @_;
+	my ($self, $w, $stream, $dep, %extra) = @_;
 
 	$stream = 0 unless defined $stream;
 	$dep = 0 unless defined $dep;
 	$dep |= $extra{excl} << 31 if exists $extra{excl};
-	raw_write($sess->{socket}, pack("x2C2xNNC", 5, 0x2, $stream, $dep, $w));
+	raw_write($self->{socket}, pack("x2C2xNNC", 5, 0x2, $stream, $dep, $w));
 }
 
 sub h2_window {
-	my ($sess, $win, $stream) = @_;
+	my ($self, $win, $stream) = @_;
 
 	$stream = 0 unless defined $stream;
-	raw_write($sess->{socket}, pack("x2C2xNN", 4, 0x8, $stream, $win));
+	raw_write($self->{socket}, pack("x2C2xNN", 4, 0x8, $stream, $win));
 }
 
 sub h2_settings {
-	my ($sess, $ack, %extra) = @_;
+	my ($self, $ack, %extra) = @_;
 
 	my $len = 6 * keys %extra;
 	my $buf = pack_length($len) . pack "CCx4", 0x4, $ack ? 0x1 : 0x0;
 	$buf .= join '', map { pack "nN", $_, $extra{$_} } keys %extra;
-	raw_write($sess->{socket}, $buf);
+	raw_write($self->{socket}, $buf);
 }
 
 sub h2_unknown {
-	my ($sess, $payload) = @_;
+	my ($self, $payload) = @_;
 
 	my $buf = pack_length(length($payload)) . pack("Cx5a*", 0xa, $payload);
-	raw_write($sess->{socket}, $buf);
+	raw_write($self->{socket}, $buf);
 }
 
 sub h2_continue {
@@ -97,65 +139,48 @@ sub h2_continue {
 }
 
 sub h2_body {
-	my ($sess, $body, $extra) = @_;
+	my ($self, $body, $extra) = @_;
 	$extra = {} unless defined $extra;
 
 	my $len = length $body;
-	my $sid = $sess->{last_stream};
+	my $sid = $self->{last_stream};
 
-	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
-		$sess->read(all => [{ type => 'WINDOW_UPDATE' }]);
+	if ($len > $self->{conn_window} || $len > $self->{streams}{$sid}) {
+		$self->read(all => [{ type => 'WINDOW_UPDATE' }]);
 	}
 
-	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
+	if ($len > $self->{conn_window} || $len > $self->{streams}{$sid}) {
 		return;
 	}
 
-	$sess->{conn_window} -= $len;
-	$sess->{streams}{$sid} -= $len;
+	$self->{conn_window} -= $len;
+	$self->{streams}{$sid} -= $len;
 
 	my $buf;
 
 	my $split = ref $extra->{body_split} && $extra->{body_split} || [];
 	for (@$split) {
-		$buf .= pack_body($sess, substr($body, 0, $_, ""), 0x0, $extra);
+		$buf .= pack_body($self, substr($body, 0, $_, ""), 0x0, $extra);
 	}
 
-	$buf .= pack_body($sess, $body, 0x1, $extra) if defined $body;
+	$buf .= pack_body($self, $body, 0x1, $extra) if defined $body;
 
 	$split = ref $extra->{split} && $extra->{split} || [];
 	for (@$split) {
-		raw_write($sess->{socket}, substr($buf, 0, $_, ""));
+		raw_write($self->{socket}, substr($buf, 0, $_, ""));
 		return if $extra->{abort};
 		select undef, undef, undef, ($extra->{split_delay} || 0.2);
 	}
 
-	raw_write($sess->{socket}, $buf);
-}
-
-sub pack_body {
-	my ($ctx, $body, $flags, $extra) = @_;
-
-	my $pad = defined $extra->{body_padding} ? $extra->{body_padding} : 0;
-	my $padlen = defined $extra->{body_padding} ? 1 : 0;
-
-	my $buf = pack_length(length($body) + $pad + $padlen);
-	$flags |= 0x8 if $padlen;
-	vec($flags, 0, 1) = 0 if $extra->{body_more};
-	$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
-	$buf .= pack 'N', $ctx->{last_stream};
-	$buf .= pack 'C', $pad if $padlen;	# DATA Pad Length?
-	$buf .= $body;
-	$buf .= pack "x$pad" if $padlen;	# DATA Padding
-	return $buf;
+	raw_write($self->{socket}, $buf);
 }
 
 sub new_stream {
-	my ($ctx, $uri, $stream) = @_;
+	my ($self, $uri, $stream) = @_;
 	my ($input, $buf);
 	my ($d, $status);
 
-	$ctx->{headers} = '';
+	$self->{headers} = '';
 
 	my $host = $uri->{host} || 'localhost';
 	my $method = $uri->{method} || 'GET';
@@ -176,29 +201,30 @@ sub new_stream {
 	$flags |= 0x20 if defined $dep || defined $prio;
 
 	if ($stream) {
-		$ctx->{last_stream} = $stream;
+		$self->{last_stream} = $stream;
 	} else {
-		$ctx->{last_stream} += 2;
-		$ctx->{streams}{$ctx->{last_stream}} = $ctx->{iws};
+		$self->{last_stream} += 2;
+		$self->{streams}{$self->{last_stream}} = $self->{iws};
 	}
 
-	$buf = pack("xxx");			# Length stub
-	$buf .= pack("CC", $type, $flags);	# END_HEADERS
-	$buf .= pack("N", $ctx->{last_stream});	# Stream-ID
+	$buf = pack("xxx");				# Length stub
+	$buf .= pack("CC", $type, $flags);		# END_HEADERS
+	$buf .= pack("N", $self->{last_stream});	# Stream-ID
 
 	$dep = 0 if defined $prio and not defined $dep;
 	$prio = 16 if defined $dep and not defined $prio;
 
 	unless ($headers) {
-		$input = hpack($ctx, ":method", $method);
-		$input .= hpack($ctx, ":scheme", $scheme);
-		$input .= hpack($ctx, ":path", $path);
-		$input .= hpack($ctx, ":authority", $host);
-		$input .= hpack($ctx, "content-length", length($body)) if $body;
+		$input = hpack($self, ":method", $method);
+		$input .= hpack($self, ":scheme", $scheme);
+		$input .= hpack($self, ":path", $path);
+		$input .= hpack($self, ":authority", $host);
+		$input .= hpack($self, "content-length", length($body))
+			if $body;
 
 	} else {
 		$input = join '', map {
-			hpack($ctx, $_->{name}, $_->{value},
+			hpack($self, $_->{name}, $_->{value},
 			mode => $_->{mode}, huff => $_->{huff})
 		} @$headers if $headers;
 	}
@@ -228,40 +254,40 @@ sub new_stream {
 		$flags = @input ? 0x0 : 0x4;
 		$buf .= pack_length(length($input));
 		$buf .= pack("CC", 0x9, $flags);
-		$buf .= pack("N", $ctx->{last_stream});
+		$buf .= pack("N", $self->{last_stream});
 		$buf .= $input;
 	}
 
 	$split = ref $uri->{body_split} && $uri->{body_split} || [];
 	for (@$split) {
-		$buf .= pack_body($ctx, substr($body, 0, $_, ""), 0x0, $uri);
+		$buf .= pack_body($self, substr($body, 0, $_, ""), 0x0, $uri);
 	}
 
-	$buf .= pack_body($ctx, $body, 0x1, $uri) if defined $body;
+	$buf .= pack_body($self, $body, 0x1, $uri) if defined $body;
 
 	$split = ref $uri->{split} && $uri->{split} || [];
 	for (@$split) {
-		raw_write($ctx->{socket}, substr($buf, 0, $_, ""));
+		raw_write($self->{socket}, substr($buf, 0, $_, ""));
 		goto done if $uri->{abort};
 		select undef, undef, undef, ($uri->{split_delay} || 0.2);
 	}
 
-	raw_write($ctx->{socket}, $buf);
+	raw_write($self->{socket}, $buf);
 done:
-	return $ctx->{last_stream};
+	return $self->{last_stream};
 }
 
 sub read {
-	my ($sess, %extra) = @_;
+	my ($self, %extra) = @_;
 	my (@got);
-	my $s = $sess->{socket};
+	my $s = $self->{socket};
 	my $buf = '';
 	my $wait = $extra{wait};
 
 	local $Data::Dumper::Terse = 1;
 
 	while (1) {
-		$buf = raw_read($s, $buf, 9, \&log_in, $wait);
+		$buf = raw_read($s, $buf, 9, $wait);
 		last if length $buf < 9;
 
 		my $length = unpack_length($buf);
@@ -272,12 +298,12 @@ sub read {
 		substr($stream, 0, 1) = 0;
 		$stream = unpack("N", pack("B32", $stream));
 
-		$buf = raw_read($s, $buf, $length + 9, \&log_in, $wait);
+		$buf = raw_read($s, $buf, $length + 9, $wait);
 		last if length($buf) < $length + 9;
 
 		$buf = substr($buf, 9);
 
-		my $frame = $cframe{$type}{value}($sess, $buf, $length, $flags,
+		my $frame = $cframe{$type}{value}($self, $buf, $length, $flags,
 			$stream);
 		$frame->{length} = $length;
 		$frame->{type} = $cframe{$type}{name};
@@ -292,6 +318,25 @@ sub read {
 		last unless $extra{all} && test_fin($got[-1], $extra{all});
 	};
 	return \@got;
+}
+
+###############################################################################
+
+sub pack_body {
+	my ($ctx, $body, $flags, $extra) = @_;
+
+	my $pad = defined $extra->{body_padding} ? $extra->{body_padding} : 0;
+	my $padlen = defined $extra->{body_padding} ? 1 : 0;
+
+	my $buf = pack_length(length($body) + $pad + $padlen);
+	$flags |= 0x8 if $padlen;
+	vec($flags, 0, 1) = 0 if $extra->{body_more};
+	$buf .= pack 'CC', 0x0, $flags;		# DATA, END_STREAM
+	$buf .= pack 'N', $ctx->{last_stream};
+	$buf .= pack 'C', $pad if $padlen;	# DATA Pad Length?
+	$buf .= $body;
+	$buf .= pack "x$pad" if $padlen;	# DATA Padding
+	return $buf;
 }
 
 sub test_fin {
@@ -402,14 +447,13 @@ sub unpack_length {
 }
 
 sub raw_read {
-	my ($s, $buf, $len, $log, $timo) = @_;
-	$log = \&log_in unless defined $log;
+	my ($s, $buf, $len, $timo) = @_;
 	$timo = 3 unless $timo;
 	my $got = '';
 
 	while (length($buf) < $len && IO::Select->new($s)->can_read($timo)) {
 		$s->sysread($got, 16384) or last;
-		$log->($got);
+		log_in($got);
 		$buf .= $got;
 	}
 	return $buf;
@@ -427,47 +471,6 @@ sub raw_write {
 		$message = substr($message, $n);
 		last unless length $message;
 	}
-}
-
-sub new {
-	my $class = shift;
-	my ($port, %extra) = @_;
-
-	my $s = $extra{socket} || new_socket($port, %extra);
-	my $preface = $extra{preface}
-		|| 'PRI * HTTP/2.0' . CRLF . CRLF . 'SM' . CRLF . CRLF;
-
-	if ($extra{proxy}) {
-		raw_write($s, $extra{proxy});
-	}
-
-	# preface
-
-	raw_write($s, $preface);
-
-	my $ctx = { socket => $s, last_stream => -1,
-		dynamic_encode => [ static_table() ],
-		dynamic_decode => [ static_table() ],
-		static_table_size => scalar @{[static_table()]},
-		iws => 65535, conn_window => 65535, streams => {}};
-	bless $ctx, $class;
-
-	return $ctx if $extra{pure};
-
-	# update windows, if any
-
-	my $frames = $ctx->read(all => [
-		{ type => 'WINDOW_UPDATE' },
-		{ type => 'SETTINGS'}
-	]);
-
-	# 6.5.3.  Settings Synchronization
-
-	if (grep { $_->{type} eq "SETTINGS" && $_->{flags} == 0 } @$frames) {
-		h2_settings($ctx, 1);
-	}
-
-	return $ctx;
 }
 
 sub new_socket {

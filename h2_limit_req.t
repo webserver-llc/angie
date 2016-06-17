@@ -69,7 +69,7 @@ $t->write_file('t.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
-my $sess;
+
 # request body delayed in limit_req
 
 my $s = Test::Nginx::HTTP2->new();

@@ -91,7 +91,7 @@ open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
-my ($sess, $sid, $frames, $frame);
+my ($s, $sid, $frames, $frame);
 
 # SSL/TLS connection, NPN
 
@@ -99,9 +99,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, npn => 'h2');
-$sid = new_stream($sess, { path => '/h2' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$sid = $s->new_stream({ path => '/h2' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'h2', 'http variable - npn');
@@ -114,9 +114,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, alpn => 'h2');
-$sid = new_stream($sess, { path => '/h2' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$sid = $s->new_stream({ path => '/h2' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'h2', 'http variable - alpn');
@@ -129,9 +129,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, npn => 'h2');
-$sid = new_stream($sess, { path => '/sp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$sid = $s->new_stream({ path => '/sp' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'HTTP/2.0', 'server_protocol variable - npn');
@@ -144,9 +144,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, alpn => 'h2');
-$sid = new_stream($sess, { path => '/sp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$sid = $s->new_stream({ path => '/sp' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'HTTP/2.0', 'server_protocol variable - alpn');
@@ -159,9 +159,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, npn => 'h2');
-$sid = new_stream($sess, { path => '/scheme' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$sid = $s->new_stream({ path => '/scheme' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'https', 'scheme variable - npn');
@@ -174,9 +174,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, alpn => 'h2');
-$sid = new_stream($sess, { path => '/scheme' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$sid = $s->new_stream({ path => '/scheme' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'https', 'scheme variable - alpn');
@@ -189,9 +189,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, npn => 'h2');
-$sid = new_stream($sess, { path => '/https' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$sid = $s->new_stream({ path => '/https' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'on', 'https variable - npn');
@@ -204,9 +204,9 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$sess = new_session(8081, SSL => 1, alpn => 'h2');
-$sid = new_stream($sess, { path => '/https' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$sid = $s->new_stream({ path => '/https' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'on', 'https variable - alpn');

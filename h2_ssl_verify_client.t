@@ -139,13 +139,13 @@ sub get {
 		return undef;
 	}
 
-	my $sess = new_session(8443, socket => $s);
-	my $sid = new_stream($sess,  { headers => [
+	my $sess = Test::Nginx::HTTP2->new(8443, socket => $s);
+	my $sid = $sess->new_stream({ headers => [
 		{ name => ':method', value => 'GET', mode => 0 },
 		{ name => ':scheme', value => 'http', mode => 0 },
 		{ name => ':path', value => '/t', mode => 1 },
 		{ name => ':authority', value => $host, mode => 1 }]});
-	my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+	my $frames = $sess->read(all => [{ sid => $sid, fin => 1 }]);
 
 	my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 	return $frame->{'headers'};

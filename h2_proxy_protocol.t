@@ -59,9 +59,9 @@ $t->run();
 ###############################################################################
 
 my $proxy = 'PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678' . CRLF;
-my $sess = new_session(8081, proxy => $proxy);
-my $sid = new_stream($sess, { path => '/pp' });
-my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+my $s = Test::Nginx::HTTP2->new(8081, proxy => $proxy);
+my $sid = $s->new_stream({ path => '/pp' });
+my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 ok($frame, 'PROXY HEADERS frame');
@@ -70,8 +70,8 @@ is($frame->{headers}->{'x-pp'}, '192.0.2.1', 'PROXY remote addr');
 # invalid PROXY protocol string
 
 $proxy = 'BOGUS TCP4 192.0.2.1 192.0.2.2 1234 5678' . CRLF;
-$sess = new_session(8081, preface => $proxy, pure => 1);
-$frames = h2_read($sess, all => [{ type => 'GOAWAY' }]);
+$s = Test::Nginx::HTTP2->new(8081, preface => $proxy, pure => 1);
+$frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'invalid PROXY - GOAWAY frame');

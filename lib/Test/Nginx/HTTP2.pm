@@ -10,15 +10,6 @@ package Test::Nginx::HTTP2;
 use warnings;
 use strict;
 
-use base qw/ Exporter /;
-our @EXPORT = qw/ new_session new_stream h2_read /;
-our %EXPORT_TAGS = (
-	io => [ qw/ raw_write raw_read / ],
-	frame => [ qw/ h2_ping h2_rst h2_goaway h2_priority h2_window
-		h2_settings h2_unknown h2_continue h2_body/ ]
-);
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'io'} }, @{ $EXPORT_TAGS{'frame'} } );
-
 use Test::More qw//;
 use IO::Select;
 use IO::Socket;
@@ -113,7 +104,7 @@ sub h2_body {
 	my $sid = $sess->{last_stream};
 
 	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
-		h2_read($sess, all => [{ type => 'WINDOW_UPDATE' }]);
+		$sess->read(all => [{ type => 'WINDOW_UPDATE' }]);
 	}
 
 	if ($len > $sess->{conn_window} || $len > $sess->{streams}{$sid}) {
@@ -260,7 +251,7 @@ done:
 	return $ctx->{last_stream};
 }
 
-sub h2_read {
+sub read {
 	my ($sess, %extra) = @_;
 	my (@got);
 	my $s = $sess->{socket};
@@ -438,7 +429,8 @@ sub raw_write {
 	}
 }
 
-sub new_session {
+sub new {
+	my $class = shift;
 	my ($port, %extra) = @_;
 
 	my $s = $extra{socket} || new_socket($port, %extra);
@@ -458,12 +450,13 @@ sub new_session {
 		dynamic_decode => [ static_table() ],
 		static_table_size => scalar @{[static_table()]},
 		iws => 65535, conn_window => 65535, streams => {}};
+	bless $ctx, $class;
 
 	return $ctx if $extra{pure};
 
 	# update windows, if any
 
-	my $frames = h2_read($ctx, all => [
+	my $frames = $ctx->read(all => [
 		{ type => 'WINDOW_UPDATE' },
 		{ type => 'SETTINGS'}
 	]);

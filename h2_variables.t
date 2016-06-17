@@ -63,36 +63,36 @@ $t->run();
 
 # $http2
 
-my $sess = new_session();
-my $sid = new_stream($sess, { path => '/h2' });
-my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+my $s = Test::Nginx::HTTP2->new();
+my $sid = $s->new_stream({ path => '/h2' });
+my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'h2c', 'http variable - h2c');
 
 # $server_protocol
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/sp' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/sp' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'HTTP/2.0', 'server_protocol variable');
 
 # $scheme
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/scheme' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/scheme' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'http', 'scheme variable');
 
 # $https
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/https' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/https' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, '', 'https variable');

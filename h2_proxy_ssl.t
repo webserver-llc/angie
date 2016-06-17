@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
+use Test::Nginx::HTTP2;
 
 ###############################################################################
 
@@ -86,10 +86,10 @@ $t->run();
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.14');
 
-my $sess = new_session();
-my $sid = new_stream($sess, { path => '/proxy_ssl/', body_more => 1 });
-h2_body($sess, '');
-my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+my $s = Test::Nginx::HTTP2->new();
+my $sid = $s->new_stream({ path => '/proxy_ssl/', body_more => 1 });
+$s->h2_body('');
+my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'empty request body');

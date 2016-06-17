@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
+use Test::Nginx::HTTP2;
 
 ###############################################################################
 
@@ -55,42 +55,42 @@ $t->run();
 
 ###############################################################################
 
-my $sess = new_session();
-h2_settings($sess, 0, 0x4 => 1);
+my $s = Test::Nginx::HTTP2->new();
+$s->h2_settings(0, 0x4 => 1);
 
-my $sid = new_stream($sess, { path => '/t.html' });
-my $frames = h2_read($sess, all => [{ sid => $sid, length => 1 }]);
+my $sid = $s->new_stream({ path => '/t.html' });
+my $frames = $s->read(all => [{ sid => $sid, length => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{':status'}, 200, 'limit_conn first stream');
 
-my $sid2 = new_stream($sess, { path => '/t.html' });
-$frames = h2_read($sess, all => [{ sid => $sid2, length => 1 }]);
+my $sid2 = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid2, length => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 503, 'limit_conn rejected');
 
-h2_settings($sess, 0, 0x4 => 2**16);
+$s->h2_settings(0, 0x4 => 2**16);
 
-h2_read($sess, all => [
+$s->read(all => [
 	{ sid => $sid, fin => 1 },
 	{ sid => $sid2, fin => 1 }
 ]);
 
 # limit_conn + client's RST_STREAM
 
-$sess = new_session();
-h2_settings($sess, 0, 0x4 => 1);
+$s = Test::Nginx::HTTP2->new();
+$s->h2_settings(0, 0x4 => 1);
 
-$sid = new_stream($sess, { path => '/t.html' });
-$frames = h2_read($sess, all => [{ sid => $sid, length => 1 }]);
-h2_rst($sess, $sid, 5);
+$sid = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid, length => 1 }]);
+$s->h2_rst($sid, 5);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 1');
 
-$sid2 = new_stream($sess, { path => '/t.html' });
-$frames = h2_read($sess, all => [{ sid => $sid2, length => 1 }]);
+$sid2 = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid2, length => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
 is($frame->{headers}->{':status'}, 200, 'RST_STREAM 2');

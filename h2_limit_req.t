@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
+use Test::Nginx::HTTP2;
 
 ###############################################################################
 
@@ -69,13 +69,13 @@ $t->write_file('t.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
-
+my $sess;
 # request body delayed in limit_req
 
-my $sess = new_session();
-my $sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
-h2_body($sess, 'TEST');
-my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+my $s = Test::Nginx::HTTP2->new();
+my $sid = $s->new_stream({ path => '/proxy_limit_req/', body_more => 1 });
+$s->h2_body('TEST');
+my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
@@ -84,11 +84,11 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.15');
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/proxy_limit_req/', body_more => 1 });
 select undef, undef, undef, 1.1;
-h2_body($sess, 'TEST');
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$s->h2_body('TEST');
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
@@ -99,28 +99,28 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 # request body delayed in limit_req - with an empty DATA frame
 # "zero size buf in output" alerts seen
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/proxy_limit_req/', body_more => 1 });
-h2_body($sess, '');
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/proxy_limit_req/', body_more => 1 });
+$s->h2_body('');
 select undef, undef, undef, 1.1;
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request body - limit req - empty');
 
 # predict send windows
 
-$sid = new_stream($sess);
-my ($maxwin) = sort {$a <=> $b} $sess->{streams}{$sid}, $sess->{conn_window};
+$sid = $s->new_stream();
+my ($maxwin) = sort {$a <=> $b} $s->{streams}{$sid}, $s->{conn_window};
 
 SKIP: {
 skip 'leaves coredump', 1 unless $t->has_version('1.9.7');
 skip 'not enough window', 1 if $maxwin < 5;
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/proxy_limit_req/', body => 'TEST2' });
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/proxy_limit_req/', body => 'TEST2' });
 select undef, undef, undef, 1.1;
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST2',
@@ -131,7 +131,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST2',
 # partial request body data frame received (to be discarded) within request
 # delayed in limit_req, the rest of data frame is received after response
 
-$sess = new_session();
+$s = Test::Nginx::HTTP2->new();
 
 SKIP: {
 skip 'not enough window', 1 if $maxwin < 4;
@@ -140,9 +140,9 @@ TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
 	or $t->has_version('1.9.12');
 
-$sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
+$sid = $s->new_stream({ path => '/limit_req', body => 'TEST', split => [61],
 	split_delay => 1.1 });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'discard body - limit req - limited');
@@ -151,8 +151,8 @@ is($frame->{headers}->{':status'}, '200', 'discard body - limit req - limited');
 
 }
 
-$sid = new_stream($sess, { path => '/' });
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sid = $s->new_stream({ path => '/' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'discard body - limit req - next');
@@ -167,12 +167,12 @@ TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
 	or $t->has_version('1.9.12');
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/limit_req', body => 'TEST', split => [61],
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/limit_req', body => 'TEST', split => [61],
 	abort => 1 });
 
 select undef, undef, undef, 1.1;
-close $sess->{socket};
+close $s->{socket};
 
 pass('discard body - limit req - eof');
 

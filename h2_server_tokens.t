@@ -101,9 +101,9 @@ like(body('/on/404'), qr/nginx\/\d+\.\d+\.\d+/, 'http2 tokens on 404 body');
 sub header_server {
 	my ($path) = shift;
 
-	my $sess = new_session();
-	my $sid = new_stream($sess, { path => $path });
-	my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+	my $s = Test::Nginx::HTTP2->new();
+	my $sid = $s->new_stream({ path => $path });
+	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 	my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 	return $frame->{headers}->{'server'};
@@ -112,9 +112,9 @@ sub header_server {
 sub body {
 	my ($path) = shift;
 
-	my $sess = new_session();
-	my $sid = new_stream($sess, { path => $path });
-	my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+	my $s = Test::Nginx::HTTP2->new();
+	my $sid = $s->new_stream({ path => $path });
+	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 	my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 	return $frame->{'data'};

@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2 qw/ :DEFAULT :frame /;
+use Test::Nginx::HTTP2;
 
 ###############################################################################
 
@@ -66,9 +66,9 @@ $t->run();
 
 # simple proxy cache test
 
-my $sess = new_session();
-my $sid = new_stream($sess, { path => '/cache/t.html' });
-my $frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+my $s = Test::Nginx::HTTP2->new();
+my $sid = $s->new_stream({ path => '/cache/t.html' });
+my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, '200', 'proxy cache');
@@ -81,13 +81,13 @@ is($frame->{data}, 'SEE-THIS', 'proxy cache - DATA payload');
 
 $t->write_file('t.html', 'NOOP');
 
-$sid = new_stream($sess, { headers => [
+$sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/cache/t.html' },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'if-none-match', value => $etag }]});
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 304, 'proxy cache conditional');
@@ -96,26 +96,26 @@ $t->write_file('t.html', 'SEE-THIS');
 
 # request body with cached response
 
-$sid = new_stream($sess, { path => '/cache/t.html', body_more => 1 });
-h2_body($sess, 'TEST');
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$sid = $s->new_stream({ path => '/cache/t.html', body_more => 1 });
+$s->h2_body('TEST');
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'proxy cache - request body');
 
-h2_ping($sess, 'SEE-THIS');
-$frames = h2_read($sess, all => [{ type => 'PING' }]);
+$s->h2_ping('SEE-THIS');
+$frames = $s->read(all => [{ type => 'PING' }]);
 
 ($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
 ok($frame, 'proxy cache - request body - next');
 
 # HEADERS could be received with fin, followed by DATA
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/cache/t.html?1', method => 'HEAD' });
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/cache/t.html?1', method => 'HEAD' });
 
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }], wait => 0.2);
-push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }], wait => 0.2)};
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }], wait => 0.2);
+push @$frames, $_ for @{$s->read(all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
 
 # proxy cache - expect no stray empty DATA frame
@@ -123,10 +123,10 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames), 'proxy cache HEAD - no body');
 TODO: {
 local $TODO = 'not yet';
 
-$sess = new_session();
-$sid = new_stream($sess, { path => '/cache/t.html?2' });
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/cache/t.html?2' });
 
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 my @data = grep ({ $_->{type} eq "DATA" } @$frames);
 is(@data, 1, 'proxy cache write - data frames');
 is(join(' ', map { $_->{data} } @data), 'SEE-THIS', 'proxy cache write - data');
@@ -136,12 +136,12 @@ is(join(' ', map { $_->{flags} } @data), '1', 'proxy cache write - flags');
 
 # HEAD on empty cache with proxy_buffering off
 
-$sess = new_session();
-$sid = new_stream($sess,
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream(
 	{ path => '/proxy_buffering_off/t.html?1', method => 'HEAD' });
 
-$frames = h2_read($sess, all => [{ sid => $sid, fin => 1 }]);
-push @$frames, $_ for @{h2_read($sess, all => [{ sid => $sid }], wait => 0.2)};
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+push @$frames, $_ for @{$s->read(all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 	'proxy cache HEAD buffering off - no body');
 

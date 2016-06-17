@@ -198,6 +198,10 @@ sub has_feature($) {
 		return $^O ne 'MSWin32';
 	}
 
+	if ($feature eq 'udp') {
+		return $^O ne 'MSWin32';
+	}
+
 	return 0;
 }
 

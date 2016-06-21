@@ -47,7 +47,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         add_header X-Got $uid_got;

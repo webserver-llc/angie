@@ -58,7 +58,7 @@ http {
                           s;";
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location /req_method {

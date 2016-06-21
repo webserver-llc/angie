@@ -38,12 +38,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream backend {
-        server 127.0.0.1:8081;
+        server 127.0.0.1:%%PORT_1%%;
         keepalive 1;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         proxy_http_version 1.1;
@@ -74,7 +74,7 @@ $t->write_file('ssi.html',
 $t->run_daemon(\&http_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:8081')
+$t->waitforsocket('127.0.0.1:' . port(1))
 	or die "Can't start test backend";
 
 ###############################################################################
@@ -215,7 +215,7 @@ like(`grep -F '[error]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no errors');
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:8081',
+		LocalHost => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

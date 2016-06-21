@@ -41,11 +41,11 @@ http {
                        keys_zone=NAME2:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:8081;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%;
 
             proxy_cache   $arg_c;
 
@@ -56,7 +56,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {

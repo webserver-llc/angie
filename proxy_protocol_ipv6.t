@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       [::1]:8080 proxy_protocol;
+        listen       [::1]:%%PORT_0%% proxy_protocol;
         server_name  localhost;
 
         add_header X-IP $remote_addr;
@@ -54,8 +54,8 @@ http {
 
 stream {
     server {
-        listen      127.0.0.1:8080;
-        proxy_pass  [::1]:8080;
+        listen      127.0.0.1:%%PORT_0%%;
+        proxy_pass  [::1]:%%PORT_0%%;
 
         proxy_protocol on;
     }

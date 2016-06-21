@@ -41,8 +41,8 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2;
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:%%PORT_0%% http2;
+        listen       127.0.0.1:%%PORT_1%% ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -50,7 +50,7 @@ http {
 
         location / { }
         location /proxy_ssl/ {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
         }
     }
 }

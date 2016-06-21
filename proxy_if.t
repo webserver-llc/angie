@@ -38,18 +38,18 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
         }
 
         # request was sent to backend without uri changed
         # to '/' due to if
 
         location /proxy-pass-uri {
-            proxy_pass http://127.0.0.1:8081/replacement;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/replacement;
 
             if ($arg_if) {
                 # nothing
@@ -69,7 +69,7 @@ http {
         # nested locations though
 
         location /proxy-pass-uri-lmt {
-            proxy_pass http://127.0.0.1:8081/replacement;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/replacement;
 
             limit_except POST {
                 # nothing
@@ -85,10 +85,10 @@ http {
         }
 
         location /proxy-pass-uri-lmt-different {
-            proxy_pass http://127.0.0.1:8081/replacement;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/replacement;
 
             limit_except POST {
-                proxy_pass http://127.0.0.1:8081;
+                proxy_pass http://127.0.0.1:%%PORT_1%%;
             }
         }
 
@@ -101,7 +101,7 @@ http {
 
             if ($true) {
                 # proxy_pass inside if
-                proxy_pass http://127.0.0.1:8081;
+                proxy_pass http://127.0.0.1:%%PORT_1%%;
             }
 
             if ($true) {
@@ -114,14 +114,14 @@ http {
         # exclusive
 
         location /variables {
-            proxy_pass http://127.0.0.1:8081/outer/$host;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/outer/$host;
 
             if ($arg_if) {
-                proxy_pass http://127.0.0.1:8081;
+                proxy_pass http://127.0.0.1:%%PORT_1%%;
             }
 
             location /variables/inner {
-                proxy_pass http://127.0.0.1:8081;
+                proxy_pass http://127.0.0.1:%%PORT_1%%;
             }
         }
 
@@ -130,21 +130,21 @@ http {
         # be correctly inherited into if's
 
         location /ssl {
-            proxy_pass https://127.0.0.1:8082/outer;
+            proxy_pass https://127.0.0.1:%%PORT_2%%/outer;
 
             if ($arg_if) {
                 # inherited from outer
             }
 
             location /ssl/inner {
-                proxy_pass http://127.0.0.1:8081;
+                proxy_pass http://127.0.0.1:%%PORT_1%%;
             }
         }
     }
 
     server {
-        listen       127.0.0.1:8081;
-        listen       127.0.0.1:8082 ssl;
+        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:%%PORT_2%% ssl;
         server_name  localhost;
 
         ssl_certificate localhost.crt;

@@ -38,15 +38,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location /inet/ {
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
         }
 
         location /inet6/ {
-            proxy_pass http://[::1]:8081/;
+            proxy_pass http://[::1]:%%PORT_1%%/;
         }
 
         location /unix/ {
@@ -56,8 +56,8 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
-        listen       [::1]:8081;
+        listen       127.0.0.1:%%PORT_1%%;
+        listen       [::1]:%%PORT_1%%;
         listen       unix:%%TESTDIR%%/unix.sock;
 
         location /allow_all {

@@ -47,7 +47,7 @@ http {
     log_format pp '$remote_addr $request';
 
     server {
-        listen       127.0.0.1:8080 proxy_protocol ssl;
+        listen       127.0.0.1:%%PORT_0%% proxy_protocol ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;

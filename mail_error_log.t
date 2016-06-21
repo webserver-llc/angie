@@ -28,7 +28,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/)
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
+	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(4));
 
 plan(skip_all => 'no error_log') unless $t->has_version('1.9.0');
 
@@ -38,7 +38,7 @@ $t->plan(30)->write_file_expand('nginx.conf', <<'EOF');
 
 error_log %%TESTDIR%%/e_glob.log info;
 error_log %%TESTDIR%%/e_glob2.log info;
-error_log syslog:server=127.0.0.1:8081 info;
+error_log syslog:server=127.0.0.1:%%PORT_1_UDP%% info;
 
 daemon off;
 
@@ -46,23 +46,23 @@ events {
 }
 
 mail {
-    auth_http  http://127.0.0.1:8080/mail/auth;
+    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
 
     server {
-        listen     127.0.0.1:8143;
+        listen     127.0.0.1:%%PORT_3%%;
         protocol   imap;
 
         error_log %%TESTDIR%%/e_debug.log debug;
         error_log %%TESTDIR%%/e_info.log info;
-        error_log syslog:server=127.0.0.1:8082 info;
+        error_log syslog:server=127.0.0.1:%%PORT_2_UDP%%  info;
         error_log stderr info;
     }
 
     server {
-        listen     127.0.0.1:8145;
+        listen     127.0.0.1:%%PORT_5%%;
         protocol   imap;
 
-        error_log syslog:server=127.0.0.1:8080 info;
+        error_log syslog:server=127.0.0.1:%%PORT_6_UDP%% info;
     }
 }
 
@@ -70,13 +70,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location = /mail/auth {
             add_header Auth-Status OK;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port 8144;
+            add_header Auth-Port %%PORT_4%%;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -90,8 +90,8 @@ open STDERR, '>', $t->testdir() . '/stderr' or die "Can't reopen STDERR: $!";
 open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
 
-$t->run_daemon(\&syslog_daemon, 8081, $t, 's_glob.log');
-$t->run_daemon(\&syslog_daemon, 8082, $t, 's_info.log');
+$t->run_daemon(\&syslog_daemon, port(1), $t, 's_glob.log');
+$t->run_daemon(\&syslog_daemon, port(2), $t, 's_info.log');
 
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_info.log');
@@ -102,7 +102,7 @@ open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
-my $s = Test::Nginx::IMAP->new();
+my $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(3));
 $s->ok('greeting');
 
 # error_log levels
@@ -128,7 +128,7 @@ is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 
 # syslog
 
-parse_syslog_message('syslog', get_syslog());
+parse_syslog_message('syslog', get_syslog(port(6)));
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'e_glob.log'),
 	'global syslog messages');
@@ -165,8 +165,6 @@ sub get_syslog {
 	my $data = '';
 	my ($s);
 
-	$port = 8080 unless defined $port;
-
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
@@ -183,7 +181,7 @@ sub get_syslog {
 		return undef;
 	}
 
-	Test::Nginx::IMAP->new(PeerAddr => "127.0.0.1:8145")->read();
+	Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(5))->read();
 
 	IO::Select->new($s)->can_read(1.5);
 	while (IO::Select->new($s)->can_read(0.1)) {

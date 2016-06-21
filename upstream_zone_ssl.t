@@ -37,17 +37,17 @@ http {
 
     upstream u {
         zone u 32k;
-        server 127.0.0.1:8081;
+        server 127.0.0.1:%%PORT_1%%;
     }
 
     upstream u2 {
         zone u;
-        server 127.0.0.1:8081 backup;
-        server 127.0.0.1:8082 down;
+        server 127.0.0.1:%%PORT_1%% backup;
+        server 127.0.0.1:%%PORT_2%% down;
     }
 
     server {
-        listen 127.0.0.1:8081 ssl;
+        listen 127.0.0.1:%%PORT_1%% ssl;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -59,7 +59,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         proxy_ssl_session_reuse off;

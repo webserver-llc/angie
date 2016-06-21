@@ -44,30 +44,30 @@ stream {
     tcp_nodelay off;
 
     server {
-        listen      127.0.0.1:8081;
-        proxy_pass  127.0.0.1:8080;
+        listen      127.0.0.1:%%PORT_1%%;
+        proxy_pass  127.0.0.1:%%PORT_0%%;
     }
 
     server {
         tcp_nodelay on;
-        listen      127.0.0.1:8082;
-        proxy_pass  127.0.0.1:8080;
+        listen      127.0.0.1:%%PORT_2%%;
+        proxy_pass  127.0.0.1:%%PORT_0%%;
     }
 }
 
 EOF
 
 $t->run_daemon(\&stream_daemon);
-$t->run()->waitforsocket('127.0.0.1:8080');
+$t->run()->waitforsocket('127.0.0.1:' . port(0));
 
 ###############################################################################
 
 my $str = '1234567890' x 10 . 'F';
 my $length = length($str);
 
-is(stream('127.0.0.1:8081')->io($str, length => $length), $str,
+is(stream('127.0.0.1:' . port(1))->io($str, length => $length), $str,
 	'tcp_nodelay off');
-is(stream('127.0.0.1:8082')->io($str, length => $length), $str,
+is(stream('127.0.0.1:' . port(2))->io($str, length => $length), $str,
 	'tcp_nodelay on');
 
 ###############################################################################
@@ -75,7 +75,7 @@ is(stream('127.0.0.1:8082')->io($str, length => $length), $str,
 sub stream_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8080',
+		LocalAddr => '127.0.0.1:' . port(0),
 		Listen => 5,
 		Reuse => 1
 	)

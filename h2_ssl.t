@@ -44,7 +44,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8081 http2 ssl;
+        listen       127.0.0.1:%%PORT_0%% http2 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -99,7 +99,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, npn => 'h2');
 $sid = $s->new_stream({ path => '/h2' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -114,7 +114,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, alpn => 'h2');
 $sid = $s->new_stream({ path => '/h2' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -129,7 +129,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, npn => 'h2');
 $sid = $s->new_stream({ path => '/sp' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -144,7 +144,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, alpn => 'h2');
 $sid = $s->new_stream({ path => '/sp' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -159,7 +159,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, npn => 'h2');
 $sid = $s->new_stream({ path => '/scheme' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -174,7 +174,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, alpn => 'h2');
 $sid = $s->new_stream({ path => '/scheme' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -189,7 +189,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_npn() or die; };
 skip 'OpenSSL NPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, npn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, npn => 'h2');
 $sid = $s->new_stream({ path => '/https' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -204,7 +204,7 @@ SKIP: {
 eval { IO::Socket::SSL->can_alpn() or die; };
 skip 'OpenSSL ALPN support required', 1 if $@;
 
-$s = Test::Nginx::HTTP2->new(8081, SSL => 1, alpn => 'h2');
+$s = Test::Nginx::HTTP2->new(port(0), SSL => 1, alpn => 'h2');
 $sid = $s->new_stream({ path => '/https' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 

@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(6)
-	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon)
+	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(2))
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -37,11 +37,11 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:8080/mail/auth;
+    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
     xclient    on;
 
     server {
-        listen     127.0.0.1:8025;
+        listen     127.0.0.1:%%PORT_1%%;
         protocol   smtp;
         smtp_auth  login plain none;
     }
@@ -51,13 +51,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location = /mail/auth {
             add_header Auth-Status OK;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port   8026;
+            add_header Auth-Port   %%PORT_2%%;
             add_header Auth-Wait   1;
             return 204;
         }
@@ -82,14 +82,14 @@ EOF
 
 # xclient
 
-my $s = Test::Nginx::SMTP->new();
+my $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
 $s->authok('xclient');
 
 # xclient, helo
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('HELO example.com');
 $s->read();
@@ -98,7 +98,7 @@ $s->authok('xclient, helo');
 
 # xclient, ehlo
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -107,7 +107,7 @@ $s->authok('xclient, ehlo');
 
 # xclient, from, rcpt
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('MAIL FROM:<test@example.com>');
 $s->read();
@@ -116,7 +116,7 @@ $s->ok('xclient, from');
 
 # xclient, helo, from, rcpt
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('HELO example.com');
 $s->read();
@@ -127,7 +127,7 @@ $s->ok('xclient, helo, from');
 
 # xclient, ehlo, from, rcpt
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();

@@ -39,14 +39,14 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
         }
 
         location /proxy {
-            proxy_pass http://127.0.0.1:8080/;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/;
             client_body_in_file_only on;
             ssi on;
         }

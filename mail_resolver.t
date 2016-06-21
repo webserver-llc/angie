@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)
-	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
+	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(15));
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -38,7 +38,7 @@ events {
 }
 
 mail {
-    auth_http    http://127.0.0.1:8080/mail/auth;
+    auth_http    http://127.0.0.1:%%PORT_0%%/mail/auth;
     smtp_auth    none;
     server_name  locahost;
 
@@ -46,46 +46,47 @@ mail {
     resolver_timeout 2s;
 
     server {
-        listen    127.0.0.1:8025;
+        listen    127.0.0.1:%%PORT_1%%;
         protocol  smtp;
-        resolver  127.0.0.1:8081 127.0.0.1:8082 127.0.0.1:8083;
+        resolver  127.0.0.1:%%PORT_8_UDP%% 127.0.0.1:%%PORT_9_UDP%%
+                  127.0.0.1:%%PORT_10_UDP%%;
     }
 
     server {
-        listen    127.0.0.1:8027;
+        listen    127.0.0.1:%%PORT_2%%;
         protocol  smtp;
-        resolver  127.0.0.1:8082;
+        resolver  127.0.0.1:%%PORT_9_UDP%%;
     }
 
     server {
-        listen    127.0.0.1:8028;
+        listen    127.0.0.1:%%PORT_3%%;
         protocol  smtp;
-        resolver  127.0.0.1:8083;
+        resolver  127.0.0.1:%%PORT_10_UDP%%;
 
     }
 
     server {
-        listen    127.0.0.1:8029;
+        listen    127.0.0.1:%%PORT_4%%;
         protocol  smtp;
-        resolver  127.0.0.1:8084;
+        resolver  127.0.0.1:%%PORT_11_UDP%%;
     }
 
     server {
-        listen    127.0.0.1:8030;
+        listen    127.0.0.1:%%PORT_5%%;
         protocol  smtp;
-        resolver  127.0.0.1:8085;
+        resolver  127.0.0.1:%%PORT_12_UDP%%;
     }
 
     server {
-        listen    127.0.0.1:8031;
+        listen    127.0.0.1:%%PORT_6%%;
         protocol  smtp;
-        resolver  127.0.0.1:8086;
+        resolver  127.0.0.1:%%PORT_13_UDP%%;
     }
 
     server {
-        listen    127.0.0.1:8032;
+        listen    127.0.0.1:%%PORT_7%%;
         protocol  smtp;
-        resolver  127.0.0.1:8087;
+        resolver  127.0.0.1:%%PORT_14_UDP%%;
     }
 
 }
@@ -94,7 +95,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location = /mail/auth {
@@ -106,7 +107,7 @@ http {
 
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port 8026;
+            add_header Auth-Port %%PORT_15%%;
             return 204;
         }
     }
@@ -114,13 +115,13 @@ http {
 
 EOF
 
-for (8081 .. 8087) {
-	$t->run_daemon(\&dns_daemon, $_, $t);
+for (8 .. 14) {
+	$t->run_daemon(\&dns_daemon, port($_), $t);
 }
 $t->run();
 
-for (8081 .. 8087) {
-	$t->waitforfile($t->testdir . "/$_");
+for (8 .. 14) {
+	$t->waitforfile($t->testdir . '/' . port($_));
 }
 
 $t->plan(8);
@@ -129,7 +130,7 @@ $t->plan(8);
 
 # PTR
 
-my $s = Test::Nginx::SMTP->new();
+my $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -142,9 +143,9 @@ $s->ok('PTR');
 $s->send('QUIT');
 $s->read();
 
-# Cached PTR prevents from querying bad ns on port 8083
+# Cached PTR prevents from querying bad ns on the first port
 
-$s = Test::Nginx::SMTP->new();
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -159,7 +160,7 @@ $s->read();
 
 # SERVFAIL
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8027");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(2));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -174,7 +175,7 @@ $s->read();
 
 # PTR with zero length RDATA
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8028");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(3));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -192,7 +193,7 @@ $s->read();
 TODO: {
 local $TODO = 'support for CNAME RR';
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8029");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(4));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -213,7 +214,7 @@ TODO: {
 local $TODO = 'support for uncompressed name in PTR'
 	unless $t->has_version('1.9.11');
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8030");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(5));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -231,7 +232,7 @@ $s->read();
 TODO: {
 local $TODO = 'PTR type checking' unless $t->has_version('1.9.11');
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8031");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(6));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -251,7 +252,7 @@ $s->read();
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.11');
 
-$s = Test::Nginx::SMTP->new(PeerAddr => "127.0.0.1:8032");
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(7));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -307,34 +308,34 @@ sub reply_handler {
 		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq '1.0.0.127.in-addr.arpa' && $type == PTR) {
-		if ($port == 8081) {
+		if ($port == port(8)) {
 			push @rdata, rd_name(PTR, $ttl, 'a.example.net');
 
-		} elsif ($port == 8082) {
+		} elsif ($port == port(9)) {
 			$rcode = SERVFAIL;
 
-		} elsif ($port == 8083) {
+		} elsif ($port == port(10)) {
 			# zero length RDATA
 
 			push @rdata, pack("n3N n", 0xc00c, PTR, IN, $ttl, 0);
 
-		} elsif ($port == 8084) {
+		} elsif ($port == port(11)) {
 			# PTR answered with CNAME
 
 			push @rdata, rd_name(CNAME, $ttl,
 				'1.1.0.0.127.in-addr.arpa');
 
-		} elsif ($port == 8085) {
+		} elsif ($port == port(12)) {
 			# uncompressed answer
 
 			push @rdata, pack("(C/a*)6x n2N n(C/a*)3x",
 				('1', '0', '0', '127', 'in-addr', 'arpa'),
 				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
 
-		} elsif ($port == 8086) {
+		} elsif ($port == port(13)) {
 			push @rdata, rd_name(DNAME, $ttl, 'a.example.net');
 
-		} elsif ($port == 8087) {
+		} elsif ($port == port(14)) {
 			# PTR answered with CNAME+PTR
 
 			push @rdata, rd_name(CNAME, $ttl,

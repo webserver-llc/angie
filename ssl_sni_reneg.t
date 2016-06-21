@@ -58,7 +58,7 @@ http {
     ssl_certificate localhost.crt;
 
     server {
-        listen       127.0.0.1:8443 ssl;
+        listen       127.0.0.1:%%PORT_0%% ssl;
         server_name  localhost;
 
         location / { }
@@ -118,7 +118,7 @@ sub get_ssl_socket {
 	my $s;
 
 	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in(8443, $dest_ip);
+	my $dest_serv_params = sockaddr_in(port(0), $dest_ip);
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };

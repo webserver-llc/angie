@@ -38,15 +38,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream backend {
-        server 127.0.0.1:8081;
+        server 127.0.0.1:%%PORT_1%%;
     }
 
     upstream backend2 {
-        server 127.0.0.1:8081;
+        server 127.0.0.1:%%PORT_1%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         # session reuse is off, as sessions are cached
@@ -56,13 +56,13 @@ http {
         proxy_ssl_session_reuse off;
 
         location /1 {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_ssl_name 1.example.com;
             proxy_ssl_server_name on;
         }
 
         location /2 {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_ssl_name 2.example.com;
             proxy_ssl_server_name on;
 
@@ -90,19 +90,19 @@ http {
         }
 
         location /ip {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_ssl_server_name on;
         }
 
         #location /ip6 {
-        #    proxy_pass https://[::1]:8081/;
+        #    proxy_pass https://[::1]:%%PORT_1%%/;
         #    proxy_ssl_server_name on;
         #}
     }
 
     server {
-        listen 127.0.0.1:8081 ssl;
-        #listen [::1]:8081 ssl;
+        listen 127.0.0.1:%%PORT_1%% ssl;
+        #listen [::1]:%%PORT_1%% ssl;
         server_name 1.example.com;
 
         ssl_certificate localhost.crt;

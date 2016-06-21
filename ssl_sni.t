@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8443 ssl;
+        listen       127.0.0.1:%%PORT_0%% ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -49,7 +49,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8443;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  example.com;
 
         ssl_certificate_key example.com.key;
@@ -136,7 +136,7 @@ sub get_ssl_socket {
 		alarm(2);
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:8443',
+			PeerAddr => '127.0.0.1:' . port(0),
 			SSL_hostname => $host,
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_error_trap => sub { die $_[1] }

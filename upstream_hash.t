@@ -38,57 +38,57 @@ http {
 
     upstream u {
         hash $arg_a;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8083;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:%%PORT_3%%;
     }
 
     upstream u2 {
         hash $arg_a;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8083;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_3%%;
     }
 
     upstream cw {
         hash $arg_a consistent;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8083 weight=10;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:%%PORT_3%% weight=10;
     }
 
     upstream cw2 {
         hash $arg_a consistent;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8083 weight=10;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_3%% weight=10;
     }
 
     upstream c {
         hash $arg_a consistent;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8083;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:%%PORT_3%%;
     }
 
     upstream c2 {
         hash $arg_a consistent;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8083;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_3%%;
     }
 
     upstream bad {
         hash $arg_a;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8084;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_4%%;
     }
 
     upstream cbad {
         hash $arg_a consistent;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8084;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_4%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -122,9 +122,9 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
-        listen       127.0.0.1:8082;
-        listen       127.0.0.1:8083;
+        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:%%PORT_2%%;
+        listen       127.0.0.1:%%PORT_3%%;
         server_name  localhost;
 
         add_header X-Port $server_port;
@@ -134,7 +134,7 @@ http {
         }
 
         location /502 {
-            if ($server_port = 8083) {
+            if ($server_port = %%PORT_3%%) {
                 return 502;
             }
             return 204;
@@ -142,7 +142,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8084;
+        listen       127.0.0.1:%%PORT_4%%;
         server_name  localhost;
         return 444;
     }
@@ -154,21 +154,23 @@ $t->run();
 
 ###############################################################################
 
+my ($p1, $p2, $p3) = (port(1), port(2), port(3));
+
 # Only requests for absent peer are moved to other peers if hash is consistent.
 # Check this by comparing two upstreams with different number of peers.
 
-ok(!cmp_peers([iter('/', 20)], [iter('/2', 20)], 8082), 'inconsistent');
-ok(cmp_peers([iter('/c', 20)], [iter('/c2', 20)], 8082), 'consistent');
-ok(cmp_peers([iter('/cw', 20)], [iter('/cw2', 20)], 8082), 'consistent weight');
+ok(!cmp_peers([iter('/', 20)], [iter('/2', 20)], $p2), 'inconsistent');
+ok(cmp_peers([iter('/c', 20)], [iter('/c2', 20)], $p2), 'consistent');
+ok(cmp_peers([iter('/cw', 20)], [iter('/cw2', 20)], $p2), 'consistent weight');
 
-like(many('/?a=1', 10), qr/808\d: 10/, 'stable hash');
-like(many('/c?a=1', 10), qr/808\d: 10/, 'stable hash - consistent');
+like(many('/?a=1', 10), qr/($p1|$p2|$p3): 10/, 'stable hash');
+like(many('/c?a=1', 10), qr/($p1|$p2|$p3): 10/, 'stable hash - consistent');
 
 my @res = iter('/', 10);
 
 is(@res, 10, 'all hashed peers');
 
-@res = grep { $_ != 8083 } @res;
+@res = grep { $_ != $p3 } @res;
 my @res2 = iter('/502', 10);
 
 is_deeply(\@res, \@res2, 'no proxy_next_upstream');
@@ -176,10 +178,10 @@ isnt(@res2, 10, 'no proxy_next_upstream peers');
 
 is(iter('/pnu/502', 10), 10, 'proxy_next_upstream peers');
 
-@res = grep { $_ == 8081 } iter('/bad', 20);
+@res = grep { $_ == $p1 } iter('/bad', 20);
 is(@res, 20, 'all hashed peers - bad');
 
-@res = grep { $_ == 8081 } iter('/cbad', 20);
+@res = grep { $_ == $p1 } iter('/cbad', 20);
 is(@res, 20, 'all hashed peers - bad consistent');
 
 ###############################################################################

@@ -40,33 +40,33 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen          127.0.0.1:8080;
+        listen          127.0.0.1:%%PORT_0%%;
         server_name     localhost;
 
         proxy_bind      127.0.0.2;
 
         location / {
             proxy_bind  127.0.0.1;
-            proxy_pass  http://127.0.0.1:8081/;
+            proxy_pass  http://127.0.0.1:%%PORT_1%%/;
         }
 
         location /inherit {
-            proxy_pass  http://127.0.0.1:8081/;
+            proxy_pass  http://127.0.0.1:%%PORT_1%%/;
         }
 
         location /off {
             proxy_bind  off;
-            proxy_pass  http://127.0.0.1:8081/;
+            proxy_pass  http://127.0.0.1:%%PORT_1%%/;
         }
 
         location /var {
             proxy_bind  $arg_b;
-            proxy_pass  http://127.0.0.1:8081/;
+            proxy_pass  http://127.0.0.1:%%PORT_1%%/;
         }
     }
 
     server {
-        listen          127.0.0.1:8081;
+        listen          127.0.0.1:%%PORT_1%%;
         server_name     localhost;
 
         location / {

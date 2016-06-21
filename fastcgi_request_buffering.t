@@ -43,7 +43,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         client_header_buffer_size 1k;
@@ -53,17 +53,17 @@ http {
 
         location / {
             client_body_buffer_size 2k;
-            fastcgi_pass 127.0.0.1:8081;
+            fastcgi_pass 127.0.0.1:%%PORT_1%%;
         }
         location /single {
             client_body_in_single_buffer on;
-            fastcgi_pass 127.0.0.1:8081;
+            fastcgi_pass 127.0.0.1:%%PORT_1%%;
         }
         location /preread {
-            fastcgi_pass 127.0.0.1:8082;
+            fastcgi_pass 127.0.0.1:%%PORT_2%%;
         }
         location /error_page {
-            fastcgi_pass 127.0.0.1:8081;
+            fastcgi_pass 127.0.0.1:%%PORT_1%%;
             error_page 404 /404;
             fastcgi_intercept_errors on;
         }
@@ -76,7 +76,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -103,7 +103,7 @@ like(http_get_body('/', '0123456789' x 128, '0123456789' x 512, '0123456789',
 
 # interactive tests
 
-my $s = get_body('/preread', 8082, 10);
+my $s = get_body('/preread', port(2), 10);
 ok($s, 'no preread');
 
 SKIP: {
@@ -116,7 +116,7 @@ like($s->{http_end}(), qr/200 OK/, 'no preread - response');
 
 }
 
-$s = get_body('/preread', 8082, 10, '01234');
+$s = get_body('/preread', port(2), 10, '01234');
 ok($s, 'preread');
 
 SKIP: {
@@ -341,7 +341,7 @@ sub log2c { Test::Nginx::log_core('||', @_); }
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:8081', 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 
@@ -358,7 +358,7 @@ sub fastcgi_daemon {
 		}
 
 		print <<EOF;
-Location: http://127.0.0.1:8080/redirect
+Location: http://localhost/redirect
 Content-Type: text/html
 X-Body: $body
 

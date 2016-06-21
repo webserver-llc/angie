@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location = /t1.html {
@@ -80,7 +80,7 @@ http {
         location = /t5.html {
             auth_request /auth;
             auth_request_set $args "setargs";
-            proxy_pass http://127.0.0.1:8081/t5.html;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/t5.html;
         }
 
         location = /t6.html {
@@ -89,15 +89,15 @@ http {
         }
 
         location = /auth {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
         location = /auth2 {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location = /auth {

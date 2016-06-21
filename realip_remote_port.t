@@ -42,7 +42,7 @@ http {
     set_real_ip_from  ::1/128;
 
     server {
-        listen       [::1]:8081;
+        listen       [::1]:%%PORT_1%%;
         listen       unix:%%TESTDIR%%/unix.sock;
 
         location / {
@@ -51,7 +51,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -64,7 +64,7 @@ http {
         }
 
         location /inet6 {
-            proxy_pass http://[::1]:8081/;
+            proxy_pass http://[::1]:%%PORT_1%%/;
         }
 
         location /unix {

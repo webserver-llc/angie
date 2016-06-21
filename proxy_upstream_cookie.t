@@ -36,17 +36,17 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
             add_header X-Upstream-Cookie $upstream_cookie_tc;
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {

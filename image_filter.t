@@ -50,7 +50,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location /size {
@@ -154,7 +154,7 @@ http {
         location /proxy_buffer {
             image_filter rotate 90;
             image_filter_buffer 20;
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
             proxy_buffering off;
             proxy_buffer_size 512;
         }
@@ -177,7 +177,7 @@ $t->write_file('png', $im->png);
 $t->write_file('txt', 'SEE-THIS');
 
 $t->run_daemon(\&http_daemon, $t);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -303,7 +303,7 @@ sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalHost => '127.0.0.1',
-		LocalPort => 8081,
+		LocalPort => port(1),
 		Listen => 5,
 		Reuse => 1
 	)

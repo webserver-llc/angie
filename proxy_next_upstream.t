@@ -36,17 +36,17 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
     }
 
     upstream u2 {
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -67,7 +67,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {
@@ -86,7 +86,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8082;
+        listen       127.0.0.1:%%PORT_2%%;
         server_name  localhost;
 
         location / {
@@ -104,6 +104,8 @@ EOF
 $t->run();
 
 ###############################################################################
+
+my ($p1, $p2) = (port(1), port(2));
 
 # check if both request fallback to a backend
 # which returns valid response
@@ -128,7 +130,7 @@ unlike(http_get('/ok') . http_get('/ok'), qr/AND-THIS/, 'down after 500');
 # make sure all backends are tried once
 
 like(http_get('/all/rr'),
-	qr/^127.0.0.1:808(1, 127.0.0.1:8082|2, 127.0.0.1:8081)$/mi,
+	qr/^127.0.0.1:($p1, 127.0.0.1:$p2|$p2, 127.0.0.1:$p1)$/mi,
 	'all tried once');
 
 ###############################################################################

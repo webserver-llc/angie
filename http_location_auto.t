@@ -35,7 +35,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         proxy_hide_header X-Location;
@@ -53,7 +53,7 @@ http {
         #
         # Key factor is that "-" is less than "/".
 
-        location /a/  { proxy_pass http://127.0.0.1:8080/a-a; }
+        location /a/  { proxy_pass http://127.0.0.1:%%PORT_0%%/a-a; }
         location /a-a { add_header X-Location a-a; return 204; }
         location /a-b { add_header X-Location a-b; return 204; }
     }

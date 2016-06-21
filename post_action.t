@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -53,7 +53,7 @@ http {
         }
 
         location /post.remote {
-            proxy_pass http://127.0.0.1:8080/post.html;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/post.html;
         }
     }
 }

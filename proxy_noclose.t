@@ -47,16 +47,16 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
             proxy_read_timeout 2s;
         }
 
         location /uselen {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
 
             # test will wait only 2s for reply, we it will fail if
             # Content-Length not used as a hint
@@ -69,7 +69,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_noclose_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -90,7 +90,7 @@ like(http_get('/nolen'), qr/SEE-THIS/, 'bad backend - no content length');
 sub http_noclose_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

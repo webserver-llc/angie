@@ -39,7 +39,7 @@ http {
     log_format cc "$uri: $sent_http_cache_control";
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         access_log %%TESTDIR%%/cc.log cc;
@@ -57,7 +57,7 @@ http {
 
         location /redefine {
             expires epoch;
-            proxy_pass http://127.0.0.1:8080/set;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/set;
         }
     }
 }

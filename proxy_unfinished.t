@@ -49,24 +49,24 @@ http {
                        keys_zone=one:1m;
 
     server {
-        listen       127.0.0.1:8080 sndbuf=32k;
+        listen       127.0.0.1:%%PORT_0%% sndbuf=32k;
         server_name  localhost;
 
         location / {
             sub_filter foo bar;
             sub_filter_types *;
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
 
         location /un/ {
             sub_filter foo bar;
             sub_filter_types *;
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
             proxy_buffering off;
         }
 
         location /cache/ {
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
             proxy_cache one;
             add_header X-Cache-Status $upstream_cache_status;
         }
@@ -74,7 +74,7 @@ http {
         location /proxy/ {
             sub_filter foo bar;
             sub_filter_types *;
-            proxy_pass http://127.0.0.1:8080/local/;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/local/;
             proxy_buffer_size 1k;
             proxy_buffers 4 1k;
         }
@@ -90,7 +90,7 @@ EOF
 $t->write_file('big.html', 'X' x (1024 * 1024) . 'finished');
 
 $t->run_daemon(\&http_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -163,7 +163,7 @@ sub http_get_11 {
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

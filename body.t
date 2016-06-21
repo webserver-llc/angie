@@ -37,12 +37,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8080 backup;
+        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:%%PORT_0%% backup;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         client_header_buffer_size 1k;
@@ -51,25 +51,25 @@ http {
             client_body_buffer_size 2k;
             add_header X-Body "$request_body";
             add_header X-Body-File "$request_body_file";
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
         location /b {
             client_body_buffer_size 2k;
             client_body_in_file_only on;
             add_header X-Body "$request_body";
             add_header X-Body-File "$request_body_file";
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
         location /small {
             client_body_in_file_only on;
             add_header X-Original-Uri "$request_uri";
-            proxy_pass http://127.0.0.1:8080/;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/;
         }
         location /single {
             client_body_in_single_buffer on;
             add_header X-Body "$request_body";
             add_header X-Body-File "$request_body_file";
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
         }
         location /discard {
             return 200 "TEST\n";
@@ -80,7 +80,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {
@@ -89,7 +89,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8082;
+        listen       127.0.0.1:%%PORT_2%%;
         server_name  localhost;
 
         location / {

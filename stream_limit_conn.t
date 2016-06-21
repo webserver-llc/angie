@@ -37,32 +37,32 @@ stream {
     limit_conn_zone  $binary_remote_addr  zone=zone2:1m;
 
     server {
-        listen           127.0.0.1:8080;
-        proxy_pass       127.0.0.1:8084;
+        listen           127.0.0.1:%%PORT_0%%;
+        proxy_pass       127.0.0.1:%%PORT_4%%;
         limit_conn       zone 1;
     }
 
     server {
-        listen           127.0.0.1:8085;
-        proxy_pass       127.0.0.1:8084;
+        listen           127.0.0.1:%%PORT_5%%;
+        proxy_pass       127.0.0.1:%%PORT_4%%;
         limit_conn       zone 5;
     }
 
     server {
-        listen           127.0.0.1:8081;
-        proxy_pass       127.0.0.1:8084;
+        listen           127.0.0.1:%%PORT_1%%;
+        proxy_pass       127.0.0.1:%%PORT_4%%;
         limit_conn       zone2 1;
     }
 
     server {
-        listen           127.0.0.1:8082;
-        proxy_pass       127.0.0.1:8080;
+        listen           127.0.0.1:%%PORT_2%%;
+        proxy_pass       127.0.0.1:%%PORT_0%%;
         limit_conn       zone2 1;
     }
 
     server {
-        listen           127.0.0.1:8083;
-        proxy_pass       127.0.0.1:8080;
+        listen           127.0.0.1:%%PORT_3%%;
+        proxy_pass       127.0.0.1:%%PORT_0%%;
         limit_conn       zone 1;
     }
 }
@@ -71,7 +71,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8084;
+        listen       127.0.0.1:%%PORT_4%%;
         server_name  localhost;
 
         location / { }
@@ -96,8 +96,8 @@ EOF
 ok($s, 'long connection');
 
 is(get(), undef, 'rejected same zone');
-like(get('127.0.0.1:8081'), qr/200 OK/, 'passed different zone');
-like(get('127.0.0.1:8085'), qr/200 OK/, 'passed same zone unlimited');
+like(get('127.0.0.1:' . port(1)), qr/200 OK/, 'passed different zone');
+like(get('127.0.0.1:' . port(5)), qr/200 OK/, 'passed same zone unlimited');
 
 ok(http(<<EOF, socket => $s), 'long connection closed');
 Host: localhost
@@ -106,8 +106,8 @@ EOF
 
 # zones proxy chain
 
-like(get('127.0.0.1:8082'), qr/200 OK/, 'passed proxy');
-is(get('127.0.0.1:8083'), undef, 'rejected proxy');
+like(get('127.0.0.1:' . port(2)), qr/200 OK/, 'passed proxy');
+is(get('127.0.0.1:' . port(3)), undef, 'rejected proxy');
 
 ###############################################################################
 
@@ -126,7 +126,7 @@ sub getconn {
 	my $peer = shift;
 	my $s = IO::Socket::INET->new(
 		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
+		PeerAddr => $peer || '127.0.0.1:' . port(0)
 	)
 		or die "Can't connect to nginx: $!\n";
 

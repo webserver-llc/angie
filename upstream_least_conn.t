@@ -37,12 +37,12 @@ http {
 
     upstream u {
         least_conn;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -53,16 +53,18 @@ http {
 
 EOF
 
-$t->run_daemon(\&http_daemon, 8081);
-$t->run_daemon(\&http_daemon, 8082);
+$t->run_daemon(\&http_daemon, port(1));
+$t->run_daemon(\&http_daemon, port(2));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:8081');
-$t->waitforsocket('127.0.0.1:8082');
+$t->waitforsocket('127.0.0.1:' . port(1));
+$t->waitforsocket('127.0.0.1:' . port(2));
 
 ###############################################################################
 
-is(many('/', 10), '8081: 5, 8082: 5', 'balanced');
+my @ports = my ($port1, $port2) = (port(1), port(2));
+
+is(many('/', 10), "$port1: 5, $port2: 5", 'balanced');
 
 my @sockets;
 push(@sockets, http_get('/w', start => 1));
@@ -70,7 +72,7 @@ push(@sockets, http_get('/w', start => 1));
 
 select undef, undef, undef, 0.2;
 
-is(many('/w', 10), '8082: 10', 'least conn');
+is(many('/w', 10), "$port2: 10", 'least conn');
 
 ###############################################################################
 
@@ -85,7 +87,8 @@ sub many {
 		}
 	}
 
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
+	my @keys = map { my $p = $_; grep { $p == $_ } keys %ports } @ports;
+	return join ', ', map { $_ . ": " . $ports{$_} } @keys;
 }
 
 ###############################################################################
@@ -117,7 +120,7 @@ sub http_daemon {
 
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
-		if ($uri eq '/w' && $port == 8081) {
+		if ($uri eq '/w' && $port == port(1)) {
 			Test::Nginx::log_core('||', "$port: sleep(2.5)");
 			select undef, undef, undef, 2.5;
 		}

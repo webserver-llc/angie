@@ -40,8 +40,8 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2;
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_0%% http2;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / { }
@@ -49,14 +49,14 @@ http {
             add_header X-Body $request_body;
             add_header X-Body-File $request_body_file;
             client_body_in_file_only on;
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
         }
         location /client_max_body_size {
             add_header X-Body $request_body;
             add_header X-Body-File $request_body_file;
             client_body_in_single_buffer on;
             client_body_in_file_only on;
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
             client_max_body_size 10;
         }
     }

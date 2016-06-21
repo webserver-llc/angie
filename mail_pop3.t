@@ -28,7 +28,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail pop3 http rewrite/)->plan(8)
-	->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon)
+	->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon, port(2))
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -40,10 +40,10 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:8080/mail/auth;
+    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
 
     server {
-        listen     127.0.0.1:8110;
+        listen     127.0.0.1:%%PORT_1%%;
         protocol   pop3;
     }
 }
@@ -52,7 +52,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location = /mail/auth {
@@ -69,7 +69,7 @@ http {
 
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port 8111;
+            add_header Auth-Port %%PORT_2%%;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -80,7 +80,7 @@ EOF
 
 ###############################################################################
 
-my $s = Test::Nginx::POP3->new();
+my $s = Test::Nginx::POP3->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->ok('greeting');
 
 # auth plain
@@ -93,7 +93,7 @@ $s->ok('auth plain');
 
 # auth login simple
 
-$s = Test::Nginx::POP3->new();
+$s = Test::Nginx::POP3->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 
 $s->send('AUTH LOGIN');
@@ -107,7 +107,7 @@ $s->ok('auth login simple');
 
 # auth login with username
 
-$s = Test::Nginx::POP3->new();
+$s = Test::Nginx::POP3->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->read();
 
 $s->send('AUTH LOGIN ' . encode_base64('test@example.com', ''));

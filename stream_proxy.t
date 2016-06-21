@@ -37,8 +37,8 @@ events {
 
 stream {
     server {
-        listen      127.0.0.1:8080;
-        proxy_pass  127.0.0.1:8081;
+        listen      127.0.0.1:%%PORT_0%%;
+        proxy_pass  127.0.0.1:%%PORT_1%%;
         proxy_connect_timeout 2s;
     }
 }
@@ -46,7 +46,7 @@ stream {
 EOF
 
 $t->run_daemon(\&stream_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -68,7 +68,7 @@ is($s->io('foo', length => 3), 'bar', 'proxy connect timeout');
 sub stream_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

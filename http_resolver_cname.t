@@ -37,21 +37,21 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location /short {
-            resolver    127.0.0.1:8081;
+            resolver    127.0.0.1:%%PORT_1_UDP%%;
             resolver_timeout 2s;
 
-            proxy_pass  http://$host:8080/t;
+            proxy_pass  http://$host:%%PORT_0%%/t;
         }
 
         location /long {
-            resolver    127.0.0.1:8081;
+            resolver    127.0.0.1:%%PORT_1_UDP%%;
             resolver_timeout 5s;
 
-            proxy_pass  http://$host:8080/t;
+            proxy_pass  http://$host:%%PORT_0%%/t;
         }
 
         location / { }
@@ -60,12 +60,12 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, 8081, $t);
+$t->run_daemon(\&dns_daemon, port(1), $t);
 
 $t->write_file('t', '');
 $t->run();
 
-$t->waitforfile($t->testdir . '/8081');
+$t->waitforfile($t->testdir . '/' . port(1));
 
 ###############################################################################
 

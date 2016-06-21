@@ -39,28 +39,30 @@ stream {
 
     upstream u {
         least_conn;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:%%PORT_1_UDP%%;
+        server 127.0.0.1:%%PORT_2_UDP%%;
     }
 
     server {
-        listen      127.0.0.1:8080 udp;
+        listen      127.0.0.1:%%PORT_0_UDP%% udp;
         proxy_pass  u;
     }
 }
 
 EOF
 
-$t->run_daemon(\&udp_daemon, 8081, $t);
-$t->run_daemon(\&udp_daemon, 8082, $t);
+$t->run_daemon(\&udp_daemon, port(1), $t);
+$t->run_daemon(\&udp_daemon, port(2), $t);
 $t->try_run('no stream udp')->plan(2);
 
-$t->waitforfile($t->testdir . '/8081');
-$t->waitforfile($t->testdir . '/8082');
+$t->waitforfile($t->testdir . '/' . port(1));
+$t->waitforfile($t->testdir . '/' . port(2));
 
 ###############################################################################
 
-is(many('.', 10), '8081: 5, 8082: 5', 'balanced');
+my @ports = my ($port1, $port2) = (port(1), port(2));
+
+is(many(10), "$port1: 5, $port2: 5", 'balanced');
 
 my @sockets;
 for (1 .. 2) {
@@ -71,22 +73,23 @@ for (1 .. 2) {
 
 select undef, undef, undef, 0.2;
 
-is(many('.', 10), '8082: 10', 'least_conn');
+is(many(10), "$port2: 10", 'least_conn');
 
 ###############################################################################
 
 sub many {
-	my ($data, $count, %opts) = @_;
+	my ($count) = @_;
 	my (%ports);
 
 	for (1 .. $count) {
-		if (dgram()->io($data) =~ /(\d+)/) {
+		if (dgram()->io('.') =~ /(\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}
 	}
 
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
+	my @keys = map { my $p = $_; grep { $p == $_ } keys %ports } @ports;
+	return join ', ', map { $_ . ": " . $ports{$_} } @keys;
 }
 
 ###############################################################################
@@ -111,7 +114,7 @@ sub udp_daemon {
 
 		my $port = $server->sockport();
 
-		if ($buffer =~ /w/ && $port == 8081) {
+		if ($buffer =~ /w/ && $port == port(1)) {
 			select undef, undef, undef, 2.5;
 		}
 

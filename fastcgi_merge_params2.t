@@ -46,17 +46,17 @@ http {
     # no fastcgi_param at all, cache switched on at server level
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         fastcgi_cache  NAME;
 
         location / {
-            fastcgi_pass    127.0.0.1:8081;
+            fastcgi_pass    127.0.0.1:%%PORT_1%%;
         }
 
         location /no/ {
-            fastcgi_pass    127.0.0.1:8081;
+            fastcgi_pass    127.0.0.1:%%PORT_1%%;
             fastcgi_cache   off;
         }
     }
@@ -65,7 +65,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -96,7 +96,7 @@ EOF
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:8081', 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 
@@ -109,7 +109,7 @@ sub fastcgi_daemon {
 		my $blah = $ENV{HTTP_X_BLAH};
 
 		print <<EOF;
-Location: http://127.0.0.1:8080/redirect
+Location: http://localhost/redirect
 Content-Type: text/html
 
 ims=$ims;iums=$iums;blah=$blah;

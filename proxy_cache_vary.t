@@ -38,36 +38,36 @@ http {
     proxy_cache_key    $uri;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         add_header X-Cache-Status $upstream_cache_status;
 
         location / {
-            proxy_pass    http://127.0.0.1:8081/;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
             proxy_cache   one;
         }
 
         location /replace/ {
-            proxy_pass    http://127.0.0.1:8081/;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
             proxy_cache   one;
         }
 
         location /revalidate/ {
-            proxy_pass    http://127.0.0.1:8081/;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
             proxy_cache   one;
             proxy_cache_revalidate on;
         }
 
         location /ignore/ {
-            proxy_pass    http://127.0.0.1:8081/;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
             proxy_cache   one;
             proxy_ignore_headers Vary;
         }
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         gzip on;

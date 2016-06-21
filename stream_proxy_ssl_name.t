@@ -40,41 +40,41 @@ stream {
     proxy_ssl_session_reuse off;
 
     upstream u {
-        server 127.0.0.1:8086;
+        server 127.0.0.1:%%PORT_5%%;
     }
 
     server {
-        listen      127.0.0.1:8080;
+        listen      127.0.0.1:%%PORT_0%%;
         proxy_pass  u;
 
         proxy_ssl_server_name off;
     }
 
     server {
-        listen      127.0.0.1:8081;
+        listen      127.0.0.1:%%PORT_1%%;
         proxy_pass  u;
 
         proxy_ssl_server_name on;
     }
 
     server {
-        listen      127.0.0.1:8082;
-        proxy_pass  127.0.0.1:8086;
+        listen      127.0.0.1:%%PORT_2%%;
+        proxy_pass  127.0.0.1:%%PORT_5%%;
 
         proxy_ssl_server_name on;
         proxy_ssl_name example.com;
     }
 
     server {
-        listen      127.0.0.1:8083;
-        proxy_pass  127.0.0.1:8086;
+        listen      127.0.0.1:%%PORT_3%%;
+        proxy_pass  127.0.0.1:%%PORT_5%%;
 
         proxy_ssl_server_name on;
     }
 
     server {
-        listen      127.0.0.1:8084;
-        proxy_pass  127.0.0.1:8086;
+        listen      127.0.0.1:%%PORT_4%%;
+        proxy_pass  127.0.0.1:%%PORT_5%%;
 
         proxy_ssl_server_name on;
         proxy_ssl_name example.com:123;
@@ -85,7 +85,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8086 ssl;
+        listen       127.0.0.1:%%PORT_5%% ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -123,15 +123,14 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/', socket => getconn('127.0.0.1:8080')),
-	qr/200 OK.*X-Name: ,/s, 'no name');
-like(http_get('/', socket => getconn('127.0.0.1:8081')),
+like(http_get('/'), qr/200 OK.*X-Name: ,/s, 'no name');
+like(http_get('/', socket => getconn('127.0.0.1:' . port(1))),
 	qr/200 OK.*X-Name: u,/s, 'name default');
-like(http_get('/', socket => getconn('127.0.0.1:8082')),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(2))),
 	qr/200 OK.*X-Name: example.com,/s, 'name override');
-like(http_get('/', socket => getconn('127.0.0.1:8083')),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(3))),
 	qr/200 OK.*X-Name: ,/s, 'no ip');
-like(http_get('/', socket => getconn('127.0.0.1:8084')),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(4))),
 	qr/200 OK.*X-Name: example.com,/s, 'no port in name');
 
 ###############################################################################
@@ -140,7 +139,7 @@ sub getconn {
 	my $peer = shift;
 	my $s = IO::Socket::INET->new(
 		Proto => 'tcp',
-		PeerAddr => $peer || '127.0.0.1:8080'
+		PeerAddr => $peer
 	)
 		or die "Can't connect to nginx: $!\n";
 

@@ -40,13 +40,13 @@ stream {
     proxy_protocol on;
 
     server {
-        listen          127.0.0.1:8080;
-        proxy_pass      127.0.0.1:8081;
+        listen          127.0.0.1:%%PORT_0%%;
+        proxy_pass      127.0.0.1:%%PORT_1%%;
     }
 
     server {
-        listen          127.0.0.1:8082;
-        proxy_pass      127.0.0.1:8081;
+        listen          127.0.0.1:%%PORT_2%%;
+        proxy_pass      127.0.0.1:%%PORT_1%%;
         proxy_protocol  off;
     }
 }
@@ -55,23 +55,24 @@ EOF
 
 $t->run_daemon(\&stream_daemon);
 $t->try_run('no stream proxy_protocol')->plan(2);
-$t->waitforsocket('127.0.0.1:8081');
+$t->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
-my $s = stream();
+my $dp = port(0);
+my $s = stream('127.0.0.1:' . $dp);
 my $data = $s->io('close');
 my $sp = $s->sockport();
-is($data, "PROXY TCP4 127.0.0.1 127.0.0.1 $sp 8080${CRLF}close", 'protocol on');
+is($data, "PROXY TCP4 127.0.0.1 127.0.0.1 $sp $dp${CRLF}close", 'protocol on');
 
-is(stream('127.0.0.1:8082')->io('close'), 'close', 'protocol off');
+is(stream('127.0.0.1:' . port(2))->io('close'), 'close', 'protocol off');
 
 ###############################################################################
 
 sub stream_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

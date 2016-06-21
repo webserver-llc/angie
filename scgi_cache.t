@@ -44,11 +44,11 @@ http {
     add_header       X-Cache-Status  $upstream_cache_status;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            scgi_pass 127.0.0.1:8081;
+            scgi_pass 127.0.0.1:%%PORT_1%%;
             scgi_param SCGI 1;
             scgi_param REQUEST_URI $uri;
             scgi_cache one;
@@ -83,7 +83,7 @@ like(http_get('/unfinished'), qr/MISS/, 'unfinished not cached');
 sub scgi_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:8081',
+		LocalHost => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

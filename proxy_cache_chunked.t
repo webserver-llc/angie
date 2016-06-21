@@ -40,11 +40,11 @@ http {
     proxy_cache_path %%TESTDIR%%/cache keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
             proxy_http_version 1.1;
             proxy_cache NAME;
             proxy_cache_valid any 1m;
@@ -56,7 +56,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_chunked_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -68,7 +68,7 @@ like(http_get("/"), qr/SEE-THIS.*HIT/s, "chunked cached");
 sub http_chunked_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

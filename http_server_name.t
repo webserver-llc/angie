@@ -43,7 +43,7 @@ http {
     server_names_hash_bucket_size 64;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -52,7 +52,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  "";
 
         location / {
@@ -61,7 +61,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  www.example.com;
 
         location / {
@@ -70,7 +70,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  ~^EXAMPLE\.COM$;
 
         location / {
@@ -79,7 +79,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  ~^(?P<name>.+)\Q.example.com\E$;
 
         location / {
@@ -89,7 +89,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  "~^(?P<name>www\p{N}+)\.example\.com$";
 
         location / {
@@ -99,7 +99,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  many.example.com many2.example.com;
 
         location / {
@@ -108,7 +108,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  many3.example.com;
         server_name  many4.example.com;
 
@@ -118,7 +118,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  *.wc.example.com;
 
         location / {
@@ -127,7 +127,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  *.pref.wc.example.com;
 
         location / {
@@ -136,7 +136,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  wc2.example.*;
 
         location / {
@@ -145,7 +145,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  wc2.example.com.*;
 
         location / {
@@ -154,7 +154,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  .dot.example.com;
 
         location / {

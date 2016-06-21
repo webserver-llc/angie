@@ -51,14 +51,14 @@ http {
     access_log %%TESTDIR%%/cc.log test;
 
     server {
-        listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:%%PORT_0%% ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
         location / {
-            proxy_pass    http://127.0.0.1:8081;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "Upgrade";
@@ -91,7 +91,7 @@ foreach my $name ('localhost') {
 $t->run_daemon(\&upgrade_fake_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:8081')
+$t->waitforsocket('127.0.0.1:' . port(1))
 	or die "Can't start test backend";
 
 ###############################################################################
@@ -173,7 +173,7 @@ sub upgrade_connect {
 
 	my $s = IO::Socket::SSL->new(
 		Proto => 'tcp',
-		PeerAddr => '127.0.0.1:8080',
+		PeerAddr => '127.0.0.1:' . port(0),
 		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	)
 		or die "Can't connect to nginx: $!\n";
@@ -283,7 +283,7 @@ sub upgrade_read {
 sub upgrade_fake_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8081',
+		LocalAddr => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

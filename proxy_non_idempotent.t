@@ -37,18 +37,18 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8081 max_fails=0;
-        server 127.0.0.1:8081 max_fails=0;
+        server 127.0.0.1:%%PORT_1%% max_fails=0;
+        server 127.0.0.1:%%PORT_1%% max_fails=0;
     }
 
     upstream uk {
-        server 127.0.0.1:8081 max_fails=0;
-        server 127.0.0.1:8081 max_fails=0;
+        server 127.0.0.1:%%PORT_1%% max_fails=0;
+        server 127.0.0.1:%%PORT_1%% max_fails=0;
         keepalive 10;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         add_header X-IP $upstream_addr always;
@@ -72,7 +72,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {

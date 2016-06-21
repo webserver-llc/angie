@@ -35,7 +35,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen 127.0.0.1:8081 ssl;
+        listen 127.0.0.1:%%PORT_1%% ssl;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -47,21 +47,21 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location /ssl_reuse {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_ssl_session_reuse on;
         }
 
         location /ssl {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_ssl_session_reuse off;
         }
 
         location /timeout {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
             proxy_connect_timeout 2s;
         }
     }

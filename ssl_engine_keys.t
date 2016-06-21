@@ -43,8 +43,8 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8443 ssl;
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         ssl_certificate_key engine:pkcs11:slot_0-id_00;
@@ -54,7 +54,7 @@ http {
             # index index.html by default
         }
         location /proxy {
-            proxy_pass https://127.0.0.1:8443/;
+            proxy_pass https://127.0.0.1:%%PORT_1%%/;
         }
     }
 }

@@ -44,7 +44,7 @@ http {
     limit_conn_zone  $binary_remote_addr$arg_c  zone=conn:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -53,7 +53,7 @@ http {
 
         location /w {
             limit_conn conn 1;
-            proxy_pass http://127.0.0.1:8080/req2;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/req2;
         }
 
         location /req {

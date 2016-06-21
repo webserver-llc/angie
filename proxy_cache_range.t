@@ -38,16 +38,16 @@ http {
                        keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:8081;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%;
             proxy_cache   NAME;
             proxy_cache_valid 200 1m;
         }
         location /min_uses {
-            proxy_pass    http://127.0.0.1:8081/;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
             proxy_cache   NAME;
             proxy_cache_valid 200 1m;
             proxy_cache_min_uses 2;
@@ -55,7 +55,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / {

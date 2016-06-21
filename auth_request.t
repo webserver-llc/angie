@@ -44,7 +44,7 @@ http {
                        keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
@@ -94,7 +94,7 @@ http {
             auth_request /auth-proxy;
         }
         location = /auth-proxy {
-            proxy_pass http://127.0.0.1:8080/auth-basic;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/auth-basic;
             proxy_pass_request_body off;
             proxy_set_header Content-Length "";
         }
@@ -104,17 +104,17 @@ http {
         }
 
         location = /proxy-double {
-            proxy_pass http://127.0.0.1:8080/auth-error;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/auth-error;
             proxy_intercept_errors on;
             error_page 404 = /proxy-double-fallback;
             client_body_buffer_size 4k;
         }
         location = /proxy-double-fallback {
             auth_request /auth-proxy-double;
-            proxy_pass http://127.0.0.1:8080/auth-open;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/auth-open;
         }
         location = /auth-proxy-double {
-            proxy_pass http://127.0.0.1:8080/auth-open;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/auth-open;
             proxy_pass_request_body off;
             proxy_set_header Content-Length "";
         }
@@ -123,7 +123,7 @@ http {
             auth_request /auth-proxy-cache;
         }
         location = /auth-proxy-cache {
-            proxy_pass http://127.0.0.1:8080/auth-basic;
+            proxy_pass http://127.0.0.1:%%PORT_0%%/auth-basic;
             proxy_pass_request_body off;
             proxy_set_header Content-Length "";
             proxy_cache NAME;
@@ -134,7 +134,7 @@ http {
             auth_request /auth-fastcgi;
         }
         location = /auth-fastcgi {
-            fastcgi_pass 127.0.0.1:8081;
+            fastcgi_pass 127.0.0.1:%%PORT_1%%;
             fastcgi_pass_request_body off;
         }
     }
@@ -194,7 +194,7 @@ SKIP: {
 	skip 'win32', 2 if $^O eq 'MSWin32';
 
 	$t->run_daemon(\&fastcgi_daemon);
-	$t->waitforsocket('127.0.0.1:8081');
+	$t->waitforsocket('127.0.0.1:' . port(1));
 
 	like(http_get('/fastcgi'), qr/ 404 /, 'fastcgi auth open');
 	unlike(http_get('/fastcgi'), qr/INVISIBLE/, 'fastcgi auth no content');
@@ -239,7 +239,7 @@ sub http_post_big {
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:8081', 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

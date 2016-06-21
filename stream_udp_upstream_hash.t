@@ -40,57 +40,58 @@ stream {
 
     upstream hash {
         hash $remote_addr;
-        server 127.0.0.1:8087;
-        server 127.0.0.1:8088;
+        server 127.0.0.1:%%PORT_2_UDP%%;
+        server 127.0.0.1:%%PORT_3_UDP%%;
     }
 
     upstream cons {
         hash $remote_addr consistent;
-        server 127.0.0.1:8087;
-        server 127.0.0.1:8088;
+        server 127.0.0.1:%%PORT_2_UDP%%;
+        server 127.0.0.1:%%PORT_3_UDP%%;
     }
 
     server {
-        listen      127.0.0.1:8081 udp;
+        listen      127.0.0.1:%%PORT_0_UDP%% udp;
         proxy_pass  hash;
     }
 
     server {
-        listen      127.0.0.1:8082 udp;
+        listen      127.0.0.1:%%PORT_1_UDP%% udp;
         proxy_pass  cons;
     }
 }
 
 EOF
 
-$t->run_daemon(\&udp_daemon, 8087, $t);
-$t->run_daemon(\&udp_daemon, 8088, $t);
+$t->run_daemon(\&udp_daemon, port(2), $t);
+$t->run_daemon(\&udp_daemon, port(3), $t);
 $t->try_run('no stream udp')->plan(2);
 
-$t->waitforfile($t->testdir . '/8087');
-$t->waitforfile($t->testdir . '/8088');
+$t->waitforfile($t->testdir . '/' . port(2));
+$t->waitforfile($t->testdir . '/' . port(3));
 
 ###############################################################################
 
-is(many('.', 10, peer => '127.0.0.1:8081'), '8088: 10', 'hash');
-is(many('.', 10, peer => '127.0.0.1:8082'), '8088: 10', 'hash consistent');
+my @ports = my ($port2, $port3) = (port(2), port(3));
+
+is(many(10, port(0)), "$port3: 10", 'hash');
+like(many(10, port(1)), qr/($port2|$port3): 10/, 'hash consistent');
 
 ###############################################################################
 
 sub many {
-	my ($data, $count, %opts) = @_;
-	my (%ports, $peer);
-
-	$peer = $opts{peer};
+	my ($count, $port) = @_;
+	my (%ports);
 
 	for (1 .. $count) {
-		if (dgram($peer)->io($data) =~ /(\d+)/) {
+		if (dgram("127.0.0.1:$port")->io('.') =~ /(\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}
 	}
 
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
+	my @keys = map { my $p = $_; grep { $p == $_ } keys %ports } @ports;
+	return join ', ', map { $_ . ": " . $ports{$_} } @keys;
 }
 
 ###############################################################################

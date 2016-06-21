@@ -34,11 +34,11 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:8080/mail/auth;
+    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
     xclient    off;
 
     server {
-        listen     127.0.0.1:8025;
+        listen     127.0.0.1:%%PORT_1%%;
         protocol   smtp;
         smtp_greeting_delay  1s;
     }
@@ -51,7 +51,7 @@ EOF
 # With smtp_greeting_delay session expected to be closed after first error
 # message if client sent something before greeting.
 
-my $s = Test::Nginx::SMTP->new();
+my $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
 $s->send('HELO example.com');
 $s->check(qr/^5.. /, "command before greeting - session must be rejected");
 ok($s->eof(), "session have to be closed");

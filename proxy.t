@@ -38,15 +38,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8081;
+        server 127.0.0.1:%%PORT_1%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:8081;
+            proxy_pass http://127.0.0.1:%%PORT_1%%;
             proxy_read_timeout 1s;
             proxy_connect_timeout 2s;
         }
@@ -61,7 +61,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon);
-$t->run()->waitforsocket('127.0.0.1:8081');
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -70,7 +70,8 @@ like(http_get('/multi'), qr/AND-THIS/, 'proxy request with multiple packets');
 
 unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 
-like(http_get('/var?b=127.0.0.1:8081/'), qr/SEE-THIS/, 'proxy with variables');
+like(http_get('/var?b=127.0.0.1:' . port(1) . '/'), qr/SEE-THIS/,
+	'proxy with variables');
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
 
 SKIP: {
@@ -98,7 +99,7 @@ like(http_get('/', socket => $s), qr/200 OK/, 'proxy connect timeout');
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:8081',
+		LocalHost => '127.0.0.1:' . port(1),
 		Listen => 5,
 		Reuse => 1
 	)

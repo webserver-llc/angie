@@ -37,13 +37,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080;
-        listen       [::1]:8080;
+        listen       127.0.0.1:%%PORT_0%%;
+        listen       [::1]:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            resolver    127.0.0.1:8081;
-            proxy_pass  http://$host:8080/backend;
+            resolver    127.0.0.1:%%PORT_1_UDP%%;
+            proxy_pass  http://$host:%%PORT_0%%/backend;
 
             proxy_next_upstream http_504 timeout error;
             proxy_intercept_errors on;
@@ -52,8 +52,8 @@ http {
             add_header X-Host $upstream_addr;
         }
         location /two {
-            resolver    127.0.0.1:8081 127.0.0.1:8082;
-            proxy_pass  http://$host:8080/backend;
+            resolver    127.0.0.1:%%PORT_1_UDP%% 127.0.0.1:%%PORT_2_UDP%%;
+            proxy_pass  http://$host:%%PORT_0%%/backend;
         }
 
         location /backend {
@@ -69,15 +69,17 @@ EOF
 
 $t->try_run('no inet6 support')->plan(72);
 
-$t->run_daemon(\&dns_daemon, 8081, $t);
-$t->run_daemon(\&dns_daemon, 8082, $t);
+$t->run_daemon(\&dns_daemon, port(1), $t);
+$t->run_daemon(\&dns_daemon, port(2), $t);
 
-$t->waitforfile($t->testdir . '/8081');
-$t->waitforfile($t->testdir . '/8082');
+$t->waitforfile($t->testdir . '/' . port(1));
+$t->waitforfile($t->testdir . '/' . port(2));
 
 ###############################################################################
 
 my (@n, $response);
+
+my $p0 = port(0);
 
 like(http_host_header('aaaa.example.net', '/'), qr/\[fe80::1\]/, 'AAAA');
 like(http_host_header('cname.example.net', '/'), qr/\[fe80::1\]/, 'CNAME');
@@ -93,11 +95,11 @@ like(http_host_header('cname_a.example.net', '/'), qr/\[::1\]/, 'CNAME + AAAA');
 # nonexisting IPs enumerated with proxy_next_upstream
 
 like(http_host_header('many.example.net', '/'),
-	qr/^\[fe80::(1\]:8080, \[fe80::2\]:8080|2\]:8080, \[fe80::1\]:8080)$/m,
+	qr/^\[fe80::(1\]:$p0, \[fe80::2\]:$p0|2\]:$p0, \[fe80::1\]:$p0)$/m,
 	'AAAA many');
 
 like(http_host_header('many.example.net', '/'),
-	qr/^\[fe80::(1\]:8080, \[fe80::2\]:8080|2\]:8080, \[fe80::1\]:8080)$/m,
+	qr/^\[fe80::(1\]:$p0, \[fe80::2\]:$p0|2\]:$p0, \[fe80::1\]:$p0)$/m,
 	'AAAA many cached');
 
 # tests for several resolvers specified in directive
@@ -116,118 +118,118 @@ like(http_host_header('2.example.net', '/two'), qr/200 OK/, 'two ns cached');
 # various ipv4/ipv6 combinations
 
 $response = http_host_header('z_z.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'zero zero responses');
+is(@n = $response =~ /$p0/g, 0, 'zero zero responses');
 like($response, qr/502 Bad/, 'zero zero');
 
-like(http_host_header('z_n.example.net', '/'), qr/^\[fe80::1\]:8080$/ms,
+like(http_host_header('z_n.example.net', '/'), qr/^\[fe80::1\]:$p0$/ms,
 	'zero AAAA');
 
 $response = http_host_header('z_c.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'zero CNAME responses');
-like($response, qr/127.0.0.201:8080/, 'zero CNAME 1');
-like($response, qr/\[fe80::1\]:8080/, 'zero CNAME 2');
+is(@n = $response =~ /$p0/g, 2, 'zero CNAME responses');
+like($response, qr/127.0.0.201:$p0/, 'zero CNAME 1');
+like($response, qr/\[fe80::1\]:$p0/, 'zero CNAME 2');
 
 $response = http_host_header('z_cn.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'zero CNAME+AAAA responses');
-like($response, qr/\[fe80::1\]:8080/, 'zero CNAME+AAAA 1');
-like($response, qr/\[fe80::2\]:8080/, 'zero CNAME+AAAA 2');
+is(@n = $response =~ /$p0/g, 2, 'zero CNAME+AAAA responses');
+like($response, qr/\[fe80::1\]:$p0/, 'zero CNAME+AAAA 1');
+like($response, qr/\[fe80::2\]:$p0/, 'zero CNAME+AAAA 2');
 
 $response = http_host_header('z_e.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'zero error responses');
+is(@n = $response =~ /$p0/g, 0, 'zero error responses');
 like($response, qr/502 Bad/, 'zero error');
 
-like(http_host_header('n_z.example.net', '/'), qr/^127.0.0.201:8080$/ms,
+like(http_host_header('n_z.example.net', '/'), qr/^127.0.0.201:$p0$/ms,
 	'A zero');
 
 $response = http_host_header('n_n.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'A AAAA responses');
-like($response, qr/127.0.0.201:8080/, 'A AAAA 1');
-like($response, qr/\[fe80::1\]:8080/, 'A AAAA 2');
+is(@n = $response =~ /$p0/g, 2, 'A AAAA responses');
+like($response, qr/127.0.0.201:$p0/, 'A AAAA 1');
+like($response, qr/\[fe80::1\]:$p0/, 'A AAAA 2');
 
-like(http_host_header('n_c.example.net', '/'), qr/^127.0.0.201:8080$/ms,
+like(http_host_header('n_c.example.net', '/'), qr/^127.0.0.201:$p0$/ms,
 	'A CNAME');
 
 $response = http_host_header('n_cn.example.net', '/');
-is(@n = $response =~ /8080/g, 4, 'A CNAME+AAAA responses');
-like($response, qr/127.0.0.201:8080/, 'A CNAME+AAAA 1');
-like($response, qr/127.0.0.202:8080/, 'A CNAME+AAAA 2');
-like($response, qr/\[fe80::1\]:8080/, 'A CNAME+AAAA 3');
-like($response, qr/\[fe80::2\]:8080/, 'A CNAME+AAAA 4');
+is(@n = $response =~ /$p0/g, 4, 'A CNAME+AAAA responses');
+like($response, qr/127.0.0.201:$p0/, 'A CNAME+AAAA 1');
+like($response, qr/127.0.0.202:$p0/, 'A CNAME+AAAA 2');
+like($response, qr/\[fe80::1\]:$p0/, 'A CNAME+AAAA 3');
+like($response, qr/\[fe80::2\]:$p0/, 'A CNAME+AAAA 4');
 
 $response = http_host_header('n_e.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'A error responses');
+is(@n = $response =~ /$p0/g, 0, 'A error responses');
 like($response, qr/502 Bad/, 'A error');
 
 $response = http_host_header('c_z.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'CNAME zero responses');
+is(@n = $response =~ /$p0/g, 0, 'CNAME zero responses');
 like($response, qr/502 Bad/, 'CNAME zero');
 
-like(http_host_header('c_n.example.net', '/'), qr/^\[fe80::1\]:8080$/ms,
+like(http_host_header('c_n.example.net', '/'), qr/^\[fe80::1\]:$p0$/ms,
 	'CNAME AAAA');
 
 $response = http_host_header('c_c.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'CNAME CNAME responses');
-like($response, qr/127.0.0.201:8080/, 'CNAME CNAME 1');
-like($response, qr/\[fe80::1\]:8080/, 'CNAME CNAME 2');
+is(@n = $response =~ /$p0/g, 2, 'CNAME CNAME responses');
+like($response, qr/127.0.0.201:$p0/, 'CNAME CNAME 1');
+like($response, qr/\[fe80::1\]:$p0/, 'CNAME CNAME 2');
 
-like(http_host_header('c1_c2.example.net', '/'), qr/^\[fe80::1\]:8080$/ms,
+like(http_host_header('c1_c2.example.net', '/'), qr/^\[fe80::1\]:$p0$/ms,
 	'CNAME1 CNAME2');
 
 $response = http_host_header('c_cn.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'CNAME CNAME+AAAA responses');
-like($response, qr/\[fe80::1\]:8080/, 'CNAME CNAME+AAAA 1');
-like($response, qr/\[fe80::2\]:8080/, 'CNAME CNAME+AAAA 1');
+is(@n = $response =~ /$p0/g, 2, 'CNAME CNAME+AAAA responses');
+like($response, qr/\[fe80::1\]:$p0/, 'CNAME CNAME+AAAA 1');
+like($response, qr/\[fe80::2\]:$p0/, 'CNAME CNAME+AAAA 1');
 
 $response = http_host_header('c_e.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'CNAME error responses');
+is(@n = $response =~ /$p0/g, 0, 'CNAME error responses');
 like($response, qr/502 Bad/, 'CNAME error');
 
 $response = http_host_header('cn_z.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'CNAME+A zero responses');
-like($response, qr/127.0.0.201:8080/, 'CNAME+A zero 1');
-like($response, qr/127.0.0.202:8080/, 'CNAME+A zero 2');
+is(@n = $response =~ /$p0/g, 2, 'CNAME+A zero responses');
+like($response, qr/127.0.0.201:$p0/, 'CNAME+A zero 1');
+like($response, qr/127.0.0.202:$p0/, 'CNAME+A zero 2');
 
 $response = http_host_header('cn_n.example.net', '/');
-is(@n = $response =~ /8080/g, 4, 'CNAME+A AAAA responses');
-like($response, qr/127.0.0.201:8080/, 'CNAME+A AAAA 1');
-like($response, qr/127.0.0.202:8080/, 'CNAME+A AAAA 2');
-like($response, qr/\[fe80::1\]:8080/, 'CNAME+A AAAA 3');
-like($response, qr/\[fe80::2\]:8080/, 'CNAME+A AAAA 4');
+is(@n = $response =~ /$p0/g, 4, 'CNAME+A AAAA responses');
+like($response, qr/127.0.0.201:$p0/, 'CNAME+A AAAA 1');
+like($response, qr/127.0.0.202:$p0/, 'CNAME+A AAAA 2');
+like($response, qr/\[fe80::1\]:$p0/, 'CNAME+A AAAA 3');
+like($response, qr/\[fe80::2\]:$p0/, 'CNAME+A AAAA 4');
 
 $response = http_host_header('cn_c.example.net', '/');
-is(@n = $response =~ /8080/g, 2, 'CNAME+A CNAME responses');
-like($response, qr/127.0.0.201:8080/, 'CNAME+A CNAME 1');
-like($response, qr/127.0.0.202:8080/, 'CNAME+A CNAME 2');
+is(@n = $response =~ /$p0/g, 2, 'CNAME+A CNAME responses');
+like($response, qr/127.0.0.201:$p0/, 'CNAME+A CNAME 1');
+like($response, qr/127.0.0.202:$p0/, 'CNAME+A CNAME 2');
 
 $response = http_host_header('cn_cn.example.net', '/');
-is(@n = $response =~ /8080/g, 4, 'CNAME+A CNAME+AAAA responses');
-like($response, qr/127.0.0.201:8080/, 'CNAME+A CNAME+AAAA 1');
-like($response, qr/127.0.0.202:8080/, 'CNAME+A CNAME+AAAA 2');
-like($response, qr/\[fe80::1\]:8080/, 'CNAME+A CNAME+AAAA 3');
-like($response, qr/\[fe80::2\]:8080/, 'CNAME+A CNAME+AAAA 4');
+is(@n = $response =~ /$p0/g, 4, 'CNAME+A CNAME+AAAA responses');
+like($response, qr/127.0.0.201:$p0/, 'CNAME+A CNAME+AAAA 1');
+like($response, qr/127.0.0.202:$p0/, 'CNAME+A CNAME+AAAA 2');
+like($response, qr/\[fe80::1\]:$p0/, 'CNAME+A CNAME+AAAA 3');
+like($response, qr/\[fe80::2\]:$p0/, 'CNAME+A CNAME+AAAA 4');
 
 $response = http_host_header('cn_e.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'CNAME+A error responses');
+is(@n = $response =~ /$p0/g, 0, 'CNAME+A error responses');
 like($response, qr/502 Bad/, 'CNAME+A error');
 
 $response = http_host_header('e_z.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'error zero responses');
+is(@n = $response =~ /$p0/g, 0, 'error zero responses');
 like($response, qr/502 Bad/, 'error zero');
 
 $response = http_host_header('e_n.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'error AAAA responses');
+is(@n = $response =~ /$p0/g, 0, 'error AAAA responses');
 like($response, qr/502 Bad/, 'error AAAA');
 
 $response = http_host_header('e_c.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'error CNAME responses');
+is(@n = $response =~ /$p0/g, 0, 'error CNAME responses');
 like($response, qr/502 Bad/, 'error CNAME');
 
 $response = http_host_header('e_cn.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'error CNAME+AAAA responses');
+is(@n = $response =~ /$p0/g, 0, 'error CNAME+AAAA responses');
 like($response, qr/502 Bad/, 'error CNAME+AAAA');
 
 $response = http_host_header('e_e.example.net', '/');
-is(@n = $response =~ /8080/g, 0, 'error error responses');
+is(@n = $response =~ /$p0/g, 0, 'error error responses');
 like($response, qr/502 Bad/, 'error error');
 
 ###############################################################################
@@ -330,7 +332,7 @@ sub reply_handler {
 		}
 
 	} elsif ($name eq '2.example.net') {
-		if ($port == 8081) {
+		if ($port == port(1)) {
 			$state->{twocnt}++;
 		}
 		if ($state->{twocnt} & 1) {

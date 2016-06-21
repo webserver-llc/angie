@@ -40,7 +40,7 @@ http {
     error_log %%TESTDIR%%/debug2.log alert;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         listen       unix:%%TESTDIR%%/unix.sock;
         server_name  localhost;
 

@@ -40,11 +40,11 @@ http {
     proxy_cache_revalidate on;
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:8081;
+            proxy_pass    http://127.0.0.1:%%PORT_1%%;
             proxy_cache   one;
 
             proxy_cache_valid  200 404  2s;
@@ -54,12 +54,12 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
         location / { }
         location /etag/ {
-            proxy_pass http://127.0.0.1:8081/;
+            proxy_pass http://127.0.0.1:%%PORT_1%%/;
             proxy_hide_header Last-Modified;
         }
         location /201 {

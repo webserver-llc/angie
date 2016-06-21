@@ -38,19 +38,19 @@ http {
 
     upstream u {
         ip_hash;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
     }
 
     upstream u2 {
         ip_hash;
-        server 127.0.0.1:8081;
-        server 127.0.0.1:8082;
-        server 127.0.0.1:8083;
+        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:%%PORT_3%%;
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:%%PORT_0%%;
         server_name  localhost;
 
         set_real_ip_from 127.0.0.0/8;
@@ -65,9 +65,9 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
-        listen       127.0.0.1:8082;
-        listen       127.0.0.1:8083;
+        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:%%PORT_2%%;
+        listen       127.0.0.1:%%PORT_3%%;
         server_name  localhost;
 
         location / {
@@ -86,8 +86,10 @@ $t->plan(2);
 
 ###############################################################################
 
-is(many('/', 30), '8081: 15, 8082: 15', 'ip_hash');
-is(many('/u2', 30), '8081: 10, 8082: 10, 8083: 10', 'ip_hash 3 peers');
+my @ports = my ($port1, $port2, $port3) = (port(1), port(2), port(3));
+
+is(many('/', 30), "$port1: 15, $port2: 15", 'ip_hash');
+is(many('/u2', 30), "$port1: 10, $port2: 10, $port3: 10", 'ip_hash 3 peers');
 
 ###############################################################################
 
@@ -105,7 +107,8 @@ sub many {
 		}
 	}
 
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
+	my @keys = map { my $p = $_; grep { $p == $_ } keys %ports } @ports;
+	return join ', ', map { $_ . ": " . $ports{$_} } @keys;
 }
 
 ###############################################################################

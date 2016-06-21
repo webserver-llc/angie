@@ -479,7 +479,7 @@ sub new_socket {
 	my $alpn = $extra{'alpn'};
 	my $s;
 
-	$port = 8080 unless defined $port;
+	$port = ($Test::Nginx::ports[0]{port} || 8080) unless defined $port;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };

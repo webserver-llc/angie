@@ -28,7 +28,6 @@ sub dgram {
 
 	return Test::Nginx::Stream->new(
 		Proto => "udp",
-		PeerAddr => '127.0.0.1:8080',
 		@_
 	);
 }
@@ -41,7 +40,8 @@ sub new {
 
 	$self->{_socket} = IO::Socket::INET->new(
 		Proto => "tcp",
-		PeerAddr => '127.0.0.1:8080',
+		PeerAddr => '127.0.0.1',
+		PeerPort => ($Test::Nginx::ports[0]{port} || 8080),
 		@_
 	)
 		or die "Can't connect to nginx: $!\n";

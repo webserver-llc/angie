@@ -89,9 +89,11 @@ sub ok {
 ###############################################################################
 
 sub pop3_test_daemon {
+	my ($port) = @_;
+
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8111',
+		LocalAddr => '127.0.0.1:' . ($port || 8111),
 		Listen => 5,
 		Reuse => 1
 	)

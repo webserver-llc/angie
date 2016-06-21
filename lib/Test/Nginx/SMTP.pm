@@ -93,9 +93,11 @@ sub authok {
 ###############################################################################
 
 sub smtp_test_daemon {
+	my ($port) = @_;
+
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:8026',
+		LocalAddr => '127.0.0.1:' . ($port || 8026),
 		Listen => 5,
 		Reuse => 1
 	)

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(35);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(42);
 
 $t->todo_alerts() unless $t->has_version('1.9.14');
 
@@ -44,7 +44,9 @@ http {
         listen       127.0.0.1:%%PORT_1%%;
         server_name  localhost;
 
-        location / { }
+        location / {
+            add_header X-Length $http_content_length;
+        }
         location /proxy2/ {
             add_header X-Body $request_body;
             add_header X-Body-File $request_body_file;
@@ -79,6 +81,7 @@ my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST', 'request body');
+is($frame->{headers}->{'x-length'}, 4, 'request body - content length');
 
 # request body with padding (uses proxied response)
 
@@ -90,6 +93,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body with padding');
+is($frame->{headers}->{'x-length'}, 4,
+	'request body with padding - content length');
 
 $sid = $s->new_stream();
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
@@ -107,6 +112,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TEST',
 	'request body in multiple frames');
+is($frame->{headers}->{'x-length'}, 4,
+	'request body in multiple frames - content length');
 
 # request body sent in multiple DATA frames, each in its own packet
 
@@ -120,6 +127,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTMOREDATA',
 	'request body in multiple frames separately');
+is($frame->{headers}->{'x-length'}, 12,
+	'request body in multiple frames separately - content length');
 
 # request body with an empty DATA frame
 # "zero size buf in output" alerts seen
@@ -131,6 +140,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request body - empty');
+is($frame->{headers}->{'x-length'}, 0, 'request body - empty size');
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.14');
@@ -144,6 +154,23 @@ todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
 
 is(read_body_file($frame->{headers}{'x-body-file'}), '',
 	'request body - empty content');
+
+}
+
+# it is expected to avoid adding Content-Length for requests without body
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/proxy2/' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'request without body');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.2');
+
+is($frame->{headers}->{'x-length'}, undef,
+	'request without body - content length');
 
 }
 

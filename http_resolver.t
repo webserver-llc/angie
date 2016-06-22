@@ -533,7 +533,7 @@ sub dns_daemon {
 	my $tcp = 0;
 
 	if ($extra{tcp}) {
-		$tcp = port(3, socket => 1)->listen();
+		$tcp = port(3, socket => 1);
 		$sel->add($tcp);
 	}
 

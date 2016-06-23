@@ -322,7 +322,6 @@ sub port {
 		$s_tcp = IO::Socket::INET->new(
 			Proto => 'tcp',
 			LocalAddr => '127.0.0.1:' . $port,
-			Reuse => 1,
 			Listen => 1,
 		) and last;
 	}

@@ -109,14 +109,17 @@ EOF
 
 $t->run_daemon(\&dns_daemon, port(1), $t);
 $t->run_daemon(\&dns_daemon, port(2), $t);
+
 $t->run_daemon(\&dns_daemon, port(3), $t, tcp => 1);
+$t->waitforfile($t->testdir . '/' . port(3));
+port(3, socket => 1)->close();
+
 $t->run_daemon(\&dns_daemon, port(4), $t);
 
 $t->run()->plan(38);
 
 $t->waitforfile($t->testdir . '/' . port(1));
 $t->waitforfile($t->testdir . '/' . port(2));
-$t->waitforfile($t->testdir . '/' . port(3));
 $t->waitforfile($t->testdir . '/' . port(4));
 
 ###############################################################################

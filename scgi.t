@@ -64,7 +64,7 @@ http {
 EOF
 
 $t->run_daemon(\&scgi_daemon);
-$t->run();
+$t->run()->waitforsocket('127.0.0.1:' . port(1));
 
 ###############################################################################
 
@@ -126,8 +126,10 @@ sub scgi_daemon {
 	my $count = 0;
 
 	while (my $request = $scgi->accept()) {
+		eval { $request->read_env(); };
+		next if $@;
+
 		$count++;
-		$request->read_env();
 
 		$request->connection()->print(<<EOF);
 Location: http://localhost/redirect

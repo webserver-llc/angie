@@ -68,22 +68,22 @@ $t->try_run('no proxy_protocol_port')->plan(8);
 
 ###############################################################################
 
-my $tcp4 = 'PROXY TCP4 192.0.2.1 192.0.2.2 12345 5678' . CRLF;
-my $tcp6 = 'PROXY TCP6 2001:Db8::1 2001:Db8::2 12345 5678' . CRLF;
+my $tcp4 = 'PROXY TCP4 192.0.2.1 192.0.2.2 123 5678' . CRLF;
+my $tcp6 = 'PROXY TCP6 2001:Db8::1 2001:Db8::2 123 5678' . CRLF;
 my $unk = 'PROXY UNKNOWN 1 2 3 4 5 6' . CRLF;
 
 # realip
 
-like(pp_get('/pp', $tcp4), qr/X-PP-Port: 12345/, 'pp port tcp4');
-like(pp_get('/pp', $tcp6), qr/X-PP-Port: 12345/, 'pp port tcp6');
+like(pp_get('/pp', $tcp4), qr/X-PP-Port: 123\x0d/, 'pp port tcp4');
+like(pp_get('/pp', $tcp6), qr/X-PP-Port: 123\x0d/, 'pp port tcp6');
 unlike(pp_get('/pp', $unk), qr/X-PP-Port/, 'pp port unknown');
 
 # remote_port
 
-like(pp_get('/pp/real', $tcp4), qr/X-Remote-Port: 12345/, 'remote port tcp4');
-unlike(pp_get('/pp', $tcp4), qr/X-Remote-Port: 12345/, 'no remote port tcp4');
-like(pp_get('/pp/real', $tcp6), qr/X-Remote-Port: 12345/, 'remote port tcp6');
-unlike(pp_get('/pp', $tcp6), qr/X-Remote-Port: 12345/, 'no remote port tcp6');
+like(pp_get('/pp/real', $tcp4), qr/X-Remote-Port: 123\x0d/, 'remote port tcp4');
+unlike(pp_get('/pp', $tcp4), qr/X-Remote-Port: 123\x0d/, 'no remote port tcp4');
+like(pp_get('/pp/real', $tcp6), qr/X-Remote-Port: 123\x0d/, 'remote port tcp6');
+unlike(pp_get('/pp', $tcp6), qr/X-Remote-Port: 123\x0d/, 'no remote port tcp6');
 
 # log
 
@@ -94,7 +94,7 @@ $t->stop();
 my $log = $t->read_file('/port.log');
 chomp $log;
 
-is($log, 12345, 'pp port log');
+is($log, 123, 'pp port log');
 
 ###############################################################################
 

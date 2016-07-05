@@ -167,6 +167,10 @@ sub has_module($) {
 		stream_access => '(?s)^(?!.*--without-stream_access_module)',
 		stream_limit_conn
 			=> '(?s)^(?!.*--without-stream_limit_conn_module)',
+		stream_map
+			=> '(?s)^(?!.*--without-stream_map_module)',
+		stream_return
+			=> '(?s)^(?!.*--without-stream_return_module)',
 		stream_upstream_hash
 			=> '(?s)^(?!.*--without-stream_upstream_hash_module)',
 		stream_upstream_least_conn

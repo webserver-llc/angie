@@ -41,6 +41,7 @@ http {
 
     server {
         listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8082;
         server_name  localhost;
 
         location / {
@@ -54,6 +55,11 @@ http {
             proxy_pass http://127.0.0.1:8081/;
             client_body_buffer_size 1k;
         }
+        location /abort {
+            proxy_request_buffering off;
+            proxy_http_version 1.1;
+            proxy_pass http://127.0.0.1:8082/;
+        }
     }
 }
 
@@ -65,7 +71,7 @@ my $f = get_body('/chunked');
 plan(skip_all => 'no unbuffered request body') unless $f;
 $f->{http_end}();
 
-$t->plan(48);
+$t->plan(49);
 
 ###############################################################################
 
@@ -159,6 +165,26 @@ is($f->{upload}('0123456789', split => [ 14 ]),
 	'5' . CRLF . '01234' . CRLF . '5' . CRLF . '56789' . CRLF .
 	'0' . CRLF . CRLF, 'chunked split');
 is($f->{http_end}(), 200, 'chunked split - response');
+
+# unbuffered request body, chunked transfer-encoding
+# client sends partial DATA frame and closes connection
+
+TODO: {
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.11.2');
+
+my $s = Test::Nginx::HTTP2->new();
+my $s2 = Test::Nginx::HTTP2->new();
+
+$s->new_stream({ path => '/abort', body_more => 1 });
+$s->h2_body('TEST', { split => [ 9 ], abort => 1 });
+
+close $s->{socket};
+
+$s2->h2_ping('PING');
+isnt(@{$s2->read()}, 0, 'chunked abort');
+
+}
 
 ###############################################################################
 

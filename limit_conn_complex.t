@@ -68,6 +68,7 @@ http {
 
 EOF
 
+$t->write_file('req', '');
 $t->run();
 
 ###############################################################################
@@ -83,8 +84,7 @@ http_get('/req');
 $s = http_get('/req', start => 1);
 ok(!IO::Select->new($s)->can_read(1), 'limit_req same key');
 
-$s = http_get('/req?r=2', start => 1);
-ok(IO::Select->new($s)->can_read(1), 'limit_req different key');
+like(http_get('/req?r=2'), qr/200 OK/, 'limit_req different key');
 
 # limit_conn tests
 

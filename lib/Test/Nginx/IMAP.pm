@@ -21,7 +21,7 @@ sub new {
 
 	$self->{_socket} = IO::Socket::INET->new(
 		Proto => "tcp",
-		PeerAddr => "127.0.0.1:8143",
+		PeerAddr => "127.0.0.1:" . port(8143),
 		@_
 	)
 		or die "Can't connect to nginx: $!\n";
@@ -93,7 +93,7 @@ sub imap_test_daemon {
 
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:' . ($port || 8144),
+		LocalAddr => '127.0.0.1:' . ($port || port(8144)),
 		Listen => 5,
 		Reuse => 1
 	)

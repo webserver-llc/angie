@@ -31,7 +31,7 @@ use Test::More qw//;
 
 our $NGINX = defined $ENV{TEST_NGINX_BINARY} ? $ENV{TEST_NGINX_BINARY}
 	: '../nginx/objs/nginx';
-our @ports = ();
+our %ports = ();
 
 sub new {
 	my $self = {};
@@ -313,10 +313,13 @@ sub port {
 	my ($num, %opts) = @_;
 	my ($s_tcp, $s_udp, $port);
 
-	goto done if defined $ports[$num];
+	$num += 8080 if $num < 1000;
+	goto done if defined $ports{$num};
+
+	$port = $num;
 
 	for (1 .. 10) {
-		$port = 8000 + int(rand(1000));
+		$port = 8000 + int(rand(1000)) unless $_ == 1;
 
 		$s_udp = IO::Socket::INET->new(
 			Proto => 'udp',
@@ -332,11 +335,14 @@ sub port {
 
 	die "Port limit exceeded" unless defined $s_tcp and defined $s_udp;
 
-	$ports[$num] = {port => $port, socket => $opts{udp} ? $s_tcp : $s_udp};
+	$ports{$num} = {
+		port => $port,
+		socket => $opts{udp} ? $s_tcp : $s_udp
+	};
 
 done:
-	return $ports[$num]{socket} if $opts{socket};
-	return $ports[$num]{port};
+	return $ports{$num}{socket} if $opts{socket};
+	return $ports{$num}{port};
 }
 
 sub dump_config() {
@@ -462,6 +468,9 @@ sub write_file_expand($$) {
 	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals()/gmse;
 	$content =~ s/%%TEST_GLOBALS_HTTP%%/$self->test_globals_http()/gmse;
 	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
+
+	$content =~ s/127\.0\.0\.1:(8\d\d\d)/'127.0.0.1:' . port($1)/gmse;
+
 	$content =~ s/%%PORT_(\d+)%%/port($1)/gmse;
 	$content =~ s/%%PORT_(\d+)_UDP%%/port($1, udp => 1)/gmse;
 
@@ -645,7 +654,7 @@ sub http_start($;%) {
 
 		$s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . ($ports[0]{port} || 8080)
+			PeerAddr => '127.0.0.1:' . port(8080)
 		)
 			or die "Can't connect to nginx: $!\n";
 

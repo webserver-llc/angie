@@ -29,7 +29,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail smtp http rewrite/)->plan(25)
-	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(2))
+	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(8026))
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -41,11 +41,11 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
+    auth_http  http://127.0.0.1:8080/mail/auth;
     xclient    off;
 
     server {
-        listen     127.0.0.1:%%PORT_1%%;
+        listen     127.0.0.1:8025;
         protocol   smtp;
         smtp_auth  login plain none;
     }
@@ -55,7 +55,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location = /mail/auth {
@@ -72,7 +72,7 @@ http {
 
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port %%PORT_2%%;
+            add_header Auth-Port %%PORT_8026%%;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -83,7 +83,7 @@ EOF
 
 ###############################################################################
 
-my $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+my $s = Test::Nginx::SMTP->new();
 $s->check(qr/^220 /, "greeting");
 
 $s->send('EHLO example.com');
@@ -111,7 +111,7 @@ $s->ok("quit");
 
 # Try auth login in simple form
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -128,7 +128,7 @@ $s->authok('auth login simple');
 # [MS-XLOGIN]: SMTP Protocol AUTH LOGIN Extension Specification
 # http://download.microsoft.com/download/5/D/D/5DD33FDF-91F5-496D-9884-0A0B0EE698BB/%5BMS-XLOGIN%5D.pdf
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -140,7 +140,7 @@ $s->authok('auth login with username');
 
 # Try auth plain with pipelining
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -164,7 +164,7 @@ $s->ok('mail from after pipelined auth');
 
 # Try auth none
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -180,7 +180,7 @@ $s->ok('auth none - rset, should go to backend');
 
 # Auth none with pipelining
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -195,7 +195,7 @@ $s->ok('pipelined rset');
 
 # Connection must stay even if error returned to rcpt to command
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -211,7 +211,7 @@ $s->ok('good rcpt to');
 
 # Make sure command split into many packets processed correctly
 
-$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::SMTP->new();
 $s->read();
 
 $s->print('HEL');

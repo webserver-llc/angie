@@ -35,7 +35,8 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail mail_ssl imap http rewrite/)->has_daemon('openssl')
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(6))->plan(12);
+	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(8144))
+	->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -48,19 +49,19 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
+    auth_http  http://127.0.0.1:8080/mail/auth;
     auth_http_pass_client_cert on;
 
     ssl_certificate_key 1.example.com.key;
     ssl_certificate 1.example.com.crt;
 
     server {
-        listen     127.0.0.1:%%PORT_1%%;
+        listen     127.0.0.1:8142;
         protocol   imap;
     }
 
     server {
-        listen     127.0.0.1:%%PORT_2%% ssl;
+        listen     127.0.0.1:8143 ssl;
         protocol   imap;
 
         ssl_verify_client on;
@@ -68,7 +69,7 @@ mail {
     }
 
     server {
-        listen     127.0.0.1:%%PORT_3%% ssl;
+        listen     127.0.0.1:8145 ssl;
         protocol   imap;
 
         ssl_verify_client optional;
@@ -76,7 +77,7 @@ mail {
     }
 
     server {
-        listen     127.0.0.1:%%PORT_4%% ssl;
+        listen     127.0.0.1:8146 ssl;
         protocol   imap;
 
         ssl_verify_client optional;
@@ -85,7 +86,7 @@ mail {
     }
 
     server {
-        listen     127.0.0.1:%%PORT_5%% ssl;
+        listen     127.0.0.1:8147 ssl;
         protocol   imap;
 
         ssl_verify_client optional_no_ca;
@@ -102,7 +103,7 @@ http {
                       '$http_auth_ssl_cert:$http_auth_pass';
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location = /mail/auth {
@@ -110,7 +111,7 @@ http {
 
             add_header Auth-Status OK;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port %%PORT_6%%;
+            add_header Auth-Port %%PORT_8144%%;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -150,25 +151,25 @@ my %ssl = (
 
 # no ssl connection
 
-my $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(1));
+my $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(8142));
 $s->ok('plain connection');
 $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s1"));
 
 # no cert
 
-$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(2), %ssl);
+$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(8143), %ssl);
 $s->check(qr/BYE No required SSL certificate/, 'no cert');
 
 # no cert with ssl_verify_client optional
 
-$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(3), %ssl);
+$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(8145), %ssl);
 $s->ok('no optional cert');
 $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s2"));
 
 # wrong cert with ssl_verify_client optional
 
 $s = Test::Nginx::IMAP->new(
-	PeerAddr => '127.0.0.1:' . port(3),
+	PeerAddr => '127.0.0.1:' . port(8145),
 	SSL_cert_file => "$d/1.example.com.crt",
 	SSL_key_file => "$d/1.example.com.key",
 	%ssl,
@@ -178,7 +179,7 @@ $s->check(qr/BYE SSL certificate error/, 'bad optional cert');
 # wrong cert with ssl_verify_client optional_no_ca
 
 $s = Test::Nginx::IMAP->new(
-	PeerAddr => '127.0.0.1:'  . port(5),
+	PeerAddr => '127.0.0.1:' . port(8147),
 	SSL_cert_file => "$d/1.example.com.crt",
 	SSL_key_file => "$d/1.example.com.key",
 	%ssl,
@@ -189,7 +190,7 @@ $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s3"));
 # matching cert with ssl_verify_client optional
 
 $s = Test::Nginx::IMAP->new(
-	PeerAddr => '127.0.0.1:' . port(3),
+	PeerAddr => '127.0.0.1:' . port(8145),
 	SSL_cert_file => "$d/2.example.com.crt",
 	SSL_key_file => "$d/2.example.com.key",
 	%ssl,
@@ -200,7 +201,7 @@ $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s4"));
 # trusted cert with ssl_verify_client optional
 
 $s = Test::Nginx::IMAP->new(
-	PeerAddr => '127.0.0.1:' . port(4),
+	PeerAddr => '127.0.0.1:' . port(8146),
 	SSL_cert_file => "$d/3.example.com.crt",
 	SSL_key_file => "$d/3.example.com.key",
 	%ssl,

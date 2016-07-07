@@ -28,7 +28,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
 	->has(qw/mail imap http rewrite/)->plan(9)
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(2))
+	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(8144))
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -40,10 +40,10 @@ events {
 
 mail {
     proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:%%PORT_0%%/mail/auth;
+    auth_http  http://127.0.0.1:8080/mail/auth;
 
     server {
-        listen     127.0.0.1:%%PORT_1%%;
+        listen     127.0.0.1:8143;
         protocol   imap;
     }
 }
@@ -52,7 +52,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location = /mail/auth {
@@ -69,7 +69,7 @@ http {
 
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port %%PORT_2%%;
+            add_header Auth-Port %%PORT_8144%%;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -80,7 +80,7 @@ EOF
 
 ###############################################################################
 
-my $s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(1));
+my $s = Test::Nginx::IMAP->new();
 $s->ok('greeting');
 
 # bad auth
@@ -98,7 +98,7 @@ $s->ok('auth plain');
 
 # auth login simple
 
-$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::IMAP->new();
 $s->read();
 
 $s->send('1 AUTHENTICATE LOGIN');
@@ -112,7 +112,7 @@ $s->ok('auth login simple');
 
 # auth login with username
 
-$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(1));
+$s = Test::Nginx::IMAP->new();
 $s->read();
 
 $s->send('1 AUTHENTICATE LOGIN ' . encode_base64('test@example.com', ''));

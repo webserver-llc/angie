@@ -330,12 +330,11 @@ sub port {
 			Proto => 'tcp',
 			LocalAddr => '127.0.0.1:' . $port,
 			Listen => 1,
+			Reuse => ($^O ne 'MSWin32')
 		) and last;
 	}
 
 	die "Port limit exceeded" unless defined $s_tcp and defined $s_udp;
-
-	$s_tcp->sockopt(SO_REUSEADDR, 1) if $^O ne 'MSWin32';
 
 	$ports{$num} = {
 		port => $port,

@@ -335,6 +335,8 @@ sub port {
 
 	die "Port limit exceeded" unless defined $s_tcp and defined $s_udp;
 
+	$s_tcp->sockopt(SO_REUSEADDR, 1) if $^O ne 'MSWin32';
+
 	$ports{$num} = {
 		port => $port,
 		socket => $opts{udp} ? $s_tcp : $s_udp

@@ -25,8 +25,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(6)
-	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(8026))
-	->write_file_expand('nginx.conf', <<'EOF')->run();
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -65,6 +64,9 @@ http {
 }
 
 EOF
+
+$t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
+$t->run()->waitforsocket('127.0.0.1:' . port(8026));
 
 ###############################################################################
 

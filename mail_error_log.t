@@ -27,8 +27,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/)
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(8144));
+my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/);
 
 plan(skip_all => 'no error_log') unless $t->has_version('1.9.0');
 
@@ -90,9 +89,11 @@ open STDERR, '>', $t->testdir() . '/stderr' or die "Can't reopen STDERR: $!";
 open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
 
+$t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
 $t->run_daemon(\&syslog_daemon, port(8081), $t, 's_glob.log');
 $t->run_daemon(\&syslog_daemon, port(8082), $t, 's_info.log');
 
+$t->waitforsocket('127.0.0.1:' . port(8144));
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_info.log');
 

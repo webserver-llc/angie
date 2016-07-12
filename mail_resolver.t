@@ -25,10 +25,8 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)
-	->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon, port(8026));
-
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(8)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -116,16 +114,13 @@ http {
 
 EOF
 
-for (8081 .. 8087) {
-	$t->run_daemon(\&dns_daemon, port($_), $t);
-}
+$t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
+$t->run_daemon(\&dns_daemon, port($_), $t) foreach (8081 .. 8087);
+
 $t->run();
 
-for (8081 .. 8087) {
-	$t->waitforfile($t->testdir . '/' . port($_));
-}
-
-$t->plan(8);
+$t->waitforsocket('127.0.0.1:' . port(8026));
+$t->waitforfile($t->testdir . '/' . port($_)) foreach (8081 .. 8087);
 
 ###############################################################################
 

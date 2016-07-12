@@ -26,10 +26,8 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()
-	->has(qw/mail pop3 http rewrite/)->plan(8)
-	->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon, port(8111))
-	->write_file_expand('nginx.conf', <<'EOF')->run();
+my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(8)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -77,6 +75,9 @@ http {
 }
 
 EOF
+
+$t->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon);
+$t->run()->waitforsocket('127.0.0.1:' . port(8111));
 
 ###############################################################################
 

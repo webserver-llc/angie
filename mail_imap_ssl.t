@@ -33,12 +33,9 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()
-	->has(qw/mail mail_ssl imap http rewrite/)->has_daemon('openssl')
-	->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon, port(8144))
-	->plan(12);
-
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap http rewrite/)
+	->has_daemon('openssl')->plan(12)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -138,7 +135,8 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run();
+$t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
+$t->run()->waitforsocket('127.0.0.1:' . port(8144));
 
 ###############################################################################
 

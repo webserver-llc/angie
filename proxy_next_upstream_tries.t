@@ -38,19 +38,19 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
     }
 
     upstream u2 {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%% backup;
-        server 127.0.0.1:%%PORT_1%% backup;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081 backup;
+        server 127.0.0.1:8081 backup;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         proxy_next_upstream http_404;
@@ -68,9 +68,9 @@ http {
         }
 
         location /tries/resolver {
-            resolver 127.0.0.1:%%PORT_2_UDP%%;
+            resolver 127.0.0.1:%%PORT_8082_UDP%%;
 
-            proxy_pass http://$host:%%PORT_1%%;
+            proxy_pass http://$host:%%PORT_8081%%;
             proxy_next_upstream_tries 2;
         }
 
@@ -90,9 +90,9 @@ http {
         }
 
         location /timeout/resolver {
-            resolver 127.0.0.1:%%PORT_2_UDP%%;
+            resolver 127.0.0.1:%%PORT_8082_UDP%%;
 
-            proxy_pass http://$host:%%PORT_1%%/w2;
+            proxy_pass http://$host:%%PORT_8081%%/w2;
             proxy_next_upstream_timeout 3800ms;
         }
 
@@ -109,12 +109,12 @@ http {
 
 EOF
 
-$t->run_daemon(\&http_daemon, port(1));
-$t->run_daemon(\&dns_daemon, port(2), $t);
+$t->run_daemon(\&http_daemon, port(8081));
+$t->run_daemon(\&dns_daemon, port(8082), $t);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
-$t->waitforfile($t->testdir . '/' . port(2));
+$t->waitforsocket('127.0.0.1:' . port(8081));
+$t->waitforfile($t->testdir . '/' . port(8082));
 
 ###############################################################################
 

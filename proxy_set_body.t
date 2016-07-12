@@ -35,21 +35,21 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/body;
+            proxy_pass http://127.0.0.1:8080/body;
             proxy_set_body "body";
         }
 
         location /p1 {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/x1;
+            proxy_pass http://127.0.0.1:8080/x1;
             proxy_set_body "body";
         }
 
         location /p2 {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/body;
+            proxy_pass http://127.0.0.1:8080/body;
             proxy_set_body "body two";
         }
 
@@ -60,7 +60,7 @@ http {
 
         location /body {
             add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:%%PORT_0%%/empty;
+            proxy_pass http://127.0.0.1:8080/empty;
         }
 
         location /empty {

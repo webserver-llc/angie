@@ -40,8 +40,8 @@ http {
     limit_req_zone   $binary_remote_addr  zone=req:1m rate=30r/m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         http2_body_preread_size 10;
@@ -49,39 +49,39 @@ http {
         location /t { }
         location / {
             add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/t;
+            proxy_pass http://127.0.0.1:8081/t;
 
             location /req {
                 limit_req  zone=req burst=2;
-                proxy_pass http://127.0.0.1:%%PORT_1%%/t;
+                proxy_pass http://127.0.0.1:8081/t;
             }
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%% http2;
+        listen       127.0.0.1:8082 http2;
         server_name  localhost;
 
         http2_body_preread_size 0;
 
         location / {
             add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/t;
+            proxy_pass http://127.0.0.1:8081/t;
 
             location /req {
                 limit_req  zone=req burst=2;
-                proxy_pass http://127.0.0.1:%%PORT_1%%/t;
+                proxy_pass http://127.0.0.1:8081/t;
             }
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_3%% http2;
+        listen       127.0.0.1:8083 http2;
         server_name  localhost;
 
         location / {
             add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/t;
+            proxy_pass http://127.0.0.1:8081/t;
         }
     }
 }
@@ -144,7 +144,7 @@ is($frame->{code}, 3, 'beyond preread limited - FLOW_CONTROL_ERROR');
 TODO: {
 local $TODO = 'not yet';
 
-$s = Test::Nginx::HTTP2->new(port(2));
+$s = Test::Nginx::HTTP2->new(port(8082));
 $sid = $s->new_stream({ body => 'TEST' });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }], wait => 0.5);
 
@@ -155,7 +155,7 @@ is($frame->{code}, 3, 'zero preread - FLOW_CONTROL_ERROR');
 
 # zero preread size - limited
 
-$s = Test::Nginx::HTTP2->new(port(2));
+$s = Test::Nginx::HTTP2->new(port(8082));
 $sid = $s->new_stream({ path => '/req', body => 'TEST' });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 
@@ -165,7 +165,7 @@ is($frame->{code}, 3, 'zero preread limited - FLOW_CONTROL_ERROR');
 
 # REFUSED_STREAM on request body prior SETTINGS acknowledgement
 
-$s = Test::Nginx::HTTP2->new(port(0), pure => 1);
+$s = Test::Nginx::HTTP2->new(port(8080), pure => 1);
 $sid = $s->new_stream({ body => 'TEST' });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 
@@ -174,7 +174,7 @@ is($frame->{code}, 7, 'no SETTINGS ack - REFUSED_STREAM');
 
 # default preread size - no REFUSED_STREAM expected
 
-$s = Test::Nginx::HTTP2->new(port(3), pure => 1);
+$s = Test::Nginx::HTTP2->new(port(8083), pure => 1);
 $sid = $s->new_stream({ body => 'TEST' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 

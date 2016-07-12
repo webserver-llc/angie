@@ -39,15 +39,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            fastcgi_pass 127.0.0.1:%%PORT_1%%;
+            fastcgi_pass 127.0.0.1:8081;
             fastcgi_param REQUEST_URI $request_uri;
         }
 
@@ -61,7 +61,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -73,14 +73,14 @@ unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 
 like(http_get('/stderr'), qr/SEE-THIS/, 'large stderr handled');
 
-like(http_get('/var?b=127.0.0.1:' . port(1)), qr/SEE-THIS/,
+like(http_get('/var?b=127.0.0.1:' . port(8081)), qr/SEE-THIS/,
 	'fastcgi with variables');
 like(http_get('/var?b=u'), qr/SEE-THIS/, 'fastcgi with variables to upstream');
 
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(8081), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

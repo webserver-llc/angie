@@ -37,22 +37,22 @@ events {
 
 stream {
     map $server_port $x {
-        %%PORT_0%%             literal;
-        default                default;
-        ~(%%PORT_2%%)          $1;
-        ~(?P<ncap>%%PORT_3%%)  $ncap;
+        %%PORT_8080%%             literal;
+        default                   default;
+        ~(%%PORT_8082%%)          $1;
+        ~(?P<ncap>%%PORT_8083%%)  $ncap;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_0%%;
-        listen  127.0.0.1:%%PORT_1%%;
-        listen  127.0.0.1:%%PORT_2%%;
-        listen  127.0.0.1:%%PORT_3%%;
+        listen  127.0.0.1:8080;
+        listen  127.0.0.1:8081;
+        listen  127.0.0.1:8082;
+        listen  127.0.0.1:8083;
         return  $x;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_4%%;
+        listen  127.0.0.1:8084;
         return  $x:${x};
     }
 }
@@ -63,10 +63,10 @@ $t->try_run('no stream map')->plan(5);
 
 ###############################################################################
 
-is(stream('127.0.0.1:' . port(0))->read(), 'literal', 'literal');
-is(stream('127.0.0.1:' . port(1))->read(), 'default', 'default');
-is(stream('127.0.0.1:' . port(2))->read(), port(2), 'capture');
-is(stream('127.0.0.1:' . port(3))->read(), port(3), 'named capture');
-is(stream('127.0.0.1:' . port(4))->read(), 'default:default', 'braces');
+is(stream('127.0.0.1:' . port(8080))->read(), 'literal', 'literal');
+is(stream('127.0.0.1:' . port(8081))->read(), 'default', 'default');
+is(stream('127.0.0.1:' . port(8082))->read(), port(8082), 'capture');
+is(stream('127.0.0.1:' . port(8083))->read(), port(8083), 'named capture');
+is(stream('127.0.0.1:' . port(8084))->read(), 'default:default', 'braces');
 
 ###############################################################################

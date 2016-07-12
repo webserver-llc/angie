@@ -36,34 +36,34 @@ events {
 
 stream {
     server {
-        listen  127.0.0.1:%%PORT_0%%;
+        listen  127.0.0.1:8080;
         return  $connection:$nginx_version:$hostname:$pid:$bytes_sent;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_1%%;
-        listen  [::1]:%%PORT_1%%;
+        listen  127.0.0.1:8081;
+        listen  [::1]:%%PORT_8081%%;
         return  $remote_addr:$remote_port:$server_addr:$server_port;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_2%%;
-        proxy_pass  [::1]:%%PORT_1%%;
+        listen  127.0.0.1:8082;
+        proxy_pass  [::1]:%%PORT_8081%%;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_3%%;
-        listen  [::1]:%%PORT_3%%;
+        listen  127.0.0.1:8083;
+        listen  [::1]:%%PORT_8083%%;
         return  $binary_remote_addr;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_4%%;
-        proxy_pass  [::1]:%%PORT_3%%;
+        listen  127.0.0.1:8084;
+        proxy_pass  [::1]:%%PORT_8083%%;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_5%%;
+        listen  127.0.0.1:8085;
         return  $msec!$time_local!$time_iso8601;
     }
 }
@@ -77,21 +77,21 @@ $t->try_run('no stream return')->plan(6);
 chomp(my $hostname = lc `hostname`);
 like(stream()->read(), qr/^\d+:[\d.]+:$hostname:\d+:0$/, 'vars');
 
-my $dport = port(1);
+my $dport = port(8081);
 my $s = stream("127.0.0.1:$dport");
 my $lport = $s->sockport();
 is($s->read(), "127.0.0.1:$lport:127.0.0.1:$dport", 'addr');
 
-my $data = stream('127.0.0.1:' . port(2))->read();
+my $data = stream('127.0.0.1:' . port(8082))->read();
 like($data, qr/^::1:\d+:::1:\d+$/, 'addr ipv6');
 
-$data = stream('127.0.0.1:' . port(3))->read();
+$data = stream('127.0.0.1:' . port(8083))->read();
 is(unpack("H*", $data), '7f000001', 'binary addr');
 
-$data = stream('127.0.0.1:' . port(4))->read();
+$data = stream('127.0.0.1:' . port(8084))->read();
 is(unpack("H*", $data), '0' x 31 . '1', 'binary addr ipv6');
 
-$data = stream('127.0.0.1:' . port(5))->read();
+$data = stream('127.0.0.1:' . port(8085))->read();
 like($data, qr#^\d+.\d+![-+\w/: ]+![-+\dT:]+$#, 'time');
 
 ###############################################################################

@@ -41,11 +41,11 @@ http {
                        keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
             proxy_cache_lock on;
@@ -56,8 +56,8 @@ http {
 
 EOF
 
-$t->run_daemon(\&http_daemon, port(1));
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run_daemon(\&http_daemon, port(8081));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 

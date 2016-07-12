@@ -37,11 +37,11 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
 
             proxy_cookie_domain www.example.org .example.com;
             proxy_cookie_domain .$server_name.com en.$server_name.org;
@@ -55,7 +55,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {
@@ -77,7 +77,7 @@ $t->run()->plan(8);
 
 ###############################################################################
 
-my $port = port(0);
+my $port = port(8080);
 
 is(http_get_set_cookie('/?domain=www.Example.org'),
 	'v=path=domain=; Domain=example.com', 'domain rewrite');

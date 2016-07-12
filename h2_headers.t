@@ -38,9 +38,9 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
-        listen       127.0.0.1:%%PORT_1%%;
-        listen       127.0.0.1:%%PORT_2%% http2 sndbuf=128;
+        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8081;
+        listen       127.0.0.1:8082 http2 sndbuf=128;
         server_name  localhost;
 
         http2_max_field_size 128k;
@@ -70,12 +70,12 @@ http {
         location /proxy/ {
             add_header X-UC-a $upstream_cookie_a;
             add_header X-UC-c $upstream_cookie_c;
-            proxy_pass http://127.0.0.1:%%PORT_3%%/;
+            proxy_pass http://127.0.0.1:8083/;
             proxy_set_header X-Cookie-a $cookie_a;
             proxy_set_header X-Cookie-c $cookie_c;
         }
         location /proxy2/ {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
         }
         location /set-cookie {
             add_header Set-Cookie a=b;
@@ -91,14 +91,14 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_4%% http2;
+        listen       127.0.0.1:8084 http2;
         server_name  localhost;
 
         http2_max_field_size 22;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_5%% http2;
+        listen       127.0.0.1:8085 http2;
         server_name  localhost;
 
         http2_max_header_size 64;
@@ -113,7 +113,7 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-$t->waitforsocket('127.0.0.1:' . port(3));
+$t->waitforsocket('127.0.0.1:' . port(8083));
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 
@@ -660,7 +660,7 @@ cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.7');
 
-$s = Test::Nginx::HTTP2->new(port(2));
+$s = Test::Nginx::HTTP2->new(port(8082));
 $s->h2_settings(0, 0x5 => 2**17);
 
 $sid = $s->new_stream({ path => '/frame_size?h=' . 'x' x 2**15 });
@@ -679,7 +679,7 @@ is(length join('', @{$frame->{headers}->{'x-longheader'}}), 98304,
 
 # response header block split and sent in parts
 
-$s = Test::Nginx::HTTP2->new(port(2));
+$s = Test::Nginx::HTTP2->new(port(8082));
 $sid = $s->new_stream({ path => '/continuation?h=' . 'x' x 2**15 });
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }]);
 
@@ -694,7 +694,7 @@ is(length join('', @{@$frames[-1]->{headers}->{'x-longheader'}}), 98304,
 
 # max_field_size - header field name
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -717,7 +717,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field name size second');
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -729,7 +729,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field name size equal');
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -743,7 +743,7 @@ is($frame, undef, 'field name size greater');
 
 # max_field_size - header field value
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -755,7 +755,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field value size less');
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -767,7 +767,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'field value size equal');
 
-$s = Test::Nginx::HTTP2->new(port(4));
+$s = Test::Nginx::HTTP2->new(port(8084));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -781,7 +781,7 @@ is($frame, undef, 'field value size greater');
 
 # max_header_size
 
-$s = Test::Nginx::HTTP2->new(port(5));
+$s = Test::Nginx::HTTP2->new(port(8085));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -804,7 +804,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'header size second');
 
-$s = Test::Nginx::HTTP2->new(port(5));
+$s = Test::Nginx::HTTP2->new(port(8085));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -816,7 +816,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 ok($frame, 'header size equal');
 
-$s = Test::Nginx::HTTP2->new(port(5));
+$s = Test::Nginx::HTTP2->new(port(8085));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -831,7 +831,7 @@ is($frame, undef, 'header size greater');
 # header size is based on (decompressed) header list
 # two extra 1-byte indices would otherwise fit in max_header_size
 
-$s = Test::Nginx::HTTP2->new(port(5));
+$s = Test::Nginx::HTTP2->new(port(8085));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -1013,7 +1013,7 @@ sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalHost => '127.0.0.1',
-		LocalPort => port(3),
+		LocalPort => port(8083),
 		Listen => 5,
 		Reuse => 1
 	)

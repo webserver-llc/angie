@@ -36,14 +36,14 @@ stream {
     limit_conn_zone  $binary_remote_addr$server_port  zone=zone:1m;
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
-        proxy_pass  127.0.0.1:%%PORT_4%%;
+        listen      127.0.0.1:8080;
+        proxy_pass  127.0.0.1:8084;
         limit_conn  zone 1;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_1%%;
-        proxy_pass  127.0.0.1:%%PORT_4%%;
+        listen      127.0.0.1:8081;
+        proxy_pass  127.0.0.1:8084;
         limit_conn  zone 1;
     }
 }
@@ -52,7 +52,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_4%%;
+        listen       127.0.0.1:8084;
         server_name  localhost;
 
         location / { }
@@ -66,7 +66,7 @@ $t->try_run('no stream limit_conn with complex value')->plan(4);
 
 ###############################################################################
 
-like(get(port(0)), qr/200 OK/, 'passed');
+like(get(port(8080)), qr/200 OK/, 'passed');
 
 my $s = http(<<EOF, start => 1, sleep => 0.2);
 GET / HTTP/1.0
@@ -74,8 +74,8 @@ EOF
 
 ok($s, 'long connection');
 
-is(get(port(0)), undef, 'rejected same key');
-like(get(port(1)), qr/200 OK/, 'passed different key');
+is(get(port(8080)), undef, 'rejected same key');
+like(get(port(8081)), qr/200 OK/, 'passed different key');
 
 ###############################################################################
 

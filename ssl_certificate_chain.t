@@ -43,7 +43,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
         ssl_certificate_key end.key;
@@ -51,7 +51,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
 
         ssl_certificate_key int.key;
@@ -59,7 +59,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%% ssl;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
 
         ssl_certificate_key end.key;
@@ -137,9 +137,9 @@ $t->run();
 
 ###############################################################################
 
-is(get_ssl_socket(port(0)), undef, 'incomplete chain');
-ok(get_ssl_socket(port(1)), 'intermediate');
-ok(get_ssl_socket(port(2)), 'intermediate server');
+is(get_ssl_socket(port(8080)), undef, 'incomplete chain');
+ok(get_ssl_socket(port(8081)), 'intermediate');
+ok(get_ssl_socket(port(8082)), 'intermediate server');
 
 ###############################################################################
 

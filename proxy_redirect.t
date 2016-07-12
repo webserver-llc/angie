@@ -37,54 +37,54 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
             set $some_var var_here;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
 
-            proxy_redirect http://127.0.0.1:%%PORT_1%%/var_in_second/
+            proxy_redirect http://127.0.0.1:8081/var_in_second/
                            /$some_var/;
-            proxy_redirect http://127.0.0.1:%%PORT_1%%/$some_var/ /replaced/;
+            proxy_redirect http://127.0.0.1:8081/$some_var/ /replaced/;
 
             proxy_redirect ~^(.+)/regex_w_([^/]+) $1/$2/test.html;
             proxy_redirect ~*re+gexp? /replaced/test.html;
         }
 
         location /expl_default/ {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/replace_this/;
+            proxy_pass http://127.0.0.1:8081/replace_this/;
             proxy_redirect wrong wrong;
             proxy_redirect default;
         }
 
         location /impl_default/ {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/replace_this/;
+            proxy_pass http://127.0.0.1:8081/replace_this/;
         }
 
         location /off/ {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_redirect off;
 
             location /off/on/ {
-                proxy_pass http://127.0.0.1:%%PORT_1%%;
-                proxy_redirect http://127.0.0.1:%%PORT_1%%/off/ /;
+                proxy_pass http://127.0.0.1:8081;
+                proxy_redirect http://127.0.0.1:8081/off/ /;
 
                 location /off/on/on/ {
-                    proxy_pass http://127.0.0.1:%%PORT_1%%;
+                    proxy_pass http://127.0.0.1:8081;
                 }
             }
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {
-            add_header Refresh "7; url=http://127.0.0.1:%%PORT_1%%$uri";
-            return http://127.0.0.1:%%PORT_1%%$uri;
+            add_header Refresh "7; url=http://127.0.0.1:8081$uri";
+            return http://127.0.0.1:8081$uri;
         }
     }
 }
@@ -95,7 +95,7 @@ $t->run();
 
 ###############################################################################
 
-my ($p0, $p1) = (port(0), port(1));
+my ($p0, $p1) = (port(8080), port(8081));
 
 is(http_get_location("http://127.0.0.1:$p0/impl_default/test.html"),
 	"http://127.0.0.1:$p0/impl_default/test.html", 'implicit default');

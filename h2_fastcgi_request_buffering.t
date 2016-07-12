@@ -38,12 +38,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
+        listen       127.0.0.1:8080 http2;
         server_name  localhost;
 
         location / {
             fastcgi_request_buffering off;
-            fastcgi_pass 127.0.0.1:%%PORT_1%%;
+            fastcgi_pass 127.0.0.1:8081;
             fastcgi_param REQUEST_URI $request_uri;
             client_body_buffer_size 1k;
         }
@@ -190,7 +190,7 @@ sub get_body {
 	$server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalHost => '127.0.0.1',
-		LocalPort => port(1),
+		LocalPort => port(8081),
 		Listen => 5,
 		Timeout => 3,
 		Reuse => 1

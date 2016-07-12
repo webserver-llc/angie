@@ -38,15 +38,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            scgi_pass 127.0.0.1:%%PORT_1%%;
+            scgi_pass 127.0.0.1:8081;
             scgi_param SCGI 1;
             scgi_param REQUEST_URI $request_uri;
             scgi_param HTTP_X_BLAH "blah";
@@ -64,7 +64,7 @@ http {
 EOF
 
 $t->run_daemon(\&scgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -77,7 +77,7 @@ unlike(http_head('/'), qr/SEE-THIS/, 'no data in HEAD');
 like(http_get_headers('/headers'), qr/SEE-THIS/,
 	'scgi request with many ignored headers');
 
-like(http_get('/var?b=127.0.0.1:' . port(1)), qr/SEE-THIS/,
+like(http_get('/var?b=127.0.0.1:' . port(8081)), qr/SEE-THIS/,
 	'scgi with variables');
 like(http_get('/var?b=u'), qr/SEE-THIS/, 'scgi with variables to upstream');
 
@@ -116,7 +116,7 @@ EOF
 sub scgi_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:' . port(1),
+		LocalHost => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

@@ -53,32 +53,32 @@ stream {
     ssl_password_file password_http;
 
     server {
-        listen      127.0.0.1:%%PORT_0%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8080 ssl;
+        proxy_pass  127.0.0.1:8081;
 
         ssl_session_cache builtin;
         ssl_password_file password;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_2%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8082 ssl;
+        proxy_pass  127.0.0.1:8081;
 
         ssl_session_cache off;
         ssl_password_file password_many;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_3%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8083 ssl;
+        proxy_pass  127.0.0.1:8081;
 
         ssl_session_cache builtin:1000;
         ssl_password_file password_fifo;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_4%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8084 ssl;
+        proxy_pass  127.0.0.1:8081;
 
         ssl_session_cache shared:SSL:1m;
         ssl_certificate_key inherits.key;
@@ -123,48 +123,48 @@ fork() || exec("echo localhost > $d/password_fifo");
 $t->run_daemon(\&http_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
+$t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
 my ($s, $ssl, $ses);
 
-($s, $ssl) = get_ssl_socket(port(0));
+($s, $ssl) = get_ssl_socket(port(8080));
 Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
 like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl');
 
 # ssl_session_cache
 
-($s, $ssl) = get_ssl_socket(port(0));
+($s, $ssl) = get_ssl_socket(port(8080));
 $ses = Net::SSLeay::get_session($ssl);
 
-($s, $ssl) = get_ssl_socket(port(0), $ses);
+($s, $ssl) = get_ssl_socket(port(8080), $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin session reused');
 
-($s, $ssl) = get_ssl_socket(port(2));
+($s, $ssl) = get_ssl_socket(port(8082));
 $ses = Net::SSLeay::get_session($ssl);
 
-($s, $ssl) = get_ssl_socket(port(2), $ses);
+($s, $ssl) = get_ssl_socket(port(8082), $ses);
 isnt(Net::SSLeay::session_reused($ssl), 1, 'session not reused');
 
-($s, $ssl) = get_ssl_socket(port(3));
+($s, $ssl) = get_ssl_socket(port(8083));
 $ses = Net::SSLeay::get_session($ssl);
 
-($s, $ssl) = get_ssl_socket(port(3), $ses);
+($s, $ssl) = get_ssl_socket(port(8083), $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin size session reused');
 
-($s, $ssl) = get_ssl_socket(port(4));
+($s, $ssl) = get_ssl_socket(port(8084));
 $ses = Net::SSLeay::get_session($ssl);
 
-($s, $ssl) = get_ssl_socket(port(4), $ses);
+($s, $ssl) = get_ssl_socket(port(8084), $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'shared session reused');
 
 # ssl_certificate inheritance
 
-($s, $ssl) = get_ssl_socket(port(0));
+($s, $ssl) = get_ssl_socket(port(8080));
 like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=localhost/, 'CN');
 
-($s, $ssl) = get_ssl_socket(port(4));
+($s, $ssl) = get_ssl_socket(port(8084));
 like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=inherits/, 'CN inner');
 
 ###############################################################################
@@ -191,7 +191,7 @@ sub get_ssl_socket {
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:' . port(1),
+		LocalHost => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

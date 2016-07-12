@@ -40,12 +40,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
         location / {
             gunzip on;
             gzip_vary on;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_set_header Accept-Encoding gzip;
         }
         location /error {
@@ -55,7 +55,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {

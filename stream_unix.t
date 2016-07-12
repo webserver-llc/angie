@@ -43,12 +43,12 @@ stream {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         proxy_pass   unix:%%TESTDIR%%/unix.sock;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         proxy_pass   u;
     }
 }
@@ -71,8 +71,8 @@ for (1 .. 50) {
 
 my $str = 'SEE-THIS';
 
-is(stream('127.0.0.1:' . port(0))->io($str), $str, 'proxy');
-is(stream('127.0.0.1:' . port(1))->io($str), $str, 'upstream');
+is(stream('127.0.0.1:' . port(8080))->io($str), $str, 'proxy');
+is(stream('127.0.0.1:' . port(8081))->io($str), $str, 'upstream');
 
 ###############################################################################
 

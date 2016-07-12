@@ -39,28 +39,28 @@ stream {
 
     upstream u {
         least_conn;
-        server 127.0.0.1:%%PORT_1_UDP%%;
-        server 127.0.0.1:%%PORT_2_UDP%%;
+        server 127.0.0.1:%%PORT_8081_UDP%%;
+        server 127.0.0.1:%%PORT_8082_UDP%%;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_0_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8080_UDP%% udp;
         proxy_pass  u;
     }
 }
 
 EOF
 
-$t->run_daemon(\&udp_daemon, port(1), $t);
-$t->run_daemon(\&udp_daemon, port(2), $t);
+$t->run_daemon(\&udp_daemon, port(8081), $t);
+$t->run_daemon(\&udp_daemon, port(8082), $t);
 $t->try_run('no stream udp')->plan(2);
 
-$t->waitforfile($t->testdir . '/' . port(1));
-$t->waitforfile($t->testdir . '/' . port(2));
+$t->waitforfile($t->testdir . '/' . port(8081));
+$t->waitforfile($t->testdir . '/' . port(8082));
 
 ###############################################################################
 
-my @ports = my ($port1, $port2) = (port(1), port(2));
+my @ports = my ($port1, $port2) = (port(8081), port(8082));
 
 is(many(10), "$port1: 5, $port2: 5", 'balanced');
 
@@ -114,7 +114,7 @@ sub udp_daemon {
 
 		my $port = $server->sockport();
 
-		if ($buffer =~ /w/ && $port == port(1)) {
+		if ($buffer =~ /w/ && $port == port(8081)) {
 			select undef, undef, undef, 2.5;
 		}
 

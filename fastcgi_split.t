@@ -42,12 +42,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -60,13 +60,13 @@ http {
 
 EOF
 
-$t->run_daemon(\&fastcgi_daemon, port(1));
-$t->run_daemon(\&fastcgi_daemon, port(2));
+$t->run_daemon(\&fastcgi_daemon, port(8081));
+$t->run_daemon(\&fastcgi_daemon, port(8082));
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
-$t->waitforsocket('127.0.0.1:' . port(2));
+$t->waitforsocket('127.0.0.1:' . port(8081));
+$t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
@@ -84,10 +84,10 @@ sub fastcgi_daemon {
 	while( $request->Accept() >= 0 ) {
 		$count++;
 
-		if ($port == port(1)) {
+		if ($port == port(8081)) {
 			print 'BAD';
 		}
-		if ($port == port(2)) {
+		if ($port == port(8082)) {
 			print 'Good: header' . CRLF . CRLF;
 		}
 	}

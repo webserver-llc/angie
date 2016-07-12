@@ -35,7 +35,7 @@ $t->write_file_expand('nginx.conf', <<'EOF');
 
 error_log %%TESTDIR%%/e_glob.log info;
 error_log %%TESTDIR%%/e_glob2.log info;
-error_log syslog:server=127.0.0.1:%%PORT_3_UDP%% info;
+error_log syslog:server=127.0.0.1:%%PORT_8083_UDP%% info;
 
 daemon off;
 
@@ -44,11 +44,11 @@ events {
 
 stream {
     upstream u {
-        server 127.0.0.1:%%PORT_3_UDP%% down;
+        server 127.0.0.1:%%PORT_8083_UDP%% down;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
+        listen      127.0.0.1:8080;
         proxy_pass  u;
 
         error_log %%TESTDIR%%/e_debug.log debug;
@@ -58,12 +58,12 @@ stream {
     }
 
     server {
-        listen      127.0.0.1:%%PORT_2%%;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8082;
+        proxy_pass  127.0.0.1:8081;
 
         error_log %%TESTDIR%%/e_stream.log info;
-        error_log syslog:server=127.0.0.1:%%PORT_5_UDP%% info;
-        error_log syslog:server=127.0.0.1:%%PORT_4_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8085_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8084_UDP%% info;
     }
 }
 
@@ -75,10 +75,10 @@ open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
 
 $t->run_daemon(\&stream_daemon);
-$t->run_daemon(\&syslog_daemon, port(3), $t, 's_glob.log');
-$t->run_daemon(\&syslog_daemon, port(4), $t, 's_stream.log');
+$t->run_daemon(\&syslog_daemon, port(8083), $t, 's_glob.log');
+$t->run_daemon(\&syslog_daemon, port(8084), $t, 's_stream.log');
 
-$t->waitforsocket('127.0.0.1:' . port(1));
+$t->waitforsocket('127.0.0.1:' . port(8081));
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_stream.log');
 
@@ -113,8 +113,8 @@ is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 
 # syslog
 
-parse_syslog_message('syslog', get_syslog('data2', '127.0.0.1:' . port(2),
-	port(5)));
+parse_syslog_message('syslog', get_syslog('data2', '127.0.0.1:' . port(8082),
+	port(8085)));
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'e_glob.log'),
 	'global syslog messages');
@@ -127,7 +127,8 @@ SKIP: {
 skip "relies on error log contents", 5 unless $ENV{TEST_NGINX_UNSAFE};
 
 my $msg = 'no live upstreams while connecting to upstream, '
-	. 'client: 127.0.0.1, server: 127.0.0.1:' . port(0) . ', upstream: "u"';
+	. 'client: 127.0.0.1, server: 127.0.0.1:' . port(8080)
+	. ', upstream: "u"';
 
 unlike($t->read_file('e_glob.log'), qr/$msg/ms, 'stream error in global');
 like($t->read_file('e_info.log'), qr/$msg/ms, 'stream error in info');
@@ -275,7 +276,7 @@ sub stream_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalHost => '127.0.0.1',
-		LocalPort => port(1),
+		LocalPort => port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

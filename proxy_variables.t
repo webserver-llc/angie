@@ -36,15 +36,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
     }
 
     log_format time '$upstream_connect_time:$upstream_header_time:'
                     '$upstream_response_time';
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         add_header X-Connect $upstream_connect_time;
@@ -52,7 +52,7 @@ http {
         add_header X-Response $upstream_response_time;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
             access_log %%TESTDIR%%/time.log time;
         }
 
@@ -61,7 +61,7 @@ http {
         }
 
         location /vars {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/stub;
+            proxy_pass http://127.0.0.1:8080/stub;
 
             add_header X-Proxy-Host $proxy_host;
             add_header X-Proxy-Port $proxy_port;
@@ -75,15 +75,15 @@ http {
 EOF
 
 $t->write_file('stub', '');
-$t->run_daemon(\&http_daemon, port(1));
+$t->run_daemon(\&http_daemon, port(8081));
 $t->try_run('no upstream_connect_time')->plan(18);
 
-$t->waitforsocket('127.0.0.1:' . port(1));
+$t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
 my $re = qr/(\d\.\d{3})/;
-my $p0 = port(0);
+my $p0 = port(8080);
 my ($ct, $ht, $rt, $ct2, $ht2, $rt2);
 
 like(http_get('/vars'), qr/X-Proxy-Host:\s127\.0\.0\.1:$p0/, 'proxy_host');

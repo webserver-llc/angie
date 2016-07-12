@@ -38,9 +38,9 @@ events {
 
 stream {
     server {
-        listen            127.0.0.1:%%PORT_1%%;
+        listen            127.0.0.1:8081;
         proxy_bind        127.0.0.2;
-        proxy_pass        127.0.0.1:%%PORT_2%%;
+        proxy_pass        127.0.0.1:8082;
     }
 }
 
@@ -48,16 +48,16 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen          127.0.0.1:%%PORT_0%%;
+        listen          127.0.0.1:8080;
         server_name     localhost;
 
         location / {
-            proxy_pass  http://127.0.0.1:%%PORT_1%%;
+            proxy_pass  http://127.0.0.1:8081;
         }
     }
 
     server {
-        listen          127.0.0.1:%%PORT_2%%;
+        listen          127.0.0.1:8082;
 
         location / {
             add_header   X-IP $remote_addr;

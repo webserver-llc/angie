@@ -39,7 +39,7 @@ http {
     ssl_certificate localhost.crt;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  default;
 
         ssl_session_tickets off;
@@ -51,7 +51,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  nocache;
 
         ssl_session_tickets off;
@@ -63,7 +63,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  default;
 
         ssl_session_ticket_key ticket1.key;
@@ -74,7 +74,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  tickets;
 
         ssl_session_ticket_key ticket2.key;
@@ -135,8 +135,8 @@ $t->run();
 
 my $ctx = get_ssl_context();
 
-like(get('default', port(0), $ctx), qr!default:\.!, 'default server');
-like(get('default', port(0), $ctx), qr!default:r!, 'default server reused');
+like(get('default', port(8080), $ctx), qr!default:\.!, 'default server');
+like(get('default', port(8080), $ctx), qr!default:r!, 'default server reused');
 
 # check that sessions are still properly saved and restored
 # when using an SNI-based virtual server with different session cache;
@@ -150,16 +150,16 @@ like(get('default', port(0), $ctx), qr!default:r!, 'default server reused');
 
 $ctx = get_ssl_context();
 
-like(get('nocache', port(0), $ctx), qr!nocache:\.!, 'without cache');
-like(get('nocache', port(0), $ctx), qr!nocache:r!, 'without cache reused');
+like(get('nocache', port(8080), $ctx), qr!nocache:\.!, 'without cache');
+like(get('nocache', port(8080), $ctx), qr!nocache:r!, 'without cache reused');
 
 # make sure tickets can be used if an SNI-based virtual server
 # uses a different set of session ticket keys explicitly set
 
 $ctx = get_ssl_context();
 
-like(get('tickets', port(1), $ctx), qr!tickets:\.!, 'tickets');
-like(get('tickets', port(1), $ctx), qr!tickets:r!, 'tickets reused');
+like(get('tickets', port(8081), $ctx), qr!tickets:\.!, 'tickets');
+like(get('tickets', port(8081), $ctx), qr!tickets:r!, 'tickets reused');
 
 ###############################################################################
 

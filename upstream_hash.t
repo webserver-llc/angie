@@ -38,57 +38,57 @@ http {
 
     upstream u {
         hash $arg_a;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     upstream u2 {
         hash $arg_a;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8083;
     }
 
     upstream cw {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%% weight=10;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083 weight=10;
     }
 
     upstream cw2 {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_3%% weight=10;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8083 weight=10;
     }
 
     upstream c {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     upstream c2 {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8083;
     }
 
     upstream bad {
         hash $arg_a;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_4%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8084;
     }
 
     upstream cbad {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_4%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8084;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -122,9 +122,9 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
-        listen       127.0.0.1:%%PORT_2%%;
-        listen       127.0.0.1:%%PORT_3%%;
+        listen       127.0.0.1:8081;
+        listen       127.0.0.1:8082;
+        listen       127.0.0.1:8083;
         server_name  localhost;
 
         add_header X-Port $server_port;
@@ -134,7 +134,7 @@ http {
         }
 
         location /502 {
-            if ($server_port = %%PORT_3%%) {
+            if ($server_port = %%PORT_8083%%) {
                 return 502;
             }
             return 204;
@@ -142,7 +142,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_4%%;
+        listen       127.0.0.1:8084;
         server_name  localhost;
         return 444;
     }
@@ -154,7 +154,7 @@ $t->run();
 
 ###############################################################################
 
-my ($p1, $p2, $p3) = (port(1), port(2), port(3));
+my ($p1, $p2, $p3) = (port(8081), port(8082), port(8083));
 
 # Only requests for absent peer are moved to other peers if hash is consistent.
 # Check this by comparing two upstreams with different number of peers.

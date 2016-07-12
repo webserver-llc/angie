@@ -39,7 +39,7 @@ http {
                        keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         proxy_cache   NAME;
@@ -51,22 +51,22 @@ http {
         add_header X-Cache-Status $upstream_cache_status;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/t.html;
+            proxy_pass http://127.0.0.1:8081/t.html;
             proxy_cache_convert_head   off;
 
             location /inner {
-                proxy_pass http://127.0.0.1:%%PORT_1%%/t.html;
+                proxy_pass http://127.0.0.1:8081/t.html;
                 proxy_cache_convert_head on;
             }
         }
 
         location /on {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/t.html;
+            proxy_pass http://127.0.0.1:8081/t.html;
             proxy_cache_convert_head on;
         }
     }
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {

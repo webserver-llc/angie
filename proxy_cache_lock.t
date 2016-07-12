@@ -38,18 +38,18 @@ http {
                        keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
             proxy_cache_lock on;
         }
 
         location /timeout {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
             proxy_cache_lock on;
@@ -57,7 +57,7 @@ http {
         }
 
         location /nolock {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
         }
     }
@@ -69,7 +69,7 @@ $t->run_daemon(\&http_fake_daemon);
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
+$t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -126,7 +126,7 @@ like(http_get('/nolock'), qr/request 3/, 'nolock - last cached');
 sub http_fake_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:' . port(1),
+		LocalAddr => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

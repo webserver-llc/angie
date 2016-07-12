@@ -40,24 +40,24 @@ stream {
     proxy_ssl_session_reuse off;
 
     server {
-        listen      127.0.0.1:%%PORT_2%%;
-        proxy_pass  127.0.0.1:%%PORT_0%%;
+        listen      127.0.0.1:8082;
+        proxy_pass  127.0.0.1:8080;
 
         proxy_ssl_certificate 1.example.com.crt;
         proxy_ssl_certificate_key 1.example.com.key;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_3%%;
-        proxy_pass  127.0.0.1:%%PORT_0%%;
+        listen      127.0.0.1:8083;
+        proxy_pass  127.0.0.1:8080;
 
         proxy_ssl_certificate 2.example.com.crt;
         proxy_ssl_certificate_key 2.example.com.key;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_4%%;
-        proxy_pass  127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8084;
+        proxy_pass  127.0.0.1:8081;
 
         proxy_ssl_certificate 3.example.com.crt;
         proxy_ssl_certificate_key 3.example.com.key;
@@ -69,7 +69,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
         ssl_certificate 2.example.com.crt;
@@ -85,7 +85,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
 
         ssl_certificate 1.example.com.crt;
@@ -139,16 +139,16 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(2))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
 	qr/X-Verify: SUCCESS/ms, 'verify certificate');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(3))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
 	qr/X-Verify: FAILED/ms, 'fail certificate');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(4))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8084))),
 	qr/X-Verify: SUCCESS/ms, 'with encrypted key');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(2))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
 	qr!X-Name: /CN=1.example!, 'valid certificate');
-unlike(http_get('/', socket => getconn('127.0.0.1:' . port(3))),
+unlike(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
 	qr!X-Name: /CN=1.example!, 'invalid certificate');
 
 ###############################################################################

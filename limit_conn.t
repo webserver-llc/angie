@@ -42,7 +42,7 @@ http {
     limit_conn_zone  $binary_remote_addr  zone=custom:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location /w {
@@ -51,11 +51,11 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
             limit_conn zone 1;
         }
 
@@ -72,7 +72,7 @@ http {
         }
 
         location /custom {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             limit_conn_log_level info;
             limit_conn_status 501;
             limit_conn custom 1;

@@ -40,12 +40,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
         keepalive 1;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         proxy_http_version 1.1;
@@ -57,7 +57,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;

@@ -39,42 +39,42 @@ events {
 stream {
     upstream hash {
         hash $remote_addr;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     upstream cons {
         hash $remote_addr consistent;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
+        listen      127.0.0.1:8080;
         proxy_pass  hash;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8081;
         proxy_pass  cons;
     }
 }
 
 EOF
 
-$t->run_daemon(\&stream_daemon, port(2));
-$t->run_daemon(\&stream_daemon, port(3));
+$t->run_daemon(\&stream_daemon, port(8082));
+$t->run_daemon(\&stream_daemon, port(8083));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(2));
-$t->waitforsocket('127.0.0.1:' . port(3));
+$t->waitforsocket('127.0.0.1:' . port(8082));
+$t->waitforsocket('127.0.0.1:' . port(8083));
 
 ###############################################################################
 
-my @ports = my ($port2, $port3) = (port(2), port(3));
+my @ports = my ($port2, $port3) = (port(8082), port(8083));
 
-is(many(10, port(0)), "$port3: 10", 'hash');
-like(many(10, port(1)), qr/($port2|$port3): 10/, 'hash consistent');
+is(many(10, port(8080)), "$port3: 10", 'hash');
+like(many(10, port(8081)), qr/($port2|$port3): 10/, 'hash consistent');
 
 ###############################################################################
 

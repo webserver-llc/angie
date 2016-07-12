@@ -40,18 +40,18 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
+        listen       127.0.0.1:8080 http2;
         server_name  localhost;
 
         location / {
             proxy_request_buffering off;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             client_body_buffer_size 1k;
         }
         location /chunked {
             proxy_request_buffering off;
             proxy_http_version 1.1;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             client_body_buffer_size 1k;
         }
     }
@@ -169,7 +169,7 @@ sub get_body {
 	$server = IO::Socket::INET->new(
 		Proto => 'tcp',
 		LocalHost => '127.0.0.1',
-		LocalPort => port(1),
+		LocalPort => port(8081),
 		Listen => 5,
 		Timeout => 3,
 		Reuse => 1

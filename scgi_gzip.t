@@ -38,12 +38,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
             gzip on;
-            scgi_pass 127.0.0.1:%%PORT_1%%;
+            scgi_pass 127.0.0.1:8081;
             scgi_param SCGI 1;
             scgi_param REQUEST_URI $request_uri;
             scgi_param HTTP_X_BLAH "blah";
@@ -54,7 +54,7 @@ http {
 EOF
 
 $t->run_daemon(\&scgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -65,7 +65,7 @@ like(http_gzip_request('/'), qr/Content-Encoding: gzip/, 'scgi request');
 sub scgi_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:' . port(1),
+		LocalHost => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

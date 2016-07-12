@@ -43,22 +43,22 @@ http {
     access_log time.log time;
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_0%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8080;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         # this used to cause a segmentation fault before 07f028df3879 (1.3.1)
         # http://nginx.org/pipermail/nginx/2011-January/024703.html
 
         location /t1 {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/bad;
+            proxy_pass http://127.0.0.1:8080/bad;
             proxy_cache cache;
             proxy_cache_valid any 1h;
 
@@ -78,7 +78,7 @@ http {
         # fixed in 07f028df3879 (1.3.1)
 
         location /t2 {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/big;
+            proxy_pass http://127.0.0.1:8080/big;
             proxy_store on;
 
             image_filter_buffer 10m;
@@ -111,7 +111,7 @@ http {
         }
 
         location /upstream {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/empty;
+            proxy_pass http://127.0.0.1:8080/empty;
         }
 
         location /time.log {
@@ -120,7 +120,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
         return 444;
     }

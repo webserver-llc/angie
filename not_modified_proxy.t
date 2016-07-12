@@ -47,7 +47,7 @@ http {
     proxy_set_header If-None-Match "";
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -58,11 +58,11 @@ http {
         }
 
         location /proxy/ {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/;
+            proxy_pass http://127.0.0.1:8080/;
         }
 
         location /cache/ {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/;
+            proxy_pass http://127.0.0.1:8080/;
             proxy_cache one;
             proxy_cache_valid 200 1y;
         }

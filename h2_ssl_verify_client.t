@@ -53,7 +53,7 @@ http {
     add_header X-Verify $ssl_client_verify;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl http2;
+        listen       127.0.0.1:8080 ssl http2;
         server_name  localhost;
 
         ssl_client_certificate client.crt;
@@ -62,7 +62,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl http2;
+        listen       127.0.0.1:8080 ssl http2;
         server_name  example.com;
 
         location / { }
@@ -122,7 +122,7 @@ sub get {
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1',
-			PeerPort => port(0),
+			PeerPort => port(8080),
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_alpn_protocols => [ 'h2' ],
 			SSL_hostname => $sni,
@@ -139,7 +139,7 @@ sub get {
 		return undef;
 	}
 
-	my $sess = Test::Nginx::HTTP2->new(port(0), socket => $s);
+	my $sess = Test::Nginx::HTTP2->new(port(8080), socket => $s);
 	my $sid = $sess->new_stream({ headers => [
 		{ name => ':method', value => 'GET', mode => 0 },
 		{ name => ':scheme', value => 'http', mode => 0 },

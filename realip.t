@@ -40,7 +40,7 @@ http {
     set_real_ip_from  10.0.1.0/24;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / { }

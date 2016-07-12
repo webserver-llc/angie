@@ -35,15 +35,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            uwsgi_pass 127.0.0.1:%%PORT_1%%;
+            uwsgi_pass 127.0.0.1:8081;
             uwsgi_param SERVER_PROTOCOL $server_protocol;
             uwsgi_param HTTP_X_BLAH "blah";
         }
@@ -73,13 +73,13 @@ if ($uwsgihelp !~ /--wsgi-file/) {
 	push @uwsgiopts, '--plugin', 'python';
 }
 
-$t->run_daemon('uwsgi', '--socket', '127.0.0.1:' . port(1), @uwsgiopts,
+$t->run_daemon('uwsgi', '--socket', '127.0.0.1:' . port(8081), @uwsgiopts,
 	'--wsgi-file', $t->testdir() . '/uwsgi_test_app.py',
 	'--logto', $t->testdir() . '/uwsgi_log');
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Can't start uwsgi";
 
 ###############################################################################
@@ -90,7 +90,7 @@ unlike(http_head('/head'), qr/SEE-THIS/, 'no data in HEAD');
 like(http_get_headers('/headers'), qr/SEE-THIS/,
 	'uwsgi request with many ignored headers');
 
-like(http_get('/var?b=127.0.0.1:' . port(1)), qr/SEE-THIS/,
+like(http_get('/var?b=127.0.0.1:' . port(8081)), qr/SEE-THIS/,
 	'uwsgi with variables');
 like(http_get('/var?b=u'), qr/SEE-THIS/, 'uwsgi with variables to upstream');
 

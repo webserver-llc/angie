@@ -40,11 +40,11 @@ http {
     limit_req_zone $binary_remote_addr zone=one:1m rate=1r/m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
             proxy_cache_lock on;
@@ -61,7 +61,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
         limit_req zone=one burst=5;
     }

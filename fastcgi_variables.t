@@ -42,19 +42,19 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         add_header X-Script-Name $fastcgi_script_name;
         add_header X-Path-Info $fastcgi_path_info;
 
         location / {
-            fastcgi_pass 127.0.0.1:%%PORT_1%%;
+            fastcgi_pass 127.0.0.1:8081;
             fastcgi_index index.php;
         }
 
         location /info {
-            fastcgi_pass 127.0.0.1:%%PORT_1%%;
+            fastcgi_pass 127.0.0.1:8081;
             fastcgi_split_path_info ^(.+\.php)(.*)$;
         }
     }
@@ -63,7 +63,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -76,7 +76,7 @@ like(http_get('/info.php/path/info'), qr/X-Path-Info: \/path\/info/ms,
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(8081), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

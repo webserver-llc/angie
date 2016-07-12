@@ -42,11 +42,11 @@ http {
                          keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            fastcgi_pass 127.0.0.1:%%PORT_1%%;
+            fastcgi_pass 127.0.0.1:8081;
             fastcgi_param REQUEST_URI $request_uri;
             fastcgi_cache NAME;
             fastcgi_cache_key $request_uri;
@@ -58,7 +58,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -79,7 +79,7 @@ like(http_get('/stderr'), qr/SEE-THIS.*^2$/ms, 'large stderr cached');
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(1), 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(8081), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

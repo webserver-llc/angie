@@ -44,8 +44,8 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {
@@ -91,26 +91,26 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%% http2;
+        listen       127.0.0.1:8082 http2;
         server_name  localhost;
         return 200   first;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%% http2;
+        listen       127.0.0.1:8082 http2;
         server_name  localhost2;
         return 200   second;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_3%% http2;
+        listen       127.0.0.1:8083 http2;
         server_name  localhost;
 
         http2_max_concurrent_streams 1;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_4%% http2;
+        listen       127.0.0.1:8084 http2;
         server_name  localhost;
 
         http2_recv_timeout 1s;
@@ -119,7 +119,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_5%% http2;
+        listen       127.0.0.1:8085 http2;
         server_name  localhost;
 
         http2_idle_timeout 1s;
@@ -127,26 +127,26 @@ http {
 
         location /proxy2/ {
             add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_6%% http2;
+        listen       127.0.0.1:8086 http2;
         server_name  localhost;
 
         send_timeout 1s;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_7%% http2;
+        listen       127.0.0.1:8087 http2;
         server_name  localhost;
 
         client_header_timeout 1s;
         client_body_timeout 1s;
 
         location /proxy/ {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
         }
     }
 }
@@ -187,7 +187,7 @@ like($r, qr!Upgrade: h2c!, 'upgrade - token');
 
 # SETTINGS
 
-my $s = Test::Nginx::HTTP2->new(port(0), pure => 1);
+my $s = Test::Nginx::HTTP2->new(port(8080), pure => 1);
 my $frames = $s->read(all => [
 	{ type => 'WINDOW_UPDATE' },
 	{ type => 'SETTINGS'}
@@ -229,11 +229,11 @@ is($frame->{sid}, 0, 'PING stream');
 SKIP: {
 skip 'long tests', 6 unless $ENV{TEST_NGINX_UNSAFE};
 
-push my @s, Test::Nginx::HTTP2->new(port(4), pure => 1);
-push @s, Test::Nginx::HTTP2->new(port(4), pure => 1);
+push my @s, Test::Nginx::HTTP2->new(port(8084), pure => 1);
+push @s, Test::Nginx::HTTP2->new(port(8084), pure => 1);
 $s[-1]->h2_ping('SEE-THIS');
-push @s, Test::Nginx::HTTP2->new(port(5), pure => 1);
-push @s, Test::Nginx::HTTP2->new(port(5), pure => 1);
+push @s, Test::Nginx::HTTP2->new(port(8085), pure => 1);
+push @s, Test::Nginx::HTTP2->new(port(8085), pure => 1);
 $s[-1]->h2_ping('SEE-THIS');
 
 select undef, undef, undef, 2.1;
@@ -497,7 +497,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 301, 'return 301 relative - status');
-is($frame->{headers}->{'location'}, 'http://localhost:' . port(0) . '/',
+is($frame->{headers}->{'location'}, 'http://localhost:' . port(8080) . '/',
 	'return 301 relative - location');
 
 # return 301 with relative URI and ':authority' request header field
@@ -513,7 +513,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 301,
 	'return 301 relative - authority - status');
-is($frame->{headers}->{'location'}, 'http://localhost:' . port(0) . '/',
+is($frame->{headers}->{'location'}, 'http://localhost:' . port(8080) . '/',
 	'return 301 relative - authority - location');
 
 # return 301 with relative URI and 'host' request header field
@@ -529,12 +529,12 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 301,
 	'return 301 relative - host - status');
-is($frame->{headers}->{'location'}, 'http://localhost:' . port(0) . '/',
+is($frame->{headers}->{'location'}, 'http://localhost:' . port(8080) . '/',
 	'return 301 relative - host - location');
 
 # virtual host
 
-$s = Test::Nginx::HTTP2->new(port(2));
+$s = Test::Nginx::HTTP2->new(port(8082));
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
@@ -626,7 +626,7 @@ is($frame->{headers}->{'content-type'}, 'text/plain; charset=utf-8', 'charset');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
-$s = Test::Nginx::HTTP2->new(port(7));
+$s = Test::Nginx::HTTP2->new(port(8087));
 $sid = $s->new_stream({ path => '/t2.html', split => [35],
 	split_delay => 2.1 });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
@@ -648,7 +648,7 @@ ok($frame, 'client header timeout - PING');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
-$s = Test::Nginx::HTTP2->new(port(7));
+$s = Test::Nginx::HTTP2->new(port(8087));
 $sid = $s->new_stream({ path => '/proxy/t2.html', body_more => 1 });
 $s->h2_body('TEST', { split => [10], split_delay => 2.1 });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
@@ -829,7 +829,7 @@ is($frame->{headers}->{':status'}, 200, 'new stream after large response');
 
 # write event send timeout
 
-$s = Test::Nginx::HTTP2->new(port(6));
+$s = Test::Nginx::HTTP2->new(port(8086));
 $sid = $s->new_stream({ path => '/tbig.html' });
 $s->h2_window(2**30, $sid);
 $s->h2_window(2**30);
@@ -916,7 +916,7 @@ is($sum, 2**16 + 80, 'multiple - stream2 full data');
 
 # http2_max_concurrent_streams
 
-$s = Test::Nginx::HTTP2->new(port(3), pure => 1);
+$s = Test::Nginx::HTTP2->new(port(8083), pure => 1);
 $frames = $s->read(all => [{ type => 'SETTINGS' }]);
 
 ($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
@@ -994,7 +994,7 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 # invalid connection preface
 
-$s = Test::Nginx::HTTP2->new(port(0), preface => 'x' x 16, pure => 1);
+$s = Test::Nginx::HTTP2->new(port(8080), preface => 'x' x 16, pure => 1);
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
@@ -1002,7 +1002,7 @@ ok($frame, 'invalid preface - GOAWAY frame');
 is($frame->{code}, 1, 'invalid preface - error code');
 
 my $preface = 'PRI * HTTP/2.0' . CRLF . CRLF . 'x' x 8;
-$s = Test::Nginx::HTTP2->new(port(0), preface => $preface, pure => 1);
+$s = Test::Nginx::HTTP2->new(port(8080), preface => $preface, pure => 1);
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
@@ -1073,24 +1073,24 @@ $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 # graceful shutdown with stream waiting on HEADERS payload
 
-my $grace = Test::Nginx::HTTP2->new(port(4));
+my $grace = Test::Nginx::HTTP2->new(port(8084));
 $grace->new_stream({ split => [ 9 ], abort => 1 });
 
 # graceful shutdown with stream waiting on WINDOW_UPDATE
 
-my $grace2 = Test::Nginx::HTTP2->new(port(4));
+my $grace2 = Test::Nginx::HTTP2->new(port(8084));
 $sid = $grace2->new_stream({ path => '/t1.html' });
 $grace2->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 # graceful shutdown waiting on incomplete request body DATA frames
 
-my $grace3 = Test::Nginx::HTTP2->new(port(5));
+my $grace3 = Test::Nginx::HTTP2->new(port(8085));
 $sid = $grace3->new_stream({ path => '/proxy2/t2.html', body_more => 1 });
 $grace3->h2_body('TEST', { body_more => 1 });
 
 # partial request body data frame with connection close after body timeout
 
-my $grace4 = Test::Nginx::HTTP2->new(port(7));
+my $grace4 = Test::Nginx::HTTP2->new(port(8087));
 $sid = $grace4->new_stream({ path => '/proxy/t2.html', body_more => 1 });
 $grace4->h2_body('TEST', { split => [ 12 ], abort => 1 });
 

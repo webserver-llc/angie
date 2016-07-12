@@ -46,59 +46,59 @@ stream {
     proxy_upload_rate        1000;
 
     server {
-        listen               127.0.0.1:%%PORT_1%%;
-        proxy_pass           127.0.0.1:%%PORT_0%%;
+        listen               127.0.0.1:8081;
+        proxy_pass           127.0.0.1:8080;
     }
 
     server {
-        listen               127.0.0.1:%%PORT_2%%;
-        proxy_pass           127.0.0.1:%%PORT_0%%;
+        listen               127.0.0.1:8082;
+        proxy_pass           127.0.0.1:8080;
         proxy_download_rate  0;
         proxy_upload_rate    0;
     }
 
     server {
-        listen               127.0.0.1:%%PORT_3%%;
-        proxy_pass           127.0.0.1:%%PORT_0%%;
+        listen               127.0.0.1:8083;
+        proxy_pass           127.0.0.1:8080;
         proxy_download_rate  1;
     }
 
     server {
-        listen               127.0.0.1:%%PORT_4%%;
-        proxy_pass           127.0.0.1:%%PORT_0%%;
+        listen               127.0.0.1:8084;
+        proxy_pass           127.0.0.1:8080;
         proxy_upload_rate    1;
     }
 
     server {
-        listen               127.0.0.1:%%PORT_5%%;
-        proxy_pass           127.0.0.1:%%PORT_0%%;
+        listen               127.0.0.1:8085;
+        proxy_pass           127.0.0.1:8080;
         proxy_download_rate  250;
     }
 
     server {
-        listen               127.0.0.1:%%PORT_6%%;
-        proxy_pass           127.0.0.1:%%PORT_7%%;
+        listen               127.0.0.1:8086;
+        proxy_pass           127.0.0.1:8087;
         proxy_upload_rate    250;
     }
 }
 
 EOF
 
-$t->run_daemon(\&stream_daemon, port(0));
-$t->run_daemon(\&stream_daemon, port(7));
+$t->run_daemon(\&stream_daemon, port(8080));
+$t->run_daemon(\&stream_daemon, port(8087));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(0));
-$t->waitforsocket('127.0.0.1:' . port(7));
+$t->waitforsocket('127.0.0.1:' . port(8080));
+$t->waitforsocket('127.0.0.1:' . port(8087));
 
 ###############################################################################
 
 my $str = '1234567890' x 100;
 
-my %r = response($str, peer => '127.0.0.1:' . port(1));
+my %r = response($str, peer => '127.0.0.1:' . port(8081));
 is($r{'data'}, $str, 'exact limit');
 
-%r = response($str, peer => '127.0.0.1:' . port(2));
+%r = response($str, peer => '127.0.0.1:' . port(8082));
 is($r{'data'}, $str, 'unlimited');
 
 SKIP: {
@@ -107,10 +107,10 @@ skip 'unsafe on VM', 2 unless $ENV{TEST_NGINX_UNSAFE};
 # if interaction between backend and client is slow then proxy can add extra
 # bytes to upload/download data
 
-%r = response($str, peer => '127.0.0.1:' . port(3), readonce => 1);
+%r = response($str, peer => '127.0.0.1:' . port(8083), readonce => 1);
 is($r{'data'}, '1', 'download - one byte');
 
-%r = response($str, peer =>  '127.0.0.1:' . port(4));
+%r = response($str, peer =>  '127.0.0.1:' . port(8084));
 is($r{'data'}, '1', 'upload - one byte');
 
 }
@@ -119,13 +119,13 @@ is($r{'data'}, '1', 'upload - one byte');
 # the first four chunks are quarters of test string
 # and the fifth one is some extra data from backend.
 
-%r = response($str, peer =>  '127.0.0.1:' . port(5));
+%r = response($str, peer =>  '127.0.0.1:' . port(8085));
 my $diff = time() - $r{'time'};
 cmp_ok($diff, '>=', 4, 'download - time');
 is($r{'data'}, $str, 'download - data');
 
 my $time = time();
-%r = response($str . 'close', peer => '127.0.0.1:' . port(6));
+%r = response($str . 'close', peer => '127.0.0.1:' . port(8086));
 $diff = time() - $time;
 cmp_ok($diff, '>=', 4, 'upload - time');
 is($r{'data'}, $str . 'close', 'upload - data');
@@ -194,13 +194,13 @@ sub stream_handle_client {
 
 	log2i("$client $buffer");
 
-	$buffer .= " " . time() if $client->sockport() eq port(0);
+	$buffer .= " " . time() if $client->sockport() eq port(8080);
 
 	log2o("$client $buffer");
 
 	$client->syswrite($buffer);
 
-	return $client->sockport() eq port(0) ? 1 : $buffer =~ /close/;
+	return $client->sockport() eq port(8080) ? 1 : $buffer =~ /close/;
 }
 
 sub log2i { Test::Nginx::log_core('|| <<', @_); }

@@ -41,33 +41,33 @@ http {
     proxy_hide_header X-Hidden;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         proxy_cache  NAME;
 
         location / {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
 
             location /nested/ {
-                proxy_pass   http://127.0.0.1:%%PORT_1%%;
+                proxy_pass   http://127.0.0.1:8081;
                 proxy_pass_header X-Pad;
             }
         }
 
         location /no/ {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_cache   off;
         }
 
         location /setbody/ {
-            proxy_pass    http://127.0.0.1:%%PORT_1%%;
+            proxy_pass    http://127.0.0.1:8081;
             proxy_set_body "body";
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {

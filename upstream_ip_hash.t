@@ -38,19 +38,19 @@ http {
 
     upstream u {
         ip_hash;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
     }
 
     upstream u2 {
         ip_hash;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         set_real_ip_from 127.0.0.0/8;
@@ -65,9 +65,9 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
-        listen       127.0.0.1:%%PORT_2%%;
-        listen       127.0.0.1:%%PORT_3%%;
+        listen       127.0.0.1:8081;
+        listen       127.0.0.1:8082;
+        listen       127.0.0.1:8083;
         server_name  localhost;
 
         location / {
@@ -86,7 +86,7 @@ $t->plan(2);
 
 ###############################################################################
 
-my @ports = my ($port1, $port2, $port3) = (port(1), port(2), port(3));
+my @ports = my ($port1, $port2, $port3) = (port(8081), port(8082), port(8083));
 
 is(many('/', 30), "$port1: 15, $port2: 15", 'ip_hash');
 is(many('/u2', 30), "$port1: 10, $port2: 10, $port3: 10", 'ip_hash 3 peers');

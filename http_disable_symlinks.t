@@ -37,7 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  s1;
 
         location /on/ {
@@ -123,7 +123,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  s2;
 
         open_file_cache max=16 inactive=60s;

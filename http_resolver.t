@@ -39,13 +39,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            resolver    127.0.0.1:%%PORT_1_UDP%%;
+            resolver    127.0.0.1:%%PORT_8081_UDP%%;
             resolver_timeout 1s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
 
             proxy_next_upstream http_504 timeout error;
             proxy_intercept_errors on;
@@ -53,46 +53,46 @@ http {
             error_page 504 502 /50x;
         }
         location /two {
-            resolver    127.0.0.1:%%PORT_1_UDP%% 127.0.0.1:%%PORT_2_UDP%%;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            resolver    127.0.0.1:%%PORT_8081_UDP%% 127.0.0.1:%%PORT_8082_UDP%%;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /valid {
-            resolver    127.0.0.1:%%PORT_1_UDP%% valid=5s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            resolver    127.0.0.1:%%PORT_8081_UDP%% valid=5s;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /case {
-            resolver    127.0.0.1:%%PORT_1_UDP%%;
-            proxy_pass  http://$http_x_name:%%PORT_0%%/backend;
+            resolver    127.0.0.1:%%PORT_8081_UDP%%;
+            proxy_pass  http://$http_x_name:%%PORT_8080%%/backend;
         }
         location /invalid {
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /long {
-            resolver    127.0.0.1:%%PORT_1_UDP%%;
+            resolver    127.0.0.1:%%PORT_8081_UDP%%;
             resolver_timeout 4s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /resend {
-            resolver    127.0.0.1:%%PORT_1_UDP%%;
+            resolver    127.0.0.1:%%PORT_8081_UDP%%;
             resolver_timeout 8s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /bad {
-            resolver    127.0.0.1:%%PORT_4_UDP%%;
+            resolver    127.0.0.1:%%PORT_8084_UDP%%;
             resolver_timeout 1s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /tcp {
-            resolver    127.0.0.1:%%PORT_3_UDP%% 127.0.0.1:%%PORT_2_UDP%%;
+            resolver    127.0.0.1:%%PORT_8083_UDP%% 127.0.0.1:%%PORT_8082_UDP%%;
             resolver_timeout 1s;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
             proxy_connect_timeout 1s;
             add_header X-IP $upstream_addr;
             error_page 504 502 /50x;
 
             location /tcp2 {
                 resolver_timeout 8s;
-                proxy_pass  http://$host:%%PORT_0%%/backend;
+                proxy_pass  http://$host:%%PORT_8080%%/backend;
             }
         }
 
@@ -107,24 +107,24 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, port(1), $t);
-$t->run_daemon(\&dns_daemon, port(2), $t);
+$t->run_daemon(\&dns_daemon, port(8081), $t);
+$t->run_daemon(\&dns_daemon, port(8082), $t);
 
-$t->run_daemon(\&dns_daemon, port(3), $t, tcp => 1);
-$t->waitforfile($t->testdir . '/' . port(3));
-port(3, socket => 1)->close();
+$t->run_daemon(\&dns_daemon, port(8083), $t, tcp => 1);
+$t->waitforfile($t->testdir . '/' . port(8083));
+port(8083, socket => 1)->close();
 
-$t->run_daemon(\&dns_daemon, port(4), $t);
+$t->run_daemon(\&dns_daemon, port(8084), $t);
 
 $t->run()->plan(38);
 
-$t->waitforfile($t->testdir . '/' . port(1));
-$t->waitforfile($t->testdir . '/' . port(2));
-$t->waitforfile($t->testdir . '/' . port(4));
+$t->waitforfile($t->testdir . '/' . port(8081));
+$t->waitforfile($t->testdir . '/' . port(8082));
+$t->waitforfile($t->testdir . '/' . port(8084));
 
 ###############################################################################
 
-my $p0 = port(0);
+my $p0 = port(8080);
 
 # schedule resend test, which takes about 5 seconds to complete
 
@@ -488,7 +488,7 @@ sub reply_handler {
 		push @rdata, rd_addr(0, '127.0.0.1');
 
 	} elsif ($name eq '2.example.net') {
-		if ($port == port(1)) {
+		if ($port == port(8081)) {
 			$state->{twocnt}++;
 		}
 		if ($state->{twocnt} & 1) {
@@ -500,7 +500,7 @@ sub reply_handler {
 		}
 
 	} elsif ($name =~ /tcp2?.example.net/) {
-		$rcode = FORMERR if $port == port(2);
+		$rcode = FORMERR if $port == port(8082);
 		$hdr |= 0x0300 unless $extra{tcp};
 		push @rdata, rd_addr($ttl, $extra{tcp}
 			? '127.0.0.1' : '127.0.0.201') if $type == A;
@@ -536,7 +536,7 @@ sub dns_daemon {
 	my $tcp = 0;
 
 	if ($extra{tcp}) {
-		$tcp = port(3, socket => 1);
+		$tcp = port(8083, socket => 1);
 		$sel->add($tcp);
 	}
 

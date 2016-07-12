@@ -47,34 +47,34 @@ http {
 
     upstream memd {
         hash $arg_a;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     upstream memd_c {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
     }
 
     upstream memd_w {
         hash $arg_a;
-        server 127.0.0.1:%%PORT_1%% weight=2;
-        server 127.0.0.1:%%PORT_2%% weight=3;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081 weight=2;
+        server 127.0.0.1:8082 weight=3;
+        server 127.0.0.1:8083;
     }
 
     upstream memd_cw {
         hash $arg_a consistent;
-        server 127.0.0.1:%%PORT_1%% weight=2;
-        server 127.0.0.1:%%PORT_2%% weight=3;
-        server 127.0.0.1:%%PORT_3%%;
+        server 127.0.0.1:8081 weight=2;
+        server 127.0.0.1:8082 weight=3;
+        server 127.0.0.1:8083;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         set $memcached_key $arg_a;
@@ -108,41 +108,41 @@ if ($memhelp =~ /-U/) {
 	push @memopts, '-U', '0';
 }
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(1), @memopts);
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(2), @memopts);
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(3), @memopts);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8082), @memopts);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8083), @memopts);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1)) or die "Can't start memcached";
-$t->waitforsocket('127.0.0.1:' . port(2)) or die "Can't start memcached";
-$t->waitforsocket('127.0.0.1:' . port(3)) or die "Can't start memcached";
+$t->waitforsocket('127.0.0.1:' . port(8081)) or die "Can't start memcached";
+$t->waitforsocket('127.0.0.1:' . port(8082)) or die "Can't start memcached";
+$t->waitforsocket('127.0.0.1:' . port(8083)) or die "Can't start memcached";
 
 ###############################################################################
 
-my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(1) ],
+my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8081) ],
 	connect_timeout => 1.0);
-my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(2) ],
+my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8082) ],
 	connect_timeout => 1.0);
-my $memd3 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(3) ],
+my $memd3 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8083) ],
 	connect_timeout => 1.0);
 
 for my $i (1 .. 20) {
-	$memd1->set($i, port(1)) or die "can't put value into memcached: $!";
-	$memd2->set($i, port(2)) or die "can't put value into memcached: $!";
-	$memd3->set($i, port(3)) or die "can't put value into memcached: $!";
+	$memd1->set($i, port(8081)) or die "can't put value into memcached: $!";
+	$memd2->set($i, port(8082)) or die "can't put value into memcached: $!";
+	$memd3->set($i, port(8083)) or die "can't put value into memcached: $!";
 }
 
 my $memd = new Cache::Memcached(servers => [
-	'127.0.0.1:' . port(1),
-	'127.0.0.1:' . port(2),
-	'127.0.0.1:' . port(3) ]);
+	'127.0.0.1:' . port(8081),
+	'127.0.0.1:' . port(8082),
+	'127.0.0.1:' . port(8083) ]);
 
 is_deeply(ngx('/'), mem($memd), 'cache::memcached');
 
 $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
-	'127.0.0.1:' . port(1),
-	'127.0.0.1:' . port(2),
-	'127.0.0.1:' . port(3)] });
+	'127.0.0.1:' . port(8081),
+	'127.0.0.1:' . port(8082),
+	'127.0.0.1:' . port(8083)] });
 
 TODO: {
 local $TODO = 'not yet' unless $Config{byteorder} =~ '1234'
@@ -153,16 +153,16 @@ is_deeply(ngx('/c'), mem($memd), 'cache::memcached::fast');
 }
 
 $memd = new Cache::Memcached(servers => [
-	[ '127.0.0.1:' . port(1), 2 ],
-	[ '127.0.0.1:' . port(2), 3 ],
-	[ '127.0.0.1:' . port(3), 1 ]]);
+	[ '127.0.0.1:' . port(8081), 2 ],
+	[ '127.0.0.1:' . port(8082), 3 ],
+	[ '127.0.0.1:' . port(8083), 1 ]]);
 
 is_deeply(ngx('/w'), mem($memd), 'cache::memcached weight');
 
 $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
-	{ address => '127.0.0.1:' . port(1), weight => 2 },
-	{ address => '127.0.0.1:' . port(2), weight => 3 },
-	{ address => '127.0.0.1:' . port(3), weight => 1 }] });
+	{ address => '127.0.0.1:' . port(8081), weight => 2 },
+	{ address => '127.0.0.1:' . port(8082), weight => 3 },
+	{ address => '127.0.0.1:' . port(8083), weight => 1 }] });
 
 TODO: {
 local $TODO = 'not yet' unless $Config{byteorder} =~ '1234'

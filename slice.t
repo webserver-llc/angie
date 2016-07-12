@@ -44,7 +44,7 @@ http {
     fastcgi_cache_key    $uri$is_args$args$slice_range;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / { }
@@ -52,7 +52,7 @@ http {
         location /cache/ {
             slice 2;
 
-            proxy_pass    http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass    http://127.0.0.1:8081/;
 
             proxy_cache   NAME;
 
@@ -66,7 +66,7 @@ http {
         location /fastcgi {
             slice 2;
 
-            fastcgi_pass    127.0.0.1:%%PORT_2%%;
+            fastcgi_pass    127.0.0.1:8082;
 
             fastcgi_cache   NAME2;
 
@@ -81,7 +81,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / { }
@@ -228,7 +228,7 @@ SKIP: {
 	skip 'win32', 5 if $^O eq 'MSWin32';
 
 	$t->run_daemon(\&fastcgi_daemon);
-	$t->waitforsocket('127.0.0.1:' . port(2));
+	$t->waitforsocket('127.0.0.1:' . port(8082));
 
 	like(http_get('/fastcgi'), qr/200 OK.*MISS.*^012345678$/ms, 'fastcgi');
 	like(http_get('/fastcgi'), qr/200 OK.*HIT.*^012345678$/ms,
@@ -258,7 +258,7 @@ EOF
 ###############################################################################
 
 sub fastcgi_daemon {
-	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(2), 5);
+	my $socket = FCGI::OpenSocket('127.0.0.1:' . port(8082), 5);
 	my $request = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV,
 		$socket);
 

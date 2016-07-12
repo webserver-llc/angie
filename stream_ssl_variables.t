@@ -57,15 +57,15 @@ stream {
     ssl_certificate localhost.crt;
 
     server {
-        listen  127.0.0.1:%%PORT_0%%;
-        listen  127.0.0.1:%%PORT_1%% ssl;
+        listen  127.0.0.1:8080;
+        listen  127.0.0.1:8081 ssl;
         return  $ssl_session_reused:$ssl_session_id:$ssl_cipher:$ssl_protocol;
 
         ssl_session_cache builtin;
     }
 
     server {
-        listen  127.0.0.1:%%PORT_2%% ssl;
+        listen  127.0.0.1:8082 ssl;
         return  $ssl_server_name;
     }
 }
@@ -98,19 +98,19 @@ my ($s, $ssl);
 
 is(stream()->read(), ':::', 'no ssl');
 
-($s, $ssl) = get_ssl_socket(port(1));
+($s, $ssl) = get_ssl_socket(port(8081));
 like(Net::SSLeay::read($ssl), qr/^\.:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 	'ssl variables');
 
 my $ses = Net::SSLeay::get_session($ssl);
-($s, $ssl) = get_ssl_socket(port(1), $ses);
+($s, $ssl) = get_ssl_socket(port(8081), $ses);
 like(Net::SSLeay::read($ssl), qr/^r:\w{64}:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 	'ssl variables - session reused');
 
-($s, $ssl) = get_ssl_socket(port(2), undef, 'example.com');
+($s, $ssl) = get_ssl_socket(port(8082), undef, 'example.com');
 is(Net::SSLeay::ssl_read_all($ssl), 'example.com', 'ssl server name');
 
-($s, $ssl) = get_ssl_socket(port(2));
+($s, $ssl) = get_ssl_socket(port(8082));
 is(Net::SSLeay::ssl_read_all($ssl), '', 'ssl server name empty');
 
 ###############################################################################

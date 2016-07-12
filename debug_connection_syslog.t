@@ -36,16 +36,16 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    error_log syslog:server=127.0.0.1:%%PORT_1_UDP%% alert;
-    error_log syslog:server=127.0.0.1:%%PORT_2_UDP%% alert;
+    error_log syslog:server=127.0.0.1:%%PORT_8081_UDP%% alert;
+    error_log syslog:server=127.0.0.1:%%PORT_8082_UDP%% alert;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
-        listen       [::1]:%%PORT_0%%;
+        listen       127.0.0.1:8080;
+        listen       [::1]:%%PORT_8080%%;
         server_name  localhost;
 
         location /debug {
-            proxy_pass http://[::1]:%%PORT_0%%/;
+            proxy_pass http://[::1]:%%PORT_8080%%/;
         }
     }
 }
@@ -63,10 +63,10 @@ $t->plan(5);
 
 ###############################################################################
 
-is(get_syslog('/', port(1)), '', 'no debug_connection syslog 1');
-is(get_syslog('/', port(2)), '', 'no debug_connection syslog 2');
+is(get_syslog('/', port(8081)), '', 'no debug_connection syslog 1');
+is(get_syslog('/', port(8082)), '', 'no debug_connection syslog 2');
 
-my @msgs = get_syslog('/debug', port(1), port(2));
+my @msgs = get_syslog('/debug', port(8081), port(8082));
 like($msgs[0], qr/\[debug\]/, 'debug_connection syslog 1');
 like($msgs[1], qr/\[debug\]/, 'debug_connection syslog 2');
 is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');

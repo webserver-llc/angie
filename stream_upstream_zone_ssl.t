@@ -40,34 +40,34 @@ stream {
 
     upstream u {
         zone u 32k;
-        server 127.0.0.1:%%PORT_4%%;
+        server 127.0.0.1:8084;
     }
 
     upstream u2 {
         zone u2 32k;
-        server 127.0.0.1:%%PORT_4%% backup;
-        server 127.0.0.1:%%PORT_5%% down;
+        server 127.0.0.1:8084 backup;
+        server 127.0.0.1:8085 down;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
+        listen      127.0.0.1:8080;
         proxy_pass  u;
         proxy_ssl_session_reuse off;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_1%%;
+        listen      127.0.0.1:8081;
         proxy_pass  u;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_2%%;
+        listen      127.0.0.1:8082;
         proxy_pass  u2;
         proxy_ssl_session_reuse off;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_3%%;
+        listen      127.0.0.1:8083;
         proxy_pass  u2;
     }
 }
@@ -76,7 +76,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen 127.0.0.1:%%PORT_4%% ssl;
+        listen 127.0.0.1:8084 ssl;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -115,21 +115,21 @@ $t->run();
 ###############################################################################
 
 like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(1))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
 	qr/200 OK.*X-Session: \./s, 'ssl 2');
 
 like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(1))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
 	qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(2))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
 	qr/200 OK.*X-Session: \./s, 'ssl backup');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(3))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
 	qr/200 OK.*X-Session: \./s, 'ssl backup 2');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(2))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
 	qr/200 OK.*X-Session: \./s, 'ssl reuse session backup');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(3))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
 	qr/200 OK.*X-Session: r/s, 'ssl reuse session backup 2');
 
 ###############################################################################

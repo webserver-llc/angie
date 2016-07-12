@@ -47,7 +47,7 @@ http {
     ssl_certificate rsa.crt;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
         ssl_certificate_key dsa.key;
@@ -108,7 +108,7 @@ sub get_cert {
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1',
-			PeerPort => port(0),
+			PeerPort => port(8080),
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_cipher_list => $ciphers,
 			SSL_error_trap => sub { die $_[1] }

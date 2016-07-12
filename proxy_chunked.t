@@ -40,15 +40,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
         }
         location /nobuffering {
-            proxy_pass http://127.0.0.1:%%PORT_1%%;
+            proxy_pass http://127.0.0.1:8081;
             proxy_read_timeout 1s;
             proxy_buffering off;
         }
@@ -64,7 +64,7 @@ $t->write_file('inmemory.html',
 	'<!--#include virtual="/" set="one" --><!--#echo var="one" -->');
 
 $t->run_daemon(\&http_chunked_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -77,7 +77,7 @@ like(http_get('/inmemory.html'), qr/\x0d\x0aSEE-THIS$/s, 'chunked inmemory');
 sub http_chunked_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:' . port(1),
+		LocalAddr => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

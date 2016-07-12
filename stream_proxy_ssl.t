@@ -40,14 +40,14 @@ stream {
     proxy_connect_timeout 2s;
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
-        proxy_pass  127.0.0.1:%%PORT_2%%;
+        listen      127.0.0.1:8080;
+        proxy_pass  127.0.0.1:8082;
         proxy_ssl_session_reuse off;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_1%%;
-        proxy_pass  127.0.0.1:%%PORT_2%%;
+        listen      127.0.0.1:8081;
+        proxy_pass  127.0.0.1:8082;
     }
 }
 
@@ -55,7 +55,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_2%% ssl;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -95,11 +95,11 @@ $t->run();
 ###############################################################################
 
 like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(1))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
 	qr/200 OK.*X-Session: \./s, 'ssl 2');
 
 like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(1))),
+like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
 	qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
 
 my $s = http('', start => 1);

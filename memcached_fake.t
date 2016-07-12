@@ -36,12 +36,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
             set $memcached_key $uri;
-            memcached_pass 127.0.0.1:%%PORT_1%%;
+            memcached_pass 127.0.0.1:8081;
         }
 
         location /ssi {
@@ -57,7 +57,7 @@ $t->write_file('ssi.html', '<!--#include virtual="/" set="blah" -->blah: <!--#ec
 $t->run_daemon(\&memcached_fake_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Can't start fake memcached";
 
 ###############################################################################
@@ -73,7 +73,7 @@ like(`grep -F '[error]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no error');
 sub memcached_fake_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:' . port(1),
+		LocalAddr => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

@@ -37,12 +37,12 @@ http {
 
     upstream u {
         least_conn;
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -53,16 +53,16 @@ http {
 
 EOF
 
-$t->run_daemon(\&http_daemon, port(1));
-$t->run_daemon(\&http_daemon, port(2));
+$t->run_daemon(\&http_daemon, port(8081));
+$t->run_daemon(\&http_daemon, port(8082));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
-$t->waitforsocket('127.0.0.1:' . port(2));
+$t->waitforsocket('127.0.0.1:' . port(8081));
+$t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
-my @ports = my ($port1, $port2) = (port(1), port(2));
+my @ports = my ($port1, $port2) = (port(8081), port(8082));
 
 is(many('/', 10), "$port1: 5, $port2: 5", 'balanced');
 
@@ -120,7 +120,7 @@ sub http_daemon {
 
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
-		if ($uri eq '/w' && $port == port(1)) {
+		if ($uri eq '/w' && $port == port(8081)) {
 			Test::Nginx::log_core('||', "$port: sleep(2.5)");
 			select undef, undef, undef, 2.5;
 		}

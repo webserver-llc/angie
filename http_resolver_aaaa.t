@@ -37,13 +37,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
-        listen       [::1]:%%PORT_0%%;
+        listen       127.0.0.1:8080;
+        listen       [::1]:%%PORT_8080%%;
         server_name  localhost;
 
         location / {
-            resolver    127.0.0.1:%%PORT_1_UDP%%;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            resolver    127.0.0.1:%%PORT_8081_UDP%%;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
 
             proxy_next_upstream http_504 timeout error;
             proxy_intercept_errors on;
@@ -52,8 +52,8 @@ http {
             add_header X-Host $upstream_addr;
         }
         location /two {
-            resolver    127.0.0.1:%%PORT_1_UDP%% 127.0.0.1:%%PORT_2_UDP%%;
-            proxy_pass  http://$host:%%PORT_0%%/backend;
+            resolver    127.0.0.1:%%PORT_8081_UDP%% 127.0.0.1:%%PORT_8082_UDP%%;
+            proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
 
         location /backend {
@@ -69,17 +69,17 @@ EOF
 
 $t->try_run('no inet6 support')->plan(72);
 
-$t->run_daemon(\&dns_daemon, port(1), $t);
-$t->run_daemon(\&dns_daemon, port(2), $t);
+$t->run_daemon(\&dns_daemon, port(8081), $t);
+$t->run_daemon(\&dns_daemon, port(8082), $t);
 
-$t->waitforfile($t->testdir . '/' . port(1));
-$t->waitforfile($t->testdir . '/' . port(2));
+$t->waitforfile($t->testdir . '/' . port(8081));
+$t->waitforfile($t->testdir . '/' . port(8082));
 
 ###############################################################################
 
 my (@n, $response);
 
-my $p0 = port(0);
+my $p0 = port(8080);
 
 like(http_host_header('aaaa.example.net', '/'), qr/\[fe80::1\]/, 'AAAA');
 like(http_host_header('cname.example.net', '/'), qr/\[fe80::1\]/, 'CNAME');
@@ -332,7 +332,7 @@ sub reply_handler {
 		}
 
 	} elsif ($name eq '2.example.net') {
-		if ($port == port(1)) {
+		if ($port == port(8081)) {
 			$state->{twocnt}++;
 		}
 		if ($state->{twocnt} & 1) {

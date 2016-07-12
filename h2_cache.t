@@ -39,17 +39,17 @@ http {
     proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location /cache {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
         }
         location /proxy_buffering_off {
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
             proxy_buffering off;

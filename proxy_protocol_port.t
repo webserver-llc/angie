@@ -40,7 +40,7 @@ http {
     log_format port $proxy_protocol_port;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% proxy_protocol;
+        listen       127.0.0.1:8080 proxy_protocol;
         server_name  localhost;
 
         add_header X-PP-Port $proxy_protocol_port;

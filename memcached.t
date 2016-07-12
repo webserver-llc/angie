@@ -39,18 +39,18 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
             set $memcached_key $uri;
-            memcached_pass 127.0.0.1:%%PORT_1%%;
+            memcached_pass 127.0.0.1:8081;
         }
 
         location /next {
             set $memcached_key $uri;
             memcached_next_upstream  not_found;
-            memcached_pass 127.0.0.1:%%PORT_1%%;
+            memcached_pass 127.0.0.1:8081;
         }
     }
 }
@@ -62,22 +62,22 @@ my @memopts = ();
 
 if ($memhelp =~ /repcached/) {
 	# repcached patch adds additional listen socket
-	push @memopts, '-X', port(2);
+	push @memopts, '-X', port(8082);
 }
 if ($memhelp =~ /-U/) {
 	# UDP port is on by default in memcached 1.2.7+
 	push @memopts, '-U', '0';
 }
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(1), @memopts);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Can't start memcached";
 
 ###############################################################################
 
-my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(1) ],
+my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8081) ],
 	connect_timeout => 1.0);
 $memd->set('/', 'SEE-THIS')
 	or die "can't put value into memcached: $!";

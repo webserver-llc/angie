@@ -36,17 +36,17 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%% max_fails=3 fail_timeout=10s;
-        server 127.0.0.1:%%PORT_2%% max_fails=3 fail_timeout=10s;
+        server 127.0.0.1:8081 max_fails=3 fail_timeout=10s;
+        server 127.0.0.1:8082 max_fails=3 fail_timeout=10s;
     }
 
     upstream u2 {
-        server 127.0.0.1:%%PORT_1%% max_fails=3 fail_timeout=10s;
-        server 127.0.0.1:%%PORT_2%% max_fails=3 fail_timeout=10s;
+        server 127.0.0.1:8081 max_fails=3 fail_timeout=10s;
+        server 127.0.0.1:8082 max_fails=3 fail_timeout=10s;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -60,16 +60,16 @@ http {
 
 EOF
 
-$t->run_daemon(\&http_daemon, port(1));
-$t->run_daemon(\&http_daemon, port(2));
+$t->run_daemon(\&http_daemon, port(8081));
+$t->run_daemon(\&http_daemon, port(8082));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
-$t->waitforsocket('127.0.0.1:' . port(2));
+$t->waitforsocket('127.0.0.1:' . port(8081));
+$t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
-my @ports = my ($p1, $p2) = (port(1), port(2));
+my @ports = my ($p1, $p2) = (port(8081), port(8082));
 
 is(many('/', 30), "$p1: 15, $p2: 15", 'balanced');
 
@@ -140,7 +140,8 @@ sub http_daemon {
 
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
-		if ($uri =~ 'close' && $port == port(1) && $count++ % 3 == 0) {
+		if ($uri =~ 'close' && $port == port(8081) && $count++ % 3 == 0)
+		{
 			next;
 		}
 

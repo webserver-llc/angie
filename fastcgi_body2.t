@@ -42,12 +42,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%% max_fails=0;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081 max_fails=0;
+        server 127.0.0.1:8082;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -71,12 +71,12 @@ http {
 
 EOF
 
-$t->run_daemon(\&fastcgi_daemon, port(1));
-$t->run_daemon(\&fastcgi_daemon, port(2));
+$t->run_daemon(\&fastcgi_daemon, port(8081));
+$t->run_daemon(\&fastcgi_daemon, port(8082));
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1));
-$t->waitforsocket('127.0.0.1:' . port(2));
+$t->waitforsocket('127.0.0.1:' . port(8081));
+$t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
@@ -116,7 +116,7 @@ sub fastcgi_daemon {
 		read(STDIN, my $body, $ENV{'CONTENT_LENGTH'});
 		my $len = length $body;
 
-		sleep 3 if $port == port(1);
+		sleep 3 if $port == port(8081);
 
 		print <<EOF;
 Location: http://localhost/redirect

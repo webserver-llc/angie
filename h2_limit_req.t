@@ -43,8 +43,8 @@ http {
     limit_req_zone   $binary_remote_addr  zone=req:1m rate=1r/s;
 
     server {
-        listen       127.0.0.1:%%PORT_0%% http2;
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / { }
@@ -56,7 +56,7 @@ http {
             add_header X-Body $request_body;
             add_header X-Body-File $request_body_file;
             client_body_in_file_only on;
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             limit_req  zone=req burst=2;
         }
     }

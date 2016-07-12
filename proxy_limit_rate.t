@@ -37,11 +37,11 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/data;
+            proxy_pass http://127.0.0.1:8080/data;
             proxy_limit_rate 12000;
             add_header X-Msec $msec;
         }

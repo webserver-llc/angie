@@ -39,7 +39,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         sub_filter_types *;
@@ -198,7 +198,7 @@ http {
             sub_filter_once off;
             sub_filter abpatternyz +;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
         }
 
@@ -207,7 +207,7 @@ http {
             sub_filter abpatternyz +;
             sub_filter abpaernyz -;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
         }
 
@@ -217,7 +217,7 @@ http {
             sub_filter abpaernyz -;
             sub_filter _ *;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
         }
 
@@ -225,7 +225,7 @@ http {
             sub_filter_once off;
             sub_filter patt +;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
         }
 
@@ -235,13 +235,13 @@ http {
             sub_filter abpa -;
             sub_filter tter *;
 
-            proxy_pass http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
         }
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
 
         limit_rate 4;
         limit_rate_after 160;

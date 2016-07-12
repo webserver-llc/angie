@@ -35,12 +35,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream backend {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
         keepalive 1;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -53,7 +53,7 @@ http {
 EOF
 
 $t->run_daemon(\&fastcgi_test_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(1));
+$t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
@@ -138,7 +138,7 @@ sub fastcgi_respond($$) {
 sub fastcgi_test_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalAddr => '127.0.0.1:' . port(1),
+		LocalAddr => '127.0.0.1:' . port(8081),
 		Listen => 5,
 		Reuse => 1
 	)

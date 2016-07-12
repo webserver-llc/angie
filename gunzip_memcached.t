@@ -42,14 +42,14 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         gunzip on;
 
         location / {
             set $memcached_key $uri;
-            memcached_pass 127.0.0.1:%%PORT_1%%;
+            memcached_pass 127.0.0.1:8081;
             memcached_gzip_flag 2;
         }
     }
@@ -62,24 +62,24 @@ my @memopts = ();
 
 if ($memhelp =~ /repcached/) {
 	# repcached patch adds additional listen socket
-	push @memopts, '-X', port(2);
+	push @memopts, '-X', port(8082);
 }
 if ($memhelp =~ /-U/) {
 	# UDP port is on by default in memcached 1.2.7+
 	push @memopts, '-U', '0';
 }
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(1), @memopts);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts);
 
 $t->run()->plan(2);
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Can't start memcached";
 
 # Put compressed value into memcached.  This requires compress_threshold to be
 # set and compressed value to be at least 20% less than original one.
 
-my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(1) ],
+my $memd = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8081) ],
 	compress_threshold => 1, connect_timeout => 1.0);
 $memd->set('/', 'TEST' x 10)
 	or die "can't put value into memcached: $!";

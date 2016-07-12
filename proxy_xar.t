@@ -36,7 +36,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         # catch safe and unhandled unsafe URIs,
@@ -47,7 +47,7 @@ http {
         }
 
         location /proxy {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/return-xar;
+            proxy_pass http://127.0.0.1:8080/return-xar;
         }
         location /return-xar {
             add_header  X-Accel-Redirect     $arg_xar;

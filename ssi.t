@@ -40,7 +40,7 @@ http {
                            keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         if ($args = "found") {
@@ -52,10 +52,10 @@ http {
         }
         location /proxy/ {
             ssi on;
-            proxy_pass http://127.0.0.1:%%PORT_0%%/local/;
+            proxy_pass http://127.0.0.1:8080/local/;
         }
         location /cache/ {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/local/;
+            proxy_pass http://127.0.0.1:8080/local/;
             proxy_cache NAME;
             proxy_cache_valid 200 1h;
         }

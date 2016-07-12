@@ -36,15 +36,15 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /store- {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/;
+            proxy_pass http://127.0.0.1:8080/;
             proxy_store on;
         }
         location /store-string- {
-            proxy_pass http://127.0.0.1:%%PORT_0%%/;
+            proxy_pass http://127.0.0.1:8080/;
             proxy_store %%TESTDIR%%$uri;
         }
         location /ssi.html {

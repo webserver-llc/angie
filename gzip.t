@@ -36,14 +36,14 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
         location / {
             gzip on;
         }
         location /proxy/ {
             gzip on;
-            proxy_pass http://127.0.0.1:%%PORT_0%%/local/;
+            proxy_pass http://127.0.0.1:8080/local/;
         }
         location /local/ {
             gzip off;

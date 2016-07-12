@@ -39,25 +39,25 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         proxy_ssl_session_reuse off;
 
         location /verify {
-            proxy_pass https://127.0.0.1:%%PORT_1%%/;
+            proxy_pass https://127.0.0.1:8081/;
             proxy_ssl_certificate 1.example.com.crt;
             proxy_ssl_certificate_key 1.example.com.key;
         }
 
         location /fail {
-            proxy_pass https://127.0.0.1:%%PORT_1%%/;
+            proxy_pass https://127.0.0.1:8081/;
             proxy_ssl_certificate 2.example.com.crt;
             proxy_ssl_certificate_key 2.example.com.key;
         }
 
         location /encrypted {
-            proxy_pass https://127.0.0.1:%%PORT_2%%/;
+            proxy_pass https://127.0.0.1:8082/;
             proxy_ssl_certificate 3.example.com.crt;
             proxy_ssl_certificate_key 3.example.com.key;
             proxy_ssl_password_file password;
@@ -65,7 +65,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%% ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
 
         ssl_certificate 2.example.com.crt;
@@ -81,7 +81,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%% ssl;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
 
         ssl_certificate 1.example.com.crt;

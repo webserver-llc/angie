@@ -42,17 +42,17 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen          127.0.0.1:%%PORT_0%%;
+        listen          127.0.0.1:8080;
         server_name     localhost;
 
         location / {
             proxy_bind  127.0.0.2 transparent;
-            proxy_pass  http://127.0.0.1:%%PORT_1%%/;
+            proxy_pass  http://127.0.0.1:8081/;
         }
     }
 
     server {
-        listen          127.0.0.1:%%PORT_1%%;
+        listen          127.0.0.1:8081;
         server_name     localhost;
 
         location / {

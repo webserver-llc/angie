@@ -41,12 +41,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream memd {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
         keepalive 1;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%% sndbuf=32k;
+        listen       127.0.0.1:8080 sndbuf=32k;
         server_name  localhost;
 
         location / {
@@ -65,7 +65,7 @@ if ($memhelp =~ /repcached/) {
 	# repcached patches adds additional listen socket memcached
 	# that should be different too
 
-	push @memopts1, '-X', port(2);
+	push @memopts1, '-X', port(8082);
 }
 if ($memhelp =~ /-U/) {
 	# UDP ports no longer off by default in memcached 1.2.7+
@@ -78,16 +78,16 @@ if ($memhelp =~ /-t/) {
 	push @memopts1, '-t', '1';
 }
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(1), @memopts1);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts1);
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Unable to start memcached";
 
 ###############################################################################
 
-my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(1) ],
+my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8081) ],
 	connect_timeout => 1.0);
 
 # It's possible that stale events occur, i.e. read event handler called

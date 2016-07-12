@@ -36,17 +36,17 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
     }
 
     upstream u2 {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -67,7 +67,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_1%%;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {
@@ -86,7 +86,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:%%PORT_2%%;
+        listen       127.0.0.1:8082;
         server_name  localhost;
 
         location / {
@@ -105,7 +105,7 @@ $t->run();
 
 ###############################################################################
 
-my ($p1, $p2) = (port(1), port(2));
+my ($p1, $p2) = (port(8081), port(8082));
 
 # check if both request fallback to a backend
 # which returns valid response

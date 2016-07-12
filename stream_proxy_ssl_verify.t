@@ -38,56 +38,56 @@ stream {
     proxy_ssl_verify on;
 
     server {
-        listen      127.0.0.1:%%PORT_0%%;
-        proxy_pass  127.0.0.1:%%PORT_6%%;
+        listen      127.0.0.1:8080;
+        proxy_pass  127.0.0.1:8086;
 
         proxy_ssl_name example.com;
         proxy_ssl_trusted_certificate 1.example.com.crt;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_1%%;
-        proxy_pass  127.0.0.1:%%PORT_6%%;
+        listen      127.0.0.1:8081;
+        proxy_pass  127.0.0.1:8086;
 
         proxy_ssl_name foo.example.com;
         proxy_ssl_trusted_certificate 1.example.com.crt;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_2%%;
-        proxy_pass  127.0.0.1:%%PORT_6%%;
+        listen      127.0.0.1:8082;
+        proxy_pass  127.0.0.1:8086;
 
         proxy_ssl_name no.match.example.com;
         proxy_ssl_trusted_certificate 1.example.com.crt;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_3%%;
-        proxy_pass  127.0.0.1:%%PORT_7%%;
+        listen      127.0.0.1:8083;
+        proxy_pass  127.0.0.1:8087;
 
         proxy_ssl_name 2.example.com;
         proxy_ssl_trusted_certificate 2.example.com.crt;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_4%%;
-        proxy_pass  127.0.0.1:%%PORT_7%%;
+        listen      127.0.0.1:8084;
+        proxy_pass  127.0.0.1:8087;
 
         proxy_ssl_name bad.example.com;
         proxy_ssl_trusted_certificate 2.example.com.crt;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_5%%;
-        proxy_pass  127.0.0.1:%%PORT_7%%;
+        listen      127.0.0.1:8085;
+        proxy_pass  127.0.0.1:8087;
 
         proxy_ssl_trusted_certificate 1.example.com.crt;
         proxy_ssl_session_reuse off;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_6%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_8%%;
+        listen      127.0.0.1:8086 ssl;
+        proxy_pass  127.0.0.1:8088;
         proxy_ssl   off;
 
         ssl_certificate 1.example.com.crt;
@@ -95,8 +95,8 @@ stream {
     }
 
     server {
-        listen      127.0.0.1:%%PORT_7%% ssl;
-        proxy_pass  127.0.0.1:%%PORT_8%%;
+        listen      127.0.0.1:8087 ssl;
+        proxy_pass  127.0.0.1:8088;
         proxy_ssl   off;
 
         ssl_certificate 2.example.com.crt;
@@ -147,24 +147,24 @@ $t->write_file('index.html', '');
 $t->run_daemon(\&http_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8));
+$t->waitforsocket('127.0.0.1:' . port(8088));
 
 ###############################################################################
 
 # subjectAltName
 
-like(get('/', '127.0.0.1:' . port(0)), qr/200 OK/, 'verify');
-like(get('/', '127.0.0.1:' . port(1)), qr/200 OK/, 'verify wildcard');
-unlike(get('/', '127.0.0.1:' . port(2)), qr/200 OK/, 'verify fail');
+like(get('/', '127.0.0.1:' . port(8080)), qr/200 OK/, 'verify');
+like(get('/', '127.0.0.1:' . port(8081)), qr/200 OK/, 'verify wildcard');
+unlike(get('/', '127.0.0.1:' . port(8082)), qr/200 OK/, 'verify fail');
 
 # commonName
 
-like(get('/', '127.0.0.1:' . port(3)), qr/200 OK/, 'verify cn');
-unlike(get('/', '127.0.0.1:' . port(4)), qr/200 OK/, 'verify cn fail');
+like(get('/', '127.0.0.1:' . port(8083)), qr/200 OK/, 'verify cn');
+unlike(get('/', '127.0.0.1:' . port(8084)), qr/200 OK/, 'verify cn fail');
 
 # untrusted
 
-unlike(get('/', '127.0.0.1:' . port(5)), qr/200 OK/, 'untrusted');
+unlike(get('/', '127.0.0.1:' . port(8085)), qr/200 OK/, 'untrusted');
 
 ###############################################################################
 
@@ -186,7 +186,7 @@ sub get {
 sub http_daemon {
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:' . port(8),
+		LocalHost => '127.0.0.1:' . port(8088),
 		Listen => 5,
 		Reuse => 1
 	)

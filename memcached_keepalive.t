@@ -39,24 +39,24 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream memd {
-        server 127.0.0.1:%%PORT_1%%;
+        server 127.0.0.1:8081;
         keepalive 1;
     }
 
     upstream memd3 {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
         keepalive 1;
     }
 
     upstream memd4 {
-        server 127.0.0.1:%%PORT_1%%;
-        server 127.0.0.1:%%PORT_2%%;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082;
         keepalive 10;
     }
 
     server {
-        listen       127.0.0.1:%%PORT_0%%;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
@@ -92,8 +92,8 @@ if ($memhelp =~ /repcached/) {
 	# repcached patches adds additional listen socket memcached
 	# that should be different too
 
-	push @memopts1, '-X', port(3);
-	push @memopts2, '-X', port(4);
+	push @memopts1, '-X', port(8083);
+	push @memopts2, '-X', port(8084);
 }
 if ($memhelp =~ /-U/) {
 	# UDP ports no longer off by default in memcached 1.2.7+
@@ -108,21 +108,21 @@ if ($memhelp =~ /-t/) {
 	push @memopts2, '-t', '1';
 }
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(1), @memopts1);
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(2), @memopts2);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts1);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8082), @memopts2);
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(1))
+$t->waitforsocket('127.0.0.1:' . port(8081))
 	or die "Unable to start memcached";
-$t->waitforsocket('127.0.0.1:' . port(2))
+$t->waitforsocket('127.0.0.1:' . port(8082))
 	or die "Unable to start second memcached";
 
 ###############################################################################
 
-my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(1) ],
+my $memd1 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8081) ],
 	connect_timeout => 1.0);
-my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(2) ],
+my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:' . port(8082) ],
 	connect_timeout => 1.0);
 
 $memd1->set('/', 'SEE-THIS');

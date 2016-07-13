@@ -164,7 +164,8 @@ sub has_module($) {
 		split_clients
 			=> '(?s)^(?!.*--without-http_split_clients_module)',
 		stream	=> '--with-stream((?!\S)|=dynamic)',
-		stream_access => '(?s)^(?!.*--without-stream_access_module)',
+		stream_access
+			=> '(?s)^(?!.*--without-stream_access_module)',
 		stream_limit_conn
 			=> '(?s)^(?!.*--without-stream_limit_conn_module)',
 		stream_map

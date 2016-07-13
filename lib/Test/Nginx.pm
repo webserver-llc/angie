@@ -166,6 +166,8 @@ sub has_module($) {
 		stream	=> '--with-stream((?!\S)|=dynamic)',
 		stream_access
 			=> '(?s)^(?!.*--without-stream_access_module)',
+		stream_geo
+			=> '(?s)^(?!.*--without-stream_geo_module)',
 		stream_limit_conn
 			=> '(?s)^(?!.*--without-stream_limit_conn_module)',
 		stream_map

@@ -206,7 +206,10 @@ is($t->read_file('varlog_0'), "/varlog:200\n", 'varlog literal zero name');
 is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
 
 # binary data is escaped
+# that's "\\x7F\\x00\\x00\\x01\n" in $binary_remote_addr for "127.0.0.1"
 
-is($t->read_file('binary.log'), "\\x7F\\x00\\x00\\x01\n", 'binary');
+my $expected = join '', map { sprintf "\\x%02X", $_ } split /\./, $addr;
+
+is($t->read_file('binary.log'), "$expected\n", 'binary');
 
 ###############################################################################

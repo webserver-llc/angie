@@ -36,7 +36,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        zone u 32k;
+        zone u 1m;
         server 127.0.0.1:8081;
     }
 

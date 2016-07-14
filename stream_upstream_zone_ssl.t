@@ -39,12 +39,12 @@ stream {
     proxy_ssl_session_reuse on;
 
     upstream u {
-        zone u 32k;
+        zone u 1m;
         server 127.0.0.1:8084;
     }
 
     upstream u2 {
-        zone u2 32k;
+        zone u2 1m;
         server 127.0.0.1:8084 backup;
         server 127.0.0.1:8085 down;
     }

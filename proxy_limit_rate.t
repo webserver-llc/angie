@@ -42,6 +42,7 @@ http {
 
         location / {
             proxy_pass http://127.0.0.1:8080/data;
+            proxy_buffer_size 4k;
             proxy_limit_rate 12000;
             add_header X-Msec $msec;
         }

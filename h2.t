@@ -25,7 +25,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(137);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(138);
 
 # Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
 
@@ -135,7 +135,7 @@ http {
         listen       127.0.0.1:8086 http2;
         server_name  localhost;
 
-        send_timeout 1s;
+        send_timeout 2s;
     }
 
     server {
@@ -834,7 +834,7 @@ $sid = $s->new_stream({ path => '/tbig.html' });
 $s->h2_window(2**30, $sid);
 $s->h2_window(2**30);
 
-select undef, undef, undef, 2.1;
+select undef, undef, undef, 2.5;
 
 $s->h2_ping('SEE-THIS');
 
@@ -1066,10 +1066,13 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 ($frame) = grep { $_->{type} eq "PING" } @$frames;
 is($frame->{value}, 'SEE-THIS', 'unknown frame type');
 
-# GOAWAY - force closing a connection by server
+# GOAWAY - force closing a connection by server with idle or active streams
 
 $sid = $s->new_stream();
 $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+my $active = Test::Nginx::HTTP2->new(port(8086));
+$active->new_stream({ path => '/tbig.html' });
 
 # graceful shutdown with stream waiting on HEADERS payload
 
@@ -1100,9 +1103,17 @@ undef $grace4;
 $t->stop();
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
-
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-ok($frame, 'GOAWAY on connection close');
+ok($frame, 'GOAWAY on connection close - idle stream');
+
+TODO: {
+local $TODO = 'not yet';
+
+$frames = $active->read(all => [{ type => 'GOAWAY' }]);
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'GOAWAY on connection close - active stream');
+
+}
 
 ###############################################################################
 

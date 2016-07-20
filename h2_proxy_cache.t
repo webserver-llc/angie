@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache/)->plan(11)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -37,6 +37,10 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
+
+    # quit unfixed nginx timely on different linuces
+    http2_idle_timeout 2s;
+    http2_recv_timeout 2s;
 
     server {
         listen       127.0.0.1:8080 http2;
@@ -144,5 +148,34 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 push @$frames, $_ for @{$s->read(all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 	'proxy cache HEAD buffering off - no body');
+
+# client cancels stream with a cacheable request that was sent to upstream
+# HEADERS should not be produced for the canceled stream
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/cache/t.html?3' });
+
+$s->h2_rst($sid, 8);
+
+$frames = $s->read(all => [{ sid => $sid, fin => 0x4 }], wait => 0.2);
+
+TODO: {
+local $TODO = 'not yet';
+
+ok(!(grep { $_->{type} eq "HEADERS" } @$frames), 'no headers');
+
+}
+
+# client closes connection after sending a cacheable request producing alert
+
+$t->todo_alerts();
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/cache/t.html?4' });
+
+undef $s;
+select undef, undef, undef, 0.2;
+
+$t->stop();
 
 ###############################################################################

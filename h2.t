@@ -135,7 +135,7 @@ http {
         listen       127.0.0.1:8086 http2;
         server_name  localhost;
 
-        send_timeout 2s;
+        send_timeout 1s;
     }
 
     server {
@@ -834,7 +834,7 @@ $sid = $s->new_stream({ path => '/tbig.html' });
 $s->h2_window(2**30, $sid);
 $s->h2_window(2**30);
 
-select undef, undef, undef, 2.5;
+select undef, undef, undef, 2.1;
 
 $s->h2_ping('SEE-THIS');
 
@@ -1066,14 +1066,6 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 ($frame) = grep { $_->{type} eq "PING" } @$frames;
 is($frame->{value}, 'SEE-THIS', 'unknown frame type');
 
-# GOAWAY - force closing a connection by server with idle or active streams
-
-$sid = $s->new_stream();
-$s->read(all => [{ sid => $sid, fin => 1 }]);
-
-my $active = Test::Nginx::HTTP2->new(port(8086));
-$active->new_stream({ path => '/tbig.html' });
-
 # graceful shutdown with stream waiting on HEADERS payload
 
 my $grace = Test::Nginx::HTTP2->new(port(8084));
@@ -1099,6 +1091,14 @@ $grace4->h2_body('TEST', { split => [ 12 ], abort => 1 });
 
 select undef, undef, undef, 1.1;
 undef $grace4;
+
+# GOAWAY - force closing a connection by server with idle or active streams
+
+$sid = $s->new_stream();
+$s->read(all => [{ sid => $sid, fin => 1 }]);
+
+my $active = Test::Nginx::HTTP2->new(port(8086));
+$active->new_stream({ path => '/tbig.html' });
 
 $t->stop();
 

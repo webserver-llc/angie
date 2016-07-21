@@ -34,11 +34,11 @@ events {
 }
 
 stream {
-    upstream 8081 {
+    upstream %%PORT_8081%% {
         server 127.0.0.1:8091;
     }
 
-    upstream 8082 {
+    upstream %%PORT_8082%% {
         server 127.0.0.1:8092;
         server 127.0.0.1:8093;
     }

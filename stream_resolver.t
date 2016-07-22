@@ -92,13 +92,13 @@ $t->waitforfile($t->testdir . '/' . port(8080));
 
 ###############################################################################
 
-ok(stream('127.0.0.1:' . port(8081))->io('.'), 'resolver');
-ok(!stream('127.0.0.1:' . port(8082))->io('.'), 'upstream no port');
-ok(!stream('127.0.0.1:' . port(8083))->io('.'), 'name not found');
+ok(stream('127.0.0.1:' . port(8081))->read(), 'resolver');
+ok(!stream('127.0.0.1:' . port(8082))->read(), 'upstream no port');
+ok(!stream('127.0.0.1:' . port(8083))->read(), 'name not found');
 
-ok(stream('127.0.0.1:' . port(8084))->io('.'), 'resolved tries');
-ok(!stream('127.0.0.1:' . port(8085))->io('.'), 'resolved tries limited');
-ok(stream('127.0.0.1:' . port(8086))->io('.'), 'resolved tries zero');
+ok(stream('127.0.0.1:' . port(8084))->read(), 'resolved tries');
+ok(!stream('127.0.0.1:' . port(8085))->read(), 'resolved tries limited');
+ok(stream('127.0.0.1:' . port(8086))->read(), 'resolved tries zero');
 
 $t->stop();
 

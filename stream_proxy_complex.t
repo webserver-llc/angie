@@ -68,12 +68,12 @@ $t->try_run('no stream proxy_pass with complex value')->plan(5);
 
 ###############################################################################
 
-is(stream('127.0.0.1:' . port(8081))->io('foo'), port(8091), 'upstream');
-is(stream('127.0.0.1:' . port(8081))->io('foo'), port(8091), 'upstream again');
+is(stream('127.0.0.1:' . port(8081))->read(), port(8091), 'upstream');
+is(stream('127.0.0.1:' . port(8081))->read(), port(8091), 'upstream again');
 
-is(stream('127.0.0.1:' . port(8082))->io('foo'), port(8092), 'upstream 2');
-is(stream('127.0.0.1:' . port(8082))->io('foo'), port(8093), 'upstream second');
+is(stream('127.0.0.1:' . port(8082))->read(), port(8092), 'upstream 2');
+is(stream('127.0.0.1:' . port(8082))->read(), port(8093), 'upstream second');
 
-is(stream('127.0.0.1:' . port(8083))->io('foo'), port(8093), 'implicit');
+is(stream('127.0.0.1:' . port(8083))->read(), port(8093), 'implicit');
 
 ###############################################################################

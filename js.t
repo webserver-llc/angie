@@ -34,28 +34,16 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_method  "'method=' + $r.method";
-    js_set $test_version "'version=' + $r.httpVersion";
-    js_set $test_addr    "'addr=' + $r.remoteAddress";
-    js_set $test_uri     "'uri=' + $r.uri";
-    js_set $test_hdr     "'hdr=' + $r.headers.foo";
-    js_set $test_ihdr    "var s;
-                          s = '';
-                          for (h in $r.headers) {
-                              if (h.substr(0, 3) == 'foo') {
-                                  s += $r.headers[h];
-                              }
-                          }
-                          s;";
-    js_set $test_arg     "'arg=' + $r.args.foo";
-    js_set $test_iarg    "var s;
-                          s = '';
-                          for (a in $r.args) {
-                              if (a.substr(0, 3) == 'foo') {
-                                  s += $r.args[a];
-                              }
-                          }
-                          s;";
+    js_set $test_method  test_method;
+    js_set $test_version test_version;
+    js_set $test_addr    test_addr;
+    js_set $test_uri     test_uri;
+    js_set $test_hdr     test_hdr;
+    js_set $test_ihdr    test_ihdr;
+    js_set $test_arg     test_arg;
+    js_set $test_iarg    test_iarg;
+
+    js_include test.js;
 
     server {
         listen       127.0.0.1:8080;
@@ -94,67 +82,116 @@ http {
         }
 
         location /res_status {
-            js_run "
-                var res;
-                res = $r.response;
-                res.status = 204;
-                res.sendHeader();
-                res.finish();
-            ";
+            js_content status;
         }
 
         location /res_ctype {
-            js_run "
-                var res;
-                res = $r.response;
-                res.status = 200;
-                res.contentType = 'application/foo';
-                res.sendHeader();
-                res.finish();
-            ";
+            js_content ctype;
         }
 
         location /res_clen {
-            js_run "
-                var res;
-                res = $r.response;
-                res.status = 200;
-                res.contentLength = 5;
-                res.sendHeader();
-                res.send('foo12');
-                res.finish();
-            ";
+            js_content clen;
         }
 
         location /res_send {
-            js_run "
-                var res, a, s;
-                res = $r.response;
-                res.status = 200;
-                res.sendHeader();
-                for (a in $r.args) {
-                    if (a.substr(0, 3) == 'foo') {
-                        s = $r.args[a];
-                        res.send('n=' + a + ', v=' + s.substr(0, 2) + ' ');
-                    }
-                }
-                res.finish();
-            ";
+            js_content send;
         }
 
         location /res_hdr {
-            js_run "
-                var res;
-                res = $r.response;
-                res.status = 200;
-                res.headers['Foo'] = $r.args.fOO;
-                res.sendHeader();
-                res.finish();
-            ";
+            js_content hdr;
         }
     }
 }
 
+EOF
+
+$t->write_file('test.js', <<EOF);
+    function test_method(req, res) {
+        return 'method=' + req.method;
+    }
+
+    function test_version(req, res) {
+        return 'version=' + req.httpVersion;
+    }
+
+    function test_addr(req, res) {
+        return 'addr=' + req.remoteAddress;
+    }
+
+    function test_uri(req, res) {
+        return 'uri=' + req.uri;
+    }
+
+    function test_hdr(req, res) {
+        return 'hdr=' + req.headers.foo;
+    }
+
+    function test_ihdr(req, res) {
+        var s;
+        s = '';
+        for (h in req.headers) {
+            if (h.substr(0, 3) == 'foo') {
+                s += req.headers[h];
+            }
+        }
+        return s;
+    }
+
+    function test_arg(req, res) {
+        return 'arg=' + req.args.foo;
+    }
+
+    function test_iarg(req, res) {
+        var s;
+        s = '';
+        for (a in req.args) {
+            if (a.substr(0, 3) == 'foo') {
+                s += req.args[a];
+            }
+        }
+        return s;
+    }
+
+    function status(req, res) {
+        res.status = 204;
+        res.sendHeader();
+        res.finish();
+    }
+
+    function ctype(req, res) {
+        res.status = 200;
+        res.contentType = 'application/foo';
+        res.sendHeader();
+        res.finish();
+    }
+
+    function clen(req, res) {
+        res.status = 200;
+        res.contentLength = 5;
+        res.sendHeader();
+        res.send('foo12');
+        res.finish();
+    }
+
+    function send(req, res) {
+        var a, s;
+        res.status = 200;
+        res.sendHeader();
+        for (a in req.args) {
+            if (a.substr(0, 3) == 'foo') {
+                s = req.args[a];
+                res.send('n=' + a + ', v=' + s.substr(0, 2) + ' ');
+            }
+        }
+        res.finish();
+    }
+
+    function hdr(req, res) {
+        res.status = 200;
+        res.headers['Foo'] = req.args.fOO;
+        res.sendHeader();
+        res.finish();
+    }
 EOF
 
 $t->try_run('no njs available')->plan(13);

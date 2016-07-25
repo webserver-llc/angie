@@ -198,23 +198,23 @@ $t->try_run('no njs available')->plan(13);
 
 ###############################################################################
 
-like(http_get('/req_method'), qr/method=GET/, 'r.method');
-like(http_get('/req_version'), qr/version=1.0/, 'r.httpVersion');
-like(http_get('/req_addr'), qr/addr=127.0.0.1/, 'r.remoteAddress');
-like(http_get('/req_uri'), qr/uri=\/req_uri/, 'r.uri');
-like(http_get_hdr('/req_hdr'), qr/hdr=12345/, 'r.headers');
-like(http_get_ihdr('/req_ihdr'), qr/12345barz/, 'r.headers iteration');
-like(http_get('/req_arg?foO=12345'), qr/arg=12345/, 'r.args');
+like(http_get('/req_method'), qr/method=GET/, 'req.method');
+like(http_get('/req_version'), qr/version=1.0/, 'req.httpVersion');
+like(http_get('/req_addr'), qr/addr=127.0.0.1/, 'req.remoteAddress');
+like(http_get('/req_uri'), qr/uri=\/req_uri/, 'req.uri');
+like(http_get_hdr('/req_hdr'), qr/hdr=12345/, 'req.headers');
+like(http_get_ihdr('/req_ihdr'), qr/12345barz/, 'req.headers iteration');
+like(http_get('/req_arg?foO=12345'), qr/arg=12345/, 'req.args');
 like(http_get('/req_iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
-	'r.args iteration');
+	'req.args iteration');
 
-like(http_get('/res_status'), qr/204 No Content/, 'r.response.status');
+like(http_get('/res_status'), qr/204 No Content/, 'res.status');
 like(http_get('/res_ctype'), qr/Content-Type: application\/foo/,
-	'r.response.contentType');
-like(http_get('/res_clen'), qr/Content-Length: 5/, 'r.response.contentLength');
+	'res.contentType');
+like(http_get('/res_clen'), qr/Content-Length: 5/, 'res.contentLength');
 like(http_get('/res_send?foo=12345&n=11&foo-2=bar&ndd=&foo-3=z'),
-	qr/n=foo, v=12 n=foo-2, v=ba n=foo-3, v=z/, 'r.response.send');
-like(http_get('/res_hdr?foo=12345'), qr/Foo: 12345/, 'r.response.headers');
+	qr/n=foo, v=12 n=foo-2, v=ba n=foo-3, v=z/, 'res.send');
+like(http_get('/res_hdr?foo=12345'), qr/Foo: 12345/, 'res.headers');
 
 ###############################################################################
 

@@ -91,7 +91,7 @@ skip 'OpenSSL ALPN/NPN support required', 1 unless defined $s;
 
 ok($s, 'ssl connection');
 
-$t->todo_alerts();
+$t->todo_alerts() unless $t->has_version('1.11.3');
 
 my $sid = $s->new_stream({ path => '/tbig.html' });
 

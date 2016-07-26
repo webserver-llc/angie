@@ -29,7 +29,8 @@ my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(138);
 
 # Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
 
-$t->todo_alerts() if $^O eq 'darwin' or $^O eq 'netbsd';
+$t->todo_alerts() if ($^O eq 'darwin' or $^O eq 'netbsd')
+	and !$t->has_version('1.11.3');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -815,7 +816,7 @@ SKIP: {
 skip 'tolerant operating system', 1 unless $^O eq 'darwin' or $^O eq 'netbsd';
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.11.3');
 
 $sid = $s->new_stream();
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
@@ -1108,7 +1109,7 @@ $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 ok($frame, 'GOAWAY on connection close - idle stream');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.11.3');
 
 $frames = $active->read(all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;

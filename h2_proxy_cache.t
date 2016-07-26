@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache/)->plan(12)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache rewrite/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -57,6 +57,11 @@ http {
             proxy_cache NAME;
             proxy_cache_valid 1m;
             proxy_buffering off;
+        }
+        location / {
+            if ($arg_slow) {
+                set $limit_rate 200;
+            }
         }
     }
 }
@@ -153,11 +158,11 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 # HEADERS should not be produced for the canceled stream
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/cache/t.html?3' });
+$sid = $s->new_stream({ path => '/cache/t.html?slow=1' });
 
 $s->h2_rst($sid, 8);
 
-$frames = $s->read(all => [{ sid => $sid, fin => 0x4 }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 0x4 }], wait => 1.2);
 
 TODO: {
 local $TODO = 'not yet';

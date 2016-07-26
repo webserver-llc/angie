@@ -1098,7 +1098,8 @@ $sid = $s->new_stream();
 $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my $active = Test::Nginx::HTTP2->new(port(8086));
-$active->new_stream({ path => '/tbig.html' });
+$sid = $active->new_stream({ path => '/t1.html' });
+$active->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 $t->stop();
 

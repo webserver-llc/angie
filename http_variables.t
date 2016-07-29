@@ -59,6 +59,12 @@ http {
             expires epoch;
             proxy_pass http://127.0.0.1:8080/set;
         }
+
+        location /limit_rate {
+            set $limit_rate 40k;
+            add_header X-Rate $limit_rate;
+            return 200 OK;
+        }
     }
 }
 
@@ -71,6 +77,10 @@ $t->run();
 http_get('/');
 http_get('/../bad_uri');
 http_get('/redefine');
+
+# $limit_rate is a special variable that has its own set_handler / get_handler
+
+like(http_get('/limit_rate'), qr/X-Rate: 40960/, 'limit_rate handlers');
 
 $t->stop();
 

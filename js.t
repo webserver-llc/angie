@@ -42,6 +42,8 @@ http {
     js_set $test_ihdr    test_ihdr;
     js_set $test_arg     test_arg;
     js_set $test_iarg    test_iarg;
+    js_set $test_var     test_var;
+    js_set $test_log     test_log;
 
     js_include test.js;
 
@@ -81,6 +83,14 @@ http {
             return 200 $test_iarg;
         }
 
+        location /req_var {
+            return 200 $test_var;
+        }
+
+        location /req_log {
+            return 200 $test_log;
+        }
+
         location /res_status {
             js_content status;
         }
@@ -99,6 +109,10 @@ http {
 
         location /res_hdr {
             js_content hdr;
+        }
+
+        location /res_ihdr {
+            js_content ihdr;
         }
     }
 }
@@ -152,8 +166,18 @@ $t->write_file('test.js', <<EOF);
         return s;
     }
 
+    function test_var(req, res) {
+        return 'variable=' + req.variables.remote_addr;
+    }
+
+    function test_log(req, res) {
+        req.log("SEE-THIS");
+    }
+
     function status(req, res) {
         res.status = 204;
+        if (res.status != 204)
+            res.status = 404;
         res.sendHeader();
         res.finish();
     }
@@ -168,6 +192,8 @@ $t->write_file('test.js', <<EOF);
     function clen(req, res) {
         res.status = 200;
         res.contentLength = 5;
+        if (res.contentLength != 5)
+            res.contentLength = 6;
         res.sendHeader();
         res.send('foo12');
         res.finish();
@@ -189,12 +215,36 @@ $t->write_file('test.js', <<EOF);
     function hdr(req, res) {
         res.status = 200;
         res.headers['Foo'] = req.args.fOO;
+
+        if (req.args.bar) {
+            res.headers['Bar'] = res.headers['Foo'];
+        }
+
+        if (req.args.bar == 'empty') {
+            res.headers['Bar'] = res.headers['Baz'];
+        }
+
         res.sendHeader();
+        res.finish();
+    }
+
+    function ihdr(req, res) {
+        res.status = 200;
+        res.headers['a'] = req.args.a;
+        res.headers['b'] = req.args.b;
+
+        s = '';
+        for (h in res.headers) {
+            s += res.headers[h];
+        }
+
+        res.sendHeader();
+        res.send(s);
         res.finish();
     }
 EOF
 
-$t->try_run('no njs available')->plan(13);
+$t->try_run('no njs available')->plan(20);
 
 ###############################################################################
 
@@ -207,6 +257,8 @@ like(http_get_ihdr('/req_ihdr'), qr/12345barz/, 'req.headers iteration');
 like(http_get('/req_arg?foO=12345'), qr/arg=12345/, 'req.args');
 like(http_get('/req_iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'req.args iteration');
+like(http_get('/req_var'), qr/variable=127.0.0.1/, 'req.variables');
+like(http_get('/req_log'), qr/200 OK/, 'req.log');
 
 like(http_get('/res_status'), qr/204 No Content/, 'res.status');
 like(http_get('/res_ctype'), qr/Content-Type: application\/foo/,
@@ -215,6 +267,22 @@ like(http_get('/res_clen'), qr/Content-Length: 5/, 'res.contentLength');
 like(http_get('/res_send?foo=12345&n=11&foo-2=bar&ndd=&foo-3=z'),
 	qr/n=foo, v=12 n=foo-2, v=ba n=foo-3, v=z/, 'res.send');
 like(http_get('/res_hdr?foo=12345'), qr/Foo: 12345/, 'res.headers');
+like(http_get('/res_hdr?foo=123&bar=copy'), qr/Bar: 123/, 'res.headers get');
+like(http_get('/res_hdr?bar=empty'), qr/Bar: \x0d/, 'res.headers empty');
+like(http_get('/res_ihdr?a=12&b=34'), qr/^1234$/m, 'res.headers iteration');
+
+TODO: {
+local $TODO = 'zero size buf in writer';
+
+like(http_get('/res_ihdr'), qr/\x0d\x0a?\x0d\x0a?$/m, 'res.send zero');
+
+$t->todo_alerts();
+
+}
+
+$t->stop();
+
+ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'log js');
 
 ###############################################################################
 

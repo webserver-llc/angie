@@ -25,7 +25,8 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(138);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
+	->plan(138);
 
 # Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
 

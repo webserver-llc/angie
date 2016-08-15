@@ -16,14 +16,14 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::Stream qw/ stream /;
+use Test::Nginx::Stream qw/ dgram stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return udp/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -66,6 +66,11 @@ stream {
         listen  127.0.0.1:8084;
         return  $js_sess_unk;
     }
+
+    server {
+        listen  127.0.0.1:%%PORT_8085_UDP%% udp;
+        return  $js_addr;
+    }
 }
 
 EOF
@@ -88,12 +93,14 @@ $t->write_file('functions.js', <<EOF);
     }
 EOF
 
-$t->try_run('no stream njs available')->plan(6);
+$t->try_run('no stream njs available')->plan(7);
 
 ###############################################################################
 
 is(stream('127.0.0.1:' . port(8080))->read(), 'addr=127.0.0.1',
 	'sess.remoteAddress');
+is(dgram('127.0.0.1:' . port(8085))->io('.'), 'addr=127.0.0.1',
+	'sess.remoteAddress udp');
 is(stream('127.0.0.1:' . port(8081))->read(), 'undefined', 'sess.log');
 is(stream('127.0.0.1:' . port(8082))->read(), 'variable=127.0.0.1',
 	'sess.variables');

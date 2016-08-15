@@ -54,6 +54,7 @@ http {
         location /var {
             proxy_pass http://$arg_b;
             proxy_read_timeout 1s;
+            proxy_connect_timeout 2s;
         }
     }
 }

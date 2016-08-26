@@ -36,36 +36,35 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     geo $geo {
-        127.0.0.0/8  loopback;
-        192.0.2.0/24 test;
-        0.0.0.0/0    world;
+        127.0.0.0/8   loopback;
+        192.0.2.0/24  test;
+        0.0.0.0/0     world;
     }
 
     geo $arg_ip $geo_from_arg {
-        default      default;
-
-        127.0.0.0/8  loopback;
-        192.0.2.0/24 test;
+        default       default;
+        127.0.0.0/8   loopback;
+        192.0.2.0/24  test;
     }
 
     geo $geo_proxy {
-        default      default;
-        proxy        127.0.0.1;
-        127.0.0.0/8  loopback;
-        192.0.2.0/24 test;
+        default       default;
+        proxy         127.0.0.1;
+        127.0.0.0/8   loopback;
+        192.0.2.0/24  test;
     }
 
     geo $geo_proxy_recursive {
-        default      default;
-        proxy        127.0.0.1;
-        127.0.0.0/8  loopback;
-        192.0.2.0/24 test;
         proxy_recursive;
+        default       default;
+        proxy         127.0.0.1;
+        127.0.0.0/8   loopback;
+        192.0.2.0/24  test;
     }
 
     geo $geo_ranges {
         ranges;
-        default      default;
+        default                    default;
         127.0.0.0-127.255.255.255  loopback;
         192.0.2.0-192.0.2.255      test;
     }
@@ -75,12 +74,12 @@ http {
         server_name  localhost;
 
         location / {
-            add_header X-IP  $remote_addr;
-            add_header X-Geo $geo;
-            add_header X-Arg $geo_from_arg;
-            add_header X-XFF $geo_proxy;
-            add_header X-XFR $geo_proxy_recursive;
-            add_header X-Ran $geo_ranges;
+            add_header X-IP   $remote_addr;
+            add_header X-Geo  $geo;
+            add_header X-Ran  $geo_ranges;
+            add_header X-Arg  $geo_from_arg;
+            add_header X-XFF  $geo_proxy;
+            add_header X-XFR  $geo_proxy_recursive;
         }
     }
 }
@@ -97,7 +96,9 @@ $t->plan(9);
 
 ###############################################################################
 
-like(http_get('/1'), qr/^X-Geo: loopback/m, 'geo');
+my $r = http_get('/1');
+like($r, qr/^X-Geo: loopback/m, 'geo');
+like($r, qr/^X-Ran: loopback/m, 'geo ranges');
 
 like(http_get('/1?ip=192.0.2.1'), qr/^X-Arg: test/m, 'geo from variable');
 like(http_get('/1?ip=10.0.0.1'), qr/^X-Arg: default/m, 'geo default');
@@ -110,8 +111,6 @@ like(http_xff('192.0.2.1, 127.0.0.1'), qr/^X-XFF: loopback/m,
 	'geo proxy_recursive off');
 like(http_xff('192.0.2.1, 127.0.0.1'), qr/^X-XFR: test/m,
 	'geo proxy_recursive on');
-
-like(http_get('/1'), qr/^X-Ran: loopback/m, 'geo ranges');
 
 ###############################################################################
 

@@ -2,6 +2,7 @@
 
 # (C) Maxim Dounin
 # (C) Sergey Kandaurov
+# (C) Andrey Zelenkov
 # (C) Nginx, Inc.
 
 # Tests for stream geo module.
@@ -42,6 +43,12 @@ stream {
         0.0.0.0/0     world;
     }
 
+    geo $geo_include {
+        include       geo.conf;
+        192.0.2.0/24  test;
+        0.0.0.0/0     world;
+    }
+
     geo $remote_addr $geo_from_addr {
         127.0.0.0/8   loopback;
         192.0.2.0/24  test;
@@ -71,10 +78,19 @@ stream {
         192.0.2.0-192.0.2.255      test;
     }
 
+    geo $geo_ranges_include {
+        ranges;
+        default                default;
+        include                geo-ranges.conf;
+        192.0.2.0-192.0.2.255  test;
+    }
+
     server {
         listen  127.0.0.1:8080;
         return  "geo:$geo
+                 geo_include:$geo_include
                  geo_ranges:$geo_ranges
+                 geo_ranges_include:$geo_ranges_include
                  geo_from_addr:$geo_from_addr
                  geo_from_var:$geo_from_var";
     }
@@ -92,13 +108,18 @@ stream {
 
 EOF
 
-$t->try_run('no stream geo')->plan(6);
+$t->write_file('geo.conf', '127.0.0.0/8  loopback;');
+$t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
+
+$t->try_run('no stream geo')->plan(8);
 
 ###############################################################################
 
 my %data = stream()->read() =~ /(\w+):(\w+)/g;
 is($data{geo}, 'loopback', 'geo');
+is($data{geo_include}, 'loopback', 'geo include');
 is($data{geo_ranges}, 'loopback', 'geo ranges');
+is($data{geo_ranges_include}, 'loopback', 'geo ranges include');
 
 is($data{geo_from_addr}, 'loopback', 'geo from addr');
 is($data{geo_from_var}, 'test', 'geo from var');

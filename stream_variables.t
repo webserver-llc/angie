@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::Stream qw/ stream /;
+use Test::Nginx::Stream qw/ stream dgram /;
 
 ###############################################################################
 
@@ -66,11 +66,17 @@ stream {
         listen  127.0.0.1:8085;
         return  $msec!$time_local!$time_iso8601;
     }
+
+    server {
+        listen  127.0.0.1:8086;
+        listen  127.0.0.1:%%PORT_8087_UDP%% udp;
+        return  $protocol;
+    }
 }
 
 EOF
 
-$t->try_run('no stream return')->plan(6);
+$t->try_run('no stream return')->plan(8);
 
 ###############################################################################
 
@@ -93,5 +99,8 @@ is(unpack("H*", $data), '0' x 31 . '1', 'binary addr ipv6');
 
 $data = stream('127.0.0.1:' . port(8085))->read();
 like($data, qr#^\d+.\d+![-+\w/: ]+![-+\dT:]+$#, 'time');
+
+is(stream('127.0.0.1:' . port(8086))->read(), 'TCP', 'protocol TCP');
+is(dgram('127.0.0.1:' . port(8087))->io('.'), 'UDP', 'protocol UDP');
 
 ###############################################################################

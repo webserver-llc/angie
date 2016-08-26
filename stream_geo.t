@@ -73,7 +73,10 @@ stream {
 
     server {
         listen  127.0.0.1:8080;
-        return  $geo:$geo_from_addr:$geo_from_var:$geo_ranges;
+        return  "geo:$geo
+                 geo_from_addr:$geo_from_addr
+                 geo_from_var:$geo_from_var
+                 geo_ranges:$geo_ranges";
     }
 
     server {
@@ -94,11 +97,11 @@ $t->plan(6);
 
 ###############################################################################
 
-my @data = split /:/, stream()->read();
-is($data[0], 'loopback', 'geo');
-is($data[1], 'loopback', 'geo from addr');
-is($data[2], 'test', 'geo from var');
-is($data[3], 'loopback', 'geo ranges');
+my %data = stream()->read() =~ /(\w+):(\w+)/g;
+is($data{geo}, 'loopback', 'geo');
+is($data{geo_from_addr}, 'loopback', 'geo from addr');
+is($data{geo_from_var}, 'test', 'geo from var');
+is($data{geo_ranges}, 'loopback', 'geo ranges');
 
 is(stream('127.0.0.1:' . port(8081))->read(), 'default', 'geo default');
 is(stream('127.0.0.1:' . port(8082))->read(), 'world', 'geo world');

@@ -49,10 +49,28 @@ http {
         0.0.0.0/0     world;
     }
 
+    geo $geo_delete {
+        127.0.0.0/8   loopback;
+        192.0.2.0/24  test;
+        0.0.0.0/0     world;
+        delete        127.0.0.0/8;
+    }
+
     geo $arg_ip $geo_from_arg {
         default       default;
         127.0.0.0/8   loopback;
         192.0.2.0/24  test;
+    }
+
+    geo $arg_ip $geo_arg_ranges {
+        ranges;
+        default                default;
+
+        # ranges with two /16 networks
+        # the latter network has greater two least octets
+        # (see 1301a58b5dac for details)
+        10.10.3.0-10.11.2.255  foo;
+        delete                 10.10.3.0-10.11.2.255;
     }
 
     geo $geo_proxy {
@@ -84,6 +102,24 @@ http {
         192.0.2.0-192.0.2.255  test;
     }
 
+    geo $geo_ranges_delete {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.1-127.0.0.1    loopback;
+        delete                 127.0.0.0-127.0.0.0;
+        delete                 127.0.0.2-127.0.0.255;
+        delete                 127.0.0.1-127.0.0.1;
+    }
+
+    # delete range with two /16
+    geo $geo_ranges_delete_2 {
+        ranges;
+        default              default;
+        127.0.0.0-127.1.0.0  loopback;
+        delete               127.0.0.0-127.1.0.0;
+    }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -92,11 +128,18 @@ http {
             add_header X-IP   $remote_addr;
             add_header X-Geo  $geo;
             add_header X-Inc  $geo_include;
+            add_header X-Del  $geo_delete;
             add_header X-Ran  $geo_ranges;
             add_header X-RIn  $geo_ranges_include;
             add_header X-Arg  $geo_from_arg;
+            add_header X-ARa  $geo_arg_ranges;
             add_header X-XFF  $geo_proxy;
             add_header X-XFR  $geo_proxy_recursive;
+        }
+
+        location /2 {
+            add_header X-RDe  $geo_ranges_delete;
+            add_header X-RD2  $geo_ranges_delete_2;
         }
     }
 }
@@ -104,6 +147,7 @@ http {
 EOF
 
 $t->write_file('1', '');
+$t->write_file('2', '');
 $t->write_file('geo.conf', '127.0.0.0/8  loopback;');
 $t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
 
@@ -112,18 +156,37 @@ $t->run();
 plan(skip_all => 'no 127.0.0.1 on host')
 	if http_get('/1') !~ /X-IP: 127.0.0.1/m;
 
-$t->plan(11);
+$t->plan(15);
 
 ###############################################################################
 
 my $r = http_get('/1');
 like($r, qr/^X-Geo: loopback/m, 'geo');
 like($r, qr/^X-Inc: loopback/m, 'geo include');
+like($r, qr/^X-Del: world/m, 'geo delete');
 like($r, qr/^X-Ran: loopback/m, 'geo ranges');
 like($r, qr/^X-RIn: loopback/m, 'geo ranges include');
 
+TODO: {
+todo_skip 'use-after-free', 2 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.11.4');
+
+like(http_get('/2'), qr/^X-RDe: default/m, 'geo ranges delete');
+like(http_get('/2'), qr/^X-RD2: default/m, 'geo ranges delete 2');
+
+}
+
 like(http_get('/1?ip=192.0.2.1'), qr/^X-Arg: test/m, 'geo from variable');
 like(http_get('/1?ip=10.0.0.1'), qr/^X-Arg: default/m, 'geo default');
+
+TODO: {
+todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.11.4');
+
+like(http_get('/1?ip=10.11.2.1'), qr/^X-ARa: default/m,
+	'geo delete range from variable');
+
+}
 
 like(http_xff('192.0.2.1'), qr/^X-XFF: test/m, 'geo proxy');
 like(http_xff('10.0.0.1'), qr/^X-XFF: default/m, 'geo proxy default');

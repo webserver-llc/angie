@@ -158,6 +158,16 @@ http {
         127.0.0.1-127.0.0.255  loopback;
      }
 
+    geo $geo_base_create {
+        ranges;
+        include  base.conf;
+    }
+
+    geo $geo_base_include {
+        ranges;
+        include  base.conf;
+    }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -174,6 +184,8 @@ http {
             add_header X-Ins  $geo_insert;
             add_header X-IBe  $geo_insert_before;
             add_header X-IAf  $geo_insert_after;
+            add_header X-GBc  $geo_base_create;
+            add_header X-GBi  $geo_base_include;
             add_header X-Arg  $geo_from_arg;
             add_header X-ARa  $geo_arg_ranges;
             add_header X-XFF  $geo_proxy;
@@ -193,13 +205,17 @@ $t->write_file('1', '');
 $t->write_file('2', '');
 $t->write_file('geo.conf', '127.0.0.0/8  loopback;');
 $t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
+$t->write_file('base.conf', join('', map {
+	"127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." . $_ % 256 .
+	"-127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." .$_ % 256 . " " .
+	($_ == 1 ? "loopback" : "range$_") . ";" } (0 .. 100000)));
 
 $t->run();
 
 plan(skip_all => 'no 127.0.0.1 on host')
 	if http_get('/1') !~ /X-IP: 127.0.0.1/m;
 
-$t->plan(22);
+$t->plan(24);
 
 ###############################################################################
 
@@ -224,6 +240,8 @@ like($r, qr/^X-AAf: loopback/m, 'geo ranges add after');
 like($r, qr/^X-Ins: loopback/m, 'geo ranges insert');
 like($r, qr/^X-IBe: loopback/m, 'geo ranges insert before');
 like($r, qr/^X-IAf: loopback/m, 'geo ranges insert after');
+like($r, qr/^X-GBc: loopback/m, 'geo binary base create');
+like($r, qr/^X-GBi: loopback/m, 'geo binary base include');
 
 like(http_get('/1?ip=192.0.2.1'), qr/^X-Arg: test/m, 'geo from variable');
 like(http_get('/1?ip=10.0.0.1'), qr/^X-Arg: default/m, 'geo default');

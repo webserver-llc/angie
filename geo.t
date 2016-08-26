@@ -65,11 +65,13 @@ http {
     geo $arg_ip $geo_arg_ranges {
         ranges;
         default                default;
+        127.0.0.0-127.0.0.1    loopback;
 
         # ranges with two /16 networks
         # the latter network has greater two least octets
         # (see 1301a58b5dac for details)
         10.10.3.0-10.11.2.255  foo;
+        10.12.3.0-10.13.2.255  foo2;
         delete                 10.10.3.0-10.11.2.255;
     }
 
@@ -120,6 +122,42 @@ http {
         delete               127.0.0.0-127.1.0.0;
     }
 
+    geo $geo_before {
+        ranges;
+        default                default;
+        127.0.0.1-127.0.0.255  loopback;
+        127.0.0.0-127.0.0.0    test;
+    }
+
+    geo $geo_after {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.1    loopback;
+        127.0.0.2-127.0.0.255  test;
+    }
+
+    geo $geo_insert {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.1-127.0.0.2    test2;
+        127.0.0.1-127.0.0.1    loopback;
+    }
+
+    geo $geo_insert_before {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.0-127.0.0.1    loopback;
+    }
+
+    geo $geo_insert_after {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.1-127.0.0.255  loopback;
+     }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -131,6 +169,11 @@ http {
             add_header X-Del  $geo_delete;
             add_header X-Ran  $geo_ranges;
             add_header X-RIn  $geo_ranges_include;
+            add_header X-ABe  $geo_before;
+            add_header X-AAf  $geo_after;
+            add_header X-Ins  $geo_insert;
+            add_header X-IBe  $geo_insert_before;
+            add_header X-IAf  $geo_insert_after;
             add_header X-Arg  $geo_from_arg;
             add_header X-ARa  $geo_arg_ranges;
             add_header X-XFF  $geo_proxy;
@@ -156,7 +199,7 @@ $t->run();
 plan(skip_all => 'no 127.0.0.1 on host')
 	if http_get('/1') !~ /X-IP: 127.0.0.1/m;
 
-$t->plan(15);
+$t->plan(22);
 
 ###############################################################################
 
@@ -176,8 +219,16 @@ like(http_get('/2'), qr/^X-RD2: default/m, 'geo ranges delete 2');
 
 }
 
+like($r, qr/^X-ABe: loopback/m, 'geo ranges add before');
+like($r, qr/^X-AAf: loopback/m, 'geo ranges add after');
+like($r, qr/^X-Ins: loopback/m, 'geo ranges insert');
+like($r, qr/^X-IBe: loopback/m, 'geo ranges insert before');
+like($r, qr/^X-IAf: loopback/m, 'geo ranges insert after');
+
 like(http_get('/1?ip=192.0.2.1'), qr/^X-Arg: test/m, 'geo from variable');
 like(http_get('/1?ip=10.0.0.1'), qr/^X-Arg: default/m, 'geo default');
+like(http_get('/1?ip=10.0.0.1'), qr/^X-ARa: default/m, 'geo ranges default');
+like(http_get('/1?ip=10.13.2.1'), qr/^X-ARa: foo2/m, 'geo ranges add');
 
 TODO: {
 todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}

@@ -65,6 +65,8 @@ stream {
         %%PORT_8080%%  "192.0.2.1";
         %%PORT_8081%%  "10.0.0.1";
         %%PORT_8085%%  "10.11.2.1";
+        %%PORT_8086%%  "loopback";
+        %%PORT_8087%%  "10.13.2.1";
     }
 
     geo $var $geo_from_var {
@@ -76,11 +78,13 @@ stream {
     geo $var $geo_var_ranges {
         ranges;
         default                default;
+        127.0.0.0-127.0.0.1    loopback;
 
         # ranges with two /16 networks
         # the latter network has greater two least octets
         # (see 1301a58b5dac for details)
         10.10.3.0-10.11.2.255  foo;
+        10.12.3.0-10.13.2.255  foo2;
         delete                 10.10.3.0-10.11.2.255;
     }
 
@@ -122,6 +126,42 @@ stream {
         delete               127.0.0.0-127.1.0.0;
     }
 
+    geo $geo_before {
+        ranges;
+        default                default;
+        127.0.0.1-127.0.0.255  loopback;
+        127.0.0.0-127.0.0.0    test;
+    }
+
+    geo $geo_after {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.1    loopback;
+        127.0.0.2-127.0.0.255  test;
+    }
+
+    geo $geo_insert {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.1-127.0.0.2    test2;
+        127.0.0.1-127.0.0.1    loopback;
+    }
+
+    geo $geo_insert_before {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.0-127.0.0.1    loopback;
+    }
+
+    geo $geo_insert_after {
+        ranges;
+        default                default;
+        127.0.0.0-127.0.0.255  test;
+        127.0.0.1-127.0.0.255  loopback;
+     }
+
     server {
         listen  127.0.0.1:8080;
         return  "geo:$geo
@@ -129,6 +169,11 @@ stream {
                  geo_delete:$geo_delete
                  geo_ranges:$geo_ranges
                  geo_ranges_include:$geo_ranges_include
+                 geo_before:$geo_before
+                 geo_after:$geo_after
+                 geo_insert:$geo_insert
+                 geo_insert_before:$geo_insert_before
+                 geo_insert_after:$geo_insert_after
                  geo_from_addr:$geo_from_addr
                  geo_from_var:$geo_from_var";
     }
@@ -157,6 +202,16 @@ stream {
         listen  127.0.0.1:8085;
         return  $geo_var_ranges;
     }
+
+    server {
+        listen  127.0.0.1:8086;
+        return  $geo_var_ranges;
+    }
+
+    server {
+        listen  127.0.0.1:8087;
+        return  $geo_var_ranges;
+    }
 }
 
 EOF
@@ -164,7 +219,7 @@ EOF
 $t->write_file('geo.conf', '127.0.0.0/8  loopback;');
 $t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
 
-$t->try_run('no stream geo')->plan(12);
+$t->try_run('no stream geo')->plan(19);
 
 ###############################################################################
 
@@ -184,6 +239,12 @@ is(stream('127.0.0.1:' . port(8084))->read(), 'default', 'geo ranges delete 2');
 
 }
 
+is($data{geo_before}, 'loopback', 'geo ranges add before');
+is($data{geo_after}, 'loopback', 'geo ranges add after');
+is($data{geo_insert}, 'loopback', 'geo ranges insert');
+is($data{geo_insert_before}, 'loopback', 'geo ranges insert before');
+is($data{geo_insert_after}, 'loopback', 'geo ranges insert after');
+
 is($data{geo_from_addr}, 'loopback', 'geo from addr');
 is($data{geo_from_var}, 'test', 'geo from var');
 
@@ -198,5 +259,7 @@ is(stream('127.0.0.1:' . port(8085))->read(), 'default',
 
 is(stream('127.0.0.1:' . port(8081))->read(), 'default', 'geo default');
 is(stream('127.0.0.1:' . port(8082))->read(), 'world', 'geo world');
+is(stream('127.0.0.1:' . port(8086))->read(), 'default', 'geo ranges default');
+is(stream('127.0.0.1:' . port(8087))->read(), 'foo2', 'geo ranges add');
 
 ###############################################################################

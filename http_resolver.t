@@ -282,15 +282,10 @@ like(http_end($s2), qr/502 Bad/, 'timeout after aborted request');
 
 # resend DNS query over TCP once UDP response came truncated
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.11');
-
 unlike(http_host_header('tcp.example.net', '/tcp'), qr/127.0.0.201/, 'tc');
 like(http_host_header('tcp.example.net', '/tcp'), qr/X-IP: 127.0.0.1/, 'tcp');
 like(http_host_header('tcp2.example.net', '/tcp2'), qr/X-IP: 127.0.0.1/,
 	'tcp with resend');
-
-}
 
 ###############################################################################
 

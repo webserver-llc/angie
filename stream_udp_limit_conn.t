@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ dgram /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_limit_conn udp shmem/)
+my $t = Test::Nginx->new()->has(qw/stream stream_limit_conn udp/)->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -75,7 +75,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream udp')->plan(9);
+$t->run();
 $t->run_daemon(\&udp_daemon, $t);
 $t->waitforfile($t->testdir . '/' . port(8080));
 

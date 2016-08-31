@@ -25,8 +25,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http map/);
 
-plan(skip_all => 'no config dump') unless $t->has_version('1.9.2');
-
 $t->plan(10)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

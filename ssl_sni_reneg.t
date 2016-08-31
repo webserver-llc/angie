@@ -100,15 +100,9 @@ Net::SSLeay::write($ssl, 'GET / HTTP/1.0' . CRLF);
 ok(Net::SSLeay::renegotiate($ssl), 'renegotiation');
 ok(Net::SSLeay::set_tlsext_host_name($ssl, 'localhost'), 'SNI');
 
-SKIP: {
-skip 'leaves coredump', 1 unless $t->has_version('1.9.8')
-	or $ENV{TEST_NGINX_UNSAFE};
-
 Net::SSLeay::write($ssl, 'Host: localhost' . CRLF . CRLF);
 
 is(Net::SSLeay::read($ssl), undef, 'response');
-
-}
 
 }
 

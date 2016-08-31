@@ -54,7 +54,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('1', '');
-$t->try_run('no realip_remote_addr');
+$t->run();
 
 plan(skip_all => 'no 127.0.0.1 on host')
 	if http_get('/') !~ /X-IP: 127.0.0.1/m;

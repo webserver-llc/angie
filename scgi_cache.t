@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 eval { require SCGI; };
 plan(skip_all => 'SCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http scgi cache shmem/)->plan(10)
+my $t = Test::Nginx->new()->has(qw/http scgi cache/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

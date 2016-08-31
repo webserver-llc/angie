@@ -206,10 +206,6 @@ $s->read();
 
 # uncompressed answer
 
-TODO: {
-local $TODO = 'support for uncompressed name in PTR'
-	unless $t->has_version('1.9.11');
-
 $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8030));
 $s->read();
 $s->send('EHLO example.com');
@@ -222,11 +218,6 @@ $s->ok('uncompressed PTR');
 
 $s->send('QUIT');
 $s->read();
-
-}
-
-TODO: {
-local $TODO = 'PTR type checking' unless $t->has_version('1.9.11');
 
 $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8031));
 $s->read();
@@ -241,12 +232,7 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR type');
 $s->send('QUIT');
 $s->read();
 
-}
-
 # CNAME and PTR in one answer section
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.11');
 
 $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8032));
 $s->read();
@@ -260,8 +246,6 @@ $s->ok('CNAME with PTR');
 
 $s->send('QUIT');
 $s->read();
-
-}
 
 ###############################################################################
 

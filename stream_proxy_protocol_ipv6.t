@@ -62,7 +62,7 @@ stream {
 EOF
 
 $t->run_daemon(\&stream_daemon);
-$t->try_run('no inet6 support or stream proxy_protocol')->plan(2);
+$t->try_run('no inet6 support')->plan(2);
 $t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################

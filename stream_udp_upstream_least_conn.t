@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_upstream_least_conn udp/)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->plan(2)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -53,7 +53,7 @@ EOF
 
 $t->run_daemon(\&udp_daemon, port(8081), $t);
 $t->run_daemon(\&udp_daemon, port(8082), $t);
-$t->try_run('no stream udp')->plan(2);
+$t->run();
 
 $t->waitforfile($t->testdir . '/' . port(8081));
 $t->waitforfile($t->testdir . '/' . port(8082));

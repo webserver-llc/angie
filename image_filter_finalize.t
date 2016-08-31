@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache image_filter limit_req/)
-	->has(qw/rewrite shmem/)->plan(3)
+	->has(qw/rewrite/)->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

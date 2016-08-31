@@ -59,9 +59,6 @@ like(http_get_length('/', ''), qr/X-Body: _eos\x0d?$/ms, 'fastcgi empty body');
 like(http_get_length('/', 'foobar'), qr/X-Body: foobar_eos\x0d?$/ms,
 	'fastcgi body');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.15');
-
 like(http(<<EOF), qr/X-Body: foobar_eos\x0d?$/ms, 'fastcgi chunked');
 GET / HTTP/1.1
 Host: localhost
@@ -83,8 +80,6 @@ Transfer-Encoding: chunked
 0
 
 EOF
-
-}
 
 ###############################################################################
 

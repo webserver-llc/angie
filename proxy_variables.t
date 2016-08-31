@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -76,7 +76,7 @@ EOF
 
 $t->write_file('stub', '');
 $t->run_daemon(\&http_daemon, port(8081));
-$t->try_run('no upstream_connect_time')->plan(18);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 

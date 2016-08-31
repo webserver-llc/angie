@@ -25,7 +25,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http rewrite proxy cache fastcgi auth_basic auth_request/)
-	->has(qw/shmem/)
 	->plan(19);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

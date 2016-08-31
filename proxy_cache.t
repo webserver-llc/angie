@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache gzip shmem/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/http proxy cache gzip/)->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -126,13 +126,7 @@ EOF
 my $r = http_get('/t.html', socket => $s);
 
 like($r, qr/Connection: keep-alive/, 'non-cacheable head - keepalive');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.13');
-
 like($r, qr/SEE-THIS/, 'non-cacheable head - second');
-
-}
 
 ###############################################################################
 

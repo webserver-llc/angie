@@ -405,13 +405,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, 'aaaaa', 'well known chars');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.12');
-
 unlike($s->{headers}, qr/aaaaa/, 'well known chars - huffman encoding');
-
-}
 
 # response header field with huffman encoding - complete table mod \0, CR, LF
 # first saturate with short-encoded characters (NB: implementation detail)
@@ -429,13 +423,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-sent-foo'}, $field, 'all chars');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.12');
-
 unlike($s->{headers}, qr/abcde/, 'all chars - huffman encoding');
-
-}
 
 # 6.3.  Dynamic Table Size Update
 
@@ -657,9 +645,6 @@ cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
 
 # response header frame sent in parts
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.7');
-
 $s = Test::Nginx::HTTP2->new(port(8082));
 $s->h2_settings(0, 0x5 => 2**17);
 
@@ -689,8 +674,6 @@ cmp_ok($lengths, '<=', 16384, 'response header split - max size');
 
 is(length join('', @{@$frames[-1]->{headers}->{'x-longheader'}}), 98304,
 	'response header split - headers');
-
-}
 
 # max_field_size - header field name
 
@@ -951,9 +934,6 @@ is($frame->{code}, 1, 'newline in request header - RST_STREAM code');
 
 # invalid header name as seen with underscore should not lead to ignoring rest
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.7');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
@@ -966,8 +946,6 @@ $frames = $s->read(all => [{ type => 'HEADERS' }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
-
-}
 
 # missing mandatory request header ':scheme'
 

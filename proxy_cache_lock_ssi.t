@@ -21,7 +21,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache ssi shmem/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache ssi/)
 	->write_file_expand('nginx.conf', <<'EOF')->plan(2);
 
 %%TEST_GLOBALS%%

@@ -200,10 +200,6 @@ sub has_feature($) {
 		return $^O ne 'MSWin32';
 	}
 
-	if ($feature eq 'shmem') {
-		return $^O ne 'MSWin32' || $self->has_version('1.9.0');
-	}
-
 	if ($feature eq 'unix') {
 		return $^O ne 'MSWin32';
 	}

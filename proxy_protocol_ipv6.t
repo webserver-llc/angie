@@ -68,16 +68,11 @@ $t->try_run('no inet6 support')->plan(3);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.10');
-
 my $r = http_get('/t');
 like($r, qr/X-IP: ::1/, 'realip');
 like($r, qr/X-PP: 127.0.0.1/, 'proxy protocol');
 
 $r = http_get('/pp');
 like($r, qr/X-IP: 127.0.0.1/, 'proxy protocol realip');
-
-}
 
 ###############################################################################

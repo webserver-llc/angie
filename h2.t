@@ -451,9 +451,6 @@ is($frame->{headers}->{':status'}, 200, 'padding - next stream');
 
 # padding followed by CONTINUATION
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.11');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ padding => 42, continuation => [ 2, 4, 1, 5 ],
 	headers => [
@@ -465,8 +462,6 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'padding - CONTINUATION');
-
-}
 
 # internal redirect
 
@@ -625,9 +620,6 @@ is($frame->{headers}->{'content-type'}, 'text/plain; charset=utf-8', 'charset');
 # partial request header frame received (field split),
 # the rest of frame is received after client header timeout
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.12');
-
 $s = Test::Nginx::HTTP2->new(port(8087));
 $sid = $s->new_stream({ path => '/t2.html', split => [35],
 	split_delay => 2.1 });
@@ -637,8 +629,6 @@ $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 ok($frame, 'client header timeout');
 is($frame->{code}, 1, 'client header timeout - protocol error');
 
-}
-
 $s->h2_ping('SEE-THIS');
 $frames = $s->read(all => [{ type => 'PING' }]);
 
@@ -646,9 +636,6 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 ok($frame, 'client header timeout - PING');
 
 # partial request body data frame received, the rest is after body timeout
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.12');
 
 $s = Test::Nginx::HTTP2->new(port(8087));
 $sid = $s->new_stream({ path => '/proxy/t2.html', body_more => 1 });
@@ -659,14 +646,11 @@ $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 ok($frame, 'client body timeout');
 is($frame->{code}, 1, 'client body timeout - protocol error');
 
-}
-
 $s->h2_ping('SEE-THIS');
 $frames = $s->read(all => [{ type => 'PING' }]);
 
 ($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
 ok($frame, 'client body timeout - PING');
-
 
 # proxied request with logging pristine request header field (e.g., referer)
 

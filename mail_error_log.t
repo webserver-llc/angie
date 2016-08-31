@@ -29,8 +29,6 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/);
 
-plan(skip_all => 'no error_log') unless $t->has_version('1.9.0');
-
 $t->plan(30)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

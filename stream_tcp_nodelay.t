@@ -28,8 +28,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream/);
 
-plan(skip_all => 'no tcp_nodelay') unless $t->has_version('1.9.4');
-
 $t->plan(2)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

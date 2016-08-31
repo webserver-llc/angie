@@ -131,13 +131,7 @@ $r = http_get('/nx');
 unlike($r, qr/Cache-Control/, 'bad expires');
 unlike($r, qr/X-URI/, 'bad add_header');
 like($r, qr/X-Always/, 'bad add_header always');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.12');
-
 unlike($r, qr/ETag/, 'bad add_header always empty');
-
-}
 
 # various expires variants
 

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy limit_req shmem/);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy limit_req/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

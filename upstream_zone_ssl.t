@@ -23,7 +23,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl upstream_zone/)
-	->has_daemon('openssl')->write_file_expand('nginx.conf', <<'EOF');
+	->has_daemon('openssl')->plan(8)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -106,7 +107,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no upstream zone')->plan(8);
+$t->run();
 
 ###############################################################################
 

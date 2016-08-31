@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http limit_req shmem/)->plan(5);
+my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(5);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

@@ -27,7 +27,8 @@ select STDOUT; $| = 1;
 eval { require IO::Socket::SSL; };
 plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl')
+	->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -76,7 +77,7 @@ foreach my $name ('localhost') {
 
 $t->run_daemon(\&stream_daemon_ssl, port(8081), path => $d, pp => 1);
 $t->run_daemon(\&stream_daemon_ssl, port(8083), path => $d, pp => 0);
-$t->try_run('no stream proxy_protocol')->plan(2);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 $t->waitforsocket('127.0.0.1:' . port(8083));

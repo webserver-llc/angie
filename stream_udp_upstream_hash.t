@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ dgram /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_upstream_hash udp/);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_hash udp/)->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -65,7 +65,7 @@ EOF
 
 $t->run_daemon(\&udp_daemon, port(8082), $t);
 $t->run_daemon(\&udp_daemon, port(8083), $t);
-$t->try_run('no stream udp')->plan(2);
+$t->run();
 
 $t->waitforfile($t->testdir . '/' . port(8082));
 $t->waitforfile($t->testdir . '/' . port(8083));

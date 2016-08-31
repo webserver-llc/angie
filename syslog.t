@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http limit_req/);
+my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(59);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -147,7 +147,7 @@ $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_http.log');
 $t->waitforfile($t->testdir . '/s_if.log');
 
-$t->try_run('no syslog nohostname')->plan(59);
+$t->run();
 
 ###############################################################################
 

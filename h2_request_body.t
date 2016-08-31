@@ -25,8 +25,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(42);
 
-$t->todo_alerts() unless $t->has_version('1.9.14');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -141,21 +139,9 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request body - empty');
 is($frame->{headers}->{'x-length'}, 0, 'request body - empty size');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.14');
-
 ok($frame->{headers}{'x-body-file'}, 'request body - empty body file');
-
-}
-
-TODO: {
-todo_skip 'empty body file', 1 unless $frame->{headers}{'x-body-file'};
-
 is(read_body_file($frame->{headers}{'x-body-file'}), '',
 	'request body - empty content');
-
-}
 
 # it is expected to avoid adding Content-Length for requests without body
 

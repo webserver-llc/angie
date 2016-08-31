@@ -26,8 +26,6 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy/)
 	->has_daemon('openssl')->plan(1);
 
-$t->todo_alerts() unless $t->has_version('1.9.14');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -83,9 +81,6 @@ $t->run();
 # request body with an empty DATA frame proxied to ssl backend
 # "zero size buf in output" alerts seen
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.9.14');
-
 my $s = Test::Nginx::HTTP2->new();
 my $sid = $s->new_stream({ path => '/proxy_ssl/', body_more => 1 });
 $s->h2_body('');
@@ -93,7 +88,5 @@ my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'empty request body');
-
-}
 
 ###############################################################################

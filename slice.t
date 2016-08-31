@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache fastcgi slice shmem/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache fastcgi slice/)
 	->plan(72);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

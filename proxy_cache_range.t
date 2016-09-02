@@ -102,7 +102,8 @@ like(http_get_range('/min_uses/t.html?4', 'Range: bytes=0-2,4-'),
 
 TODO: {
 local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /sendfile on/
-	and $t->read_file('nginx.conf') =~ /aio threads/ and $^O eq 'linux';
+	and $t->read_file('nginx.conf') =~ /aio threads/ and $^O eq 'linux'
+	and !$t->has_version('1.11.4');
 
 like(http_get_range('/tbig.html?s=1', 'Range: bytes=0-19'),
 	qr/^XX000001XXXX000002XX$/ms, 'range of response received in parts');

@@ -113,12 +113,10 @@ for my $i (1 .. 3) {
 	$sockets[$i] = http_get('/nolock', start => 1);
 }
 
-like(http_end($sockets[1]), qr/request 1/, 'nolock - first');
+$rest = join '', map { http_end($sockets[$_]) } (1 .. 3);
 
-$rest = http_end($sockets[2]);
-$rest .= http_end($sockets[3]);
-
-like($rest, qr/request (2.*request 3|3.*request 2)/s, 'nolock - rest');
+like($rest, qr/request 1/, 'nolock - first');
+like($rest, qr/request 3/, 'nolock - last');
 like(http_get('/nolock'), qr/request 3/, 'nolock - last cached');
 
 ###############################################################################

@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/stream/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -36,6 +36,9 @@ events {
 }
 
 stream {
+    log_format bytes $upstream_addr!
+                     $upstream_bytes_sent!$upstream_bytes_received;
+
     upstream u {
         server 127.0.0.1:8084;
         server 127.0.0.1:8085;
@@ -78,6 +81,7 @@ stream {
     server {
         listen      127.0.0.1:8083;
         proxy_pass  u4;
+        access_log  %%TESTDIR%%/u.log bytes;
     }
 }
 
@@ -85,19 +89,24 @@ EOF
 
 $t->run_daemon(\&stream_daemon, port(8084));
 $t->run_daemon(\&stream_daemon, port(8085));
-$t->run();
+$t->try_run('no stream access_log')->plan(5);
 
 $t->waitforsocket('127.0.0.1:' . port(8084));
 $t->waitforsocket('127.0.0.1:' . port(8085));
 
 ###############################################################################
 
-my @ports = my ($port4, $port5) = (port(8084), port(8085));
+my @ports = my ($port4, $port5, $port6) = (port(8084), port(8085), port(8086));
 
 is(many(30, port(8080)), "$port4: 15, $port5: 15", 'balanced');
 is(many(30, port(8081)), "$port4: 15, $port5: 15", 'failures');
 is(many(30, port(8082)), "$port4: 10, $port5: 20", 'weight');
 is(many(30, port(8083)), "$port4: 30", 'backup');
+
+$t->stop();
+
+like($t->read_file('u.log'), qr/127.0.0.1:$port6, 127.0.0.1:$port4!0, 1!0, 4/,
+	'per-upstream variables');
 
 ###############################################################################
 

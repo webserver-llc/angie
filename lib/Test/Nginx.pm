@@ -521,6 +521,7 @@ sub test_globals() {
 		if $ENV{TEST_NGINX_GLOBALS};
 
 	$s .= $self->test_globals_modules();
+	$s .= $self->test_globals_perl5lib() if $s !~ /env PERL5LIB/;
 
 	$self->{_test_globals} = $s;
 }
@@ -556,6 +557,21 @@ sub test_globals_modules() {
 		if $self->has_module('stream=dynamic');
 
 	return $s;
+}
+
+sub test_globals_perl5lib() {
+	my ($self) = @_;
+
+	return '' unless $self->has_module('perl');
+
+	my ($volume, $dir) = File::Spec->splitpath($NGINX);
+	my $objs = File::Spec->catpath($volume, $dir, '');
+
+	$objs = File::Spec->rel2abs($objs);
+	$objs =~ s!\\!/!g if $^O eq 'MSWin32';
+
+	return "env PERL5LIB=$objs/src/http/modules/perl:"
+		. "$objs/src/http/modules/perl/blib/arch;\n";
 }
 
 sub test_globals_http() {

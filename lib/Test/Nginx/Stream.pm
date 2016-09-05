@@ -119,6 +119,16 @@ sub io {
 	return $data;
 }
 
+sub sockaddr {
+	my $self = shift;
+	return $self->{_socket}->sockaddr();
+}
+
+sub sockhost {
+	my $self = shift;
+	return $self->{_socket}->sockhost();
+}
+
 sub sockport {
 	my $self = shift;
 	return $self->{_socket}->sockport();

@@ -91,9 +91,7 @@ is(stream('127.0.0.1:' . port(8083))
 	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	'192.0.2.1:1234', 'server');
 
-is(stream('127.0.0.1:' . port(8084))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
-	':', 'server off');
+is(stream('127.0.0.1:' . port(8084))->read(), ':', 'server off');
 
 is(stream('127.0.0.1:' . port(8085))
 	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}close"),

@@ -31,7 +31,7 @@ eval { IO::Socket::SSL->can_alpn() or die; };
 plan(skip_all => 'OpenSSL ALPN support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni http_v2/)
-	->has_daemon('openssl')->plan(3);
+	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -91,7 +91,13 @@ foreach my $name ('localhost', 'client') {
 
 $t->write_file('t', 'SEE-THIS');
 
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
+
+my $s = get_ssl_socket();
+plan(skip_all => 'no alpn') unless $s->alpn_selected();
+$t->plan(3);
 
 ###############################################################################
 
@@ -109,11 +115,9 @@ is(get('localhost', 'example.com')->{':status'}, '421', 'misdirected');
 
 ###############################################################################
 
-sub get {
-	my ($sni, $host) = @_;
+sub get_ssl_socket {
+	my ($sni) = @_;
 	my $s;
-
-	$host = $sni if !defined $host;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
@@ -139,6 +143,15 @@ sub get {
 		return undef;
 	}
 
+	return $s;
+}
+
+sub get {
+	my ($sni, $host) = @_;
+
+	$host = $sni if !defined $host;
+
+	my $s = get_ssl_socket($sni);
 	my $sess = Test::Nginx::HTTP2->new(port(8080), socket => $s);
 	my $sid = $sess->new_stream({ headers => [
 		{ name => ':method', value => 'GET', mode => 0 },

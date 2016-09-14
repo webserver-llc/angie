@@ -27,7 +27,9 @@ eval { require IO::Socket::SSL; };
 plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2/)
-	->has_daemon('openssl')->plan(1);
+	->has_daemon('openssl');
+
+$t->todo_alerts() unless $t->has_version('1.11.3');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -79,19 +81,17 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
+plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(0));
+$t->plan(1);
+
 ###############################################################################
 
 # client cancels 2nd stream after HEADERS has been created
 # while some unsent data was left in the SSL buffer
 # HEADERS frame may stuck in SSL buffer and won't be sent producing alert
 
-SKIP: {
 my $s = getconn(port(0));
-skip 'OpenSSL ALPN/NPN support required', 1 unless defined $s;
-
 ok($s, 'ssl connection');
-
-$t->todo_alerts() unless $t->has_version('1.11.3');
 
 my $sid = $s->new_stream({ path => '/tbig.html' });
 
@@ -105,8 +105,6 @@ $s->h2_rst($sid, 8);
 
 $t->stop();
 
-}
-
 ###############################################################################
 
 sub getconn {
@@ -114,15 +112,19 @@ sub getconn {
 	my $s;
 
 	eval {
-		IO::Socket::SSL->can_alpn() or die;
-		$s = Test::Nginx::HTTP2->new($port, SSL => 1, alpn => 'h2');
+		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
+			alpn => 'h2');
+		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
+			if $sock->alpn_selected();
 	};
 
 	return $s if defined $s;
 
 	eval {
-		IO::Socket::SSL->can_npn() or die;
-		$s = Test::Nginx::HTTP2->new($port, SSL => 1, npn => 'h2');
+		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
+			npn => 'h2');
+		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
+			if $sock->next_proto_negotiated();
 	};
 
 	return $s;

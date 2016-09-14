@@ -131,15 +131,19 @@ sub getconn {
 	my $s;
 
 	eval {
-		IO::Socket::SSL->can_alpn() or die;
-		$s = Test::Nginx::HTTP2->new($port, SSL => 1, alpn => 'h2');
+		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
+			alpn => 'h2');
+		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
+			if $sock->alpn_selected();
 	};
 
 	return $s if defined $s;
 
 	eval {
-		IO::Socket::SSL->can_npn() or die;
-		$s = Test::Nginx::HTTP2->new($port, SSL => 1, npn => 'h2');
+		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
+			npn => 'h2');
+		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
+			if $sock->next_proto_negotiated();
 	};
 
 	return $s;

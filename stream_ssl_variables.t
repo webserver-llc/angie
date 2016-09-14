@@ -40,7 +40,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl sni stream_return/)
 	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');

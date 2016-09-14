@@ -27,7 +27,7 @@ plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 eval { IO::Socket::SSL->can_client_sni() or die; };
 plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)
 	->has_daemon('openssl')->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

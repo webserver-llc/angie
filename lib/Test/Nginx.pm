@@ -119,6 +119,7 @@ sub has_module($) {
 		perl	=> '--with-http_perl_module',
 		auth_request
 			=> '--with-http_auth_request_module',
+		realip	=> '--with-http_realip_module',
 		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',
@@ -176,6 +177,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-stream_return_module)',
 		stream_split_clients
 			=> '(?s)^(?!.*--without-stream_split_clients_module)',
+		stream_ssl
+			=> '--with-stream_ssl_module',
 		stream_upstream_hash
 			=> '(?s)^(?!.*--without-stream_upstream_hash_module)',
 		stream_upstream_least_conn

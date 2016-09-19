@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_hash/)->plan(11);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_hash/)->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -115,6 +115,14 @@ http {
         location /cbad {
             proxy_pass http://cbad;
         }
+        location /busy {
+            proxy_pass http://bad/busy;
+            add_header X-IP $upstream_addr always;
+        }
+        location /cbusy {
+            proxy_pass http://cbad/busy;
+            add_header X-IP $upstream_addr always;
+        }
         location /pnu {
             proxy_pass http://u/;
             proxy_next_upstream http_502;
@@ -138,6 +146,10 @@ http {
                 return 502;
             }
             return 204;
+        }
+
+        location /busy {
+            return 444;
         }
     }
 
@@ -183,6 +195,17 @@ is(@res, 20, 'all hashed peers - bad');
 
 @res = grep { $_ == $p1 } iter('/cbad', 20);
 is(@res, 20, 'all hashed peers - bad consistent');
+
+like(http_get('/busy'), qr/X-IP: 127.0.0.1:$p1, bad/,
+	'upstream name - busy');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.5');
+
+like(http_get('/cbusy'), qr/X-IP: 127.0.0.1:$p1, cbad/,
+	'upstream name - busy consistent');
+
+}
 
 ###############################################################################
 

@@ -81,7 +81,7 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(0));
+plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(8080));
 $t->plan(1);
 
 ###############################################################################
@@ -90,7 +90,7 @@ $t->plan(1);
 # while some unsent data was left in the SSL buffer
 # HEADERS frame may stuck in SSL buffer and won't be sent producing alert
 
-my $s = getconn(port(0));
+my $s = getconn(port(8080));
 ok($s, 'ssl connection');
 
 my $sid = $s->new_stream({ path => '/tbig.html' });

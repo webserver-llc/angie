@@ -95,14 +95,14 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(0));
+plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(8080));
 $t->plan(1);
 
 ###############################################################################
 
 # client cancels stream with a cacheable request sent to upstream causing alert
 
-my $s = getconn(port(0));
+my $s = getconn(port(8080));
 ok($s, 'ssl connection');
 
 my $sid = $s->new_stream();
@@ -110,7 +110,7 @@ $s->h2_rst($sid, 8);
 
 # large response may stuck in SSL buffer and won't be sent producing alert
 
-my $s2 = getconn(port(0));
+my $s2 = getconn(port(8080));
 $sid = $s2->new_stream({ path => '/tbig.html' });
 $s2->h2_window(2**30, $sid);
 $s2->h2_window(2**30);

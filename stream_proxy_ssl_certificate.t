@@ -121,7 +121,7 @@ foreach my $name ('1.example.com', '2.example.com') {
 }
 
 foreach my $name ('3.example.com') {
-	system("openssl genrsa -out $d/$name.key -passout pass:$name "
+	system("openssl genrsa -out '$d/$name.key' -passout pass:$name "
 		. "-aes128 2048 >>$d/openssl.out 2>&1") == 0
 		or die "Can't create private key: $!\n";
 	system('openssl req -x509 -new '

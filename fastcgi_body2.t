@@ -42,8 +42,13 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u {
-        server 127.0.0.1:8081 max_fails=0;
-        server 127.0.0.1:8082;
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082 backup;
+    }
+
+    upstream u2 {
+        server 127.0.0.1:8081;
+        server 127.0.0.1:8082 backup;
     }
 
     server {
@@ -59,7 +64,7 @@ http {
         }
 
         location /in_memory {
-            fastcgi_pass u;
+            fastcgi_pass u2;
             fastcgi_param REQUEST_URI $request_uri;
             fastcgi_param CONTENT_LENGTH $content_length;
             # fastcgi_next_upstream error timeout;
@@ -82,10 +87,6 @@ $t->waitforsocket('127.0.0.1:' . port(8082));
 
 like(http_get_length('/', 'x' x 102400), qr/X-Length: 102400/,
 	'body length - in file');
-
-# force quick recovery, so that the next request wouldn't fail
-
-http_get('/');
 
 like(http_get_length('/in_memory', 'x' x 102400), qr/X-Length: 102400/,
 	'body length - in memory');

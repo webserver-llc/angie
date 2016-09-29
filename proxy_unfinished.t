@@ -140,8 +140,15 @@ like(http_get('/un/big/ok', sleep => 0.1), qr/finished/s, 'big finished un');
 # no final chunk
 
 chmod(0000, $t->testdir() . '/proxy_temp');
-like(http_get_11('/proxy/big.html', sleep => 0.5),
-	qr/X(?!.*\x0d\x0a?0\x0d\x0a?)|finished/s, 'no proxy temp');
+
+my $r = http_get_11('/proxy/big.html', sleep => 0.5);
+
+SKIP: {
+skip 'finished', 1 if length(Test::Nginx::http_content($r)) == 1024 * 1024 + 8;
+
+like($r, qr/X(?!.*\x0d\x0a?0\x0d\x0a?)/s, 'no proxy temp');
+
+}
 
 chmod(0700, $t->testdir() . '/proxy_temp');
 

@@ -162,16 +162,6 @@ stream {
         127.0.0.1-127.0.0.255  loopback;
      }
 
-    geo $geo_base_create {
-        ranges;
-        include  base.conf;
-    }
-
-    geo $geo_base_include {
-        ranges;
-        include  base.conf;
-    }
-
     server {
         listen  127.0.0.1:8080;
         return  "geo:$geo
@@ -184,8 +174,6 @@ stream {
                  geo_insert:$geo_insert
                  geo_insert_before:$geo_insert_before
                  geo_insert_after:$geo_insert_after
-                 geo_base_create:$geo_base_create
-                 geo_base_include:$geo_base_include
                  geo_from_addr:$geo_from_addr
                  geo_from_var:$geo_from_var";
     }
@@ -230,12 +218,8 @@ EOF
 
 $t->write_file('geo.conf', '127.0.0.0/8  loopback;');
 $t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
-$t->write_file('base.conf', join('', map {
-	"127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." . $_ % 256 .
-	"-127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." .$_ % 256 . " " .
-	($_ == 1 ? "loopback" : "range$_") . ";" } (0 .. 100000)));
 
-$t->try_run('no stream geo')->plan(21);
+$t->try_run('no stream geo')->plan(19);
 
 ###############################################################################
 
@@ -260,8 +244,6 @@ is($data{geo_after}, 'loopback', 'geo ranges add after');
 is($data{geo_insert}, 'loopback', 'geo ranges insert');
 is($data{geo_insert_before}, 'loopback', 'geo ranges insert before');
 is($data{geo_insert_after}, 'loopback', 'geo ranges insert after');
-is($data{geo_base_create}, 'loopback', 'geo binary base create');
-is($data{geo_base_include}, 'loopback', 'geo binary base include');
 
 is($data{geo_from_addr}, 'loopback', 'geo from addr');
 is($data{geo_from_var}, 'test', 'geo from var');

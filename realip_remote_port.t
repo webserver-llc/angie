@@ -77,7 +77,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('log', '');
-$t->try_run('no realip_remote_port')->plan(8);
+$t->try_run('no realip_remote_port and/or inet6 support')->plan(8);
 
 ###############################################################################
 

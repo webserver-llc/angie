@@ -67,11 +67,15 @@ $t->try_run('no manager params')->plan(2);
 
 ###############################################################################
 
+# wait for cache manager start
+
+sleep 1;
+
 http_get("/t.html?$_") for (1 .. 5);
 
-# wait for cache manager
+# wait for cache manager process 
 
-sleep 11;
+sleep 10;
 
 opendir(my $dh, $t->testdir() . '/cache');
 my $files = grep { ! /^\./ } readdir($dh);

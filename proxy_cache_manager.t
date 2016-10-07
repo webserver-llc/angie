@@ -73,7 +73,7 @@ sleep 1;
 
 http_get("/t.html?$_") for (1 .. 5);
 
-# wait for cache manager process 
+# wait for cache manager process
 
 sleep 10;
 

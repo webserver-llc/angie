@@ -448,7 +448,7 @@ sub unpack_length {
 
 sub raw_read {
 	my ($s, $buf, $len, $timo) = @_;
-	$timo = 3 unless $timo;
+	$timo = 5 unless $timo;
 	my $got = '';
 
 	while (length($buf) < $len && IO::Select->new($s)->can_read($timo)) {

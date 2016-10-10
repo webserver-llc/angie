@@ -197,16 +197,16 @@ sub has_module($) {
 
 	my %modules = (
 		image_filter
-			=> 'ngx_http_image_filter_module.so',
-		perl	=> 'ngx_http_perl_module.so',
-		xslt	=> 'ngx_http_xslt_filter_module.so',
-		mail	=> 'ngx_mail_module.so',
-		stream	=> 'ngx_stream_module.so',
+			=> 'ngx_http_image_filter_module',
+		perl	=> 'ngx_http_perl_module',
+		xslt	=> 'ngx_http_xslt_filter_module',
+		mail	=> 'ngx_mail_module',
+		stream	=> 'ngx_stream_module',
 	);
 
 	my $module = $modules{$feature};
 	if (defined $module && defined $ENV{TEST_NGINX_GLOBALS}) {
-		$re = qr/load_module\s+[^;]*\Q$module\E\s*;/;
+		$re = qr/load_module\s+[^;]*\Q$module\E[-\w]*\.so\s*;/;
 		return 1 if $ENV{TEST_NGINX_GLOBALS} =~ $re;
 	}
 

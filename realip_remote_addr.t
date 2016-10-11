@@ -37,6 +37,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     set_real_ip_from  127.0.0.1/32;
+    set_real_ip_from  192.0.2.1/32;
     real_ip_header    X-Forwarded-For;
 
     server {
@@ -67,7 +68,13 @@ like(http_get('/1'), qr/X-Real-IP: 127.0.0.1/m, 'request');
 like(http_get('/'), qr/X-Real-IP: 127.0.0.1/m, 'request redirect');
 
 like(http_xff('/1', '192.0.2.1'), qr/X-Real-IP: 127.0.0.1/m, 'realip');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.5');
+
 like(http_xff('/', '192.0.2.1'), qr/X-Real-IP: 127.0.0.1/m, 'realip redirect');
+
+}
 
 ###############################################################################
 

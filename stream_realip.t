@@ -87,35 +87,35 @@ $t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
-is(stream('127.0.0.1:' . port(8083))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+is(pp_get(8083, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	'192.0.2.1:1234', 'server');
 
 is(stream('127.0.0.1:' . port(8084))->read(), ':', 'server off');
 
-is(stream('127.0.0.1:' . port(8085))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}close"),
+is(pp_get(8085, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}close"),
 	'close', 'server payload');
 
-like(stream('127.0.0.1:' . port(8086))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+like(pp_get(8086, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	qr/^(\Q127.0.0.1:\E\d+):\s+\1$/, 'server ipv6 realip - no match');
 
-like(stream('127.0.0.1:' . port(8087))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+like(pp_get(8087, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	qr/\Q192.0.2.1:1234:\E\s+\Q::1:\E\d+/, 'server ipv6 realip');
 
-like(stream('127.0.0.1:' . port(8088))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+like(pp_get(8088, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	qr/\Q192.0.2.1:1234:\E\s+\Q127.0.0.1:\E\d+/, 'server ipv4 realip');
 
-like(stream('127.0.0.1:' . port(8089))
-	->io("PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+like(pp_get(8089, "PROXY TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	qr/^(::1:\d+):\s+\1$/, 'server ipv4 realip - no match');
 
-like(stream('127.0.0.1:' . port(8088))
-	->io("PROXY UNKNOWN TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
+like(pp_get(8088, "PROXY UNKNOWN TCP4 192.0.2.1 192.0.2.2 1234 5678${CRLF}"),
 	qr/^(\Q127.0.0.1:\E\d+):\s+\1$/, 'server unknown');
+
+###############################################################################
+
+sub pp_get {
+	my ($port, $proxy) = @_;
+	stream(PeerPort => port($port))->io($proxy);
+}
 
 ###############################################################################
 

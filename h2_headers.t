@@ -13,6 +13,8 @@ use strict;
 
 use Test::More;
 
+use Config;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -656,6 +658,9 @@ ok($frame, 'response header - parts');
 
 SKIP: {
 skip 'response header failed', 1 unless $frame;
+skip 'broken sendfile', 1 if $^O eq 'freebsd' and
+	$Config{osvers} =~ '11.0-release' and
+	$t->read_file('nginx.conf') =~ /sendfile on/;
 
 is(length join('', @{$frame->{headers}->{'x-longheader'}}), 98304,
 	'response header - headers');

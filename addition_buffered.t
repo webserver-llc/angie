@@ -60,7 +60,7 @@ $t->run();
 
 ###############################################################################
 
-# if data is buffered, there should be no interleaved data in output 
+# if data is buffered, there should be no interleaved data in output
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.11.5');

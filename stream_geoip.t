@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_geoip stream_return ipv6/)
-	->has('stream_realip')->plan(20);
+	->has('stream_realip');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -142,7 +142,7 @@ $data .= chr(5);
 $data .= pack_node(32);
 
 $t->write_file('org.dat', $data);
-$t->run();
+$t->try_run('no inet6 support')->plan(20);
 
 ###############################################################################
 

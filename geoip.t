@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_geoip ipv6/)->plan(20)
+my $t = Test::Nginx->new()->has(qw/http http_geoip ipv6/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -144,7 +144,7 @@ $data .= pack_node(32);
 
 $t->write_file('org.dat', $data);
 $t->write_file('index.html', '');
-$t->run();
+$t->try_run('no inet6 support')->plan(20);
 
 ###############################################################################
 

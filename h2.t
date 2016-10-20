@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(138);
+	->plan(141);
 
 # Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
 
@@ -89,6 +89,9 @@ http {
         location /charset {
             charset utf-8;
             return 200;
+        }
+        location /pid {
+            return 200 "pid $pid";
         }
     }
 
@@ -1078,8 +1081,47 @@ $grace4->h2_body('TEST', { split => [ 12 ], abort => 1 });
 select undef, undef, undef, 1.1;
 undef $grace4;
 
+# GOAWAY without awaiting active streams, further streams ignored
+
+SKIP: {
+skip 'win32', 3 if $^O eq 'MSWin32';
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.6');
+
+$s = Test::Nginx::HTTP2->new(port(8080));
+$sid = $s->new_stream({ path => '/t1.html' });
+$s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
+
+hup('/pid', 8081, $t);
+
+$sid2 = $s->new_stream();
+$frames = $s->read(all => [{ sid => $sid2, fin => 0x4 }], wait => 0.5);
+
+($frame) = grep { $_->{type} eq 'HEADERS' } @$frames;
+is($frame, undef, 'GOAWAY with active stream - no new stream');
+
+$frames = $s->read(all => [{ type => 'GOAWAY' }])
+	unless grep { $_->{type} eq "GOAWAY" } @$frames;
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame->{last_sid}, $sid, 'GOAWAY with active stream - last sid');
+
+}
+
+$s->h2_window(100, $sid);
+$s->h2_window(100);
+$frames = $s->read(all => [{ sid => $sid, fin => 0x1 }]);
+
+@data = grep { $_->{type} eq "DATA" && $_->{sid} == $sid } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 81, 'GOAWAY with active stream - active stream DATA after GOAWAY');
+
+}
+
 # GOAWAY - force closing a connection by server with idle or active streams
 
+$s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream();
 $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -1117,6 +1159,20 @@ sub gunzip_like {
 		IO::Uncompress::Gunzip::gunzip(\$in => \$out);
 
 		like($out, $re, $name);
+	}
+}
+
+sub hup {
+	my ($uri, $port, $t) = @_;
+
+	my $sock = sub { IO::Socket::INET->new('127.0.0.1:' . port(shift)) };
+	my ($pid) = http_get($uri, socket => $sock->($port)) =~ /pid (\d+)/;
+
+	kill 'HUP', $t->read_file('nginx.pid');
+
+	for (1 .. 20) {
+		last if http_get($uri, socket => $sock->($port)) !~ /pid $pid/;
+		select undef, undef, undef, 0.2;
 	}
 }
 

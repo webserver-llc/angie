@@ -147,9 +147,9 @@ like(http_get('/', socket => getconn('127.0.0.1:' . port(8084))),
 	qr/X-Verify: SUCCESS/ms, 'with encrypted key');
 
 like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
-	qr!X-Name: /CN=1.example!, 'valid certificate');
+	qr!X-Name: /?CN=1.example!, 'valid certificate');
 unlike(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
-	qr!X-Name: /CN=1.example!, 'invalid certificate');
+	qr!X-Name: /?CN=1.example!, 'invalid certificate');
 
 ###############################################################################
 

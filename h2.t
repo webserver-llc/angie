@@ -1095,17 +1095,16 @@ $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 hup('/pid', 8081, $t);
 
+$frames = $s->read(all => [{ type => 'GOAWAY' }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame->{last_sid}, $sid, 'GOAWAY with active stream - last sid');
+
 $sid2 = $s->new_stream();
 $frames = $s->read(all => [{ sid => $sid2, fin => 0x4 }], wait => 0.5);
 
 ($frame) = grep { $_->{type} eq 'HEADERS' } @$frames;
 is($frame, undef, 'GOAWAY with active stream - no new stream');
-
-$frames = $s->read(all => [{ type => 'GOAWAY' }])
-	unless grep { $_->{type} eq "GOAWAY" } @$frames;
-
-($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-is($frame->{last_sid}, $sid, 'GOAWAY with active stream - last sid');
 
 }
 

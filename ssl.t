@@ -31,7 +31,7 @@ plan(skip_all => 'IO::Socket::SSL too old') if $@;
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
 	->has_daemon('openssl');
 
-$t->plan(18)->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -55,6 +55,7 @@ http {
         ssl_certificate_key inner.key;
         ssl_certificate inner.crt;
         ssl_session_cache shared:SSL:1m;
+        ssl_verify_client optional_no_ca;
 
         location /reuse {
             return 200 "body $ssl_session_reused";
@@ -70,6 +71,12 @@ http {
         }
         location /protocol {
             return 200 "body $ssl_protocol";
+        }
+        location /issuer {
+            return 200 "body $ssl_client_i_dn:$ssl_client_i_dn_legacy";
+        }
+        location /subject {
+            return 200 "body $ssl_client_s_dn:$ssl_client_s_dn_legacy";
         }
     }
 
@@ -134,6 +141,43 @@ EOF
 
 my $d = $t->testdir();
 
+$t->write_file('ca.conf', <<EOF);
+[ ca ]
+default_ca = myca
+
+[ myca ]
+new_certs_dir = $d
+database = $d/certindex
+default_md = sha1
+policy = myca_policy
+serial = $d/certserial
+default_days = 1
+
+[ myca_policy ]
+commonName = supplied
+EOF
+
+$t->write_file('certserial', '1000');
+$t->write_file('certindex', '');
+
+system('openssl req -x509 -new '
+	. "-config '$d/openssl.conf' -subj '/CN=issuer/' "
+	. "-out '$d/issuer.crt' -keyout '$d/issuer.key' "
+	. ">>$d/openssl.out 2>&1") == 0
+	or die "Can't create certificate for issuer: $!\n";
+
+system("openssl req -new "
+	. "-config '$d/openssl.conf' -subj '/CN=subject/' "
+	. "-out '$d/subject.csr' -keyout '$d/subject.key' "
+	. ">>$d/openssl.out 2>&1") == 0
+	or die "Can't create certificate for subject: $!\n";
+
+system("openssl ca -batch -config '$d/ca.conf' "
+	. "-keyfile '$d/issuer.key' -cert '$d/issuer.crt' "
+	. "-subj '/CN=subject/' -in '$d/subject.csr' -out '$d/subject.crt' "
+	. ">>$d/openssl.out 2>&1") == 0
+	or die "Can't sign certificate for subject: $!\n";
+
 foreach my $name ('localhost', 'inner') {
 	system('openssl req -x509 -new '
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
@@ -146,7 +190,7 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	SSL_session_cache_size => 100);
 
-$t->run();
+$t->try_run('no ssl_client_s_dn_legacy')->plan(20);
 
 ###############################################################################
 
@@ -190,6 +234,8 @@ unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
+like(cert('/issuer', 8085), qr!^body CN=issuer:/CN=issuer$!m, 'issuer');
+like(cert('/subject', 8085), qr!^body CN=subject:/CN=subject$!m, 'subject');
 
 ###############################################################################
 
@@ -199,8 +245,16 @@ sub get {
 	http_get($uri, socket => $s);
 }
 
+sub cert {
+	my ($uri, $port) = @_;
+	my $s = get_ssl_socket(undef, port($port),
+		SSL_cert_file => "$d/subject.crt",
+		SSL_key_file => "$d/subject.key") or return;
+	http_get($uri, socket => $s);
+}
+
 sub get_ssl_socket {
-	my ($ctx, $port) = @_;
+	my ($ctx, $port, %extra) = @_;
 	my $s;
 
 	eval {
@@ -213,7 +267,8 @@ sub get_ssl_socket {
 			PeerPort => $port,
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_reuse_ctx => $ctx,
-			SSL_error_trap => sub { die $_[1] }
+			SSL_error_trap => sub { die $_[1] },
+			%extra
 		);
 		alarm(0);
 	};

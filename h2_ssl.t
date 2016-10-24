@@ -29,8 +29,6 @@ plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2/)
 	->has_daemon('openssl');
 
-$t->todo_alerts() unless $t->has_version('1.11.3');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

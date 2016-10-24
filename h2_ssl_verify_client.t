@@ -103,15 +103,7 @@ $t->plan(3);
 
 is(get('localhost')->{'x-verify'}, 'SUCCESS', 'success');
 is(get('example.com')->{'x-verify'}, 'FAILED', 'failed');
-
-# used to be "400 Bad Request" before 654d2dae97d3 (1.11.0)
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.0');
-
 is(get('localhost', 'example.com')->{':status'}, '421', 'misdirected');
-
-}
 
 ###############################################################################
 

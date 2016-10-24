@@ -94,15 +94,7 @@ $t->run();
 
 like(get('localhost'), qr/SUCCESS/, 'success');
 like(get('example.com'), qr/FAILED/, 'failed');
-
-# used to be "400 Bad Request" before 654d2dae97d3 (1.11.0)
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.0');
-
 like(get('localhost', 'example.com'), qr/421 Misdirected/, 'misdirected');
-
-}
 
 ###############################################################################
 

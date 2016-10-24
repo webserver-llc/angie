@@ -28,11 +28,6 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
 	->plan(141);
 
-# Some systems return EINVAL on zero writev iovcnt per POSIX, while others not
-
-$t->todo_alerts() if ($^O eq 'darwin' or $^O eq 'netbsd')
-	and !$t->has_version('1.11.3');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -793,28 +788,12 @@ $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 5000000, 'large response - DATA');
 
 # Make sure http2 write handler doesn't break a connection.
-# Some buggy systems tolerate ill-use of writev() triggered by write handler,
-# while others, such as darwin and NetBSD, follow POSIX strictly, which causes
-# a connection to close in nginx.  While this also breaks the 'no alerts' test,
-# it doesn't suit well, because error.log is currently polluted with much more
-# alerts due to other various bugs in ngx_http_v2_module.  We catch it here in
-# a separate test as well to make it clear.
-
-SKIP: {
-skip 'tolerant operating system', 1 unless $^O eq 'darwin' or $^O eq 'netbsd';
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.3');
 
 $sid = $s->new_stream();
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'new stream after large response');
-
-}
-
-}
 
 # write event send timeout
 
@@ -1134,14 +1113,9 @@ $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY on connection close - idle stream');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.3');
-
 $frames = $active->read(all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY on connection close - active stream');
-
-}
 
 ###############################################################################
 

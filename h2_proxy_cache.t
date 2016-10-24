@@ -163,17 +163,9 @@ $sid = $s->new_stream({ path => '/cache/t.html?slow=1' });
 $s->h2_rst($sid, 8);
 
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }], wait => 1.2);
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.3');
-
 ok(!(grep { $_->{type} eq "HEADERS" } @$frames), 'no headers');
 
-}
-
 # client closes connection after sending a cacheable request producing alert
-
-$t->todo_alerts() unless $t->has_version('1.11.3');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/cache/t.html?4' });

@@ -71,12 +71,7 @@ like(http_get('/partial'), qr/xy$/, 'partial match');
 
 # no partial match: an entire buffer is sent as is without buffering
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.2');
-
 like(http_get('/negative'), qr/xyz/, 'negative match');
-
-}
 
 ###############################################################################
 

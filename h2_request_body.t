@@ -151,14 +151,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request without body');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.2');
-
 is($frame->{headers}->{'x-length'}, undef,
 	'request without body - content length');
-
-}
 
 # request body discarded
 # RST_STREAM with zero code received

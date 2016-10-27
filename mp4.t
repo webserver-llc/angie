@@ -86,7 +86,8 @@ is(durations($t, undef, 9), '9.0 9.0', 'end integer');
 
 TODO: {
 local $TODO = 'not yet'
-	if $Config{myarchname} =~ /i.86/ && $t->has_module('built by gcc 5');
+	if $Config{myarchname} =~ /i.86/ && $t->has_module('built by gcc [56]')
+	and !$t->has_version('1.11.6');
 
 is(durations($t, undef, 5.6), '5.6 5.6', 'end float');
 

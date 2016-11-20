@@ -21,6 +21,9 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+eval { require IO::Socket::SSL; };
+plan(skip_all => 'IO::Socket::SSL not installed') if $@;
+
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
 	->plan(5)->write_file_expand('nginx.conf', <<'EOF');
 
@@ -61,7 +64,7 @@ http {
         }
 
         location /timeout {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_pass https://127.0.0.1:8082;
             proxy_connect_timeout 2s;
         }
     }
@@ -89,7 +92,9 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
+$t->run_daemon(\&http_daemon, port(8082));
 $t->run();
+$t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
@@ -97,11 +102,60 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 
-my $s = http('', start => 1);
+###############################################################################
 
-sleep 3;
+sub http_daemon {
+	my ($port) = @_;
+	my $server = IO::Socket::INET->new(
+		Proto => 'tcp',
+		LocalHost => '127.0.0.1:' . $port,
+		Listen => 5,
+		Reuse => 1
+	)
+		or die "Can't create listening socket: $!\n";
 
-like(http_get('/timeout', socket => $s), qr/200 OK/, 'proxy connect timeout');
+	local $SIG{PIPE} = 'IGNORE';
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+
+		my $headers = '';
+		my $uri = '';
+
+		# would fail on waitforsocket
+
+		eval {
+			IO::Socket::SSL->start_SSL($client,
+				SSL_server => 1,
+				SSL_cert_file => "$d/localhost.crt",
+				SSL_key_file => "$d/localhost.key",
+				SSL_error_trap => sub { die $_[1] }
+			);
+		};
+		next if $@;
+
+		while (<$client>) {
+			$headers .= $_;
+			last if (/^\x0d?\x0a?$/);
+		}
+
+		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
+		next if $uri eq '';
+		
+		if ($uri eq '/timeout') {
+			sleep 3;
+
+			print $client <<EOF;
+HTTP/1.1 200 OK
+Connection: close
+
+EOF
+		}
+
+		close $client;
+	}
+}
 
 ###############################################################################

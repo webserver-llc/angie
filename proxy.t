@@ -56,6 +56,11 @@ http {
             proxy_read_timeout 1s;
             proxy_connect_timeout 2s;
         }
+
+        location /timeout {
+            proxy_pass http://127.0.0.1:8081;
+            proxy_connect_timeout 2s;
+        }
     }
 }
 
@@ -89,11 +94,7 @@ ok(http_get("/var?b=[::]"), 'proxy with variables - no ipv6 port');
 
 }
 
-my $s = http('', start => 1);
-
-sleep 3;
-
-like(http_get('/', socket => $s), qr/200 OK/, 'proxy connect timeout');
+like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 
 ###############################################################################
 
@@ -141,6 +142,15 @@ EOF
 
 			select undef, undef, undef, 0.1;
 			print $client 'AND-THIS';
+
+		} elsif ($uri eq '/timeout') {
+			sleep 3;
+
+			print $client <<"EOF";
+HTTP/1.1 200 OK
+Connection: close
+
+EOF
 
 		} else {
 

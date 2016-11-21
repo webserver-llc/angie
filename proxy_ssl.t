@@ -25,7 +25,7 @@ eval { require IO::Socket::SSL; };
 plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->plan(5)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -67,6 +67,11 @@ http {
             proxy_pass https://127.0.0.1:8082;
             proxy_connect_timeout 2s;
         }
+
+        location /timeout_h {
+            proxy_pass https://127.0.0.1:8083;
+            proxy_connect_timeout 1s;
+        }
     }
 }
 
@@ -93,8 +98,10 @@ foreach my $name ('localhost') {
 }
 
 $t->run_daemon(\&http_daemon, port(8082));
+$t->run_daemon(\&http_daemon, port(8083));
 $t->run();
 $t->waitforsocket('127.0.0.1:' . port(8082));
+$t->waitforsocket('127.0.0.1:' . port(8083));
 
 ###############################################################################
 
@@ -103,6 +110,13 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.6');
+
+like(http_get('/timeout_h'), qr/504 Gateway/, 'proxy handshake timeout');
+
+}
 
 ###############################################################################
 
@@ -120,6 +134,13 @@ sub http_daemon {
 
 	while (my $client = $server->accept()) {
 		$client->autoflush(1);
+
+		if ($port == port(8083)) {
+			sleep 3;
+
+			close $client;
+			next;
+		}
 
 		my $headers = '';
 		my $uri = '';

@@ -342,7 +342,6 @@ sub port {
 	my ($num, %opts) = @_;
 	my ($s_tcp, $s_udp, $port);
 
-	$num += 8080 if $num < 1000;
 	goto done if defined $ports{$num};
 
 	$port = $num;

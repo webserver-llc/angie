@@ -169,10 +169,6 @@ is($f->{http_end}(), 200, 'chunked split - response');
 # unbuffered request body, chunked transfer-encoding
 # client sends partial DATA frame and closes connection
 
-TODO: {
-todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.2');
-
 my $s = Test::Nginx::HTTP2->new();
 my $s2 = Test::Nginx::HTTP2->new();
 
@@ -183,8 +179,6 @@ close $s->{socket};
 
 $s2->h2_ping('PING');
 isnt(@{$s2->read()}, 0, 'chunked abort');
-
-}
 
 ###############################################################################
 

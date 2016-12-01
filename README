@@ -40,4 +40,12 @@ TEST_NGINX_UNSAFE
 
     Run unsafe tests.
 
+TEST_NGINX_GLOBALS
+
+    Sets additional directives in main context.
+
+TEST_NGINX_GLOBALS_HTTP
+
+    Sets additional directives in http context.
+
 Happy testing!

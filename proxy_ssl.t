@@ -164,7 +164,7 @@ sub http_daemon {
 
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 		next if $uri eq '';
-		
+
 		if ($uri eq '/timeout') {
 			sleep 3;
 

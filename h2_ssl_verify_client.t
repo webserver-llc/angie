@@ -102,7 +102,7 @@ $t->plan(3);
 ###############################################################################
 
 is(get('localhost')->{'x-verify'}, 'SUCCESS', 'success');
-is(get('example.com')->{'x-verify'}, 'FAILED', 'failed');
+like(get('example.com')->{'x-verify'}, qr/FAILED/, 'failed');
 is(get('localhost', 'example.com')->{':status'}, '421', 'misdirected');
 
 ###############################################################################

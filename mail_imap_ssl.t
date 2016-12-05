@@ -216,7 +216,7 @@ my $f = $t->read_file('auth.log');
 
 like($f, qr/^-:-:-:-:-:-:-\x0d?\x0a?:s1$/m, 'log - plain connection');
 like($f, qr/^on:NONE:-:-:-:-:-\x0d?\x0a?:s2$/m, 'log - no cert');
-like($f, qr!^on:FAILED:(/?CN=1.example.com):\1:\w+:\w+:[^:]+:s3$!m,
+like($f, qr!^on:FAILED(?:.*):(/?CN=1.example.com):\1:\w+:\w+:[^:]+:s3$!m,
 	'log - bad cert');
 like($f, qr!^on:SUCCESS:(/?CN=2.example.com):\1:\w+:\w+:[^:]+:s4$!m,
 	'log - good cert');

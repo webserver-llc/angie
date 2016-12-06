@@ -117,7 +117,8 @@ $t->write_file('password', 'localhost');
 $t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
 $t->write_file('password_http', 'inherits');
 
-fork() || exec("echo localhost > $d/password_fifo");
+my $p = fork();
+exec("echo localhost > $d/password_fifo") if $p == 0;
 
 # do not mangle with try_run()
 # we need to distinguish ssl_password_file support vs its brokenness
@@ -127,6 +128,7 @@ eval {
 	$t->run();
 	open STDERR, ">&", \*OLDERR;
 };
+kill 'INT', $p if $@;
 
 ###############################################################################
 

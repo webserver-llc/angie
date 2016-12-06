@@ -118,10 +118,17 @@ $t->write_file('password', 'localhost');
 $t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
 $t->write_file('password_http', 'inherits');
 
-fork() || exec("echo localhost > $d/password_fifo");
+my $p = fork();
+exec("echo localhost > $d/password_fifo") if $p == 0;
 
 $t->run_daemon(\&http_daemon);
-$t->run();
+
+eval {
+	open OLDERR, ">&", \*STDERR; close STDERR;
+	$t->run();
+	open STDERR, ">&", \*OLDERR;
+};
+kill 'INT', $p if $@;
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 

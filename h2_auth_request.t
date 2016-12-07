@@ -83,7 +83,7 @@ $sid = $s->new_stream({ path => '/auth', method => 'POST', body => 'A' x 600 });
 $s->new_stream({ path => '/auth', method => 'POST', body => 'B' x 600 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{'x-body'}, 'A' x 600, 'auth request body');
 isnt($frame->{headers}->{'x-body-file'}, undef, 'auth request body file');
 

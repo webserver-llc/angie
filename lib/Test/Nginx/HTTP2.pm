@@ -28,7 +28,7 @@ my %cframe = (
 	6 => { name => 'PING', value => \&ping },
 	7 => { name => 'GOAWAY', value => \&goaway },
 	8 => { name => 'WINDOW_UPDATE', value => \&window_update },
-	9 => { name => 'CONTINUATION', value => \&headers },
+	9 => { name => 'CONTINUATION', value => \&continuation },
 );
 
 sub new {
@@ -370,6 +370,13 @@ sub test_fin {
 }
 
 sub headers {
+	my ($ctx, $buf, $len, $flags) = @_;
+	$ctx->{headers} = substr($buf, 0, $len);
+	return unless $flags & 0x4;
+	{ headers => hunpack($ctx, $buf, $len) };
+}
+
+sub continuation {
 	my ($ctx, $buf, $len, $flags) = @_;
 	$ctx->{headers} .= substr($buf, 0, $len);
 	return unless $flags & 0x4;

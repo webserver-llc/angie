@@ -81,6 +81,9 @@ http {
         location /subject {
             return 200 "body $ssl_client_s_dn:$ssl_client_s_dn_legacy";
         }
+        location /time {
+            return 200 "body $ssl_client_v_start!$ssl_client_v_end!$ssl_client_v_remain";
+        }
     }
 
     server {
@@ -154,7 +157,7 @@ database = $d/certindex
 default_md = sha1
 policy = myca_policy
 serial = $d/certserial
-default_days = 1
+default_days = 3
 
 [ myca_policy ]
 commonName = supplied
@@ -193,7 +196,7 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	SSL_session_cache_size => 100);
 
-$t->try_run('no ssl_ciphers')->plan(21);
+$t->try_run('no ssl_ciphers')->plan(22);
 
 ###############################################################################
 
@@ -243,6 +246,7 @@ like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
 like(cert('/issuer', 8085), qr!^body CN=issuer:/CN=issuer$!m, 'issuer');
 like(cert('/subject', 8085), qr!^body CN=subject:/CN=subject$!m, 'subject');
+like(cert('/time', 8085), qr/^body [:\s\w]+![:\s\w]+![23]$/m, 'time');
 
 ###############################################################################
 

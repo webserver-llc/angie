@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(42);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(43);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -44,6 +44,10 @@ http {
 
         location / {
             add_header X-Length $http_content_length;
+        }
+        location /off/ {
+            proxy_pass http://127.0.0.1:8081/;
+            add_header X-Body-File $request_body_file;
         }
         location /proxy2/ {
             add_header X-Body $request_body;
@@ -421,6 +425,16 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 413,
 	'request body without content-length many pad - limited');
+
+# absent request body is not buffered with client_body_in_file_only off
+# see e02f1977846b for details
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/off/t.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-body-file'}, undef, 'no request body in file');
 
 ###############################################################################
 

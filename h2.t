@@ -85,9 +85,6 @@ http {
             charset utf-8;
             return 200;
         }
-        location /pid {
-            return 200 "pid $pid";
-        }
     }
 
     server {
@@ -1072,7 +1069,7 @@ $s = Test::Nginx::HTTP2->new(port(8080));
 $sid = $s->new_stream({ path => '/t1.html' });
 $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
-hup('/pid', 8081, $t);
+kill 'HUP', $t->read_file('nginx.pid');
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
@@ -1132,20 +1129,6 @@ sub gunzip_like {
 		IO::Uncompress::Gunzip::gunzip(\$in => \$out);
 
 		like($out, $re, $name);
-	}
-}
-
-sub hup {
-	my ($uri, $port, $t) = @_;
-
-	my $sock = sub { IO::Socket::INET->new('127.0.0.1:' . port(shift)) };
-	my ($pid) = http_get($uri, socket => $sock->($port)) =~ /pid (\d+)/;
-
-	kill 'HUP', $t->read_file('nginx.pid');
-
-	for (1 .. 20) {
-		last if http_get($uri, socket => $sock->($port)) !~ /pid $pid/;
-		select undef, undef, undef, 0.2;
 	}
 }
 

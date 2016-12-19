@@ -239,7 +239,7 @@ like(get('/id', 8085), qr/^body \w{64}$/m, 'session id');
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
 
-$s = get_ssl_socket(undef, 8085);
+$s = get_ssl_socket(undef, port(8085));
 like(http_get('/ciphers', socket => $s), qr/^body [:\w-]+$/m, 'ciphers');
 
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');

@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_map stream_ssl_preread/)
-	->has(qw/http http_ssl stream_ssl/)->has_daemon('openssl')
+	->has(qw/http http_ssl stream_ssl stream_return/)->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -80,6 +80,11 @@ stream {
 
         access_log %%TESTDIR%%/status.log status;
     }
+
+    server {
+        listen       127.0.0.1:8084;
+        return       $ssl_preread_server_name;
+    }
 }
 
 http {
@@ -119,7 +124,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-$t->plan(9);
+$t->plan(11);
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
@@ -159,11 +164,77 @@ like(https_get_host('foo', 'foo', 8082), qr/$p3/, 'no handshake');
 
 is(https_get_host('foo', 'foo', 8083), undef, 'preread buffer full');
 
+# no junk in variable due to short ClientHello length value
+
+is(get_short(), '', 'short client hello');
+
+# allow record with older SSL version, such as 3.0
+
+is(get_oldver(), 'foo', 'older version in ssl record');
+
 $t->stop();
 
 is($t->read_file('status.log'), "400\n", 'preread buffer full - log');
 
 ###############################################################################
+
+sub get_short {
+	my $s;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(2);
+		$s = IO::Socket::INET->new(
+			Proto => 'tcp',
+			PeerAddr => '127.0.0.1:' . port(8084),
+		);
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	my $r = pack("N*", 0x16030100, 0x38010000, 0x330303eb);
+	$r .= pack("N*", 0x6357cdba, 0xa6b8d853, 0xf1f6ac0f);
+	$r .= pack("N*", 0xdf03178c, 0x0ae41824, 0xe7643682);
+	$r .= pack("N*", 0x3c1b273f, 0xbfde4b00, 0x00000000);
+	$r .= pack("CN3", 0x0c, 0x00000008, 0x00060000, 0x03666f6f);
+
+	http($r, socket => $s);
+}
+
+sub get_oldver {
+	my $s;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(2);
+		$s = IO::Socket::INET->new(
+			Proto => 'tcp',
+			PeerAddr => '127.0.0.1:' . port(8084),
+		);
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	my $r = pack("N*", 0x16030000, 0x38010000, 0x340303eb);
+	$r .= pack("N*", 0x6357cdba, 0xa6b8d853, 0xf1f6ac0f);
+	$r .= pack("N*", 0xdf03178c, 0x0ae41824, 0xe7643682);
+	$r .= pack("N*", 0x3c1b273f, 0xbfde4b00, 0x00000000);
+	$r .= pack("CN3", 0x0c, 0x00000008, 0x00060000, 0x03666f6f);
+
+	http($r, socket => $s);
+}
 
 sub get_ssl_socket {
 	my ($host, $port) = @_;

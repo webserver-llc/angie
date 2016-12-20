@@ -22,9 +22,13 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(1);
+my $t = Test::Nginx->new()->has(qw/http proxy/);
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+plan(skip_all => 'win32') if $^O eq 'MSWin32';
+plan(skip_all => 'use-after-free on shutdown') unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.11.8');
+
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(1);
 
 %%TEST_GLOBALS%%
 
@@ -58,23 +62,17 @@ $t->run()->waitforfile($t->testdir . '/' . port(8081));
 
 ###############################################################################
 
-my ($s);
-
-TODO: {
-todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.8');
-
 # truncated UDP response, no response over TCP
 
-$s = http_get('/', start => 1);
+my $s = http_get('/', start => 1);
 
 pass('request');
 
 sleep 1;
 
-}
-
-# use-after-free in worker on fast shutdown
+# retrasmission timer wasn't removed during resolver cleanup,
+# while the event memory was freed, resulting in use-after-free
+# when later removing timer in TCP connection
 
 http_get('/pid') =~ qr/X-Pid: (\d+)/;
 kill 'TERM', $1;

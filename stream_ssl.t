@@ -188,7 +188,7 @@ sub get_ssl_socket {
 
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
 	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
-	Net::SSLeay::set_fd( $ssl, fileno($s));
+	Net::SSLeay::set_fd($ssl, fileno($s));
 	Net::SSLeay::connect($ssl) or die("ssl connect");
 	return ($s, $ssl);
 }

@@ -57,7 +57,7 @@ stream {
     }
 
     upstream u4 {
-        server 127.0.0.1:8086;
+        server 127.0.0.1:8086 fail_timeout=1s;
         server 127.0.0.1:8084 backup;
     }
 
@@ -89,7 +89,7 @@ EOF
 
 $t->run_daemon(\&stream_daemon, port(8084));
 $t->run_daemon(\&stream_daemon, port(8085));
-$t->try_run('no stream access_log')->plan(5);
+$t->try_run('no stream access_log')->plan(6);
 
 $t->waitforsocket('127.0.0.1:' . port(8084));
 $t->waitforsocket('127.0.0.1:' . port(8085));
@@ -102,6 +102,17 @@ is(many(30, port(8080)), "$port4: 15, $port5: 15", 'balanced');
 is(many(30, port(8081)), "$port4: 15, $port5: 15", 'failures');
 is(many(30, port(8082)), "$port4: 10, $port5: 20", 'weight');
 is(many(30, port(8083)), "$port4: 30", 'backup');
+
+$t->run_daemon(\&stream_daemon, port(8086));
+$t->waitforsocket('127.0.0.1:' . port(8086));
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.8');
+
+sleep 2;	# wait till fail_timeout passes
+is(parallel(30, port(8083)), "$port6: 30", 'recovery');
+
+}
 
 $t->stop();
 
@@ -116,6 +127,28 @@ sub many {
 
 	for (1 .. $count) {
 		if (stream("127.0.0.1:$port")->io('.') =~ /(\d+)/) {
+			$ports{$1} = 0 unless defined $ports{$1};
+			$ports{$1}++;
+		}
+	}
+
+	my @keys = map { my $p = $_; grep { $p == $_ } keys %ports } @ports;
+	return join ', ', map { $_ . ": " . $ports{$_} } @keys;
+}
+
+sub parallel {
+	my ($count, $port) = @_;
+	my (%ports, @s);
+
+	for (1 .. $count) {
+		my $s = stream("127.0.0.1:$port");
+		$s->write('keep');
+		$s->read();
+		push @s, $s;
+	}
+
+	for (1 .. $count) {
+		if ((pop @s)->io('.') =~ /(\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}
@@ -167,13 +200,14 @@ sub stream_handle_client {
 
 	log2i("$client $buffer");
 
+	my $close = $buffer ne 'keep';
 	$buffer = $client->sockport();
 
 	log2o("$client $buffer");
 
 	$client->syswrite($buffer);
 
-	return 1;
+	return $close;
 }
 
 sub log2i { Test::Nginx::log_core('|| <<', @_); }

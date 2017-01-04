@@ -769,6 +769,9 @@ is(@$frames[0]->{length}, 1, 'positive window - data length');
 
 # ask write handler in sending large response
 
+SKIP: {
+skip 'unsafe socket tests', 4 unless $ENV{TEST_NGINX_UNSAFE};
+
 $sid = $s->new_stream({ path => '/tbig.html' });
 
 $s->h2_window(2**30, $sid);
@@ -805,6 +808,8 @@ $s->h2_ping('SEE-THIS');
 
 $frames = $s->read(all => [{ type => 'PING' }]);
 ok(!grep ({ $_->{type} eq "PING" } @$frames), 'large response - send timeout');
+
+}
 
 # stream with large response queued on write - RST_STREAM handling
 

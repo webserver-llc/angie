@@ -141,8 +141,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_ihdr(req, res) {
-        var s;
-        s = '';
+        var s = '', h;
         for (h in req.headers) {
             if (h.substr(0, 3) == 'foo') {
                 s += req.headers[h];
@@ -156,8 +155,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_iarg(req, res) {
-        var s;
-        s = '';
+        var s = '', a;
         for (a in req.args) {
             if (a.substr(0, 3) == 'foo') {
                 s += req.args[a];
@@ -233,7 +231,7 @@ $t->write_file('test.js', <<EOF);
         res.headers['a'] = req.args.a;
         res.headers['b'] = req.args.b;
 
-        s = '';
+        var s = '', h;
         for (h in res.headers) {
             s += res.headers[h];
         }

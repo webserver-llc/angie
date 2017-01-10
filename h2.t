@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(141);
+	->plan(140);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -810,25 +810,6 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 ok(!grep ({ $_->{type} eq "PING" } @$frames), 'large response - send timeout');
 
 }
-
-# stream with large response queued on write - RST_STREAM handling
-
-$s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/tbig.html' });
-
-$s->h2_window(2**30, $sid);
-$s->h2_window(2**30);
-
-select undef, undef, undef, 0.4;
-
-$s->h2_rst($sid, 8);
-$s->read(all => [{ sid => $sid, fin => 1 }], wait => 0.2);
-
-$sid = $s->new_stream();
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{sid}, 3, 'large response - queued with RST_STREAM');
 
 # SETTINGS_MAX_FRAME_SIZE
 

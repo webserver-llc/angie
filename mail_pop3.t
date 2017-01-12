@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -43,7 +43,7 @@ mail {
     server {
         listen     127.0.0.1:8110;
         protocol   pop3;
-        pop3_auth  plain apop cram-md5;
+        pop3_auth  plain apop cram-md5 external;
     }
 }
 
@@ -92,7 +92,9 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(8111));
+$t->try_run('no auth external')->plan(18);
+
+$t->waitforsocket('127.0.0.1:' . port(8111));
 
 ###############################################################################
 
@@ -165,9 +167,6 @@ $s->check(qr/\+ /, 'auth cram-md5 challenge');
 $s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
 $s->ok('auth cram-md5');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 # auth external
 
 $s = Test::Nginx::POP3->new();
@@ -186,7 +185,5 @@ $s->read();
 
 $s->send('AUTH EXTERNAL ' . encode_base64('test@example.com', ''));
 $s->ok('auth external with username');
-
-}
 
 ###############################################################################

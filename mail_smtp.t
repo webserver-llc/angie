@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(30)
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -45,7 +45,7 @@ mail {
     server {
         listen     127.0.0.1:8025;
         protocol   smtp;
-        smtp_auth  login plain none cram-md5;
+        smtp_auth  login plain none cram-md5 external;
     }
 }
 
@@ -90,7 +90,9 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(8026));
+$t->try_run('no auth external')->plan(30);
+
+$t->waitforsocket('127.0.0.1:' . port(8026));
 
 ###############################################################################
 
@@ -161,9 +163,6 @@ $s->check(qr/^334 /, 'auth cram-md5 challenge');
 $s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
 $s->authok('auth cram-md5');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 # Try auth external
 
 $s = Test::Nginx::SMTP->new();
@@ -185,8 +184,6 @@ $s->read();
 
 $s->send('AUTH EXTERNAL ' . encode_base64('test@example.com', ''));
 $s->ok('auth external with username');
-
-}
 
 # Try auth plain with pipelining
 

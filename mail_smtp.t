@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(27)
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(30)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -70,6 +70,11 @@ http {
 
             set $userpass "$http_auth_user:$http_auth_salt:$http_auth_pass";
             if ($userpass ~ '^test@example.com:<.*@.*>:0{32}$') {
+                set $reply OK;
+            }
+
+            set $userpass "$http_auth_method:$http_auth_user:$http_auth_pass";
+            if ($userpass ~ '^external:test@example.com:$') {
                 set $reply OK;
             }
 
@@ -155,6 +160,33 @@ $s->send('AUTH CRAM-MD5');
 $s->check(qr/^334 /, 'auth cram-md5 challenge');
 $s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
 $s->authok('auth cram-md5');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.6');
+
+# Try auth external
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('AUTH EXTERNAL');
+$s->check(qr/^334 VXNlcm5hbWU6/, 'auth external challenge');
+$s->send(encode_base64('test@example.com', ''));
+$s->ok('auth external');
+
+# Try auth external with username
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('AUTH EXTERNAL ' . encode_base64('test@example.com', ''));
+$s->ok('auth external with username');
+
+}
 
 # Try auth plain with pipelining
 

@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -69,6 +69,12 @@ http {
 
             set $userpass "$http_auth_user:$http_auth_salt:$http_auth_pass";
             if ($userpass ~ '^test@example.com:<.*@.*>:0{32}$') {
+                set $reply OK;
+                set $passw secret;
+            }
+
+            set $userpass "$http_auth_method:$http_auth_user:$http_auth_pass";
+            if ($userpass ~ '^external:test@example.com:$') {
                 set $reply OK;
                 set $passw secret;
             }
@@ -158,5 +164,29 @@ $s->check(qr/\+ /, 'auth cram-md5 challenge');
 
 $s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
 $s->ok('auth cram-md5');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.6');
+
+# auth external
+
+$s = Test::Nginx::POP3->new();
+$s->read();
+
+$s->send('AUTH EXTERNAL');
+$s->check(qr/\+ VXNlcm5hbWU6/, 'auth external challenge');
+
+$s->send(encode_base64('test@example.com', ''));
+$s->ok('auth external');
+
+# auth external with username
+
+$s = Test::Nginx::POP3->new();
+$s->read();
+
+$s->send('AUTH EXTERNAL ' . encode_base64('test@example.com', ''));
+$s->ok('auth external with username');
+
+}
 
 ###############################################################################

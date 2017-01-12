@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/mail pop3 http rewrite/)->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -43,6 +43,7 @@ mail {
     server {
         listen     127.0.0.1:8110;
         protocol   pop3;
+        pop3_auth  plain apop cram-md5;
     }
 }
 
@@ -55,6 +56,7 @@ http {
 
         location = /mail/auth {
             set $reply ERROR;
+            set $passw "";
 
             if ($http_auth_smtp_to ~ example.com) {
                 set $reply OK;
@@ -65,9 +67,16 @@ http {
                 set $reply OK;
             }
 
+            set $userpass "$http_auth_user:$http_auth_salt:$http_auth_pass";
+            if ($userpass ~ '^test@example.com:<.*@.*>:0{32}$') {
+                set $reply OK;
+                set $passw secret;
+            }
+
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
             add_header Auth-Port %%PORT_8111%%;
+            add_header Auth-Pass $passw;
             add_header Auth-Wait 1;
             return 204;
         }
@@ -84,7 +93,29 @@ $t->run()->waitforsocket('127.0.0.1:' . port(8111));
 my $s = Test::Nginx::POP3->new();
 $s->ok('greeting');
 
+# user / pass
+
+$s->send('USER test@example.com');
+$s->ok('user');
+
+$s->send('PASS secret');
+$s->ok('pass');
+
+# apop
+
+$s = Test::Nginx::POP3->new();
+$s->check(qr/<.*\@.*>/, 'apop salt');
+
+$s->send('APOP test@example.com ' . ('1' x 32));
+$s->check(qr/^-ERR/, 'apop error');
+
+$s->send('APOP test@example.com ' . ('0' x 32));
+$s->ok('apop');
+
 # auth plain
+
+$s = Test::Nginx::POP3->new();
+$s->read();
 
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0bad", ''));
 $s->check(qr/^-ERR/, 'auth plain with bad password');
@@ -116,5 +147,16 @@ $s->check(qr/\+ UGFzc3dvcmQ6/, 'auth login with username password challenge');
 
 $s->send(encode_base64('secret', ''));
 $s->ok('auth login with username');
+
+# auth cram-md5
+
+$s = Test::Nginx::POP3->new();
+$s->read();
+
+$s->send('AUTH CRAM-MD5');
+$s->check(qr/\+ /, 'auth cram-md5 challenge');
+
+$s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
+$s->ok('auth cram-md5');
 
 ###############################################################################

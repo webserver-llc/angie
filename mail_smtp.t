@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(25)
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(27)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -45,7 +45,7 @@ mail {
     server {
         listen     127.0.0.1:8025;
         protocol   smtp;
-        smtp_auth  login plain none;
+        smtp_auth  login plain none cram-md5;
     }
 }
 
@@ -65,6 +65,11 @@ http {
 
             set $userpass "$http_auth_user:$http_auth_pass";
             if ($userpass ~ '^test@example.com:secret$') {
+                set $reply OK;
+            }
+
+            set $userpass "$http_auth_user:$http_auth_salt:$http_auth_pass";
+            if ($userpass ~ '^test@example.com:<.*@.*>:0{32}$') {
                 set $reply OK;
             }
 
@@ -138,6 +143,18 @@ $s->send('AUTH LOGIN ' . encode_base64('test@example.com', ''));
 $s->check(qr/^334 UGFzc3dvcmQ6/, 'auth login with username password challenge');
 $s->send(encode_base64('secret', ''));
 $s->authok('auth login with username');
+
+# Try auth cram-md5
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('AUTH CRAM-MD5');
+$s->check(qr/^334 /, 'auth cram-md5 challenge');
+$s->send(encode_base64('test@example.com ' . ('0' x 32), ''));
+$s->authok('auth cram-md5');
 
 # Try auth plain with pipelining
 

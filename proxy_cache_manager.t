@@ -24,6 +24,9 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'long test') unless $ENV{TEST_NGINX_UNSAFE};
 
+plan(skip_all => 'page size is not appropriate') unless
+        POSIX::sysconf(&POSIX::_SC_PAGESIZE) == 4096;
+
 my $t = Test::Nginx->new()->has(qw/http proxy cache/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -40,6 +43,9 @@ http {
     proxy_cache_path   %%TESTDIR%%/cache  max_size=0  keys_zone=NAME:1m
                        manager_sleep=5  manager_files=2  manager_threshold=10;
 
+    proxy_cache_path   %%TESTDIR%%/water  keys_zone=NAM2:16k
+                       manager_sleep=5;
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -47,6 +53,13 @@ http {
         location / {
             proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
+
+            proxy_cache_valid   any   1m;
+        }
+
+        location /water/ {
+            proxy_pass    http://127.0.0.1:8081/t.html;
+            proxy_cache   NAM2;
 
             proxy_cache_valid   any   1m;
         }
@@ -63,9 +76,11 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
-$t->try_run('no manager params')->plan(2);
+$t->try_run('no manager params')->plan(3);
 
 ###############################################################################
+
+my $d = $t->testdir();
 
 # wait for cache manager start
 
@@ -73,18 +88,32 @@ sleep 1;
 
 http_get("/t.html?$_") for (1 .. 5);
 
+# pretend we could not fit into zone
+
+http_get("/water/?$_") for (1 .. 100);
+
+my $n = files("$d/water");
+
 # wait for cache manager process
 
 sleep 10;
 
-opendir(my $dh, $t->testdir() . '/cache');
-my $files = grep { ! /^\./ } readdir($dh);
-is($files, 3, 'manager files');
+cmp_ok(files("$d/water"), '<', $n, 'manager watermark');
+
+is(files("$d/cache"), 3, 'manager files');
 
 sleep 5;
 
-opendir($dh, $t->testdir() . '/cache');
-$files = grep { ! /^\./ } readdir($dh);
-is($files, 1, 'manager sleep');
+is(files("$d/cache"), 1, 'manager sleep');
+
+###############################################################################
+
+sub files {
+	my ($path) = @_;
+	my $dh;
+
+	opendir($dh, $path);
+	return scalar grep { ! /^\./ } readdir($dh);
+}
 
 ###############################################################################

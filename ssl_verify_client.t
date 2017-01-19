@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use Socket qw/ :DEFAULT CRLF /;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -22,13 +24,23 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL->can_client_sni() or die; };
-plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
+eval {
+	require Net::SSLeay;
+	Net::SSLeay::load_error_strings();
+	Net::SSLeay::SSLeay_add_ssl_algorithms();
+	Net::SSLeay::randomize();
+};
+plan(skip_all => 'Net::SSLeay not installed') if $@;
+
+eval {
+	my $ctx = Net::SSLeay::CTX_new() or die;
+	my $ssl = Net::SSLeay::new($ctx) or die;
+	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
+};
+plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)
-	->has_daemon('openssl')->plan(3);
+	->has_daemon('openssl')->plan(10);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -42,27 +54,42 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    ssl_certificate_key localhost.key;
-    ssl_certificate localhost.crt;
+    add_header X-Verify x$ssl_client_verify:${ssl_client_cert}x;
 
-    ssl_verify_client optional_no_ca;
-
-    add_header X-Verify $ssl_client_verify;
+    ssl_certificate_key 1.example.com.key;
+    ssl_certificate 1.example.com.crt;
 
     server {
-        listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
-        ssl_client_certificate client.crt;
-
-        location / { }
+        ssl_verify_client on;
+        ssl_client_certificate 2.example.com.crt;
     }
 
     server {
-        listen       127.0.0.1:8080 ssl;
-        server_name  example.com;
+        listen       127.0.0.1:8081 ssl;
+        server_name  on;
 
-        location / { }
+        ssl_verify_client on;
+        ssl_client_certificate 2.example.com.crt;
+    }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  optional;
+
+        ssl_verify_client optional;
+        ssl_client_certificate 2.example.com.crt;
+        ssl_trusted_certificate 3.example.com.crt;
+    }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  optional_no_ca;
+
+        ssl_verify_client optional_no_ca;
+        ssl_client_certificate 2.example.com.crt;
     }
 }
 
@@ -78,7 +105,7 @@ EOF
 
 my $d = $t->testdir();
 
-foreach my $name ('localhost', 'client') {
+foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 	system('openssl req -x509 -new '
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
 		. "-out '$d/$name.crt' -keyout '$d/$name.key' "
@@ -92,46 +119,61 @@ $t->run();
 
 ###############################################################################
 
-like(get('localhost'), qr/SUCCESS/, 'success');
-like(get('example.com'), qr/FAILED/, 'failed');
-like(get('localhost', 'example.com'), qr/421 Misdirected/, 'misdirected');
+like(http_get('/t'), qr/x:x/, 'plain connection');
+like(get('on'), qr/400 Bad Request/, 'no cert');
+like(get('optional'), qr/NONE:x/, 'no optional cert');
+like(get('optional', '1.example.com'), qr/400 Bad/, 'bad optional cert');
+like(get('optional_no_ca', '1.example.com'), qr/FAILED.*BEGIN/,
+	'bad optional_no_ca cert');
+
+like(get('localhost', '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert');
+like(get('optional', '2.example.com'), qr/SUCCESS.*BEGI/, 'good cert optional');
+like(get('optional', '3.example.com'), qr/SUCCESS.*BEGIN/, 'good cert trusted');
+
+SKIP: {
+skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
+
+my $ca = join ' ', get('optional', '3.example.com');
+is($ca, '/CN=2.example.com', 'no trusted sent');
+
+}
+
+like(get('optional', undef, 'localhost'), qr/421 Misdirected/, 'misdirected');
 
 ###############################################################################
 
 sub get {
-	my ($sni, $host) = @_;
-	my $s;
+	my ($sni, $cert, $host) = @_;
 
 	$host = $sni if !defined $host;
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(2);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port(8080),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_hostname => $sni,
-			SSL_cert_file => "$d/client.crt",
-			SSL_key_file => "$d/client.key",
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
+	my $dest_ip = inet_aton('127.0.0.1');
+	my $dest_serv_params = sockaddr_in(port(8081), $dest_ip);
 
-	if ($@) {
-		log_in("died: $@");
-		return undef;
+	socket(my $s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
+	connect($s, $dest_serv_params) or die "connect: $!";
+
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
+		or die if $cert;
+	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_tlsext_host_name($ssl, $sni) == 1 or die;
+	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::connect($ssl) or die("ssl connect");
+
+	Net::SSLeay::write($ssl, 'GET /t HTTP/1.0' . CRLF);
+	Net::SSLeay::write($ssl, "Host: $host" . CRLF . CRLF);
+	my $buf = Net::SSLeay::read($ssl);
+	log_in($buf);
+	return $buf unless wantarray();
+
+	my $list = Net::SSLeay::get_client_CA_list($ssl);
+	my @names;
+	for my $i (0 .. Net::SSLeay::sk_X509_NAME_num($list) - 1) {
+		my $name = Net::SSLeay::sk_X509_NAME_value($list, $i);
+		push @names, Net::SSLeay::X509_NAME_oneline($name);
 	}
-
-	return http(<<EOF, socket => $s);
-GET /t HTTP/1.0
-Host: $host
-
-EOF
+	return @names;
 }
 
 ###############################################################################

@@ -47,27 +47,48 @@ events {
 }
 
 stream {
-    ssl_certificate_key localhost.key;
-    ssl_certificate localhost.crt;
+    log_format  status  $status;
 
-    ssl_verify_client optional_no_ca;
+    ssl_certificate_key 1.example.com.key;
+    ssl_certificate 1.example.com.crt;
 
     server {
-        listen  127.0.0.1:8080 ssl;
-        return  $ssl_client_verify;
+        listen  127.0.0.1:8080;
+        return  $ssl_client_verify:$ssl_client_cert;
 
-        ssl_client_certificate client.crt;
+        ssl_verify_client on;
+        ssl_client_certificate 2.example.com.crt;
     }
 
     server {
         listen  127.0.0.1:8081 ssl;
-        return  $ssl_client_verify;
+        return  $ssl_client_verify:$ssl_client_cert;
+
+        ssl_verify_client on;
+        ssl_client_certificate 2.example.com.crt;
+
+        access_log %%TESTDIR%%/status.log status;
+    }
+
+    server {
+        listen  127.0.0.1:8082 ssl;
+        return  $ssl_client_verify:$ssl_client_cert;
+
+        ssl_verify_client optional;
+        ssl_client_certificate 2.example.com.crt;
+        ssl_trusted_certificate 3.example.com.crt;
+    }
+
+    server {
+        listen  127.0.0.1:8083 ssl;
+        return  $ssl_client_verify:$ssl_client_cert;
+
+        ssl_verify_client optional_no_ca;
+        ssl_client_certificate 2.example.com.crt;
     }
 }
 
 EOF
-
-my $d = $t->testdir();
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
@@ -77,7 +98,9 @@ distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
 EOF
 
-foreach my $name ('localhost', 'client') {
+my $d = $t->testdir();
+
+foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 	system('openssl req -x509 -new '
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
 		. "-out '$d/$name.crt' -keyout '$d/$name.key' "
@@ -85,34 +108,79 @@ foreach my $name ('localhost', 'client') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-Net::SSLeay::set_cert_and_key($ctx, "$d/client.crt", "$d/client.key") or die;
-
-$t->try_run('no ssl_verify_client')->plan(2);
+$t->try_run('no ssl_verify_client')->plan(10);
 
 ###############################################################################
 
-my ($s, $ssl) = get_ssl_socket(port(8080));
-is(Net::SSLeay::read($ssl), 'SUCCESS', 'success');
+TODO: {
+todo_skip 'leaves coredump', 1 unless $t->has_version('1.11.9');
 
-($s, $ssl) = get_ssl_socket(port(8081));
-like(Net::SSLeay::read($ssl), qr/FAILED/, 'failed');
+is(stream()->read(), ':', 'plain connection');
+
+}
+
+TODO: {
+local $TODO = 'fails on one-pass ngx_ssl_handshake'
+	unless $t->has_version('1.11.9');
+
+is(get(8081), '', 'no cert');
+is(get(8082, '1.example.com'), '', 'bad optional cert');
+
+}
+
+is(get(8082), 'NONE:', 'no optional cert');
+like(get(8083, '1.example.com'), qr/FAILED.*BEGIN/, 'bad optional_no_ca cert');
+
+like(get(8081, '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert');
+like(get(8082, '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert optional');
+like(get(8082, '3.example.com'), qr/SUCCESS.*BEGIN/, 'good cert trusted');
+
+SKIP: {
+skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
+
+my $ca = join ' ', get(8082, '3.example.com');
+is($ca, '/CN=2.example.com', 'no trusted sent');
+
+}
+
+TODO: {
+local $TODO = 'not yet, see above' unless $t->has_version('1.11.9');
+
+$t->stop();
+
+is($t->read_file('status.log'), "500\n200\n", 'log');
+
+}
 
 ###############################################################################
 
-sub get_ssl_socket {
-	my ($port) = @_;
+sub get {
+	my ($port, $cert) = @_;
 
 	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in($port, $dest_ip);
+	my $dest_serv_params = sockaddr_in(port($port), $dest_ip);
 
 	socket(my $s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
 	connect($s, $dest_serv_params) or die "connect: $!";
 
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
+		or die if $cert;
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
 	Net::SSLeay::set_fd($ssl, fileno($s));
 	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
+
+	my $buf = Net::SSLeay::read($ssl);
+	log_in($buf);
+	return $buf unless wantarray();
+
+	my $list = Net::SSLeay::get_client_CA_list($ssl);
+	my @names;
+	for my $i (0 .. Net::SSLeay::sk_X509_NAME_num($list) - 1) {
+		my $name = Net::SSLeay::sk_X509_NAME_value($list, $i);
+		push @names, Net::SSLeay::X509_NAME_oneline($name);
+	}
+	return @names;
 }
 
 ###############################################################################

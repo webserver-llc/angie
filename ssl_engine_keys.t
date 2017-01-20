@@ -87,7 +87,7 @@ init = 0
 PIN = 1234
 
 [ req ]
-default_bits = 2048
+default_bits = 1024
 encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]

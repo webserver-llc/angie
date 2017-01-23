@@ -28,7 +28,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl/)
-	->has_daemon('openssl')->plan(7);
+	->has_daemon('openssl')->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -45,7 +45,7 @@ http {
     ssl_certificate_key  localhost.key;
     ssl_certificate localhost.crt;
 
-    ssl_verify_client optional_no_ca;
+    ssl_verify_client on;
     ssl_client_certificate int-root.crt;
 
     add_header X-Verify $ssl_client_verify;
@@ -54,18 +54,6 @@ http {
         listen       127.0.0.1:8080 ssl;
         server_name  localhost;
         ssl_verify_depth 0;
-    }
-
-    server {
-        listen       127.0.0.1:8081 ssl;
-        server_name  localhost;
-        ssl_verify_depth 1;
-    }
-
-    server {
-        listen       127.0.0.1:8082 ssl;
-        server_name  localhost;
-        ssl_verify_depth 2;
     }
 }
 
@@ -140,22 +128,8 @@ $t->run();
 
 ###############################################################################
 
-like(get(8080, 'end'), qr/FAILED/, 'verify depth 2 max 0');
-
-TODO: {
-local $TODO = 'not yet';
-
-like(get(8081, 'end'), qr/FAILED/, 'verify depth 2 max 1');
-
-}
-
-like(get(8082, 'end'), qr/SUCCESS/, 'verify depth 2 max 2');
-
-like(get(8080, 'int'), qr/FAILED/, 'verify depth 1 max 0');
-like(get(8081, 'int'), qr/SUCCESS/, 'verify depth 1 max 1');
-like(get(8082, 'int'), qr/SUCCESS/, 'verify depth 1 max 2');
-
-like(get(8080, 'root'), qr/SUCCESS/, 'verify depth 0 max 0');
+like(get(8080, 'root'), qr/SUCCESS/, 'verify depth');
+like(get(8080, 'end'), qr/400 Bad Request/, 'verify depth limited');
 
 ###############################################################################
 

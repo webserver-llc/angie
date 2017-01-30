@@ -100,8 +100,7 @@ sub http_body {
 
 sub http_get_server {
 	my ($url) = @_;
-	http_get($url) =~ /^Server:\s(.+?)\x0d?$/mi;
-	return $1;
+	return http_get($url) =~ /^Server:\s(.+?)\x0d?$/mi && $1 || undef;
 }
 
 ###############################################################################

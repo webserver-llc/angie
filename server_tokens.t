@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -70,12 +70,24 @@ http {
                 return 404;
             }
         }
+
+        location /b {
+            server_tokens build;
+
+            location /b/200 {
+                return 200;
+            }
+
+            location /b/404 {
+                return 404;
+            }
+        }
     }
 }
 
 EOF
 
-$t->run();
+$t->try_run('no server_tokens build')->plan(12);
 
 ###############################################################################
 
@@ -92,6 +104,17 @@ like(http_body('/off/404'), qr/nginx(?!\/)/, 'tokens off 404 body');
 like(http_get_server('/on/200'), $re, 'tokens on 200');
 like(http_get_server('/on/404'), $re, 'tokens on 404');
 like(http_body('/on/404'), $re, 'tokens on 404 body');
+
+$re = qr/$re \Q($1)\E/ if $t->{_configure_args} =~ /--build=(\S+)/;
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get_server('/b/200'), $re, 'tokens build 200');
+like(http_get_server('/b/404'), $re, 'tokens build 404');
+like(http_body('/b/404'), $re, 'tokens build 404 body');
+
+}
 
 ###############################################################################
 

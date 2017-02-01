@@ -108,7 +108,7 @@ like(http_body('/on/404'), $re, 'tokens on 404 body');
 $re = qr/$re \Q($1)\E/ if $t->{_configure_args} =~ /--build=(\S+)/;
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.10.10');
 
 like(http_get_server('/b/200'), $re, 'tokens build 200');
 like(http_get_server('/b/404'), $re, 'tokens build 404');

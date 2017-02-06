@@ -80,13 +80,9 @@ default_md = sha1
 policy = myca_policy
 serial = $d/certserial
 default_days = 1
-x509_extensions = myca_extensions
 
 [ myca_policy ]
 commonName = supplied
-
-[ myca_extensions ]
-basicConstraints = critical,CA:TRUE
 EOF
 
 foreach my $name ('root', 'localhost') {

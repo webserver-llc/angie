@@ -11,6 +11,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -69,7 +71,6 @@ is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');
 sub get_syslog {
 	my ($uri, @port) = @_;
 	my (@s);
-	my $rfd = '';
 	my @data;
 
 	eval {
@@ -94,11 +95,8 @@ sub get_syslog {
 
 	map {
 		my $data = '';
-		vec($rfd, fileno($_), 1) = 1;
-		select $rfd, undef, undef, 1;
-		while (select($rfd, undef, undef, 0.1) > 0
-			&& vec($rfd, fileno($_), 1))
-		{
+		IO::Select->new($_)->can_read(1);
+		while (IO::Select->new($_)->can_read(0.1)) {
 			my ($buffer);
 			sysread($_, $buffer, 4096);
 			$data .= $buffer;

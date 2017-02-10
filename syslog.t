@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -242,7 +244,6 @@ sub levels {
 sub get_syslog {
 	my ($uri) = @_;
 	my ($s);
-	my $rfd = '';
 	my $data = '';
 
 	eval {
@@ -263,11 +264,8 @@ sub get_syslog {
 
 	http_get($uri);
 
-	vec($rfd, fileno($s), 1) = 1;
-	select $rfd, undef, undef, 1;
-	while (select($rfd, undef, undef, 0.1) > 0
-		&& vec($rfd, fileno($s), 1))
-	{
+	IO::Select->new($s)->can_read(1);
+	while (IO::Select->new($s)->can_read(0.1)) {
 		my $buffer;
 		sysread($s, $buffer, 4096);
 		$data .= $buffer;

@@ -153,6 +153,12 @@ $t->run();
 
 ###############################################################################
 
+my $s = IO::Socket::INET->new(
+	Proto => 'udp',
+	LocalAddr => '127.0.0.1:' . port(8084)
+)
+	or die "Can't open syslog socket: $!";
+
 parse_syslog_message('error_log', get_syslog('/e'));
 parse_syslog_message('access_log', get_syslog('/a'));
 
@@ -243,24 +249,7 @@ sub levels {
 
 sub get_syslog {
 	my ($uri) = @_;
-	my ($s);
 	my $data = '';
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(1);
-		$s = IO::Socket::INET->new(
-			Proto => 'udp',
-			LocalAddr => '127.0.0.1:' . port(8084)
-		);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
 
 	http_get($uri);
 
@@ -270,7 +259,6 @@ sub get_syslog {
 		sysread($s, $buffer, 4096);
 		$data .= $buffer;
 	}
-	$s->close();
 	return $data;
 }
 

@@ -58,10 +58,18 @@ $t->try_run('no inet6 support')->plan(5);
 
 ###############################################################################
 
-is(get_syslog('/', port(8081)), '', 'no debug_connection syslog 1');
-is(get_syslog('/', port(8082)), '', 'no debug_connection syslog 2');
+my ($s1, $s2) = map {
+	IO::Socket::INET->new(
+		Proto => 'udp',
+		LocalAddr => "127.0.0.1:$_"
+	)
+		or die "Can't open syslog socket $_: $!";
+} port(8081), port(8082);
 
-my @msgs = get_syslog('/debug', port(8081), port(8082));
+is(get_syslog('/', $s1), '', 'no debug_connection syslog 1');
+is(get_syslog('/', $s2), '', 'no debug_connection syslog 2');
+
+my @msgs = get_syslog('/debug', $s1, $s2);
 like($msgs[0], qr/\[debug\]/, 'debug_connection syslog 1');
 like($msgs[1], qr/\[debug\]/, 'debug_connection syslog 2');
 is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');
@@ -69,27 +77,8 @@ is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');
 ###############################################################################
 
 sub get_syslog {
-	my ($uri, @port) = @_;
-	my (@s);
+	my ($uri, @s) = @_;
 	my @data;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(1);
-		map {
-			push @s, IO::Socket::INET->new(
-				Proto => 'udp',
-				LocalAddr => "127.0.0.1:$_"
-			);
-		} (@port);
-		alarm(0);
-	};
-	alarm(0);
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
 
 	http_get($uri);
 
@@ -102,7 +91,6 @@ sub get_syslog {
 			$data .= $buffer;
 		}
 		push @data, $data;
-		$_->close();
 	} (@s);
 
 	return $data[0] if scalar @data == 1;

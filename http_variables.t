@@ -87,7 +87,7 @@ $t->stop();
 my $log = $t->read_file('cc.log');
 like($log, qr!^: -$!m, 'no uri');
 like($log, qr!^/: -$!m, 'no header');
-like($log, qr!^/set: max-age=3600[,;] private[,;] must-revalidate$!m,
+like($log, qr!^/set: max-age=3600, private, must-revalidate$!m,
 	'multi headers');
 
 like($log, qr!^/redefine: no-cache$!m, 'ignoring headers with (hash == 0)');

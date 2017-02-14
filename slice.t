@@ -15,15 +15,15 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache fastcgi slice/)
-	->plan(72);
+my $t = Test::Nginx->new()->has(qw/http proxy cache fastcgi slice rewrite/)
+	->plan(74);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -38,6 +38,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     proxy_cache_path   %%TESTDIR%%/cache  keys_zone=NAME:1m;
+    proxy_cache_path   %%TESTDIR%%/cach3  keys_zone=NAME3:1m;
     proxy_cache_key    $uri$is_args$args$slice_range;
 
     fastcgi_cache_path   %%TESTDIR%%/cache2  keys_zone=NAME2:1m;
@@ -78,13 +79,33 @@ http {
 
             add_header X-Cache-Status $upstream_cache_status;
         }
+
+        location /cache-redirect {
+            error_page 404 = @fallback;
+        }
+
+        location @fallback {
+            slice 2;
+
+            proxy_pass    http://127.0.0.1:8081/t$is_args$args;
+
+            proxy_cache   NAME3;
+
+            proxy_set_header   Range  $slice_range;
+
+            proxy_cache_valid   200 206  1h;
+        }
     }
 
     server {
         listen       127.0.0.1:8081;
         server_name  localhost;
 
-        location / { }
+        location / {
+            if ($http_range = "") {
+                set $limit_rate 100;
+	    }
+        }
     }
 }
 
@@ -240,6 +261,25 @@ SKIP: {
 		'fastcgi slice cached');
 	like(get("/fastcgi?1", "Range: bytes=2-2"), qr/ 206 .*MISS.*^2$/ms,
 		'fastcgi slice next');
+}
+
+# slicing in named location
+
+my $s = http_get('/cache-redirect', start => 1);
+# loop protection used with limit_rate, exit loop if subrequest has lost range
+unless ($t->has_version('1.11.10')) {
+	select undef, undef, undef, 0.2;
+	$t->write_file('/cache-redirect', '');
+}
+$r = http_end($s);
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.10');
+
+like($r, qr/ 200 .*^0123456789abcdef$/ms, 'in named location');
+is(scalar @{[ glob $t->testdir() . '/cach3/*' ]}, 8,
+	'in named location - cache entries');
+
 }
 
 ###############################################################################

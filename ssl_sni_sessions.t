@@ -201,11 +201,15 @@ sub get_ssl_socket {
 sub get {
 	my ($host, $port, $ctx) = @_;
 
-	return http(<<EOF, socket => get_ssl_socket($host, $port, $ctx));
+	my $s = get_ssl_socket($host, $port, $ctx) or return;
+	my $r = http(<<EOF, socket => $s);
 GET / HTTP/1.0
 Host: $host
 
 EOF
+
+	$s->close();
+	return $r;
 }
 
 ###############################################################################

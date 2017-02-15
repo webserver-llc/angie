@@ -253,7 +253,9 @@ like(cert('/time', 8085), qr/^body [:\s\w]+![:\s\w]+![23]$/m, 'time');
 sub get {
 	my ($uri, $port) = @_;
 	my $s = get_ssl_socket($ctx, port($port)) or return;
-	http_get($uri, socket => $s);
+	my $r = http_get($uri, socket => $s);
+	$s->close();
+	return $r;
 }
 
 sub cert {

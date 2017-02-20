@@ -120,6 +120,7 @@ sub has_module($) {
 		auth_request
 			=> '--with-http_auth_request_module',
 		realip	=> '--with-http_realip_module',
+		sub	=> '--with-http_sub_module',
 		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',

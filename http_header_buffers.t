@@ -37,14 +37,14 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    connection_pool_size 64;
-    client_header_buffer_size 64;
+    connection_pool_size 128;
+    client_header_buffer_size 128;
 
     server {
         listen       127.0.0.1:8080;
         server_name  five;
 
-        large_client_header_buffers 5 128;
+        large_client_header_buffers 5 256;
 
         return 204;
     }
@@ -53,7 +53,7 @@ http {
         listen       127.0.0.1:8080;
         server_name  ten;
 
-        large_client_header_buffers 10 128;
+        large_client_header_buffers 10 256;
 
         return 204;
     }
@@ -62,7 +62,7 @@ http {
         listen       127.0.0.1:8080;
         server_name  one;
 
-        large_client_header_buffers 1 128;
+        large_client_header_buffers 1 256;
 
         return 204;
     }
@@ -83,13 +83,13 @@ todo_skip 'overflow', 2 unless $ENV{TEST_NGINX_UNSAFE};
 
 like(http(
 	"GET / HTTP/1.0" . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
 	"Host: ten" . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF . CRLF
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF . CRLF
 ), qr/204|400/, 'additional buffers in virtual server');
 
 # for pipelined requests large header buffers are saved to hc->free;
@@ -99,11 +99,11 @@ like(http(
 
 like(http(
 	"GET / HTTP/1.1" . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
-	"X-Foo: " . ("1234567890" x 10) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
+	"X-Foo: " . ("1234567890" x 20) . CRLF .
 	"Host: one" . CRLF . CRLF .
 	"GET / HTTP/1.1" . CRLF .
 	"Host: one" . CRLF .

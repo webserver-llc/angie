@@ -150,6 +150,7 @@ like(http_get('/t5.html'), qr/REVALIDATED/, 's-w-r - foreground revalidated');
 $t->write_file('t6.html', 'SEE-THAT');
 
 my $s = get('/t6.html', 'max-age=1, stale-while-revalidate=2', start => 1);
+select undef, undef, undef, 0.2;
 like(http_get('/t6.html'), qr/UPDATING.*SEE-THIS/s, 's-w-r - updating');
 like(http_end($s), qr/STALE.*SEE-THIS/s, 's-w-r - updating stale');
 like(http_get('/t6.html'), qr/HIT.*SEE-THAT/s, 's-w-r - updating revalidated');

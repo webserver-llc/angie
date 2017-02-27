@@ -79,6 +79,10 @@ http {
 
                 proxy_cache_valid  1s;
             }
+
+            if ($arg_if) {
+                # nothing
+            }
         }
     }
     server {
@@ -107,7 +111,7 @@ $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('t3.html', 'SEE-THIS');
 $t->write_file('t6.html', 'SEE-THIS');
 
-$t->try_run('no proxy_cache_background_update')->plan(25);
+$t->try_run('no proxy_cache_background_update')->plan(27);
 
 ###############################################################################
 
@@ -174,6 +178,18 @@ like(http_get('/t3.html?e=1'), qr/ 500 /, 's-w-r - ceased');
 like(http_get('/tt.html?e=1'), qr/ 500 /, 's-i-e - ceased');
 like(http_get('/updating/t2.html'), qr/STALE/,
 	's-w-r - overriden with use_stale updating');
+
+# due to the missing content_handler inheritance in a cloned subrequest,
+# this used to access a static file in the update request
+
+like(http_get('/t2.html?if=1'), qr/STALE/, 'background update in if');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.11');
+
+like(http_get('/t2.html?if=1'), qr/HIT/, 'background update in if - updated');
+
+}
 
 ###############################################################################
 

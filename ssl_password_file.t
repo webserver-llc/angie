@@ -103,7 +103,7 @@ mkfifo("$d/password_fifo", 0700);
 
 foreach my $name ('localhost', 'inherits') {
 	system("openssl genrsa -out '$d/$name.key' -passout pass:$name "
-		. "-aes128 2048 >>$d/openssl.out 2>&1") == 0
+		. "-aes128 1024 >>$d/openssl.out 2>&1") == 0
 		or die "Can't create private key: $!\n";
 	system('openssl req -x509 -new '
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "

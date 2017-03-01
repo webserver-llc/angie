@@ -75,7 +75,7 @@ my $d = $t->testdir();
 
 system("openssl dhparam -dsaparam -out '$d/dhparam.pem' 1024 "
 	. ">>$d/openssl.out 2>&1") == 0 or die "Can't create DH param: $!\n";
-system("openssl genrsa -out '$d/rsa.key' >>$d/openssl.out 2>&1") == 0
+system("openssl genrsa -out '$d/rsa.key' 1024 >>$d/openssl.out 2>&1") == 0
         or die "Can't create RSA pem: $!\n";
 system("openssl dsaparam -genkey -out '$d/dsa.key' 1024 >>$d/openssl 2>&1") == 0
 	or die "Can't create DSA pem: $!\n";

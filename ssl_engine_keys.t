@@ -108,7 +108,7 @@ foreach my $name ('localhost') {
 		. ">>$d/openssl.out 2>&1");
 
 	system('pkcs11-tool --module=/usr/local/lib/softhsm/libsofthsm.so '
-		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
+		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:1024 '
 		. ">>$d/openssl.out 2>&1");
 
 	system('openssl req -x509 -new -engine pkcs11 '

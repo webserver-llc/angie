@@ -50,7 +50,7 @@ stream {
     ssl_session_tickets off;
 
     # inherited by server "inherits"
-    ssl_password_file password_http;
+    ssl_password_file password_stream;
 
     server {
         listen      127.0.0.1:8080 ssl;
@@ -116,7 +116,7 @@ my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 
 $t->write_file('password', 'localhost');
 $t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
-$t->write_file('password_http', 'inherits');
+$t->write_file('password_stream', 'inherits');
 
 my $p = fork();
 exec("echo localhost > $d/password_fifo") if $p == 0;

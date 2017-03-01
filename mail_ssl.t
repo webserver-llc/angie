@@ -34,7 +34,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3 http rewrite/)
+my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3/)
 	->has_daemon('openssl')->plan(16);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -54,8 +54,7 @@ mail {
     # inherited by server "inherits"
     ssl_password_file password_mail;
 
-    proxy_pass_error_message  on;
-    auth_http  http://127.0.0.1:8080/mail/auth;
+    auth_http  http://127.0.0.1:8080;	# unused
 
     ssl_session_cache none;
 
@@ -129,23 +128,6 @@ mail {
     }
 }
 
-http {
-    %%TEST_GLOBALS_HTTP%%
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  localhost;
-
-        location = /mail/auth {
-            add_header Auth-Status OK;
-            add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port %%PORT_8144%%;
-            add_header Auth-Wait 1;
-            return 204;
-        }
-    }
-}
-
 EOF
 
 $t->write_file('openssl.conf', <<EOF);
@@ -176,8 +158,7 @@ $t->write_file('password', 'localhost');
 $t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
 $t->write_file('password_mail', 'inherits');
 
-$t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(8144));
+$t->run();
 
 ###############################################################################
 

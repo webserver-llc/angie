@@ -92,7 +92,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon);
-$t->try_run('no auth external')->plan(18);
+$t->try_run('no auth external')->plan(20);
 
 $t->waitforsocket('127.0.0.1:' . port(8111));
 
@@ -119,6 +119,21 @@ $s->check(qr/^-ERR/, 'apop error');
 
 $s->send('APOP test@example.com ' . ('0' x 32));
 $s->ok('apop');
+
+# auth capabilities
+
+$s = Test::Nginx::POP3->new();
+$s->read();
+
+$s->send('AUTH');
+$s->ok('auth');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.11.11');
+
+is(get_auth_caps($s), 'PLAIN:LOGIN:CRAM-MD5:EXTERNAL', 'auth capabilities');
+
+}
 
 # auth plain
 
@@ -185,5 +200,17 @@ $s->read();
 
 $s->send('AUTH EXTERNAL ' . encode_base64('test@example.com', ''));
 $s->ok('auth external with username');
+
+###############################################################################
+
+sub get_auth_caps {
+	my ($s) = @_;
+	my @meth;
+
+	while ($s->read() !~ qr/^\./) {
+		push @meth, $1 if /(.*?)\x0d\x0a?/ms;
+	}
+	join ':', @meth;
+}
 
 ###############################################################################

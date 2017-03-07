@@ -51,8 +51,7 @@ mail {
     ssl_certificate localhost.crt;
     ssl_session_tickets off;
 
-    # inherited by server "inherits"
-    ssl_password_file password_mail;
+    ssl_password_file password;
 
     auth_http  http://127.0.0.1:8080;	# unused
 
@@ -64,7 +63,6 @@ mail {
         protocol           imap;
 
         ssl_session_cache  builtin;
-        ssl_password_file  password;
     }
 
     server {
@@ -72,7 +70,6 @@ mail {
         protocol           imap;
 
         ssl_session_cache  off;
-        ssl_password_file  password_many;
     }
 
     server {
@@ -83,7 +80,6 @@ mail {
 
         ssl on;
         ssl_session_cache  builtin:1000;
-        ssl_password_file  password;
     }
 
     server {
@@ -99,7 +95,6 @@ mail {
         listen             127.0.0.1:8149;
         protocol           imap;
 
-        ssl_password_file  password;
         starttls           on;
     }
 
@@ -107,7 +102,6 @@ mail {
         listen             127.0.0.1:8150;
         protocol           imap;
 
-        ssl_password_file  password;
         starttls           only;
     }
 
@@ -115,7 +109,6 @@ mail {
         listen             127.0.0.1:8151;
         protocol           pop3;
 
-        ssl_password_file  password;
         starttls           on;
     }
 
@@ -123,7 +116,6 @@ mail {
         listen             127.0.0.1:8152;
         protocol           pop3;
 
-        ssl_password_file  password;
         starttls           only;
     }
 }
@@ -141,23 +133,19 @@ EOF
 my $d = $t->testdir();
 
 foreach my $name ('localhost', 'inherits') {
-	system("openssl genrsa -out '$d/$name.key' -passout pass:$name "
+	system("openssl genrsa -out '$d/$name.key' -passout pass:localhost "
 		. "-aes128 1024 >>$d/openssl.out 2>&1") == 0
 		or die "Can't create private key: $!\n";
 	system('openssl req -x509 -new '
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
 		. "-out '$d/$name.crt' "
-		. "-key '$d/$name.key' -passin pass:$name"
+		. "-key '$d/$name.key' -passin pass:localhost"
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
 
 my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
 $t->write_file('password', 'localhost');
-$t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
-$t->write_file('password_mail', 'inherits');
-
 $t->run();
 
 ###############################################################################

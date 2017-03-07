@@ -20,6 +20,7 @@ use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::IMAP;
 use Test::Nginx::POP3;
+use Test::Nginx::SMTP;
 
 ###############################################################################
 
@@ -34,8 +35,8 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3/)
-	->has_daemon('openssl')->plan(16);
+my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3 smtp/)
+	->has_daemon('openssl')->plan(20);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -115,6 +116,20 @@ mail {
     server {
         listen             127.0.0.1:8152;
         protocol           pop3;
+
+        starttls           only;
+    }
+
+    server {
+        listen             127.0.0.1:8153;
+        protocol           smtp;
+
+        starttls           on;
+    }
+
+    server {
+        listen             127.0.0.1:8154;
+        protocol           smtp;
 
         starttls           only;
     }
@@ -245,6 +260,32 @@ $s->read();
 
 $s->send('STLS');
 $s->ok('pop3 starttls only');
+
+# starttls smtp
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8153));
+$s->read();
+
+$s->send('AUTH LOGIN');
+$s->check(qr/^334 VXNlcm5hbWU6/, 'smtp auth before startls on');
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8153));
+$s->read();
+
+$s->send('STARTTLS');
+$s->ok('smtp starttls on');
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8154));
+$s->read();
+
+$s->send('AUTH LOGIN');
+$s->check(qr/^5.. /, 'smtp auth before startls only');
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8154));
+$s->read();
+
+$s->send('STARTTLS');
+$s->ok('smtp starttls only');
 
 ###############################################################################
 

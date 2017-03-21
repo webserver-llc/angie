@@ -207,7 +207,8 @@ sub get_auth_caps {
 	my ($s) = @_;
 	my @meth;
 
-	while ($s->read() !~ qr/^\./) {
+	while ($s->read()) {
+		last if /^\./;
 		push @meth, $1 if /(.*?)\x0d\x0a?/ms;
 	}
 	join ':', @meth;

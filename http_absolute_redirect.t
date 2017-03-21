@@ -52,6 +52,10 @@ http {
         location /return301 {
             return 301 /redirect;
         }
+
+        location /i/ {
+            alias %%TESTDIR%%/;
+        }
     }
 
     server {
@@ -67,6 +71,10 @@ http {
         location /return301 {
             return 301 /redirect;
         }
+
+        location /i/ {
+            alias %%TESTDIR%%/;
+        }
     }
 }
 
@@ -74,17 +82,19 @@ EOF
 
 mkdir($t->testdir() . '/dir');
 
-$t->try_run('no absolute_redirect')->plan(6);
+$t->try_run('no absolute_redirect')->plan(8);
 
 ###############################################################################
 
 my $p = port(8080);
 
 like(get('on', '/dir'), qr!Location: http://on:$p/dir/!, 'directory');
+like(get('on', '/i/dir'), qr!Location: http://on:$p/i/dir/!, 'directory alias');
 like(get('on', '/auto'), qr!Location: http://on:$p/auto/!, 'auto');
 like(get('on', '/return301'), qr!Location: http://on:$p/redirect!, 'return');
 
 like(get('off', '/dir'), qr!Location: /dir/!, 'off directory');
+like(get('off', '/i/dir'), qr!Location: /i/dir/!, 'off directory alias');
 like(get('off', '/auto'), qr!Location: /auto/!, 'off auto');
 like(get('off', '/return301'), qr!Location: /redirect!, 'off return');
 

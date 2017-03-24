@@ -82,7 +82,7 @@ EOF
 
 mkdir($t->testdir() . '/dir');
 
-$t->try_run('no absolute_redirect')->plan(8);
+$t->try_run('no absolute_redirect')->plan(10);
 
 ###############################################################################
 
@@ -92,12 +92,16 @@ like(get('on', '/dir'), qr!Location: http://on:$p/dir/\x0d?$!m, 'directory');
 like(get('on', '/i/dir'), qr!Location: http://on:$p/i/dir/\x0d?$!m,
 	'directory alias');
 like(get('on', '/auto'), qr!Location: http://on:$p/auto/\x0d?$!m, 'auto');
+like(get('on', '/auto?a=b'), qr!Location: http://on:$p/auto/\?a=b\x0d?$!m,
+	'auto args');
 like(get('on', '/return301'), qr!Location: http://on:$p/redirect\x0d?$!m,
 	'return');
 
 like(get('off', '/dir'), qr!Location: /dir/\x0d?$!m, 'off directory');
 like(get('off', '/i/dir'), qr!Location: /i/dir/\x0d?$!m, 'off directory alias');
 like(get('off', '/auto'), qr!Location: /auto/\x0d?$!m, 'off auto');
+like(get('off', '/auto?a=b'), qr!Location: /auto/\?a=b\x0d?$!m,
+	'off auto args');
 like(get('off', '/return301'), qr!Location: /redirect\x0d?$!m, 'off return');
 
 ###############################################################################

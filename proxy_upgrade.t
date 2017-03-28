@@ -203,7 +203,7 @@ sub upgrade_getline {
 	}
 
 	$s->blocking(0);
-	while (IO::Select->new($s)->can_read(1.5)) {
+	while (IO::Select->new($s)->can_read(3)) {
 		my $n = $s->sysread($buf, 1024);
 		last unless $n;
 

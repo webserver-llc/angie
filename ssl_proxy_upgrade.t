@@ -232,8 +232,11 @@ sub upgrade_getline {
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_read(3)) {
 		my $n = $s->sysread($buf, 16384);
-		unless ($n) {
+		if (!defined $n) {
 			next if $s->errstr() == IO::Socket::SSL->SSL_WANT_READ;
+			last;
+
+		} elsif (!$n) {
 			last;
 		}
 

@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -55,7 +57,7 @@ $t->try_run('no worker_shutdown_timeout')->plan(1);
 my $s = http('', start => 1);
 
 kill 'HUP', $t->read_file('nginx.pid');
-sleep 1;
+IO::Select->new($s)->can_read(2);
 
 is(http_get('/', socket => $s) || '', '', 'worker_shutdown_timeout');
 

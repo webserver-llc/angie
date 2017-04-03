@@ -57,7 +57,10 @@ $t->try_run('no worker_shutdown_timeout')->plan(1);
 my $s = http('', start => 1);
 
 kill 'HUP', $t->read_file('nginx.pid');
-IO::Select->new($s)->can_read(2);
+
+if (IO::Select->new($s)->can_read(5)) {
+	Test::Nginx::log_core('||', "select: can_read");
+}
 
 is(http_get('/', socket => $s) || '', '', 'worker_shutdown_timeout');
 

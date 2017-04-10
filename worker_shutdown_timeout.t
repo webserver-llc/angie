@@ -56,6 +56,8 @@ $t->try_run('no worker_shutdown_timeout')->plan(1);
 
 my $s = http('', start => 1);
 
+select undef, undef, undef, 0.2;
+
 kill 'HUP', $t->read_file('nginx.pid');
 
 if (IO::Select->new($s)->can_read(5)) {

@@ -153,10 +153,22 @@ sub pp_get {
 
 	my $s = http($proxy, start => 1);
 
-	IO::Socket::SSL->start_SSL($s,
-		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-		SSL_error_trap => sub { die $_[1] }
-	);
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(2);
+		IO::Socket::SSL->start_SSL($s,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+			SSL_error_trap => sub { die $_[1] }
+		);
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
 
 	return http(<<EOF, socket => $s);
 GET $url HTTP/1.0

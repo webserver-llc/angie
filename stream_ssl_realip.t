@@ -131,10 +131,22 @@ sub pp_get {
 	my $s = stream(PeerPort => port($port));
 	$s->write($proxy);
 
-	IO::Socket::SSL->start_SSL($s->{_socket},
-		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-		SSL_error_trap => sub { die $_[1] }
-	);
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(2);
+		IO::Socket::SSL->start_SSL($s->{_socket},
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+			SSL_error_trap => sub { die $_[1] }
+		);
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
 
 	return $s->read();
 }

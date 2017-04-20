@@ -97,10 +97,10 @@ $t->waitforfile($t->testdir . '/' . port(8085));
 
 my @ports = my ($port4, $port5, $port6) = (port(8084), port(8085), port(8086));
 
-is(many(30, port(8080)), "$port4: 15, $port5: 15", 'balanced');
-is(many(30, port(8081)), "$port4: 15, $port5: 15", 'failures');
-is(many(30, port(8082)), "$port4: 10, $port5: 20", 'weight');
-is(many(30, port(8083)), "$port4: 30", 'backup');
+is(many(10, port(8080)), "$port4: 5, $port5: 5", 'balanced');
+is(many(10, port(8081)), "$port4: 5, $port5: 5", 'failures');
+is(many(9, port(8082)), "$port4: 3, $port5: 6", 'weight');
+is(many(10, port(8083)), "$port4: 10", 'backup');
 
 $t->stop();
 

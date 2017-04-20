@@ -346,7 +346,12 @@ EOF
 	$f->{http_end} = sub {
 		my $buf = '';
 
-		fastcgi_respond($client, $version, $id, <<EOF);
+		eval {
+			local $SIG{ALRM} = sub { die "timeout\n" };
+			local $SIG{PIPE} = sub { die "sigpipe\n" };
+			alarm(5);
+
+			fastcgi_respond($client, $version, $id, <<EOF);
 Status: 200 OK
 Connection: close
 X-Port: $port
@@ -354,12 +359,7 @@ X-Port: $port
 OK
 EOF
 
-		$client->close;
-
-		eval {
-			local $SIG{ALRM} = sub { die "timeout\n" };
-			local $SIG{PIPE} = sub { die "sigpipe\n" };
-			alarm(5);
+			$client->close;
 
 			$s->sysread($buf, 1024);
 			log_in($buf);

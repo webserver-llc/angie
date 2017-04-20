@@ -115,6 +115,8 @@ sub http_keepalive {
 	$opts{sleep} = $opts{sleep} || 0;
 	$opts{method} = $opts{method} || 'GET';
 
+	local $SIG{PIPE} = 'IGNORE';
+
 	my $s = http('', start => 1);
 
 	for my $i (1 .. $opts{req}) {
@@ -129,7 +131,7 @@ User-Agent: $opts{ua}
 EOF
 
 		while (IO::Select->new($s)->can_read(3)) {
-			sysread($s, my $buffer, 4096);
+			sysread($s, my $buffer, 4096) or last;
 			$data .= $buffer;
 			last if $data =~ /^\x0d\x0a/ms;
 		}

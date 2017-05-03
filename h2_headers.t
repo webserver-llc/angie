@@ -26,7 +26,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(92)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(93)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -606,13 +606,14 @@ $sid = $s->new_stream({ path => '/continuation?h=' . 'x' x 2**13 });
 
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }]);
 my @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
-is(@{$data[-1]->{headers}{'x-longheader'}}, 3,
+my $data = $data[-1];
+is(@{$data->{headers}{'x-longheader'}}, 3,
 	'response CONTINUATION - headers');
-is($data[-1]->{headers}{'x-longheader'}[0], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[0], 'x' x 2**13,
 	'response CONTINUATION - header 1');
-is($data[-1]->{headers}{'x-longheader'}[1], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[1], 'x' x 2**13,
 	'response CONTINUATION - header 2');
-is($data[-1]->{headers}{'x-longheader'}[2], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[2], 'x' x 2**13,
 	'response CONTINUATION - header 3');
 @data = sort { $a <=> $b } map { $_->{length} } @data;
 cmp_ok($data[-1], '<=', 2**14, 'response CONTINUATION - max frame size');
@@ -624,13 +625,14 @@ $sid = $s->new_stream({ path => '/continuation/204?h=' . 'x' x 2**13 });
 
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }]);
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
-is(@{$data[-1]->{headers}{'x-longheader'}}, 3,
+$data = $data[-1];
+is(@{$data->{headers}{'x-longheader'}}, 3,
 	'no body CONTINUATION - headers');
-is($data[-1]->{headers}{'x-longheader'}[0], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[0], 'x' x 2**13,
 	'no body CONTINUATION - header 1');
-is($data[-1]->{headers}{'x-longheader'}[1], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[1], 'x' x 2**13,
 	'no body CONTINUATION - header 2');
-is($data[-1]->{headers}{'x-longheader'}[2], 'x' x 2**13,
+is($data->{headers}{'x-longheader'}[2], 'x' x 2**13,
 	'no body CONTINUATION - header 3');
 @data = sort { $a <=> $b } map { $_->{length} } @data;
 cmp_ok($data[-1], '<=', 2**14, 'no body CONTINUATION - max frame size');
@@ -674,11 +676,18 @@ $sid = $s->new_stream({ path => '/continuation?h=' . 'x' x 2**15 });
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }]);
 
 @data = grep { $_->{type} =~ "HEADERS|CONTINUATION" } @$frames;
+ok(@data, 'response header split');
+
+SKIP: {
+skip 'response header split failed', 2 unless @data;
+
 my ($lengths) = sort { $b <=> $a } map { $_->{length} } @data;
 cmp_ok($lengths, '<=', 16384, 'response header split - max size');
 
-is(length join('', @{@$frames[-1]->{headers}->{'x-longheader'}}), 98304,
+is(length join('', @{$data[-1]->{headers}->{'x-longheader'}}), 98304,
 	'response header split - headers');
+
+}
 
 # max_field_size - header field name
 

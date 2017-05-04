@@ -95,6 +95,8 @@ ok($s, 'connection');
 SKIP: {
 skip 'connection failed', 3 unless $s;
 
+local $SIG{PIPE} = 'IGNORE';
+
 Net::SSLeay::write($ssl, 'GET / HTTP/1.0' . CRLF);
 
 ok(Net::SSLeay::renegotiate($ssl), 'renegotiation');

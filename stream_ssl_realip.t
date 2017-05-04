@@ -30,7 +30,7 @@ plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return stream_realip ipv6/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return stream_realip/)
 	->has(qw/stream_ssl/)->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 

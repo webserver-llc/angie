@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_access ipv6 unix/);
+my $t = Test::Nginx->new()->has(qw/stream stream_access unix/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

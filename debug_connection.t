@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http --with-debug ipv6 proxy/);
+my $t = Test::Nginx->new()->has(qw/http --with-debug proxy/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

@@ -26,7 +26,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return stream_realip ipv6/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return stream_realip/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

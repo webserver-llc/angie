@@ -81,8 +81,7 @@ like(http_get('/var?b=127.0.0.1:' . port(8081) . '/'), qr/SEE-THIS/,
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
 
 SKIP: {
-skip 'no ipv6', 1 unless $t->has_module('ipv6') or $t->has_feature('ipv6')
-	and socket(my $s, &AF_INET6, &SOCK_STREAM, 0);
+skip 'no ipv6', 1 unless socket(my $s, &AF_INET6, &SOCK_STREAM, 0);
 
 TODO: {
 todo_skip 'heap-buffer-overflow', 1

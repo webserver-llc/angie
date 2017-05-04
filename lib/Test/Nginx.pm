@@ -233,10 +233,6 @@ sub has_feature($) {
 		return $^O ne 'MSWin32';
 	}
 
-	if ($feature eq 'ipv6') {
-		return $self->has_version('1.11.5');
-	}
-
 	return 0;
 }
 

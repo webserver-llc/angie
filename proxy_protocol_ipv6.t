@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http ipv6 realip stream/);
+my $t = Test::Nginx->new()->has(qw/http realip stream/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

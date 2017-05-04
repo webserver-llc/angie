@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http access ipv6 realip/);
+my $t = Test::Nginx->new()->has(qw/http access realip/);
 
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(18);
 

@@ -294,7 +294,10 @@ is($frame->{code}, 1, 'GOAWAY invalid stream - GOAWAY PROTOCOL_ERROR');
 # N.B. other implementation returns zero code, which is not anyhow regulated
 
 $s = Test::Nginx::HTTP2->new();
-syswrite($s->{socket}, pack("x2C2xN", 4, 0x5, 1));
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C2xN", 4, 0x5, 1));
+}
 $frames = $s->read(all => [{ type => "GOAWAY" }]);
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;

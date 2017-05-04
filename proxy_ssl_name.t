@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni proxy/)
-	->has_daemon('openssl')->plan(8)
+	->has_daemon('openssl')->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -94,15 +94,15 @@ http {
             proxy_ssl_server_name on;
         }
 
-        #location /ip6 {
-        #    proxy_pass https://[::1]:%%PORT_8081%%/;
-        #    proxy_ssl_server_name on;
-        #}
+        location /ip6 {
+            proxy_pass https://[::1]:%%PORT_8081%%/;
+            proxy_ssl_server_name on;
+        }
     }
 
     server {
         listen 127.0.0.1:8081 ssl;
-        #listen [::1]:%%PORT_8081%% ssl;
+        listen [::1]:%%PORT_8081%% ssl;
         server_name 1.example.com;
 
         ssl_certificate localhost.crt;
@@ -148,6 +148,6 @@ like(http_get('/default'), qr/200 OK.*X-Name: backend,/ms, 'default again');
 
 like(http_get('/port'), qr/200 OK.*X-Name: backend,/ms, 'no port in name');
 like(http_get('/ip'), qr/200 OK.*X-Name: ,/ms, 'no ip');
-#like(http_get('/ip6'), qr/200 OK.*X-Name: ,/ms, 'no ipv6');
+like(http_get('/ip6'), qr/200 OK.*X-Name: ,/ms, 'no ipv6');
 
 ###############################################################################

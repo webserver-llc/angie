@@ -101,7 +101,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no stream proxy_protocol and/or inet6 support')->plan(6);
+$t->try_run('no stream proxy_protocol')->plan(6);
 
 ###############################################################################
 

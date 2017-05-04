@@ -86,7 +86,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream geo and/or inet6 support')->plan(6);
+$t->try_run('no stream geo')->plan(6);
 
 ###############################################################################
 

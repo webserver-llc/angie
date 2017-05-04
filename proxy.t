@@ -80,16 +80,11 @@ like(http_get('/var?b=127.0.0.1:' . port(8081) . '/'), qr/SEE-THIS/,
 	'proxy with variables');
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
 
-SKIP: {
-skip 'no ipv6', 1 unless socket(my $s, &AF_INET6, &SOCK_STREAM, 0);
-
 TODO: {
 todo_skip 'heap-buffer-overflow', 1
 	unless $ENV{TEST_NGINX_UNSAFE} or $t->has_version('1.11.0');
 
 ok(http_get("/var?b=[::]"), 'proxy with variables - no ipv6 port');
-
-}
 
 }
 

@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_map/);
+my $t = Test::Nginx->new()->has(qw/stream stream_map gzip/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

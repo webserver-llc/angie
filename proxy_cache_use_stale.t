@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -22,7 +24,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite limit_req/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite limit_req ssi/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -42,6 +44,11 @@ http {
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
+
+        location /ssi.html {
+            ssi on;
+            sendfile_max_chunk  4k;
+        }
 
         location / {
             proxy_pass    http://127.0.0.1:8081;
@@ -74,6 +81,12 @@ http {
                 proxy_cache_use_stale  updating;
             }
 
+            location /t7.html {
+                proxy_pass    http://127.0.0.1:8081;
+
+                sendfile_max_chunk  4k;
+            }
+
             location /t8.html {
                 proxy_pass    http://127.0.0.1:8081/t.html;
 
@@ -91,6 +104,10 @@ http {
 
         add_header Cache-Control $http_x_cache_control;
 
+        if ($arg_lim) {
+            set $limit_rate 1k;
+        }
+
         if ($arg_e) {
             return 500;
         }
@@ -99,6 +116,10 @@ http {
 
         location /t6.html {
             limit_req zone=one burst=2;
+        }
+
+        location /t9.html {
+            add_header Cache-Control "max-age=1, stale-while-revalidate=10";
         }
     }
 }
@@ -110,8 +131,11 @@ $t->write_file('tt.html', 'SEE-THIS');
 $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('t3.html', 'SEE-THIS');
 $t->write_file('t6.html', 'SEE-THIS');
+$t->write_file('t7.html', 'SEE-THIS' x 1024);
+$t->write_file('t9.html', 'SEE-THIS' x 1024);
+$t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html" --> xxx');
 
-$t->try_run('no proxy_cache_background_update')->plan(27);
+$t->try_run('no proxy_cache_background_update')->plan(29);
 
 ###############################################################################
 
@@ -127,6 +151,8 @@ get('/t3.html', 'max-age=1, stale-while-revalidate=2');
 get('/t4.html', 'max-age=1, stale-while-revalidate=2');
 get('/t5.html', 'max-age=1, stale-while-revalidate=2');
 get('/t6.html', 'max-age=1, stale-while-revalidate=2');
+get('/t7.html', 'max-age=1, stale-while-revalidate=10');
+http_get('/ssi.html');
 get('/updating/t.html', 'max-age=1');
 get('/updating/t2.html', 'max-age=1, stale-while-revalidate=2');
 get('/t8.html', 'stale-while-revalidate=10');
@@ -179,6 +205,26 @@ like(http_get('/tt.html?e=1'), qr/ 500 /, 's-i-e - ceased');
 like(http_get('/updating/t2.html'), qr/STALE/,
 	's-w-r - overriden with use_stale updating');
 
+# stale response not blocked by background update.
+# before 1.13.1, if stale response was not sent in one pass, its remaining
+# part was blocked and not sent until background update has been finished
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.1');
+
+$t->write_file('t7.html', 'SEE-THAT' x 1024);
+
+my $r = read_all(get('/t7.html?lim=1', 'max-age=1', start => 1));
+like($r, qr/STALE.*^(SEE-THIS){1024}$/ms, 's-w-r - stale response not blocked');
+
+$t->write_file('t9.html', 'SEE-THAT' x 1024);
+$t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html?lim=1" --> xxx');
+
+$r = read_all(http_get('/ssi.html', start => 1));
+like($r, qr/^xxx (SEE-THIS){1024} xxx$/ms, 's-w-r - not blocked in subrequest');
+
+}
+
 # due to the missing content_handler inheritance in a cloned subrequest,
 # this used to access a static file in the update request
 
@@ -202,6 +248,19 @@ Connection: close
 X-Cache-Control: $extra
 
 EOF
+}
+
+# background update is known to postpone closing connection with client
+
+sub read_all {
+	my ($s) = @_;
+	my $r = '';
+	while (IO::Select->new($s)->can_read(1)) {
+		$s->sysread(my $buf, 8192) or last;
+		log_in($buf);
+		$r .= $buf;
+	}
+	return $r;
 }
 
 ###############################################################################

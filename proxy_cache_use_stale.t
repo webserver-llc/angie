@@ -225,6 +225,11 @@ like($r, qr/^xxx (SEE-THIS){1024} xxx$/ms, 's-w-r - not blocked in subrequest');
 
 }
 
+# "aio_write" is used to produce "open socket ... left in connection" alerts.
+
+$t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio_write on/
+        and $t->read_file('nginx.conf') =~ /aio threads/ and $^O eq 'freebsd';
+
 # due to the missing content_handler inheritance in a cloned subrequest,
 # this used to access a static file in the update request
 

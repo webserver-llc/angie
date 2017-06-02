@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(16)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(17)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -172,6 +172,17 @@ like(http(
 	. 'Range: bytes=0-1,3-5' . CRLF . CRLF
 ), qr/Content-Length: (?!42).*^xx\x0d.*^xxx\x0d/ms,
 	'perl header_out content-length multipart');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http(
+	'GET /range HTTP/1.0' . CRLF
+	. 'Host: localhost' . CRLF
+	. 'Range: bytes=100000-' . CRLF . CRLF
+), qr|^\QHTTP/1.1 416\E.*(?!xxx)|ms, 'perl range not satisfiable');
+
+}
 
 # various request body tests
 

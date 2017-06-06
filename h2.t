@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(143);
+	->plan(144);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -61,7 +61,7 @@ http {
         }
         location /frame_size {
             http2_chunk_size 64k;
-            alias %%TESTDIR%%/t1.html;
+            alias %%TESTDIR%%;
             output_buffers 2 1m;
         }
         location /chunk_size {
@@ -798,6 +798,24 @@ is(@$frames[0]->{length}, 1, 'positive window - data length');
 
 }
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.2');
+
+$s = Test::Nginx::HTTP2->new();
+$s->h2_window(2**30);
+$s->h2_settings(0, 0x4 => 2**30);
+
+$sid = $s->new_stream({ path => '/frame_size/tbig.html' });
+
+sleep 1;
+$s->h2_settings(0, 0x5 => 2**15);
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+$lengths = join ' ', map { $_->{length} } @$frames;
+unlike($lengths, qr/16384 0 16384/, 'SETTINGS ack after queued DATA');
+
+}
+
 # ask write handler in sending large response
 
 SKIP: {
@@ -845,7 +863,7 @@ ok(!grep ({ $_->{type} eq "PING" } @$frames), 'large response - send timeout');
 # SETTINGS_MAX_FRAME_SIZE
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/frame_size' });
+$sid = $s->new_stream({ path => '/frame_size/t1.html' });
 $s->h2_window(2**18, 1);
 $s->h2_window(2**18);
 
@@ -855,7 +873,7 @@ is($data[0]->{length}, 2**14, 'max frame size - default');
 
 $s = Test::Nginx::HTTP2->new();
 $s->h2_settings(0, 0x5 => 2**15);
-$sid = $s->new_stream({ path => '/frame_size' });
+$sid = $s->new_stream({ path => '/frame_size/t1.html' });
 $s->h2_window(2**18, 1);
 $s->h2_window(2**18);
 
@@ -874,7 +892,7 @@ $s = Test::Nginx::HTTP2->new();
 $s->h2_window(2**17);
 $s->h2_settings(0, 0x4 => 42);
 
-$sid = $s->new_stream({ path => '/frame_size' });
+$sid = $s->new_stream({ path => '/frame_size/t1.html' });
 
 $s->h2_settings(0, 0x4 => 2**17, 0x5 => 2**15);
 

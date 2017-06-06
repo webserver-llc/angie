@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(141);
+	->plan(143);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -210,8 +210,36 @@ $frames = $s->read(all => [{ type => 'SETTINGS' }]);
 ok($frame, 'SETTINGS frame ack');
 is($frame->{flags}, 1, 'SETTINGS flags ack');
 
+# SETTINGS - no ack on PROTOCOL_ERROR
+
+$s = Test::Nginx::HTTP2->new(port(8080), pure => 1);
+$frames = $s->read(all => [
+	{ type => 'WINDOW_UPDATE' },
+	{ type => 'SETTINGS'}
+]);
+
+$s->h2_settings(1);
+$s->h2_settings(0, 0x5 => 42);
+
+$frames = $s->read(all => [
+	{ type => 'SETTINGS'},
+	{ type => 'GOAWAY' }
+]);
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.2');
+
+($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
+is($frame, undef, 'SETTINGS PROTOCOL_ERROR - no ack');
+
+}
+
+($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
+ok($frame, 'SETTINGS PROTOCOL_ERROR - GOAWAY');
+
 # PING
 
+$s = Test::Nginx::HTTP2->new();
 $s->h2_ping('SEE-THIS');
 $frames = $s->read(all => [{ type => 'PING' }]);
 

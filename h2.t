@@ -893,13 +893,14 @@ $s->h2_window(2**17);
 $s->h2_settings(0, 0x4 => 42);
 
 $sid = $s->new_stream({ path => '/frame_size/t1.html' });
+$s->read(all => [{ sid => $sid, length => 42 }]);
 
 $s->h2_settings(0, 0x4 => 2**17, 0x5 => 2**15);
 
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $lengths = join ' ', map { $_->{length} } @data;
-is($lengths, '42 32768 32768 38', 'multiple SETTINGS');
+is($lengths, '32768 32768 38', 'multiple SETTINGS');
 
 }
 

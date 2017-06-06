@@ -116,11 +116,11 @@ sub h2_window {
 }
 
 sub h2_settings {
-	my ($self, $ack, %extra) = @_;
+	my ($self, $ack, @pairs) = @_;
 
-	my $len = 6 * keys %extra;
+	my $len = 6 * @pairs / 2;
 	my $buf = pack_length($len) . pack "CCx4", 0x4, $ack ? 0x1 : 0x0;
-	$buf .= join '', map { pack "nN", $_, $extra{$_} } keys %extra;
+	$buf .= pack "nN", splice @pairs, 0, 2 while @pairs;
 	raw_write($self->{socket}, $buf);
 }
 

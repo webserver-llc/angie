@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(140);
+	->plan(141);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -834,6 +834,28 @@ $s->h2_window(2**18);
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 is($data[0]->{length}, 2**15, 'max frame size - custom');
+
+# SETTINGS_INITIAL_WINDOW_SIZE + SETTINGS_MAX_FRAME_SIZE
+# Expanding available stream window should not result in emitting
+# new frames before remaining SETTINGS parameters were applied.
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.2');
+
+$s = Test::Nginx::HTTP2->new();
+$s->h2_window(2**17);
+$s->h2_settings(0, 0x4 => 42);
+
+$sid = $s->new_stream({ path => '/frame_size' });
+
+$s->h2_settings(0, 0x4 => 2**17, 0x5 => 2**15);
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$lengths = join ' ', map { $_->{length} } @data;
+is($lengths, '42 32768 32768 38', 'multiple SETTINGS');
+
+}
 
 # stream multiplexing + WINDOW_UPDATE
 

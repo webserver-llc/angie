@@ -175,7 +175,7 @@ like(http_get('/t5.html?e=1'), qr/STALE/,
 	's-w-r - foreground revalidate error');
 like(http_get('/t5.html'), qr/REVALIDATED/, 's-w-r - foreground revalidated');
 
-# UPDATING while s–w-r
+# UPDATING while s-w-r
 
 $t->write_file('t6.html', 'SEE-THAT');
 

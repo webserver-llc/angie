@@ -964,7 +964,7 @@ is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
 # missing mandatory request header ':scheme'
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.13.2');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [

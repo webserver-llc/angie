@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(10)
+my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(11)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -35,6 +35,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     log_format test "$uri:$status";
+    log_format long "long line $uri:$status";
     log_format binary $binary_remote_addr;
 
     server {
@@ -80,6 +81,7 @@ http {
         location /multi {
             access_log %%TESTDIR%%/multi1.log test;
             access_log %%TESTDIR%%/multi2.log test;
+            access_log %%TESTDIR%%/long.log long;
             return 200 OK;
         }
 
@@ -199,6 +201,8 @@ is($t->read_file('multi1.log'), "/multi:200\n", 'multiple logs 1');
 # same content in the second log
 
 is($t->read_file('multi2.log'), "/multi:200\n", 'multiple logs 2');
+
+is($t->read_file('long.log'), "long line /multi:200\n", 'long line format');
 
 # test log destinations with variables
 

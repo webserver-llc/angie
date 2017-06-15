@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni proxy/)
-	->has_daemon('openssl')->plan(9)
+	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -134,7 +134,7 @@ foreach my $name ('localhost') {
 
 $t->write_file('index.html', '');
 
-$t->run();
+$t->try_run('no inet6 support')->plan(9);
 
 ###############################################################################
 

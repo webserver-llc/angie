@@ -64,7 +64,7 @@ stream {
 EOF
 
 $t->write_file('t', 'SEE-THIS');
-$t->run()->plan(3);
+$t->try_run('no inet6 support')->plan(3);
 
 ###############################################################################
 

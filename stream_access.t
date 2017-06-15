@@ -146,7 +146,7 @@ stream {
 
 EOF
 
-$t->run()->plan(18);
+$t->try_run('no inet6 support')->plan(18);
 $t->run_daemon(\&stream_daemon);
 $t->waitforsocket('127.0.0.1:' . port(8080));
 

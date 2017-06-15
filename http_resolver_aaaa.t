@@ -67,7 +67,7 @@ http {
 
 EOF
 
-$t->run()->plan(72);
+$t->try_run('no inet6 support')->plan(72);
 
 $t->run_daemon(\&dns_daemon, port(8081), $t);
 $t->run_daemon(\&dns_daemon, port(8082), $t);

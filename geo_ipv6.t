@@ -91,7 +91,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('addr', '');
-$t->run();
+$t->try_run('no inet6 support');
 
 plan(skip_all => 'no ::1 on host')
 	if http_get('/addr') !~ /X-IP: ::1/m;

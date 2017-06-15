@@ -76,7 +76,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream return')->plan(8);
+$t->try_run('no stream return or inet6 support')->plan(8);
 
 ###############################################################################
 

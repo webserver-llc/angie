@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(11)
+my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -90,6 +90,12 @@ http {
             return 200 OK;
         }
 
+        location /cache {
+            open_log_file_cache max=3 inactive=20s valid=1m min_uses=2;
+            access_log %%TESTDIR%%/dir/cache_${arg_logname} test;
+            return 200 OK;
+        }
+
         location /binary {
             access_log %%TESTDIR%%/binary.log binary;
         }
@@ -98,6 +104,7 @@ http {
 
 EOF
 
+mkdir $t->testdir() . '/dir';
 $t->run();
 
 ###############################################################################
@@ -135,6 +142,21 @@ http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
 
 http_get('/binary');
+
+http_get('/cache?logname=lru');
+http_get('/cache?logname=lru');
+http_get('/cache?logname=once');
+http_get('/cache?logname=first');
+http_get('/cache?logname=first');
+http_get('/cache?logname=second');
+http_get('/cache?logname=second');
+
+chmod 0000, $t->testdir() . '/dir';
+
+http_get('/cache?logname=lru');
+http_get('/cache?logname=once');
+http_get('/cache?logname=first');
+http_get('/cache?logname=second');
 
 # wait for file to appear with nonzero size thanks to the flush parameter
 
@@ -215,5 +237,17 @@ is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
 my $expected = join '', map { sprintf "\\x%02X", $_ } split /\./, $addr;
 
 is($t->read_file('binary.log'), "$expected\n", 'binary');
+
+chmod 0755, $t->testdir() . '/dir';
+
+SKIP: {
+skip 'win32', 4 if $^O eq 'MSWin32';
+
+is(@{[$t->read_file('/dir/cache_lru') =~ /\//g]}, 2, 'cache - closed lru');
+is(@{[$t->read_file('/dir/cache_once') =~ /\//g]}, 1, 'cache - min_uses');
+is(@{[$t->read_file('/dir/cache_first') =~ /\//g]}, 3, 'cache - cached 1');
+is(@{[$t->read_file('/dir/cache_second') =~ /\//g]}, 3, 'cache - cached 2');
+
+}
 
 ###############################################################################

@@ -158,6 +158,8 @@ http_get('/cache?logname=once');
 http_get('/cache?logname=first');
 http_get('/cache?logname=second');
 
+chmod 0755, $t->testdir() . '/dir';
+
 # wait for file to appear with nonzero size thanks to the flush parameter
 
 for (1 .. 10) {
@@ -237,8 +239,6 @@ is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
 my $expected = join '', map { sprintf "\\x%02X", $_ } split /\./, $addr;
 
 is($t->read_file('binary.log'), "$expected\n", 'binary');
-
-chmod 0755, $t->testdir() . '/dir';
 
 SKIP: {
 skip 'win32', 4 if $^O eq 'MSWin32';

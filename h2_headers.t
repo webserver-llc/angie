@@ -110,12 +110,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon);
-
-open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run();
-open STDERR, ">&", \*OLDERR;
-
-$t->waitforsocket('127.0.0.1:' . port(8083));
+$t->run()->waitforsocket('127.0.0.1:' . port(8083));
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 

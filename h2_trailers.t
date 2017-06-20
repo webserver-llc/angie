@@ -109,8 +109,7 @@ is($frame->{flags}, 5, 'no data - trailer flags');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/continuation?h=' . 'x' x 2**12 });
-$frames = $s->read(all => [{ sid => $sid, fin => 0x4 }]);
-push @$frames, @{$s->read(all => [{ sid => $sid, fin => 0x4 }])};
+$frames = $s->read(all => [{ sid => $sid, type => 'CONTINUATION' }]);
 @$frames = grep { $_->{type} =~ "HEADERS|CONTINUATION|DATA" } @$frames;
 
 is(@$frames, 4, 'continuation - frames');

@@ -113,12 +113,12 @@ $t->run();
 
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
 
 like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup');
 like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup 2');
-like(http_get('/backup_reuse'), qr/200 OK.*X-Session: \./s, 'backup reuse');
-like(http_get('/backup_reuse'), qr/200 OK.*X-Session: r/s, 'backup reuse 2');
+like(http_get('/backup_reuse'), qr/200 OK.*X-Session: \./s, 'backup new');
+like(http_get('/backup_reuse'), qr/200 OK.*X-Session: r/s, 'backup reused');
 
 ###############################################################################

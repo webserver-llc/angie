@@ -107,8 +107,8 @@ $t->waitforsocket('127.0.0.1:' . port(8083));
 
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
-like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 
 TODO: {

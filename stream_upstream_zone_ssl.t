@@ -16,13 +16,14 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl http http_ssl/)
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
 	->has(qw/stream_upstream_zone/)->has_daemon('openssl')->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -70,21 +71,14 @@ stream {
         listen      127.0.0.1:8083;
         proxy_pass  u2;
     }
-}
-
-http {
-    %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen 127.0.0.1:8084 ssl;
+        listen      127.0.0.1:8084 ssl;
+        return      $ssl_session_reused;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
         ssl_session_cache builtin;
-
-        location / {
-            add_header X-Session $ssl_session_reused;
-        }
     }
 }
 
@@ -97,8 +91,6 @@ encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
 EOF
-
-$t->write_file('index.html', '');
 
 my $d = $t->testdir();
 
@@ -114,35 +106,16 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
-	qr/200 OK.*X-Session: \./s, 'ssl 2');
+is(stream('127.0.0.1:' . port(8080))->read(), '.', 'ssl');
+is(stream('127.0.0.1:' . port(8080))->read(), '.', 'ssl 2');
 
-like(http_get('/'), qr/200 OK.*X-Session: \./s, 'ssl reuse session');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8081))),
-	qr/200 OK.*X-Session: r/s, 'ssl reuse session 2');
+is(stream('127.0.0.1:' . port(8081))->read(), '.', 'ssl session new');
+is(stream('127.0.0.1:' . port(8081))->read(), 'r', 'ssl session reused');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
-	qr/200 OK.*X-Session: \./s, 'ssl backup');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
-	qr/200 OK.*X-Session: \./s, 'ssl backup 2');
+is(stream('127.0.0.1:' . port(8082))->read(), '.', 'backup ssl');
+is(stream('127.0.0.1:' . port(8082))->read(), '.', 'backup ssl 2');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8082))),
-	qr/200 OK.*X-Session: \./s, 'ssl reuse session backup');
-like(http_get('/', socket => getconn('127.0.0.1:' . port(8083))),
-	qr/200 OK.*X-Session: r/s, 'ssl reuse session backup 2');
-
-###############################################################################
-
-sub getconn {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
-}
+is(stream('127.0.0.1:' . port(8083))->read(), '.', 'backup ssl session new');
+is(stream('127.0.0.1:' . port(8083))->read(), 'r', 'backup ssl session reused');
 
 ###############################################################################

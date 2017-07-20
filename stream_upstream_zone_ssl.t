@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
-	->has(qw/stream_upstream_zone/)->has_daemon('openssl')->plan(8);
+	->has(qw/stream_upstream_zone/)->has_daemon('openssl')->plan(9);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -111,6 +111,7 @@ is(stream('127.0.0.1:' . port(8080))->read(), '.', 'ssl 2');
 
 is(stream('127.0.0.1:' . port(8081))->read(), '.', 'ssl session new');
 is(stream('127.0.0.1:' . port(8081))->read(), 'r', 'ssl session reused');
+is(stream('127.0.0.1:' . port(8081))->read(), 'r', 'ssl session reused 2');
 
 is(stream('127.0.0.1:' . port(8082))->read(), '.', 'backup ssl');
 is(stream('127.0.0.1:' . port(8082))->read(), '.', 'backup ssl 2');

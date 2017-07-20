@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl upstream_zone/)
-	->has_daemon('openssl')->plan(8)
+	->has_daemon('openssl')->plan(9)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -115,6 +115,7 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused 2');
 
 like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup');
 like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup 2');

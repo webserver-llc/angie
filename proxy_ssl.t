@@ -25,7 +25,7 @@ eval { require IO::Socket::SSL; };
 plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(7)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -109,6 +109,7 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
+like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused 2');
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 
 TODO: {

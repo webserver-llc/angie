@@ -50,6 +50,11 @@ stream {
         server 127.0.0.1:8092;
     }
 
+    upstream next {
+        server 127.0.0.1:8094;
+        server 127.0.0.1:8080;
+    }
+
     ssl_preread  on;
 
     server {
@@ -76,6 +81,14 @@ stream {
         preread_buffer_size  42;
 
         access_log %%TESTDIR%%/status.log status;
+    }
+
+    server {
+        listen       127.0.0.1:8084;
+        proxy_pass   next;
+
+        proxy_connect_timeout  2s;
+        preread_buffer_size    8;
     }
 
     ssl_certificate_key localhost.key;
@@ -109,7 +122,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-$t->plan(11);
+$t->plan(12);
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
@@ -133,7 +146,7 @@ $t->run();
 
 ###############################################################################
 
-my ($p1, $p2, $p3) = (port(8091), port(8092), port(8093));
+my ($p1, $p2, $p3, $p4) = (port(8091), port(8092), port(8093), port(8084));
 
 is(get_ssl('foo', 8081), $p1, 'sni');
 is(get_ssl('foo', 8081), $p1, 'sni again');
@@ -147,6 +160,14 @@ is(get_ssl('', 8081), $p3, 'no sni');
 is(get_ssl('foo', 8082), $p3, 'preread off');
 is(get_ssl('foo', 8083), undef, 'preread buffer full');
 is(stream()->io('x' x 1000), "127.0.0.1:$p3", 'not a handshake');
+
+TODO: {
+local $TODO = 'not yet';
+
+is(stream("127.0.0.1:$p4")->io('x' x 16), "127.0.0.1:$p3",
+	'pending buffers on next upstream');
+
+}
 
 # no junk in variable due to short ClientHello length value
 

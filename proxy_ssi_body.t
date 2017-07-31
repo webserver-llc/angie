@@ -58,7 +58,8 @@ EOF
 $t->write_file('ssi.html', 'X<!--# include virtual="test.html" -->X');
 $t->write_file('test.html', 'YY');
 
-$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/;
+$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/
+	and !$t->has_version('1.13.4');
 $t->run();
 
 ###############################################################################
@@ -67,7 +68,7 @@ $t->run();
 # If later a subrequest tries to use body, it fails.
 
 TODO: {
-local $TODO = 'prematurely pruned';
+local $TODO = 'prematurely pruned' unless $t->has_version('1.13.4');
 
 like(http_get_body('/proxy/ssi.html', "1234567890"), qr/^XYYX$/m,
 	'body in file in proxied subrequest');

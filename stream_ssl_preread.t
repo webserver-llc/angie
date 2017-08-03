@@ -210,7 +210,7 @@ sub get_oldver {
 
 sub get_ssl {
 	my ($host, $port) = @_;
-	my $s = stream("127.0.0.1:$port");
+	my $s = stream('127.0.0.1:' . port($port));
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };

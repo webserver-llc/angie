@@ -33,6 +33,8 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay not installed') if $@;
 
+plan(skip_all => 'win32') if $^O eq 'MSWin32';
+
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
 
 $t->plan(7)->write_file_expand('nginx.conf', <<'EOF');

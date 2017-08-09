@@ -426,11 +426,7 @@ sub stop() {
 
 	return $self unless $self->{_started};
 
-	local $/;
-	open F, '<' . $self->{_testdir} . '/nginx.pid'
-		or die "Can't open nginx.pid: $!";
-	my $pid = <F>;
-	close F;
+	my $pid = $self->read_file('nginx.pid');
 
 	if ($^O eq 'MSWin32') {
 		my $testdir = $self->{_testdir};

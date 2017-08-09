@@ -1117,9 +1117,6 @@ undef $grace4;
 
 # GOAWAY without awaiting active streams, further streams ignored
 
-SKIP: {
-skip 'win32', 3 if $^O eq 'MSWin32';
-
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.11.6');
 
@@ -1127,7 +1124,7 @@ $s = Test::Nginx::HTTP2->new(port(8080));
 $sid = $s->new_stream({ path => '/t1.html' });
 $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
-kill 'HUP', $t->read_file('nginx.pid');
+$t->reload();
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
@@ -1149,8 +1146,6 @@ $frames = $s->read(all => [{ sid => $sid, fin => 0x1 }]);
 @data = grep { $_->{type} eq "DATA" && $_->{sid} == $sid } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 81, 'GOAWAY with active stream - active stream DATA after GOAWAY');
-
-}
 
 # GOAWAY - force closing a connection by server with idle or active streams
 

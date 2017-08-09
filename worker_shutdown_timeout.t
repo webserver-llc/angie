@@ -24,8 +24,6 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 my $t = Test::Nginx->new()->has(qw/http/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -58,7 +56,7 @@ my $s = http('', start => 1);
 
 select undef, undef, undef, 0.2;
 
-kill 'HUP', $t->read_file('nginx.pid');
+$t->reload();
 
 if (IO::Select->new($s)->can_read(5)) {
 	Test::Nginx::log_core('||', "select: can_read");

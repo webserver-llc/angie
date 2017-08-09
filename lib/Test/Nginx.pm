@@ -421,6 +421,29 @@ sub waitforsocket($) {
 	return undef;
 }
 
+sub reload() {
+	my ($self) = @_;
+
+	return $self unless $self->{_started};
+
+	my $pid = $self->read_file('nginx.pid');
+
+	if ($^O eq 'MSWin32') {
+		my $testdir = $self->{_testdir};
+		my @globals = $self->{_test_globals} ?
+			() : ('-g', "pid $testdir/nginx.pid; "
+			. "error_log $testdir/error.log debug;");
+		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
+			'-s', 'reload', @globals) == 0
+			or die "system() failed: $?\n";
+
+	} else {
+		kill 'HUP', $pid;
+	}
+
+	return $self;
+}
+
 sub stop() {
 	my ($self) = @_;
 

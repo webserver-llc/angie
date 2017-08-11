@@ -145,6 +145,8 @@ like(get('optional', undef, 'localhost'), qr/421 Misdirected/, 'misdirected');
 sub get {
 	my ($sni, $cert, $host) = @_;
 
+	local $SIG{PIPE} = 'IGNORE';
+
 	$host = $sni if !defined $host;
 
 	my $dest_ip = inet_aton('127.0.0.1');

@@ -124,6 +124,7 @@ sub has_module($) {
 		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',
+		mirror	=> '(?s)^(?!.*--without-http_mirror_module)',
 		userid	=> '(?s)^(?!.*--without-http_userid_module)',
 		access	=> '(?s)^(?!.*--without-http_access_module)',
 		auth_basic

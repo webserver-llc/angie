@@ -150,7 +150,7 @@ get('/tt.html', 'max-age=1, stale-if-error=2');
 get('/t3.html', 'max-age=1, stale-while-revalidate=2');
 get('/t4.html', 'max-age=1, stale-while-revalidate=2');
 get('/t5.html', 'max-age=1, stale-while-revalidate=2');
-get('/t6.html', 'max-age=1, stale-while-revalidate=2');
+get('/t6.html', 'max-age=1, stale-while-revalidate=4');
 get('/t7.html', 'max-age=1, stale-while-revalidate=10');
 http_get('/ssi.html');
 get('/updating/t.html', 'max-age=1');

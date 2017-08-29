@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache fastcgi slice rewrite/)
-	->plan(74);
+	->plan(76);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -49,6 +49,14 @@ http {
         server_name  localhost;
 
         location / { }
+
+        location /proxy/ {
+            slice 2;
+
+            proxy_pass    http://127.0.0.1:8081/;
+
+            proxy_set_header   Range  $slice_range;
+        }
 
         location /cache/ {
             slice 2;
@@ -222,6 +230,18 @@ like(get('/cache/t?im', "If-Match: bad"), qr/ 412 /, 'im bad');
 $r = get('/cache/t?if', "Range: bytes=3-4\nIf-Range: $etag");
 like($r, qr/ 206 /, 'if-range - 206 partial reply');
 like($r, qr/^34$/m, 'if-range - correct content');
+
+# respect Last-Modified from non-cacheable response with If-Range
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.5');
+
+my ($lm) = http_get('/t') =~ /Last-Modified: (.*)/;
+$r = get('/proxy/t', "Range: bytes=3-4\nIf-Range: $lm");
+like($r, qr/ 206 /, 'if-range last-modified proxy - 206 partial reply');
+like($r, qr/^34$/m, 'if-range last-modified proxy - correct content');
+
+}
 
 $r = get('/cache/t?ifb', "Range: bytes=3-4\nIf-Range: bad");
 like($r, qr/ 200 /, 'if-range bad - 200 ok');

@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(27)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(28)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -82,6 +82,10 @@ http {
 
         location /modified {
             expires modified 2048;
+
+            location /modified/proxy {
+                proxy_pass http://127.0.0.1:8081/modified;
+            }
         }
 
         location /var {
@@ -95,6 +99,13 @@ http {
                 expires modified $arg_e;
             }
         }
+    }
+
+    server {
+        listen       127.0.0.1:8081;
+        server_name  localhost;
+
+        add_header   Last-Modified "Mon, 28 Sep 1970 06:00:00 GMT";
     }
 }
 
@@ -143,6 +154,16 @@ like(http_get('/access_inner'), qr/max-age=2048/, 'expires inner');
 like(http_get('/negative'), qr/no-cache/, 'expires negative');
 like(http_get('/daily'), qr/Expires:.*:33 GMT/, 'expires daily');
 like(http_get('/modified'), qr/max-age=204./, 'expires modified');
+
+# "expires modified" with proxy
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.5');
+
+like(http_get('/modified/proxy'), qr/Expires: Mon, 28 Sep 1970 06:34:08 GMT/,
+	'expires modified proxy');
+
+}
 
 # expires with variables
 

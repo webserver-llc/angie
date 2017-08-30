@@ -46,6 +46,7 @@ http {
             proxy_cache   NAME;
             proxy_cache_valid 200 1m;
         }
+
         location /min_uses {
             proxy_pass    http://127.0.0.1:8081/;
             proxy_cache   NAME;
@@ -59,9 +60,10 @@ http {
         server_name  localhost;
 
         location / {
-            if ($arg_s) {
-                limit_rate 50k;
-            }
+        }
+
+        location /tbig.html {
+            limit_rate 50k;
         }
     }
 }
@@ -100,7 +102,7 @@ like(http_get_range('/min_uses/t.html?3', 'Range: bytes=4-'),
 like(http_get_range('/min_uses/t.html?4', 'Range: bytes=0-2,4-'),
 	qr/^SEE.*^THIS/ms, 'multipart range below min_uses');
 
-like(http_get_range('/tbig.html?s=1', 'Range: bytes=0-19'),
+like(http_get_range('/tbig.html', 'Range: bytes=0-19'),
 	qr/^XX000001XXXX000002XX$/ms, 'range of response received in parts');
 
 ###############################################################################

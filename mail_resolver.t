@@ -62,7 +62,6 @@ mail {
         protocol  smtp;
         resolver  127.0.0.1:%%PORT_8083_UDP%%;
         resolver_timeout 1s;
-
     }
 
     server {
@@ -81,6 +80,7 @@ mail {
         listen    127.0.0.1:8031;
         protocol  smtp;
         resolver  127.0.0.1:%%PORT_8086_UDP%%;
+        resolver_timeout 1s;
     }
 
     server {

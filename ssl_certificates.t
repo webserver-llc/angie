@@ -41,8 +41,6 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    ssl_dhparam dhparam.pem;
-
     ssl_certificate_key rsa.key;
     ssl_certificate rsa.crt;
 
@@ -50,8 +48,8 @@ http {
         listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
-        ssl_certificate_key dsa.key;
-        ssl_certificate dsa.crt;
+        ssl_certificate_key ec.key;
+        ssl_certificate ec.crt;
 
         ssl_certificate_key rsa.key;
         ssl_certificate rsa.crt;
@@ -73,14 +71,12 @@ EOF
 
 my $d = $t->testdir();
 
-system("openssl dhparam -dsaparam -out '$d/dhparam.pem' 1024 "
-	. ">>$d/openssl.out 2>&1") == 0 or die "Can't create DH param: $!\n";
+system("openssl ecparam -genkey -out '$d/ec.key' -name prime256v1 "
+	. ">>$d/openssl.out 2>&1") == 0 or die "Can't create EC pem: $!\n";
 system("openssl genrsa -out '$d/rsa.key' 1024 >>$d/openssl.out 2>&1") == 0
         or die "Can't create RSA pem: $!\n";
-system("openssl dsaparam -genkey -out '$d/dsa.key' 1024 >>$d/openssl 2>&1") == 0
-	or die "Can't create DSA pem: $!\n";
 
-foreach my $name ('dsa', 'rsa') {
+foreach my $name ('ec', 'rsa') {
 	system("openssl req -x509 -new -key '$d/$name.key' "
 		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
 		. "-out '$d/$name.crt' -keyout '$d/$name.key' "
@@ -88,12 +84,12 @@ foreach my $name ('dsa', 'rsa') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no multiple certificates')->plan(2);
+$t->run()->plan(2);
 
 ###############################################################################
 
 like(get_cert('RSA'), qr/CN=rsa/, 'ssl cert RSA');
-like(get_cert('DSS'), qr/CN=dsa/, 'ssl cert DSA');
+like(get_cert('ECDSA'), qr/CN=ec/, 'ssl cert ECDSA');
 
 ###############################################################################
 

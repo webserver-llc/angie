@@ -104,7 +104,10 @@ http {
 
 EOF
 
-mkdir $t->testdir() . '/dir';
+my $d = $t->testdir();
+
+mkdir "$d/dir";
+
 $t->run();
 
 ###############################################################################
@@ -151,19 +154,19 @@ http_get('/cache?logname=first');
 http_get('/cache?logname=second');
 http_get('/cache?logname=second');
 
-chmod 0000, $t->testdir() . '/dir';
+rename "$d/dir", "$d/dir_moved";
 
 http_get('/cache?logname=lru');
 http_get('/cache?logname=once');
 http_get('/cache?logname=first');
 http_get('/cache?logname=second');
 
-chmod 0755, $t->testdir() . '/dir';
+rename "$d/dir_moved",  "$d/dir";
 
 # wait for file to appear with nonzero size thanks to the flush parameter
 
 for (1 .. 10) {
-	last if -s $t->testdir() . '/compressed.log';
+	last if -s "$d/compressed.log";
 	select undef, undef, undef, 0.1;
 }
 

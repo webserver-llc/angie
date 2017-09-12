@@ -730,7 +730,7 @@ sub hunpack {
 	my $table = $ctx->{dynamic_decode};
 	my %headers;
 	my $skip = 0;
-	my ($index, $name, $value);
+	my ($index, $name, $value, $size);
 
 	my $field = sub {
 		my ($b) = @_;
@@ -782,6 +782,15 @@ sub hunpack {
 			$add->(\%headers, $name, $value);
 			next;
 		}
+
+		if (substr($ib, 0, 3) eq '001') {
+			($size, $skip) = iunpack(5, $data, $skip);
+
+			# TODO: handle dynamic table size update
+
+			next;
+		}
+
 		last;
 	}
 

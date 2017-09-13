@@ -40,42 +40,42 @@ stream {
 
     upstream hash {
         hash $remote_addr;
-        server 127.0.0.1:%%PORT_8082_UDP%%;
-        server 127.0.0.1:%%PORT_8083_UDP%%;
+        server 127.0.0.1:%%PORT_8982_UDP%%;
+        server 127.0.0.1:%%PORT_8983_UDP%%;
     }
 
     upstream cons {
         hash $remote_addr consistent;
-        server 127.0.0.1:%%PORT_8082_UDP%%;
-        server 127.0.0.1:%%PORT_8083_UDP%%;
+        server 127.0.0.1:%%PORT_8982_UDP%%;
+        server 127.0.0.1:%%PORT_8983_UDP%%;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8080_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8980_UDP%% udp;
         proxy_pass  hash;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8081_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8981_UDP%% udp;
         proxy_pass  cons;
     }
 }
 
 EOF
 
-$t->run_daemon(\&udp_daemon, port(8082), $t);
-$t->run_daemon(\&udp_daemon, port(8083), $t);
+$t->run_daemon(\&udp_daemon, port(8982), $t);
+$t->run_daemon(\&udp_daemon, port(8983), $t);
 $t->run();
 
-$t->waitforfile($t->testdir . '/' . port(8082));
-$t->waitforfile($t->testdir . '/' . port(8083));
+$t->waitforfile($t->testdir . '/' . port(8982));
+$t->waitforfile($t->testdir . '/' . port(8983));
 
 ###############################################################################
 
-my @ports = my ($port2, $port3) = (port(8082), port(8083));
+my @ports = my ($port2, $port3) = (port(8982), port(8983));
 
-is(many(10, port(8080)), "$port3: 10", 'hash');
-like(many(10, port(8081)), qr/($port2|$port3): 10/, 'hash consistent');
+is(many(10, port(8980)), "$port3: 10", 'hash');
+like(many(10, port(8981)), qr/($port2|$port3): 10/, 'hash consistent');
 
 ###############################################################################
 

@@ -35,7 +35,7 @@ $t->plan(30)->write_file_expand('nginx.conf', <<'EOF');
 
 error_log %%TESTDIR%%/e_glob.log info;
 error_log %%TESTDIR%%/e_glob2.log info;
-error_log syslog:server=127.0.0.1:%%PORT_8081_UDP%% info;
+error_log syslog:server=127.0.0.1:%%PORT_8981_UDP%% info;
 
 daemon off;
 
@@ -51,7 +51,7 @@ mail {
 
         error_log %%TESTDIR%%/e_debug.log debug;
         error_log %%TESTDIR%%/e_info.log info;
-        error_log syslog:server=127.0.0.1:%%PORT_8082_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8982_UDP%% info;
         error_log stderr info;
     }
 
@@ -59,7 +59,7 @@ mail {
         listen     127.0.0.1:8145;
         protocol   imap;
 
-        error_log syslog:server=127.0.0.1:%%PORT_8083_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8983_UDP%% info;
     }
 }
 
@@ -88,8 +88,8 @@ open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
 
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
-$t->run_daemon(\&syslog_daemon, port(8081), $t, 's_glob.log');
-$t->run_daemon(\&syslog_daemon, port(8082), $t, 's_info.log');
+$t->run_daemon(\&syslog_daemon, port(8981), $t, 's_glob.log');
+$t->run_daemon(\&syslog_daemon, port(8982), $t, 's_info.log');
 
 $t->waitforsocket('127.0.0.1:' . port(8144));
 $t->waitforfile($t->testdir . '/s_glob.log');
@@ -169,7 +169,7 @@ sub get_syslog {
 		alarm(1);
 		$s = IO::Socket::INET->new(
 			Proto => 'udp',
-			LocalAddr => '127.0.0.1:' . port(8083)
+			LocalAddr => '127.0.0.1:' . port(8983)
 		);
 		alarm(0);
 	};

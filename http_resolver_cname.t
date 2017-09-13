@@ -41,14 +41,14 @@ http {
         server_name  localhost;
 
         location /short {
-            resolver    127.0.0.1:%%PORT_8081_UDP%%;
+            resolver    127.0.0.1:%%PORT_8981_UDP%%;
             resolver_timeout 2s;
 
             proxy_pass  http://$host:%%PORT_8080%%/t;
         }
 
         location /long {
-            resolver    127.0.0.1:%%PORT_8081_UDP%%;
+            resolver    127.0.0.1:%%PORT_8981_UDP%%;
             resolver_timeout 5s;
 
             proxy_pass  http://$host:%%PORT_8080%%/t;
@@ -60,12 +60,12 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, port(8081), $t);
+$t->run_daemon(\&dns_daemon, port(8981), $t);
 
 $t->write_file('t', '');
 $t->run();
 
-$t->waitforfile($t->testdir . '/' . port(8081));
+$t->waitforfile($t->testdir . '/' . port(8981));
 
 ###############################################################################
 

@@ -38,8 +38,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    error_log syslog:server=127.0.0.1:%%PORT_8081_UDP%% alert;
-    error_log syslog:server=127.0.0.1:%%PORT_8082_UDP%% alert;
+    error_log syslog:server=127.0.0.1:%%PORT_8981_UDP%% alert;
+    error_log syslog:server=127.0.0.1:%%PORT_8982_UDP%% alert;
 
     server {
         listen       127.0.0.1:8080;
@@ -64,7 +64,7 @@ my ($s1, $s2) = map {
 		LocalAddr => "127.0.0.1:$_"
 	)
 		or die "Can't open syslog socket $_: $!";
-} port(8081), port(8082);
+} port(8981), port(8982);
 
 is(get_syslog('/', $s1), '', 'no debug_connection syslog 1');
 is(get_syslog('/', $s2), '', 'no debug_connection syslog 2');

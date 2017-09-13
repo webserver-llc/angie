@@ -35,7 +35,7 @@ $t->write_file_expand('nginx.conf', <<'EOF');
 
 error_log %%TESTDIR%%/e_glob.log info;
 error_log %%TESTDIR%%/e_glob2.log info;
-error_log syslog:server=127.0.0.1:%%PORT_8083_UDP%% info;
+error_log syslog:server=127.0.0.1:%%PORT_8983_UDP%% info;
 
 daemon off;
 
@@ -44,7 +44,7 @@ events {
 
 stream {
     upstream u {
-        server 127.0.0.1:%%PORT_8083_UDP%% down;
+        server 127.0.0.1:%%PORT_8983_UDP%% down;
     }
 
     server {
@@ -62,8 +62,8 @@ stream {
         proxy_pass  127.0.0.1:8081;
 
         error_log %%TESTDIR%%/e_stream.log info;
-        error_log syslog:server=127.0.0.1:%%PORT_8085_UDP%% info;
-        error_log syslog:server=127.0.0.1:%%PORT_8084_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8985_UDP%% info;
+        error_log syslog:server=127.0.0.1:%%PORT_8984_UDP%% info;
     }
 }
 
@@ -75,8 +75,8 @@ open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
 
 $t->run_daemon(\&stream_daemon);
-$t->run_daemon(\&syslog_daemon, port(8083), $t, 's_glob.log');
-$t->run_daemon(\&syslog_daemon, port(8084), $t, 's_stream.log');
+$t->run_daemon(\&syslog_daemon, port(8983), $t, 's_glob.log');
+$t->run_daemon(\&syslog_daemon, port(8984), $t, 's_stream.log');
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 $t->waitforfile($t->testdir . '/s_glob.log');
@@ -114,7 +114,7 @@ is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 # syslog
 
 parse_syslog_message('syslog', get_syslog('data2', '127.0.0.1:' . port(8082),
-	port(8085)));
+	port(8985)));
 
 is_deeply(levels($t, 's_glob.log'), levels($t, 'e_glob.log'),
 	'global syslog messages');

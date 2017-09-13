@@ -42,7 +42,7 @@ http {
         server_name  localhost;
 
         location / {
-            resolver    127.0.0.1:%%PORT_8081_UDP%%;
+            resolver    127.0.0.1:%%PORT_8981_UDP%%;
             proxy_pass  http://$host:%%PORT_8080%%/backend;
 
             proxy_next_upstream http_504 timeout error;
@@ -52,7 +52,7 @@ http {
             add_header X-Host $upstream_addr;
         }
         location /two {
-            resolver    127.0.0.1:%%PORT_8081_UDP%% 127.0.0.1:%%PORT_8082_UDP%%;
+            resolver    127.0.0.1:%%PORT_8981_UDP%% 127.0.0.1:%%PORT_8982_UDP%%;
             proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
 
@@ -69,11 +69,11 @@ EOF
 
 $t->try_run('no inet6 support')->plan(72);
 
-$t->run_daemon(\&dns_daemon, port(8081), $t);
-$t->run_daemon(\&dns_daemon, port(8082), $t);
+$t->run_daemon(\&dns_daemon, port(8981), $t);
+$t->run_daemon(\&dns_daemon, port(8982), $t);
 
-$t->waitforfile($t->testdir . '/' . port(8081));
-$t->waitforfile($t->testdir . '/' . port(8082));
+$t->waitforfile($t->testdir . '/' . port(8981));
+$t->waitforfile($t->testdir . '/' . port(8982));
 
 ###############################################################################
 
@@ -332,7 +332,7 @@ sub reply_handler {
 		}
 
 	} elsif ($name eq '2.example.net') {
-		if ($port == port(8081)) {
+		if ($port == port(8981)) {
 			$state->{twocnt}++;
 		}
 		if ($state->{twocnt} & 1) {

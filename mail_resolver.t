@@ -46,47 +46,47 @@ mail {
     server {
         listen    127.0.0.1:8025;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8081_UDP%%
-                  127.0.0.1:%%PORT_8082_UDP%%
-                  127.0.0.1:%%PORT_8083_UDP%%;
+        resolver  127.0.0.1:%%PORT_8981_UDP%%
+                  127.0.0.1:%%PORT_8982_UDP%%
+                  127.0.0.1:%%PORT_8983_UDP%%;
     }
 
     server {
         listen    127.0.0.1:8027;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8082_UDP%%;
+        resolver  127.0.0.1:%%PORT_8982_UDP%%;
     }
 
     server {
         listen    127.0.0.1:8028;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8083_UDP%%;
+        resolver  127.0.0.1:%%PORT_8983_UDP%%;
         resolver_timeout 1s;
     }
 
     server {
         listen    127.0.0.1:8029;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8084_UDP%%;
+        resolver  127.0.0.1:%%PORT_8984_UDP%%;
     }
 
     server {
         listen    127.0.0.1:8030;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8085_UDP%%;
+        resolver  127.0.0.1:%%PORT_8985_UDP%%;
     }
 
     server {
         listen    127.0.0.1:8031;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8086_UDP%%;
+        resolver  127.0.0.1:%%PORT_8986_UDP%%;
         resolver_timeout 1s;
     }
 
     server {
         listen    127.0.0.1:8032;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8087_UDP%%;
+        resolver  127.0.0.1:%%PORT_8987_UDP%%;
     }
 
 }
@@ -116,12 +116,12 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run_daemon(\&dns_daemon, port($_), $t) foreach (8081 .. 8087);
+$t->run_daemon(\&dns_daemon, port($_), $t) foreach (8981 .. 8987);
 
 $t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
-$t->waitforfile($t->testdir . '/' . port($_)) foreach (8081 .. 8087);
+$t->waitforfile($t->testdir . '/' . port($_)) foreach (8981 .. 8987);
 
 ###############################################################################
 
@@ -140,7 +140,7 @@ $s->ok('PTR');
 $s->send('QUIT');
 $s->read();
 
-# Cached PTR prevents from querying bad ns on port 8083
+# Cached PTR prevents from querying bad ns on port 8983
 
 $s = Test::Nginx::SMTP->new();
 $s->read();
@@ -289,34 +289,34 @@ sub reply_handler {
 		push @rdata, rd_addr($ttl, '127.0.0.1');
 
 	} elsif ($name eq '1.0.0.127.in-addr.arpa' && $type == PTR) {
-		if ($port == port(8081)) {
+		if ($port == port(8981)) {
 			push @rdata, rd_name(PTR, $ttl, 'a.example.net');
 
-		} elsif ($port == port(8082)) {
+		} elsif ($port == port(8982)) {
 			$rcode = SERVFAIL;
 
-		} elsif ($port == port(8083)) {
+		} elsif ($port == port(8983)) {
 			# zero length RDATA
 
 			push @rdata, pack("n3N n", 0xc00c, PTR, IN, $ttl, 0);
 
-		} elsif ($port == port(8084)) {
+		} elsif ($port == port(8984)) {
 			# PTR answered with CNAME
 
 			push @rdata, rd_name(CNAME, $ttl,
 				'1.1.0.0.127.in-addr.arpa');
 
-		} elsif ($port == port(8085)) {
+		} elsif ($port == port(8985)) {
 			# uncompressed answer
 
 			push @rdata, pack("(C/a*)6x n2N n(C/a*)3x",
 				('1', '0', '0', '127', 'in-addr', 'arpa'),
 				PTR, IN, $ttl, 15, ('a', 'example', 'net'));
 
-		} elsif ($port == port(8086)) {
+		} elsif ($port == port(8986)) {
 			push @rdata, rd_name(DNAME, $ttl, 'a.example.net');
 
-		} elsif ($port == port(8087)) {
+		} elsif ($port == port(8987)) {
 			# PTR answered with CNAME+PTR
 
 			push @rdata, rd_name(CNAME, $ttl,

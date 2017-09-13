@@ -41,44 +41,44 @@ stream {
                      $upstream_bytes_sent!$upstream_bytes_received;
 
     upstream u {
-        server 127.0.0.1:%%PORT_8084_UDP%%;
-        server 127.0.0.1:%%PORT_8085_UDP%%;
+        server 127.0.0.1:%%PORT_8984_UDP%%;
+        server 127.0.0.1:%%PORT_8985_UDP%%;
     }
 
     upstream u2 {
-        server 127.0.0.1:%%PORT_8086_UDP%% down;
-        server 127.0.0.1:%%PORT_8086_UDP%%;
-        server 127.0.0.1:%%PORT_8084_UDP%%;
-        server 127.0.0.1:%%PORT_8085_UDP%%;
+        server 127.0.0.1:%%PORT_8986_UDP%% down;
+        server 127.0.0.1:%%PORT_8986_UDP%%;
+        server 127.0.0.1:%%PORT_8984_UDP%%;
+        server 127.0.0.1:%%PORT_8985_UDP%%;
     }
 
     upstream u3 {
-        server 127.0.0.1:%%PORT_8084_UDP%%;
-        server 127.0.0.1:%%PORT_8085_UDP%% weight=2;
+        server 127.0.0.1:%%PORT_8984_UDP%%;
+        server 127.0.0.1:%%PORT_8985_UDP%% weight=2;
     }
 
     upstream u4 {
-        server 127.0.0.1:%%PORT_8086_UDP%%;
-        server 127.0.0.1:%%PORT_8084_UDP%% backup;
+        server 127.0.0.1:%%PORT_8986_UDP%%;
+        server 127.0.0.1:%%PORT_8984_UDP%% backup;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8080_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8980_UDP%% udp;
         proxy_pass  u;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8081_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8981_UDP%% udp;
         proxy_pass  u2;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8082_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8982_UDP%% udp;
         proxy_pass  u3;
     }
 
     server {
-        listen      127.0.0.1:%%PORT_8083_UDP%% udp;
+        listen      127.0.0.1:%%PORT_8983_UDP%% udp;
         proxy_pass  u4;
         access_log  %%TESTDIR%%/u.log bytes;
     }
@@ -86,21 +86,21 @@ stream {
 
 EOF
 
-$t->run_daemon(\&udp_daemon, port(8084), $t);
-$t->run_daemon(\&udp_daemon, port(8085), $t);
+$t->run_daemon(\&udp_daemon, port(8984), $t);
+$t->run_daemon(\&udp_daemon, port(8985), $t);
 $t->try_run('no stream access_log')->plan(5);
 
-$t->waitforfile($t->testdir . '/' . port(8084));
-$t->waitforfile($t->testdir . '/' . port(8085));
+$t->waitforfile($t->testdir . '/' . port(8984));
+$t->waitforfile($t->testdir . '/' . port(8985));
 
 ###############################################################################
 
-my @ports = my ($port4, $port5, $port6) = (port(8084), port(8085), port(8086));
+my @ports = my ($port4, $port5, $port6) = (port(8984), port(8985), port(8986));
 
-is(many(10, port(8080)), "$port4: 5, $port5: 5", 'balanced');
-is(many(10, port(8081)), "$port4: 5, $port5: 5", 'failures');
-is(many(9, port(8082)), "$port4: 3, $port5: 6", 'weight');
-is(many(10, port(8083)), "$port4: 10", 'backup');
+is(many(10, port(8980)), "$port4: 5, $port5: 5", 'balanced');
+is(many(10, port(8981)), "$port4: 5, $port5: 5", 'failures');
+is(many(9, port(8982)), "$port4: 3, $port5: 6", 'weight');
+is(many(10, port(8983)), "$port4: 10", 'backup');
 
 $t->stop();
 

@@ -69,7 +69,7 @@ stream {
 
     server {
         listen  127.0.0.1:8086;
-        listen  127.0.0.1:%%PORT_8087_UDP%% udp;
+        listen  127.0.0.1:%%PORT_8987_UDP%% udp;
         return  $protocol;
     }
 }
@@ -102,6 +102,6 @@ $data = stream('127.0.0.1:' . port(8085))->read();
 like($data, qr#^\d+.\d+![-+\w/: ]+![-+\dT:]+$#, 'time');
 
 is(stream('127.0.0.1:' . port(8086))->read(), 'TCP', 'protocol TCP');
-is(dgram('127.0.0.1:' . port(8087))->io('.'), 'UDP', 'protocol UDP');
+is(dgram('127.0.0.1:' . port(8987))->io('.'), 'UDP', 'protocol UDP');
 
 ###############################################################################

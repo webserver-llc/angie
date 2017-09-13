@@ -45,7 +45,7 @@ http {
         server_name  localhost;
 
         location / {
-            resolver 127.0.0.1:%%PORT_8081_UDP%%;
+            resolver 127.0.0.1:%%PORT_8981_UDP%%;
             proxy_pass http://example.net/$args;
         }
 
@@ -58,7 +58,7 @@ http {
 EOF
 
 $t->run_daemon(\&dns_daemon, $t);
-$t->run()->waitforfile($t->testdir . '/' . port(8081));
+$t->run()->waitforfile($t->testdir . '/' . port(8981));
 
 ###############################################################################
 
@@ -85,14 +85,14 @@ sub dns_daemon {
 
 	my $socket = IO::Socket::INET->new(
 		LocalAddr => '127.0.0.1',
-		LocalPort => port(8081),
+		LocalPort => port(8981),
 		Proto => 'udp',
 	)
 		or die "Can't create UDP socket: $!\n";
 
 	# signal we are ready
 
-	open my $fh, '>', $t->testdir() . '/' . port(8081);
+	open my $fh, '>', $t->testdir() . '/' . port(8981);
 	close $fh;
 
 	while (1) {

@@ -68,7 +68,7 @@ stream {
     }
 
     server {
-        listen  127.0.0.1:%%PORT_8085_UDP%% udp;
+        listen  127.0.0.1:%%PORT_8985_UDP%% udp;
         return  $js_addr;
     }
 }
@@ -99,7 +99,7 @@ $t->try_run('no stream njs available')->plan(7);
 
 is(stream('127.0.0.1:' . port(8080))->read(), 'addr=127.0.0.1',
 	'sess.remoteAddress');
-is(dgram('127.0.0.1:' . port(8085))->io('.'), 'addr=127.0.0.1',
+is(dgram('127.0.0.1:' . port(8985))->io('.'), 'addr=127.0.0.1',
 	'sess.remoteAddress udp');
 is(stream('127.0.0.1:' . port(8081))->read(), 'undefined', 'sess.log');
 is(stream('127.0.0.1:' . port(8082))->read(), 'variable=127.0.0.1',

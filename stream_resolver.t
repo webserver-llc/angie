@@ -44,7 +44,7 @@ stream {
         default  $server_port.many.example.com;
     }
 
-    resolver  127.0.0.1:%%PORT_8080_UDP%%;
+    resolver  127.0.0.1:%%PORT_8980_UDP%%;
 
     server {
         listen      127.0.0.1:8081;
@@ -85,10 +85,10 @@ stream {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, port(8080), $t);
+$t->run_daemon(\&dns_daemon, port(8980), $t);
 $t->try_run('no stream resolver')->plan(8);
 
-$t->waitforfile($t->testdir . '/' . port(8080));
+$t->waitforfile($t->testdir . '/' . port(8980));
 
 ###############################################################################
 

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(43);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(44);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -45,8 +45,12 @@ http {
         location / {
             add_header X-Length $http_content_length;
         }
+        location /slow {
+            limit_rate 100;
+        }
         location /off/ {
             proxy_pass http://127.0.0.1:8081/;
+            add_header X-Body $request_body;
             add_header X-Body-File $request_body_file;
         }
         location /proxy2/ {
@@ -70,6 +74,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('t.html', 'SEE-THIS');
+$t->write_file('slow.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
@@ -435,6 +440,31 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-body-file'}, undef, 'no request body in file');
+
+# ticket #1384, request body corruption in recv_buffer
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.6');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/off/slow.html', body_more => 1 });
+select undef, undef, undef, 0.1;
+
+# for simplicity, DATA frame is received on its own for a known offset
+
+$s->h2_body('TEST');
+select undef, undef, undef, 0.1;
+
+# overwrite recv_buffer; since upstream response arrival is delayed,
+# this would make $request_body point to the overridden buffer space
+
+$s->h2_ping('xxxx');
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+isnt($frame->{headers}->{'x-body'}, 'xxxx', 'sync buffer');
+
+}
 
 ###############################################################################
 

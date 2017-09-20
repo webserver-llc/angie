@@ -148,13 +148,13 @@ EOF
 my $d = $t->testdir();
 
 foreach my $name ('localhost', 'inherits') {
-	system("openssl genrsa -out '$d/$name.key' -passout pass:localhost "
+	system("openssl genrsa -out $d/$name.key -passout pass:localhost "
 		. "-aes128 1024 >>$d/openssl.out 2>&1") == 0
 		or die "Can't create private key: $!\n";
 	system('openssl req -x509 -new '
-		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
-		. "-out '$d/$name.crt' "
-		. "-key '$d/$name.key' -passin pass:localhost"
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt "
+		. "-key $d/$name.key -passin pass:localhost"
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }

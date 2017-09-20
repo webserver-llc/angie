@@ -161,27 +161,27 @@ $t->write_file('certserial', '1000');
 $t->write_file('certindex', '');
 
 system('openssl req -x509 -new '
-	. "-config '$d/openssl.conf' -subj '/CN=issuer/' "
-	. "-out '$d/issuer.crt' -keyout '$d/issuer.key' "
+	. "-config $d/openssl.conf -subj /CN=issuer/ "
+	. "-out $d/issuer.crt -keyout $d/issuer.key "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create certificate for issuer: $!\n";
 
 system("openssl req -new "
-	. "-config '$d/openssl.conf' -subj '/CN=subject/' "
-	. "-out '$d/subject.csr' -keyout '$d/subject.key' "
+	. "-config $d/openssl.conf -subj /CN=subject/ "
+	. "-out $d/subject.csr -keyout $d/subject.key "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create certificate for subject: $!\n";
 
-system("openssl ca -batch -config '$d/ca.conf' "
-	. "-keyfile '$d/issuer.key' -cert '$d/issuer.crt' "
-	. "-subj '/CN=subject/' -in '$d/subject.csr' -out '$d/subject.crt' "
+system("openssl ca -batch -config $d/ca.conf "
+	. "-keyfile $d/issuer.key -cert $d/issuer.crt "
+	. "-subj /CN=subject/ -in $d/subject.csr -out $d/subject.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't sign certificate for subject: $!\n";
 
 foreach my $name ('localhost', 'inner') {
 	system('openssl req -x509 -new '
-		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
-		. "-out '$d/$name.crt' -keyout '$d/$name.key' "
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt -keyout $d/$name.key "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }

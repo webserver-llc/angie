@@ -101,16 +101,16 @@ EOF
 
 foreach my $name ('root') {
 	system('openssl req -x509 -new '
-		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
-		. "-out '$d/$name.crt' -keyout '$d/$name.key' "
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt -keyout $d/$name.key "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
 
 foreach my $name ('int', 'end') {
 	system("openssl req -new "
-		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
-		. "-out '$d/$name.csr' -keyout '$d/$name.key' "
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.csr -keyout $d/$name.key "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
@@ -118,15 +118,15 @@ foreach my $name ('int', 'end') {
 $t->write_file('certserial', '1000');
 $t->write_file('certindex', '');
 
-system("openssl ca -batch -config '$d/ca.conf' "
-	. "-keyfile '$d/root.key' -cert '$d/root.crt' "
-	. "-subj '/CN=int/' -in '$d/int.csr' -out '$d/int.crt' "
+system("openssl ca -batch -config $d/ca.conf "
+	. "-keyfile $d/root.key -cert $d/root.crt "
+	. "-subj /CN=int/ -in $d/int.csr -out $d/int.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't sign certificate for int: $!\n";
 
-system("openssl ca -batch -config '$d/ca.conf' "
-	. "-keyfile '$d/int.key' -cert '$d/int.crt' "
-	. "-subj '/CN=end/' -in '$d/end.csr' -out '$d/end.crt' "
+system("openssl ca -batch -config $d/ca.conf "
+	. "-keyfile $d/int.key -cert $d/int.crt "
+	. "-subj /CN=end/ -in $d/end.csr -out $d/end.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't sign certificate for end: $!\n";
 

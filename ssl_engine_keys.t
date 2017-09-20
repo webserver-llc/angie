@@ -112,8 +112,8 @@ foreach my $name ('localhost') {
 		. ">>$d/openssl.out 2>&1");
 
 	system('openssl req -x509 -new -engine pkcs11 '
-		. "-config '$d/openssl.conf' -subj '/CN=$name/' "
-		. "-out '$d/$name.crt' -keyform engine -text -key id_00 "
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt -keyform engine -text -key id_00 "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }

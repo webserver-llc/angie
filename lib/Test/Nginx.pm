@@ -261,7 +261,8 @@ sub has_daemon($) {
 	my ($self, $daemon) = @_;
 
 	if ($^O eq 'MSWin32') {
-		Test::More::plan(skip_all => "win32");
+		`for %i in ($daemon.exe) do \@echo | set /p x=%~\$PATH:i`
+			or Test::More::plan(skip_all => "$daemon not found");
 		return $self;
 	}
 

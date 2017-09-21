@@ -63,8 +63,7 @@ stream {
 
     server {
         listen      127.0.0.1:8084;
-        proxy_bind  127.0.0.1:$remote_port;
-        proxy_pass  127.0.0.1:8083;
+        proxy_pass  example.com:$remote_port;
         access_log  %%TESTDIR%%/500.log status;
     }
 
@@ -92,7 +91,7 @@ $t->try_run('no stream access_log')->plan(5);
 stream('127.0.0.1:' . port(8080))->read();
 stream('127.0.0.1:' . port(8081))->read();
 stream('127.0.0.1:' . port(8082))->read();
-stream('127.0.0.1:' . port(8084))->read() if $^O ne 'MSWin32';
+stream('127.0.0.1:' . port(8084))->read();
 
 my $s = stream('127.0.0.1:' . port(8085));
 $s->write('busy');
@@ -104,14 +103,7 @@ $t->stop();
 
 is($t->read_file('200.log'), "200\n", 'stream status 200');
 is($t->read_file('403.log'), "403\n", 'stream status 403');
-
-SKIP: {
-skip 'win32', 1 if $^O eq 'MSWin32';
-
 is($t->read_file('500.log'), "500\n", 'stream status 500');
-
-}
-
 is($t->read_file('502.log'), "502\n", 'stream status 502');
 is($t->read_file('503.log'), "503\n200\n", 'stream status 503');
 

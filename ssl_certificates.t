@@ -43,6 +43,7 @@ http {
 
     ssl_certificate_key rsa.key;
     ssl_certificate rsa.crt;
+    ssl_ciphers DEFAULT:ECCdraft;
 
     server {
         listen       127.0.0.1:8080 ssl;

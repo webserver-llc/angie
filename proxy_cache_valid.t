@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -47,17 +47,31 @@ http {
             proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
-            proxy_cache_valid  1m;
+            proxy_cache_valid  200 401  1m;
+
+            proxy_intercept_errors on;
+            error_page 404 401 = @fallback;
 
             add_header X-Cache-Status $upstream_cache_status;
         }
+
+        location @fallback {
+            return 403;
+        }
     }
+
     server {
         listen       127.0.0.1:8081;
         server_name  localhost;
 
         location / {
-            add_header Cache-Control $http_x_cc;
+            add_header Cache-Control $http_x_cc always;
+            error_page 403 = /index-no-cache;
+        }
+
+        location /index-no-cache {
+            add_header Cache-Control no-cache always;
+            return 401;
         }
     }
 }
@@ -85,6 +99,32 @@ select undef, undef, undef, 2.1;
 
 like(http_get('/t.html?1'), qr/EXPIRED/, 'max-age ceased');
 like(http_get('/t.html?2'), qr/HIT/, 's-maxage overrides max-age');
+
+# ticket #1382, cache item "error" field was not set from Cache-Control: max-age
+
+like(get('/t2.html', 'X-CC: max-age=1'), qr/403 Forbidden/, 'intercept error');
+
+$t->write_file('t2.html', 'NOOP');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.6');
+
+like(http_get('/t2.html'), qr/403 Forbidden/, 'error cached from max-age');
+
+}
+
+# ticket #1382, cache item "error" field was set regardless of u->cacheable.
+
+like(http_get('/'), qr/403 Forbidden/, 'error no-cache');
+
+$t->write_file('index.html', '');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.6');
+
+like(http_get('/'), qr/200 OK/, 'error no-cache - not cacheable');
+
+}
 
 ###############################################################################
 

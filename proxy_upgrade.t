@@ -27,8 +27,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)
-	->write_file_expand('nginx.conf', <<'EOF')->plan(30);
+my $t = Test::Nginx->new()->has(qw/http proxy ssi/)
+	->write_file_expand('nginx.conf', <<'EOF')->plan(31);
 
 %%TEST_GLOBALS%%
 
@@ -55,12 +55,18 @@ http {
             proxy_read_timeout 2s;
             send_timeout 2s;
         }
+
+        location /ssi.html {
+            ssi on;
+        }
     }
 }
 
 EOF
 
 my $d = $t->testdir();
+
+$t->write_file('ssi.html', '<!--#include virtual="/upgrade" --> SEE-THIS');
 
 $t->run_daemon(\&upgrade_fake_daemon);
 $t->run();
@@ -129,6 +135,17 @@ undef $s;
 $s = upgrade_connect(noheader => 1);
 ok(!$s, "handshake noupgrade");
 
+# connection upgrade in subrequests shouldn't cause a segfault
+
+SKIP: {
+skip 'leaves coredump', 1 unless $t->has_version('1.13.7')
+	or $ENV{TEST_NGINX_UNSAFE};
+
+$s = upgrade_connect(uri => '/ssi.html');
+ok(!$s, "handshake in subrequests");
+
+}
+
 # bytes sent on upgraded connection
 # verify with 1) data actually read by client, 2) expected data from backend
 
@@ -153,7 +170,9 @@ sub upgrade_connect {
 
 	# send request, $h->to_string
 
-	my $buf = "GET / HTTP/1.1" . CRLF
+	my $uri = $opts{uri} || '/';
+
+	my $buf = "GET $uri HTTP/1.1" . CRLF
 		. "Host: localhost" . CRLF
 		. ($opts{noheader} ? '' : "Upgrade: foo" . CRLF)
 		. "Connection: Upgrade" . CRLF . CRLF;

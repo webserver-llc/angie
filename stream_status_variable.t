@@ -77,12 +77,13 @@ stream {
     server {
         listen      127.0.0.1:8086 proxy_protocol;
         return      SEE-THIS;
+        access_log  %%TESTDIR%%/400.log status;
     }
 }
 
 EOF
 
-$t->try_run('no stream access_log')->plan(5);
+$t->try_run('no stream access_log')->plan(6);
 
 ###############################################################################
 
@@ -98,6 +99,7 @@ undef $s;
 $t->stop();
 
 is($t->read_file('200.log'), "200\n", 'stream status 200');
+is($t->read_file('400.log'), "400\n", 'stream status 400');
 is($t->read_file('403.log'), "403\n", 'stream status 403');
 is($t->read_file('500.log'), "500\n", 'stream status 500');
 is($t->read_file('502.log'), "502\n", 'stream status 502');

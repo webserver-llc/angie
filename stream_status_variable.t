@@ -72,12 +72,10 @@ stream {
         limit_conn  zone 1;
         proxy_pass  127.0.0.1:8086;
         access_log  %%TESTDIR%%/503.log status;
-
-        proxy_download_rate 1;
     }
 
     server {
-        listen      127.0.0.1:8086;
+        listen      127.0.0.1:8086 proxy_protocol;
         return      SEE-THIS;
     }
 }
@@ -94,9 +92,7 @@ stream('127.0.0.1:' . port(8082))->read();
 stream('127.0.0.1:' . port(8084))->read();
 
 my $s = stream('127.0.0.1:' . port(8085));
-$s->write('busy');
 stream('127.0.0.1:' . port(8085))->read();
-$s->read();
 undef $s;
 
 $t->stop();

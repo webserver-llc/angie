@@ -146,10 +146,10 @@ like(get('/t2.html', 'max-age=1, stale-while-revalidate=10'), qr/MISS/,
 	'stale-while-revalidate');
 like(http_get('/t2.html'), qr/HIT/, 's-w-r - cached');
 
-get('/tt.html', 'max-age=1, stale-if-error=2');
+get('/tt.html', 'max-age=1, stale-if-error=3');
 get('/t3.html', 'max-age=1, stale-while-revalidate=2');
-get('/t4.html', 'max-age=1, stale-while-revalidate=2');
-get('/t5.html', 'max-age=1, stale-while-revalidate=2');
+get('/t4.html', 'max-age=1, stale-while-revalidate=3');
+get('/t5.html', 'max-age=1, stale-while-revalidate=3');
 get('/t6.html', 'max-age=1, stale-while-revalidate=4');
 get('/t7.html', 'max-age=1, stale-while-revalidate=10');
 http_get('/ssi.html');

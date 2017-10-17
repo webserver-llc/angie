@@ -94,7 +94,7 @@ stream('127.0.0.1:' . port(8084))->read();
 
 my $s = stream('127.0.0.1:' . port(8085));
 stream('127.0.0.1:' . port(8085))->read();
-undef $s;
+$s->io('PROXY INVALID');
 
 $t->stop();
 

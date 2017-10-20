@@ -161,13 +161,10 @@ is(get_ssl('foo', 8082), $p3, 'preread off');
 is(get_ssl('foo', 8083), undef, 'preread buffer full');
 is(stream()->io('x' x 1000), "127.0.0.1:$p3", 'not a handshake');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.6');
+# ticket #1317
 
 is(stream("127.0.0.1:$p4")->io('x' x 16), "127.0.0.1:$p3",
 	'pending buffers on next upstream');
-
-}
 
 # no junk in variable due to short ClientHello length value
 

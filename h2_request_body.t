@@ -443,9 +443,6 @@ is($frame->{headers}->{'x-body-file'}, undef, 'no request body in file');
 
 # ticket #1384, request body corruption in recv_buffer
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.6');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/off/slow.html', body_more => 1 });
 select undef, undef, undef, 0.1;
@@ -463,8 +460,6 @@ $s->h2_ping('xxxx');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 isnt($frame->{headers}->{'x-body'}, 'xxxx', 'sync buffer');
-
-}
 
 ###############################################################################
 

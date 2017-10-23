@@ -21,9 +21,11 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl sni rewrite/)
-	->has_daemon('openssl')
-	->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http http_ssl sni rewrite/);
+
+plan(skip_all => 'win32') if $^O eq 'MSWin32' and !$t->has_version('1.13.5');
+
+$t->has_daemon('openssl')->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

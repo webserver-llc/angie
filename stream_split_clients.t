@@ -65,7 +65,7 @@ sub many {
 	my %dist;
 
 	for (1 .. $count) {
-		if (my $data = stream()->read()) {
+		if (my $data = stream('127.0.0.1:' . port(8080))->read()) {
 			$dist{$data} = 0 unless defined $data;
 			$dist{$data}++;
 		}

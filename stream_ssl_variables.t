@@ -96,7 +96,7 @@ $t->try_run('no stream return')->plan(5);
 
 my ($s, $ssl);
 
-is(stream()->read(), ':::', 'no ssl');
+is(stream('127.0.0.1:' . port(8080))->read(), ':::', 'no ssl');
 
 ($s, $ssl) = get_ssl_socket(port(8081));
 like(Net::SSLeay::read($ssl), qr/^\.:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,

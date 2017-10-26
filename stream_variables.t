@@ -81,7 +81,8 @@ $t->try_run('no stream return or inet6 support')->plan(8);
 ###############################################################################
 
 chomp(my $hostname = lc `hostname`);
-like(stream()->read(), qr/^\d+:[\d.]+:$hostname:\d+:0$/, 'vars');
+like(stream('127.0.0.1:' . port(8080))->read(),
+	qr/^\d+:[\d.]+:$hostname:\d+:0$/, 'vars');
 
 my $dport = port(8081);
 my $s = stream("127.0.0.1:$dport");

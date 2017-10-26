@@ -159,7 +159,8 @@ is(get_ssl('bar', 8081), $p2, 'sni 2 again');
 is(get_ssl('', 8081), $p3, 'no sni');
 is(get_ssl('foo', 8082), $p3, 'preread off');
 is(get_ssl('foo', 8083), undef, 'preread buffer full');
-is(stream()->io('x' x 1000), "127.0.0.1:$p3", 'not a handshake');
+is(stream('127.0.0.1:' . port(8080))->io('x' x 1000), "127.0.0.1:$p3",
+	'not a handshake');
 
 # ticket #1317
 

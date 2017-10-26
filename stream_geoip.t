@@ -178,7 +178,8 @@ is($data{country_name}, 'United States', 'geoip ipv6 country name');
 sub stream_pp {
 	my ($ip) = @_;
 	my $type = ($ip =~ ':' ? 'TCP6' : 'TCP4');
-	return stream()->io("PROXY $type $ip 127.0.0.1 8080 8080${CRLF}");
+	return stream('127.0.0.1:' . port(8080))
+		->io("PROXY $type $ip 127.0.0.1 8080 8080${CRLF}");
 }
 
 sub pack_node {

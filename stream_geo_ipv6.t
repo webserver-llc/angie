@@ -90,7 +90,7 @@ $t->try_run('no stream geo or inet6 support')->plan(6);
 
 ###############################################################################
 
-my %data = stream()->read() =~ /(\w+):(\w+)/g;
+my %data = stream('127.0.0.1:' . port(8080))->read() =~ /(\w+):(\w+)/g;
 is($data{geo}, 'loopback', 'geo ipv6');
 is($data{geo_delete}, 'world', 'geo ipv6 delete');
 is($data{geo_var}, 'default', 'geo ipv6 from variable');

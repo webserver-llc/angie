@@ -223,7 +223,7 @@ $t->try_run('no stream geo')->plan(19);
 
 ###############################################################################
 
-my %data = stream()->read() =~ /(\w+):(\w+)/g;
+my %data = stream('127.0.0.1:' . port(8080))->read() =~ /(\w+):(\w+)/g;
 is($data{geo}, 'loopback', 'geo');
 is($data{geo_include}, 'loopback', 'geo include');
 is($data{geo_delete}, 'world', 'geo delete');

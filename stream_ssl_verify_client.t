@@ -115,7 +115,7 @@ $t->try_run('no ssl_verify_client')->plan(10);
 TODO: {
 todo_skip 'leaves coredump', 1 unless $t->has_version('1.11.9');
 
-is(stream()->read(), ':', 'plain connection');
+is(stream('127.0.0.1:' . port(8080))->read(), ':', 'plain connection');
 
 }
 

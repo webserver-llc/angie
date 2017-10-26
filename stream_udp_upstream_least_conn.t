@@ -66,7 +66,7 @@ is(many(10), "$port1: 5, $port2: 5", 'balanced');
 
 my @sockets;
 for (1 .. 2) {
-	my $s = dgram();
+	my $s = dgram('127.0.0.1:' . port(8080));
 	$s->write('w');
 	push @sockets, $s;
 }
@@ -82,7 +82,7 @@ sub many {
 	my (%ports);
 
 	for (1 .. $count) {
-		if (dgram()->io('.') =~ /(\d+)/) {
+		if (dgram('127.0.0.1:' . port(8080))->io('.') =~ /(\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}

@@ -339,33 +339,42 @@ sub run(;$) {
 
 sub port {
 	my ($num, %opts) = @_;
-	my ($s_tcp, $s_udp, $port);
+	my ($sock, $lock, $port);
 
 	goto done if defined $ports{$num};
+
+	my $socket = sub {
+		IO::Socket::INET->new(
+			Proto => 'tcp',
+			LocalAddr => '127.0.0.1:' . shift,
+			Listen => 1,
+			Reuse => ($^O ne 'MSWin32'),
+		);
+	};
+
+	my $socketl = sub {
+		IO::Socket::INET->new(
+			Proto => 'udp',
+			LocalAddr => '127.0.0.1:' . shift,
+		);
+	};
+
+	($socket, $socketl) = ($socketl, $socket) if $opts{udp};
 
 	$port = $num;
 
 	for (1 .. 10) {
-		$port = 8000 + int(rand(1000)) unless $_ == 1;
+		$port = int($port / 500) * 500 + int(rand(500)) unless $_ == 1;
 
-		$s_udp = IO::Socket::INET->new(
-			Proto => 'udp',
-			LocalAddr => '127.0.0.1:' . $port,
-		) or next;
-
-		$s_tcp = IO::Socket::INET->new(
-			Proto => 'tcp',
-			LocalAddr => '127.0.0.1:' . $port,
-			Listen => 1,
-			Reuse => ($^O ne 'MSWin32')
-		) and last;
+		$lock = $socketl->($port) or next;
+		$sock = $socket->($port) and last;
 	}
 
-	die "Port limit exceeded" unless defined $s_tcp and defined $s_udp;
+	die "Port limit exceeded" unless defined $lock and defined $sock;
 
 	$ports{$num} = {
 		port => $port,
-		socket => $opts{udp} ? $s_tcp : $s_udp
+		socket => $lock
 	};
 
 done:

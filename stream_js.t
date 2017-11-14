@@ -71,6 +71,38 @@ stream {
         listen  127.0.0.1:%%PORT_8985_UDP%% udp;
         return  $js_addr;
     }
+
+    server {
+        listen      127.0.0.1:8086;
+        js_access   js_access_allow;
+        return      'OK';
+    }
+
+    server {
+        listen      127.0.0.1:8087;
+        js_access   js_access_deny;
+        return      'OK';
+    }
+
+    server {
+        listen      127.0.0.1:8088;
+        js_preread  js_preread;
+        proxy_pass  127.0.0.1:8090;
+    }
+
+    server {
+        listen      127.0.0.1:8089;
+        js_filter   js_filter;
+        proxy_pass  127.0.0.1:8090;
+    }
+
+    server {
+        listen      127.0.0.1:8091;
+        js_access   js_access_step;
+        js_preread  js_preread_step;
+        js_filter   js_filter_step;
+        proxy_pass  127.0.0.1:8090;
+    }
 }
 
 EOF
@@ -91,9 +123,62 @@ $t->write_file('functions.js', <<EOF);
     function js_log(sess) {
         sess.log("SEE-THIS");
     }
+
+    function js_access_allow(sess) {
+        if (sess.remoteAddress.match('127.0.0.1')) {
+            return sess.OK;
+        }
+    }
+
+    function js_access_deny(sess) {
+        if (sess.remoteAddress.match('127.0.0.1')) {
+            return sess.ABORT;
+        }
+    }
+
+    function js_preread(sess) {
+        var n = sess.buffer.indexOf('z');
+        if (n == -1) {
+            return sess.AGAIN;
+        }
+    }
+
+    function js_filter(sess) {
+        if (sess.fromUpstream) {
+            var n = sess.buffer.search('y');
+            if (n != -1) {
+                sess.buffer = 'z';
+            }
+            return;
+        }
+
+        n = sess.buffer.search('x');
+        if (n != -1) {
+            sess.buffer = 'y';
+        }
+    }
+
+    var res = '';
+    function js_access_step(sess) {
+        res += '1';
+    }
+
+    function js_preread_step(sess) {
+        res += '2';
+    }
+
+    function js_filter_step(sess) {
+        if (sess.eof) {
+            sess.buffer = res;
+            return;
+        }
+        res += '3';
+    }
 EOF
 
-$t->try_run('no stream njs available')->plan(7);
+$t->run_daemon(\&stream_daemon, port(8090));
+$t->try_run('no stream njs available')->plan(12);
+$t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
 
@@ -106,9 +191,48 @@ is(stream('127.0.0.1:' . port(8082))->read(), 'variable=127.0.0.1',
 	'sess.variables');
 is(stream('127.0.0.1:' . port(8083))->read(), '', 'stream js unknown function');
 is(stream('127.0.0.1:' . port(8084))->read(), 'sess_unk=undefined', 'sess.unk');
+is(stream('127.0.0.1:' . port(8086))->read(), 'OK', 'js_access allow');
+is(stream('127.0.0.1:' . port(8087))->read(), '', 'js_access deny');
+is(stream('127.0.0.1:' . port(8088))->io('xyz'), 'xyz', 'js_preread');
+is(stream('127.0.0.1:' . port(8089))->io('x'), 'z', 'js_filter');
+is(stream('127.0.0.1:' . port(8091))->io('0'), '01233', 'handlers order');
 
 $t->stop();
 
 ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'stream js log');
+
+###############################################################################
+
+sub stream_daemon {
+	my $server = IO::Socket::INET->new(
+		Proto => 'tcp',
+		LocalAddr => '127.0.0.1:' . port(8090),
+		Listen => 5,
+		Reuse => 1
+	)
+		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+
+		log2c("(new connection $client)");
+
+		$client->sysread(my $buffer, 65536) or next;
+
+		log2i("$client $buffer");
+
+		log2o("$client $buffer");
+
+		$client->syswrite($buffer);
+
+		close $client;
+	}
+}
+
+sub log2i { Test::Nginx::log_core('|| <<', @_); }
+sub log2o { Test::Nginx::log_core('|| >>', @_); }
+sub log2c { Test::Nginx::log_core('||', @_); }
 
 ###############################################################################

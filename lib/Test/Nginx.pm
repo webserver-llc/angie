@@ -287,7 +287,19 @@ sub try_run($$) {
 		open STDERR, ">&", \*OLDERR;
 	};
 
-	Test::More::plan(skip_all => $message) if $@;
+	return $self unless $@;
+
+	if ($ENV{TEST_NGINX_VERBOSE}) {
+		$self->{_configure_args} =~ m!--error-log-path=(\S+)!;
+		my $path = $1 || 'logs/error.log';
+		$path = "$self->{_testdir}/$path" if index($path, '/');
+
+		open F, '<', $path or die "Can't open $path: $!";
+		log_core($_) while (<F>);
+		close F;
+	}
+
+	Test::More::plan(skip_all => $message);
 	return $self;
 }
 

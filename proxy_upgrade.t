@@ -98,8 +98,8 @@ SKIP: {
 	# send multiple frames
 
 	for my $i (1 .. 10) {
-		upgrade_write($s, ('foo' x 16384) . $i);
-		upgrade_write($s, 'bazz' . $i);
+		upgrade_write($s, ('foo' x 16384) . $i, continue => 1);
+		upgrade_write($s, 'bazz' . $i, continue => $i != 10);
 	}
 
 	for my $i (1 .. 10) {
@@ -177,7 +177,7 @@ sub upgrade_connect {
 		. ($opts{noheader} ? '' : "Upgrade: foo" . CRLF)
 		. "Connection: Upgrade" . CRLF . CRLF;
 
-	$buf .= $opts{message} . CRLF if defined $opts{message};
+	$buf .= $opts{message} . CRLF . 'FIN' if defined $opts{message};
 
 	local $SIG{PIPE} = 'IGNORE';
 
@@ -237,9 +237,10 @@ sub upgrade_getline {
 }
 
 sub upgrade_write {
-	my ($s, $message) = @_;
+	my ($s, $message, %extra) = @_;
 
 	$message = $message . CRLF;
+	$message = $message . 'FIN' unless $extra{continue};
 
 	local $SIG{PIPE} = 'IGNORE';
 
@@ -325,7 +326,8 @@ sub upgrade_handle_client {
 
 			$unfinished .= $chunk;
 
-			if ($unfinished =~ m/\x0d?\x0a\z/) {
+			if ($unfinished =~ m/\x0d?\x0aFIN\z/) {
+				$unfinished =~ s/FIN\z//;
 				$unfinished =~ s/foo/bar/g;
 				log2o($unfinished);
 				$buffer .= $unfinished;

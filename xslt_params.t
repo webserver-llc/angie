@@ -86,12 +86,21 @@ $t->write_file('x1', '<root>data</root>');
 $t->write_file('x2', '<root>data</root>');
 $t->write_file('x3', '<root>data</root>');
 
-$t->run()->plan(3);
+$t->run()->plan(4);
 
 ###############################################################################
 
 like(http_get("/x1"), qr!200 OK.*param1=value1.*param2=data.*param3=value3!ms,
 	'params from xslt_stylesheet');
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get("/x1"), qr!200 OK.*param1=value1.*param2=data.*param3=value3!ms,
+	'params from xslt_stylesheet again');
+
+}
+
 like(http_get("/x2"), qr!200 OK.*param1=value1.*param2=data.*param3=value3!ms,
 	'params from xslt_param/xslt_string_param');
 like(http_get("/x3"), qr!200 OK.*param1=value1.*param2=data.*param3=value3!ms,

@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use Test::More qw//;
+use IO::Select;
 use IO::Socket;
 use Socket qw/ CRLF /;
 
@@ -88,6 +89,11 @@ sub ok {
 sub authok {
 	my $self = shift;
 	Test::More->builder->like($self->read(), qr/^235 /, @_);
+}
+
+sub can_read {
+	my ($self, $timo) = @_;
+	IO::Select->new($self->{_socket})->can_read($timo || 3);
 }
 
 ###############################################################################

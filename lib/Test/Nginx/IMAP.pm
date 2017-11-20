@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use Test::More qw//;
+use IO::Select;
 use IO::Socket;
 use Socket qw/ CRLF /;
 
@@ -84,6 +85,11 @@ sub check {
 sub ok {
 	my $self = shift;
 	Test::More->builder->like($self->read(), qr/^\S+ OK/, @_);
+}
+
+sub can_read {
+	my ($self, $timo) = @_;
+	IO::Select->new($self->{_socket})->can_read($timo || 3);
 }
 
 ###############################################################################

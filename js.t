@@ -44,6 +44,7 @@ http {
     js_set $test_iarg    test_iarg;
     js_set $test_var     test_var;
     js_set $test_log     test_log;
+    js_set $test_except  test_except;
 
     js_include test.js;
 
@@ -91,6 +92,10 @@ http {
             return 200 $test_log;
         }
 
+        location /req_except {
+            return 200 $test_except;
+        }
+
         location /res_status {
             js_content status;
         }
@@ -113,6 +118,10 @@ http {
 
         location /res_ihdr {
             js_content ihdr;
+        }
+
+        location /res_except {
+            js_content content_except;
         }
     }
 }
@@ -170,6 +179,11 @@ $t->write_file('test.js', <<EOF);
 
     function test_log(req, res) {
         req.log("SEE-THIS");
+    }
+
+    function test_except(req, res) {
+        var fs = require('fs');
+        fs.readFileSync();
     }
 
     function status(req, res) {
@@ -240,9 +254,14 @@ $t->write_file('test.js', <<EOF);
         res.send(s);
         res.finish();
     }
+
+    function content_except(req, res) {
+        JSON.parse({}.a.a);
+    }
+
 EOF
 
-$t->try_run('no njs available')->plan(20);
+$t->try_run('no njs available')->plan(22);
 
 ###############################################################################
 
@@ -269,6 +288,9 @@ like(http_get('/res_hdr?foo=123&bar=copy'), qr/Bar: 123/, 'res.headers get');
 like(http_get('/res_hdr?bar=empty'), qr/Bar: \x0d/, 'res.headers empty');
 like(http_get('/res_ihdr?a=12&b=34'), qr/^1234$/m, 'res.headers iteration');
 
+http_get('/req_except');
+http_get('/res_except');
+
 TODO: {
 local $TODO = 'zero size buf in writer';
 
@@ -281,6 +303,10 @@ $t->todo_alerts();
 $t->stop();
 
 ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'log js');
+ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
+   'js_set backtrace');
+ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,
+   'js_content backtrace');
 
 ###############################################################################
 

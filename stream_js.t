@@ -103,6 +103,12 @@ stream {
         js_filter   js_filter_step;
         proxy_pass  127.0.0.1:8090;
     }
+
+    server {
+        listen      127.0.0.1:8092;
+        js_filter   js_filter_except;
+        proxy_pass  127.0.0.1:8090;
+    }
 }
 
 EOF
@@ -174,10 +180,15 @@ $t->write_file('functions.js', <<EOF);
         }
         res += '3';
     }
+
+    function js_filter_except(sess) {
+        sess.a.a;
+    }
+
 EOF
 
 $t->run_daemon(\&stream_daemon, port(8090));
-$t->try_run('no stream njs available')->plan(12);
+$t->try_run('no stream njs available')->plan(13);
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
@@ -196,10 +207,13 @@ is(stream('127.0.0.1:' . port(8087))->read(), '', 'js_access deny');
 is(stream('127.0.0.1:' . port(8088))->io('xyz'), 'xyz', 'js_preread');
 is(stream('127.0.0.1:' . port(8089))->io('x'), 'z', 'js_filter');
 is(stream('127.0.0.1:' . port(8091))->io('0'), '01233', 'handlers order');
+stream('127.0.0.1:' . port(8092))->io('x');
 
 $t->stop();
 
 ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'stream js log');
+ok(index($t->read_file('error.log'), 'at js_filter_except') > 0,
+   'stream js_filter backtrace');
 
 ###############################################################################
 

@@ -109,6 +109,12 @@ stream {
         js_filter   js_filter_except;
         proxy_pass  127.0.0.1:8090;
     }
+
+    server {
+        listen      127.0.0.1:8093;
+        js_preread  js_preread_except;
+        proxy_pass  127.0.0.1:8090;
+    }
 }
 
 EOF
@@ -181,6 +187,11 @@ $t->write_file('functions.js', <<EOF);
         res += '3';
     }
 
+    function js_preread_except(sess) {
+        var fs = require('fs');
+        fs.readFileSync();
+    }
+
     function js_filter_except(sess) {
         sess.a.a;
     }
@@ -188,7 +199,7 @@ $t->write_file('functions.js', <<EOF);
 EOF
 
 $t->run_daemon(\&stream_daemon, port(8090));
-$t->try_run('no stream njs available')->plan(13);
+$t->try_run('no stream njs available')->plan(14);
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
@@ -208,10 +219,13 @@ is(stream('127.0.0.1:' . port(8088))->io('xyz'), 'xyz', 'js_preread');
 is(stream('127.0.0.1:' . port(8089))->io('x'), 'z', 'js_filter');
 is(stream('127.0.0.1:' . port(8091))->io('0'), '01233', 'handlers order');
 stream('127.0.0.1:' . port(8092))->io('x');
+stream('127.0.0.1:' . port(8093))->io('x');
 
 $t->stop();
 
 ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'stream js log');
+ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
+   'stream js_preread backtrace');
 ok(index($t->read_file('error.log'), 'at js_filter_except') > 0,
    'stream js_filter backtrace');
 

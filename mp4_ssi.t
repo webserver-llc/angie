@@ -12,8 +12,6 @@ use strict;
 
 use Test::More;
 
-use Config;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';

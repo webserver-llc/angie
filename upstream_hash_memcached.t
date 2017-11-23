@@ -142,7 +142,17 @@ $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
 	'127.0.0.1:' . port(8082),
 	'127.0.0.1:' . port(8083)] });
 
+# Cache::Memcached::Fast may be incompatible with recent Perl,
+# see https://github.com/JRaspass/Cache-Memcached-Fast/issues/12
+
+my $cmf_bug = ! keys %{$memd->server_versions};
+
+SKIP: {
+skip 'Cache::Memcached::Fast bug', 1 if $cmf_bug;
+
 is_deeply(ngx('/c'), mem($memd), 'cache::memcached::fast');
+
+}
 
 $memd = new Cache::Memcached(servers => [
 	[ '127.0.0.1:' . port(8081), 2 ],
@@ -156,7 +166,12 @@ $memd = new Cache::Memcached::Fast({ ketama_points => 160, servers => [
 	{ address => '127.0.0.1:' . port(8082), weight => 3 },
 	{ address => '127.0.0.1:' . port(8083), weight => 1 }] });
 
+SKIP: {
+skip 'Cache::Memcached::Fast bug', 1 if $cmf_bug;
+
 is_deeply(ngx('/cw'), mem($memd), 'cache::memcached::fast weight');
+
+}
 
 ###############################################################################
 

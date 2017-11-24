@@ -219,7 +219,7 @@ EOF
 $t->write_file('geo.conf', '127.0.0.0/8  loopback;');
 $t->write_file('geo-ranges.conf', '127.0.0.0-127.255.255.255  loopback;');
 
-$t->try_run('no stream geo')->plan(19);
+$t->run()->plan(19);
 
 ###############################################################################
 
@@ -230,14 +230,8 @@ is($data{geo_delete}, 'world', 'geo delete');
 is($data{geo_ranges}, 'loopback', 'geo ranges');
 is($data{geo_ranges_include}, 'loopback', 'geo ranges include');
 
-TODO: {
-todo_skip 'use-after-free', 2 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.4');
-
 is(stream('127.0.0.1:' . port(8083))->read(), 'default', 'geo ranges delete');
 is(stream('127.0.0.1:' . port(8084))->read(), 'default', 'geo ranges delete 2');
-
-}
 
 is($data{geo_before}, 'loopback', 'geo ranges add before');
 is($data{geo_after}, 'loopback', 'geo ranges add after');
@@ -248,14 +242,8 @@ is($data{geo_insert_after}, 'loopback', 'geo ranges insert after');
 is($data{geo_from_addr}, 'loopback', 'geo from addr');
 is($data{geo_from_var}, 'test', 'geo from var');
 
-TODO: {
-todo_skip 'use-after-free', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.4');
-
 is(stream('127.0.0.1:' . port(8085))->read(), 'default',
 	'geo delete range from variable');
-
-}
 
 is(stream('127.0.0.1:' . port(8081))->read(), 'default', 'geo default');
 is(stream('127.0.0.1:' . port(8082))->read(), 'world', 'geo world');

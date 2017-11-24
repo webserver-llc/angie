@@ -76,7 +76,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
-$t->try_run('no manager params')->plan(3);
+$t->run()->plan(3);
 
 ###############################################################################
 

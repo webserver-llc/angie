@@ -285,22 +285,11 @@ SKIP: {
 
 # slicing in named location
 
-my $s = http_get('/cache-redirect', start => 1);
-# loop protection used with limit_rate, exit loop if subrequest has lost range
-unless ($t->has_version('1.11.10')) {
-	select undef, undef, undef, 0.2;
-	$t->write_file('/cache-redirect', '');
-}
-$r = http_end($s);
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.10');
+$r = http_get('/cache-redirect');
 
 like($r, qr/ 200 .*^0123456789abcdef$/ms, 'in named location');
 is(scalar @{[ glob $t->testdir() . '/cach3/*' ]}, 8,
 	'in named location - cache entries');
-
-}
 
 ###############################################################################
 

@@ -86,7 +86,7 @@ stream {
 EOF
 
 $t->run_daemon(\&dns_daemon, port(8980), $t);
-$t->try_run('no stream resolver')->plan(8);
+$t->run()->plan(8);
 
 $t->waitforfile($t->testdir . '/' . port(8980));
 

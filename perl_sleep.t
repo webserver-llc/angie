@@ -71,12 +71,6 @@ $t->run();
 ###############################################################################
 
 like(http_get('/sleep'), qr/works/, 'perl sleep');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.13');
-
 like(http_get('/subrequest.html'), qr/works/, 'perl sleep in subrequest');
-
-}
 
 ###############################################################################

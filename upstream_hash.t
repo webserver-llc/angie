@@ -198,14 +198,8 @@ is(@res, 20, 'all hashed peers - bad consistent');
 
 like(http_get('/busy'), qr/X-IP: 127.0.0.1:$p1, bad/,
 	'upstream name - busy');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.5');
-
 like(http_get('/cbusy'), qr/X-IP: 127.0.0.1:$p1, cbad/,
 	'upstream name - busy consistent');
-
-}
 
 ###############################################################################
 

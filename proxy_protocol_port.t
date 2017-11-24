@@ -64,7 +64,7 @@ http {
 EOF
 
 $t->write_file('t', 'SEE-THIS');
-$t->try_run('no proxy_protocol_port')->plan(8);
+$t->run()->plan(8);
 
 ###############################################################################
 

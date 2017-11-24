@@ -93,12 +93,6 @@ $t->write_file('t2', 'NOOP');
 
 like(http_get('/t2'), qr/403 Forbidden/, 'error cached');
 like(http_get('/t2?bypass=1'), qr/NOOP/, 'error cache bypassed');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.0');
-
 like(http_get('/t2'), qr/NOOP/, 'error cached after bypass');
-
-}
 
 ###############################################################################

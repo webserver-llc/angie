@@ -134,7 +134,7 @@ EOF
 
 
 $t->run_daemon(\&http_daemon, port(8081), port(8082), port(8085));
-$t->try_run('no upstream max_conns')->plan(14);
+$t->run()->plan(14);
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 $t->waitforsocket('127.0.0.1:' . port(8082));

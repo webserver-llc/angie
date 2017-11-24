@@ -103,7 +103,7 @@ stream {
 EOF
 
 $t->run_daemon(\&stream_daemon);
-$t->try_run('no stream access_log')->plan(10);
+$t->run()->plan(10);
 
 $t->waitforsocket('127.0.0.1:' . port(8080));
 

@@ -93,12 +93,6 @@ like(http_get('/'), qr/X-IP: 127.0.0.1/, 'bind');
 like(http_get('/inherit'), qr/X-IP: 127.0.0.2/, 'bind inherit');
 like(http_get('/off'), qr/X-IP: 127.0.0.1/, 'bind off');
 like(http_get('/var?b=127.0.0.2'), qr/X-IP: 127.0.0.2/, 'bind var');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.2');
-
 like(http_get('/port'), qr/Port: (\d+)(?!\d).*Port: \1/s, 'bind port');
-
-}
 
 ###############################################################################

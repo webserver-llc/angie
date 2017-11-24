@@ -57,12 +57,7 @@ http_get('/?a="1 \\ ' . pack("n", 0x1b1c) . ' "&c=2');
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.8');
-
 is($t->read_file('json.log'), '\"1 \\\\ \u001B\u001C \"2' . "\n", 'json');
 is($t->read_file('test.log'), '\x221 \x5C \x1B\x1C \x22-2' . "\n", 'default');
-
-}
 
 ###############################################################################

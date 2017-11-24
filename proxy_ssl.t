@@ -111,13 +111,7 @@ like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused 2');
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 like(http_get('/timeout_h'), qr/504 Gateway/, 'proxy handshake timeout');
-
-}
 
 ###############################################################################
 

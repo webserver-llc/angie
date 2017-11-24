@@ -234,14 +234,8 @@ unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 like(cert('/issuer', 8085), qr!^body CN=issuer$!m, 'issuer');
 like(cert('/subject', 8085), qr!^body CN=subject$!m, 'subject');
-
-}
 
 ###############################################################################
 

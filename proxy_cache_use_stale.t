@@ -135,7 +135,7 @@ $t->write_file('t7.html', 'SEE-THIS' x 1024);
 $t->write_file('t9.html', 'SEE-THIS' x 1024);
 $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html" --> xxx');
 
-$t->try_run('no proxy_cache_background_update')->plan(29);
+$t->run()->plan(29);
 
 ###############################################################################
 
@@ -234,13 +234,7 @@ $t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio_write on/
 # this used to access a static file in the update request
 
 like(http_get('/t2.html?if=1'), qr/STALE/, 'background update in if');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.11');
-
 like(http_get('/t2.html?if=1'), qr/HIT/, 'background update in if - updated');
-
-}
 
 ###############################################################################
 

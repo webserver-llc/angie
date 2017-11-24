@@ -62,7 +62,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->try_run('no stream limit_conn with complex value')->plan(4);
+$t->run()->plan(4);
 
 ###############################################################################
 

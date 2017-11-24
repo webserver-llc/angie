@@ -49,7 +49,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->try_run('no http2_max_requests')->plan(5);
+$t->run()->plan(5);
 
 ###############################################################################
 

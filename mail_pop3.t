@@ -92,7 +92,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon);
-$t->try_run('no auth external')->plan(20);
+$t->run()->plan(20);
 
 $t->waitforsocket('127.0.0.1:' . port(8111));
 
@@ -128,12 +128,7 @@ $s->read();
 $s->send('AUTH');
 $s->ok('auth');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.11');
-
 is(get_auth_caps($s), 'PLAIN:LOGIN:CRAM-MD5:EXTERNAL', 'auth capabilities');
-
-}
 
 # auth plain
 

@@ -64,7 +64,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->try_run('no proxy_bind transparent')->plan(1);
+$t->run()->plan(1);
 
 ###############################################################################
 

@@ -78,7 +78,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
-$t->try_run('no proxy_cache_max_range_offset')->plan(8);
+$t->run()->plan(8);
 
 ###############################################################################
 

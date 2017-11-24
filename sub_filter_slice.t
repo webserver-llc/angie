@@ -71,15 +71,10 @@ $t->run();
 
 my $r;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.5');
-
 # range filter in subrequests (subrequest_ranges)
 
 $r = get('/t', 'Range: bytes=2-4');
 unlike($r, qr/\x0d\x0a?0\x0d\x0a?\x0d\x0a?\w/, 'only final chunk');
-
-}
 
 TODO: {
 local $TODO = 'not yet';

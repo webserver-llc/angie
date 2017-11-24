@@ -69,7 +69,7 @@ http {
 
 EOF
 
-$t->try_run('no WebP support')->plan(18);
+$t->run()->plan(18);
 
 $t->write_file('webp', pack("A4LA8", "RIFF", 0x22, "WEBPVP8 ") .
 	pack("N4", 0x16000000, 0x3001009d, 0x012a0100, 0x01000ec0) .

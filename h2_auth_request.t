@@ -72,10 +72,6 @@ $t->run();
 
 my ($s, $sid, $frames, $frame);
 
-TODO: {
-todo_skip 'use-after-free', 2 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.7');
-
 # second stream is used to induce body corruption issue
 
 $s = Test::Nginx::HTTP2->new();
@@ -86,7 +82,5 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{'x-body'}, 'A' x 600, 'auth request body');
 isnt($frame->{headers}->{'x-body-file'}, undef, 'auth request body file');
-
-}
 
 ###############################################################################

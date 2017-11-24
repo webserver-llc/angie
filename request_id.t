@@ -61,7 +61,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('add.html', '<!--#include virtual="/body" -->');
-$t->try_run('no request_id variable support')->plan(12);
+$t->run()->plan(12);
 
 ###############################################################################
 

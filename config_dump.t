@@ -77,14 +77,9 @@ like($dump, qr!^# configuration file $d/inc.conf:$!m, 'inc.conf found');
 like($dump, qr!^# configuration file $d/inc2.conf:$!m, 'inc2.conf found');
 like($dump, qr!^# configuration file $d/map.conf:$!m, 'map.conf found');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 unlike($dump, qr!(# configuration file $d/inc.conf:).*\1!s, 'inc.conf uniq');
 unlike($dump, qr!(# configuration file $d/inc2.conf:).*\1!s, 'inc2.conf uniq');
 unlike($dump, qr!(# configuration file $d/map.conf:).*\1!s, 'map.conf uniq');
-
-}
 
 is(getconf($t, $dump, 'nginx.conf'), $t->read_file('nginx.conf'), 'content');
 is(getconf($t, $dump, 'inc.conf'), $t->read_file('inc.conf'), 'content inc');

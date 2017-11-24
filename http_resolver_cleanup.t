@@ -25,8 +25,6 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http proxy/);
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
-plan(skip_all => 'use-after-free on shutdown') unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.11.8');
 
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(1);
 

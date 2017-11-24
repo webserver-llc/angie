@@ -78,7 +78,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no stream return')->plan(2);
+$t->run()->plan(2);
 
 ###############################################################################
 

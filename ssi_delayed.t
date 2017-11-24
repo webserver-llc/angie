@@ -67,9 +67,6 @@ $t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.13');
-
 # If a response sending is delayed by sendfile_max_chunk, and
 # then we've switched to a different subrequest, which is not yet
 # ready to handle corresponding write event, wev->delayed won't be
@@ -78,8 +75,6 @@ local $TODO = 'not yet' unless $t->has_version('1.11.13');
 # buffers will be exhausted.  Fixed in 1.11.13 (903fb1ddc07f).
 
 like(http_get('/delayed.html'), qr/x{100}y{1024}SEE-THIS/, 'delayed');
-
-}
 
 ###############################################################################
 

@@ -89,7 +89,7 @@ EOF
 
 $t->run_daemon(\&stream_daemon, port(8084));
 $t->run_daemon(\&stream_daemon, port(8085));
-$t->try_run('no stream access_log')->plan(6);
+$t->run()->plan(6);
 
 $t->waitforsocket('127.0.0.1:' . port(8084));
 $t->waitforsocket('127.0.0.1:' . port(8085));
@@ -106,13 +106,8 @@ is(many(30, port(8083)), "$port4: 30", 'backup');
 $t->run_daemon(\&stream_daemon, port(8086));
 $t->waitforsocket('127.0.0.1:' . port(8086));
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.8');
-
 sleep 2;	# wait till fail_timeout passes
 is(parallel(30, port(8083)), "$port6: 30", 'recovery');
-
-}
 
 $t->stop();
 

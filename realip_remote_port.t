@@ -53,7 +53,7 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('1', '');
-$t->try_run('no realip_remote_port');
+$t->run();
 
 plan(skip_all => 'no 127.0.0.1 on host')
 	if http_get('/') !~ /X-IP: 127.0.0.1/m;
@@ -71,13 +71,8 @@ like($data, qr/X-Real-Port: $sp/, 'request redirect');
 ($sp, $data) = http_sp_xff('/1', '127.0.0.1:123');
 like($data, qr/X-Real-Port: $sp/, 'realip');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.5');
-
 ($sp, $data) = http_sp_xff('/', '127.0.0.1:123');
 like($data, qr/X-Real-Port: $sp/, 'realip redirect');
-
-}
 
 ###############################################################################
 

@@ -53,18 +53,13 @@ http {
 EOF
 
 $t->run();
-
-my $f = get_body('/chunked');
-plan(skip_all => 'no unbuffered request body') unless $f;
-$f->{http_end}();
-
 $t->plan(48);
 
 ###############################################################################
 
 # unbuffered request body to fastcgi
 
-$f = get_body('/');
+my $f = get_body('/');
 ok($f->{headers}, 'request');
 is($f->{upload}('01234', body_more => 1), '01234', 'part');
 is($f->{upload}('56789'), '56789_eos', 'part 2');

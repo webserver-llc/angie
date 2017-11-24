@@ -108,26 +108,14 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_verify_client')->plan(10);
+$t->run()->plan(10);
 
 ###############################################################################
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $t->has_version('1.11.9');
-
 is(stream('127.0.0.1:' . port(8080))->read(), ':', 'plain connection');
-
-}
-
-TODO: {
-local $TODO = 'fails on one-pass ngx_ssl_handshake'
-	unless $t->has_version('1.11.9');
 
 is(get(8081), '', 'no cert');
 is(get(8082, '1.example.com'), '', 'bad optional cert');
-
-}
-
 is(get(8082), 'NONE:', 'no optional cert');
 like(get(8083, '1.example.com'), qr/FAILED.*BEGIN/, 'bad optional_no_ca cert');
 
@@ -143,14 +131,9 @@ is($ca, '/CN=2.example.com', 'no trusted sent');
 
 }
 
-TODO: {
-local $TODO = 'not yet, see above' unless $t->has_version('1.11.9');
-
 $t->stop();
 
 is($t->read_file('status.log'), "500\n200\n", 'log');
-
-}
 
 ###############################################################################
 

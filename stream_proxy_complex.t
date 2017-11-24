@@ -64,7 +64,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream proxy_pass with complex value')->plan(5);
+$t->run()->plan(5);
 
 ###############################################################################
 

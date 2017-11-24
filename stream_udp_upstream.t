@@ -88,7 +88,7 @@ EOF
 
 $t->run_daemon(\&udp_daemon, port(8984), $t);
 $t->run_daemon(\&udp_daemon, port(8985), $t);
-$t->try_run('no stream access_log')->plan(5);
+$t->run()->plan(5);
 
 $t->waitforfile($t->testdir . '/' . port(8984));
 $t->waitforfile($t->testdir . '/' . port(8985));

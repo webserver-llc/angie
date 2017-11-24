@@ -90,7 +90,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->try_run('no auth external')->plan(30);
+$t->run()->plan(30);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 

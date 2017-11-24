@@ -92,7 +92,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
-$t->try_run('no auth external')->plan(14);
+$t->run()->plan(14);
 
 $t->waitforsocket('127.0.0.1:' . port(8144));
 

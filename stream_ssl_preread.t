@@ -173,12 +173,7 @@ is(get_short(), "127.0.0.1:$p3", 'short client hello');
 
 # allow record with older SSL version, such as 3.0
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.8');
-
 is(get_oldver(), 'foo', 'older version in ssl record');
-
-}
 
 $t->stop();
 

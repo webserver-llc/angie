@@ -54,7 +54,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream map')->plan(2);
+$t->run()->plan(2);
 
 ###############################################################################
 
@@ -62,12 +62,7 @@ http_get('/');
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.8');
-
 is($t->read_file('json.log'), '\" \\\\ \"foo' . "\n", 'json');
 is($t->read_file('test.log'), '\x22 \x5C \x22foo-' . "\n", 'default');
-
-}
 
 ###############################################################################

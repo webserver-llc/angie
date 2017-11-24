@@ -88,7 +88,7 @@ http {
 
 EOF
 
-$t->try_run('no server_tokens build')->plan(12);
+$t->run()->plan(12);
 
 ###############################################################################
 
@@ -108,14 +108,9 @@ like(body('/on/404'), $re, 'http2 tokens on 404 body');
 
 $re = qr/$re \Q($1)\E/ if $t->{_configure_args} =~ /--build=(\S+)/;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.10');
-
 like(header_server('/b/200'), qr/^$re$/, 'http2 tokens build 200');
 like(header_server('/b/404'), qr/^$re$/, 'http2 tokens build 404');
 like(body('/b/404'), qr/$re/, 'http2 tokens build 404 body');
-
-}
 
 ###############################################################################
 

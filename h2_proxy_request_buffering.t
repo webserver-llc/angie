@@ -66,18 +66,13 @@ http {
 EOF
 
 $t->run();
-
-my $f = get_body('/chunked');
-plan(skip_all => 'no unbuffered request body') unless $f;
-$f->{http_end}();
-
 $t->plan(49);
 
 ###############################################################################
 
 # unbuffered request body
 
-$f = get_body('/', 'content-length' => 10);
+my $f = get_body('/', 'content-length' => 10);
 ok($f->{headers}, 'request');
 is($f->{upload}('01234', body_more => 1), '01234', 'part');
 is($f->{upload}('56789'), '56789', 'part 2');

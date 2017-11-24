@@ -160,15 +160,7 @@ $s->ok('pop3 capa');
 
 my $caps = get_auth_caps($s);
 like($caps, qr/USER/, 'pop3 - user');
-
-TODO: {
-local $TODO = 'not yet' if $t->has_version('1.11.6')
-	and !$t->has_version('1.11.11');
-
 like($caps, qr/SASL (PLAIN LOGIN|LOGIN PLAIN) CRAM-MD5/, 'pop3 - methods');
-
-}
-
 unlike($caps, qr/STLS/, 'pop3 - no stls');
 
 # pop3 starttls
@@ -180,16 +172,8 @@ $s->send('CAPA');
 
 $caps = get_auth_caps($s);
 like($caps, qr/USER/, 'pop3 starttls - user');
-
-TODO: {
-local $TODO = 'not yet' if $t->has_version('1.11.6')
-	and !$t->has_version('1.11.11');
-
 like($caps, qr/SASL (PLAIN LOGIN|LOGIN PLAIN) CRAM-MD5/,
 	'pop3 starttls - methods');
-
-}
-
 like($caps, qr/STLS/, 'pop3 startls - stls');
 
 # pop3 starttls only

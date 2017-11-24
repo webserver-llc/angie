@@ -77,13 +77,8 @@ like(http_get('/preserve'), qr/request_method=GET/,
 like(http_get('/const'), qr/request_method=POST/,
 	'proxy_method from constant');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 like(http_get('/var?method=POST'), qr/request_method=POST/,
 	'proxy_method from variable');
-
-}
 
 like(http_get('/parent/child'), qr/request_method=POST/,
 	'proxy_method from parent');

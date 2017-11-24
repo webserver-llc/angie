@@ -1117,9 +1117,6 @@ undef $grace4;
 
 # GOAWAY without awaiting active streams, further streams ignored
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.11.6');
-
 $s = Test::Nginx::HTTP2->new(port(8080));
 $sid = $s->new_stream({ path => '/t1.html' });
 $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
@@ -1136,8 +1133,6 @@ $frames = $s->read(all => [{ sid => $sid2, fin => 0x4 }], wait => 0.5);
 
 ($frame) = grep { $_->{type} eq 'HEADERS' } @$frames;
 is($frame, undef, 'GOAWAY with active stream - no new stream');
-
-}
 
 $s->h2_window(100, $sid);
 $s->h2_window(100);

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache rewrite/)->plan(12)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -52,16 +52,18 @@ http {
             proxy_cache NAME;
             proxy_cache_valid 1m;
         }
+
         location /proxy_buffering_off {
             proxy_pass http://127.0.0.1:8081/;
             proxy_cache NAME;
             proxy_cache_valid 1m;
             proxy_buffering off;
         }
-        location / {
-            if ($arg_slow) {
-                set $limit_rate 200;
-            }
+
+        location / { }
+
+        location /slow {
+            limit_rate 200;
         }
     }
 }
@@ -69,6 +71,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
+$t->write_file('slow.html', 'SEE-THIS');
 $t->run();
 
 ###############################################################################
@@ -158,7 +161,7 @@ ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 # HEADERS should not be produced for the canceled stream
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/cache/t.html?slow=1' });
+$sid = $s->new_stream({ path => '/cache/slow.html' });
 
 $s->h2_rst($sid, 8);
 

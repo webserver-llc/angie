@@ -65,7 +65,7 @@ http {
 
         location /timeout {
             proxy_pass https://127.0.0.1:8082;
-            proxy_connect_timeout 2s;
+            proxy_connect_timeout 3s;
         }
 
         location /timeout_h {
@@ -110,7 +110,14 @@ like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused 2');
+
+SKIP: {
+skip 'long test', 1 unless $ENV{TEST_NGINX_UNSAFE};
+
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
+
+}
+
 like(http_get('/timeout_h'), qr/504 Gateway/, 'proxy handshake timeout');
 
 ###############################################################################
@@ -161,7 +168,7 @@ sub http_daemon {
 		next if $uri eq '';
 
 		if ($uri eq '/timeout') {
-			sleep 3;
+			sleep 4;
 
 			print $client <<EOF;
 HTTP/1.1 200 OK

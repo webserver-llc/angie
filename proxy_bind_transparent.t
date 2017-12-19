@@ -56,14 +56,13 @@ http {
         server_name     localhost;
 
         location / {
-            add_header   X-IP $remote_addr;
+            add_header   X-IP $remote_addr always;
         }
     }
 }
 
 EOF
 
-$t->write_file('index.html', '');
 $t->run()->plan(1);
 
 ###############################################################################

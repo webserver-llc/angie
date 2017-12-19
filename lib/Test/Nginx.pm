@@ -345,6 +345,12 @@ sub run(;$) {
 	$self->waitforfile("$testdir/nginx.pid", $pid)
 		or die "Can't start nginx";
 
+	for (1 .. 50) {
+		last if $^O ne 'MSWin32';
+		last if $self->read_file('error.log') =~ /create thread/;
+		select undef, undef, undef, 0.1;
+	}
+
 	$self->{_started} = 1;
 	return $self;
 }

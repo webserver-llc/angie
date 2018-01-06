@@ -55,6 +55,7 @@ http {
         server_name  localhost;
 
         location / {
+            postpone_output 0;
             limit_rate 512;
             expires 1m;
         }

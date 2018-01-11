@@ -53,13 +53,13 @@ EOF
 
 plan(skip_all => 'no lavfi')
 	unless grep /lavfi/, `ffmpeg -loglevel quiet -formats`;
-system('ffmpeg -loglevel quiet -y '
+system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
 	. '-f lavfi -i testsrc=duration=20:size=320x200:rate=15 '
 	. '-map 0:0 -map 1:0 -pix_fmt yuv420p -g 15 -c:v libx264 '
 	. "${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";
-system('ffmpeg -loglevel quiet -y '
+system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
 	. '-f lavfi -i testsrc=duration=20:size=320x200:rate=15 '
 	. '-map 0:0 -map 1:0 -pix_fmt yuv420p -g 15 -c:v libx264 '

@@ -81,8 +81,8 @@ like(http_head('/big.html'), qr/200 OK/, 'head request');
 # and rc = NGX_HTTP_GATEWAY_BAD_GATEWAY; after revision ad3f342f14ba046c this
 # will result in ngx_http_finalize_request(NGX_HTTP_GATEWAY_BAD_GATEWAY),
 # leading to an attempt to return additional error response and
-# the "header already sent" alert
+# the "header already sent" alert; fixed in 93abb5a855d6
 
-$t->todo_alerts();
+$t->todo_alerts() unless $t->has_version('1.13.9');
 
 ###############################################################################

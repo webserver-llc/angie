@@ -156,9 +156,8 @@ is($f->{http_end}(), 200, 'chunked empty - response');
 
 $f = get_body('/chunked');
 ok($f->{headers}, 'chunked split');
-is($f->{upload}('0123456789', split => [ 14 ]),
-	'5' . CRLF . '01234' . CRLF . '5' . CRLF . '56789' . CRLF .
-	'0' . CRLF . CRLF, 'chunked split');
+is(http_content($f->{upload}('0123456789', split => [ 14 ])),
+	'0123456789', 'chunked split');
 is($f->{http_end}(), 200, 'chunked split - response');
 
 # unbuffered request body, chunked transfer-encoding
@@ -176,6 +175,19 @@ $s2->h2_ping('PING');
 isnt(@{$s2->read()}, 0, 'chunked abort');
 
 ###############################################################################
+
+sub http_content {
+	my ($body) = @_;
+	my $content = '';
+
+	while ($body =~ /\G\x0d?\x0a?([0-9a-f]+)\x0d\x0a?/gcmsi) {
+		my $len = hex($1);
+		$content .= substr($body, pos($body), $len);
+		pos($body) += $len;
+	}
+
+	return $content;
+}
 
 sub get_body {
 	my ($url, %extra) = @_;

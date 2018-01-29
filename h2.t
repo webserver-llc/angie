@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(144);
+	->plan(147);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -751,6 +751,52 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 2**16 + 80, 'iws - increased');
+
+# INITIAL_WINDOW_SIZE duplicate settings
+
+# 6.5.  SETTINGS
+#   Each parameter in a SETTINGS frame replaces any existing value for
+#   that parameter.  Parameters are processed in the order in which they
+#   appear, and a receiver of a SETTINGS frame does not need to maintain
+#   any state other than the current value of its parameters.  Therefore,
+#   the value of a SETTINGS parameter is the last value that is seen by a
+#   receiver.
+
+$s = Test::Nginx::HTTP2->new();
+$s->h2_window(2**17);
+
+$sid = $s->new_stream({ path => '/t1.html' });
+
+$frames = $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 2**16 - 1, 'iws duplicate - default stream window');
+
+TODO: {
+local $TODO = 'not yet';
+
+# this should effect in extra stream window octect
+# $s->h2_settings(0, 0x4 => 42, 0x4 => 2**16);
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C2x5nNnN", 12, 0x4, 4, 42, 4, 2**16));
+}
+
+$frames = $s->read(all => [{ sid => $sid, length => 1 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 1, 'iws duplicate - updated stream window');
+
+# yet more octets to finish receiving the response
+
+$s->h2_settings(0, 0x4 => 2**16 + 80);
+
+$frames = $s->read(all => [{ sid => $sid, length => 80 }]);
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 80, 'iws duplicate - updated stream window 2');
+
+}
 
 # probe for negative available space in a flow control window
 

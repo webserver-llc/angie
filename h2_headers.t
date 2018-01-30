@@ -988,11 +988,16 @@ is($frame->{headers}->{':status'}, 400, 'empty authority');
 
 # client sent invalid :path header
 
-$sid = $s->new_stream({ path => 't1.html' });
-$frames = $s->read(all => [{ type => 'RST_STREAM' }]);
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.13.9');
 
-($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
-is($frame->{code}, 1, 'invalid path');
+$sid = $s->new_stream({ path => 't1.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 400, 'invalid path');
+
+}
 
 ###############################################################################
 

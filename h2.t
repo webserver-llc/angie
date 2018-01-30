@@ -773,7 +773,7 @@ $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 2**16 - 1, 'iws duplicate - default stream window');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.13.9');
 
 # this should effect in extra stream window octect
 # $s->h2_settings(0, 0x4 => 42, 0x4 => 2**16);

@@ -40,7 +40,7 @@ eval {
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)
-	->has_daemon('openssl')->plan(10);
+	->has_daemon('openssl')->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -56,12 +56,12 @@ http {
 
     add_header X-Verify x$ssl_client_verify:${ssl_client_cert}x;
 
-    ssl_certificate_key 1.example.com.key;
-    ssl_certificate 1.example.com.crt;
-
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
+
+        ssl_certificate_key 1.example.com.key;
+        ssl_certificate 1.example.com.crt;
 
         ssl_verify_client on;
         ssl_client_certificate 2.example.com.crt;
@@ -71,6 +71,9 @@ http {
         listen       127.0.0.1:8081 ssl;
         server_name  on;
 
+        ssl_certificate_key 1.example.com.key;
+        ssl_certificate 1.example.com.crt;
+
         ssl_verify_client on;
         ssl_client_certificate 2.example.com.crt;
     }
@@ -78,6 +81,9 @@ http {
     server {
         listen       127.0.0.1:8081 ssl;
         server_name  optional;
+
+        ssl_certificate_key 1.example.com.key;
+        ssl_certificate 1.example.com.crt;
 
         ssl_verify_client optional;
         ssl_client_certificate 2.example.com.crt;
@@ -88,8 +94,18 @@ http {
         listen       127.0.0.1:8081 ssl;
         server_name  optional_no_ca;
 
+        ssl_certificate_key 1.example.com.key;
+        ssl_certificate 1.example.com.crt;
+
         ssl_verify_client optional_no_ca;
         ssl_client_certificate 2.example.com.crt;
+    }
+
+    server {
+        listen       127.0.0.1:8081;
+        server_name  no_context;
+
+        ssl_verify_client on;
     }
 }
 
@@ -123,6 +139,14 @@ $t->run();
 
 like(http_get('/t'), qr/x:x/, 'plain connection');
 like(get('on'), qr/400 Bad Request/, 'no cert');
+
+TODO: {
+todo_skip 'leaves coredump', unless $t->has_version('1.13.9');
+
+like(get('no_context'), qr/400 Bad Request/, 'no server cert');
+
+}
+
 like(get('optional'), qr/NONE:x/, 'no optional cert');
 like(get('optional', '1.example.com'), qr/400 Bad/, 'bad optional cert');
 like(get('optional_no_ca', '1.example.com'), qr/FAILED.*BEGIN/,

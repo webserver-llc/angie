@@ -81,7 +81,7 @@ http {
     }
 
     server {
-        listen      127.0.0.1:8081;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
         # Special case for enabled "ssl" directive.
@@ -96,7 +96,7 @@ http {
     }
 
     server {
-        listen      127.0.0.1:8082 ssl;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
 
         ssl_session_cache builtin:1000;
@@ -107,7 +107,7 @@ http {
     }
 
     server {
-        listen      127.0.0.1:8083 ssl;
+        listen       127.0.0.1:8083 ssl;
         server_name  localhost;
 
         ssl_session_cache none;
@@ -118,7 +118,7 @@ http {
     }
 
     server {
-        listen      127.0.0.1:8084 ssl;
+        listen       127.0.0.1:8084 ssl;
         server_name  localhost;
 
         ssl_session_cache off;

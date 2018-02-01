@@ -404,6 +404,7 @@ sub settings {
 
 sub push_promise {
 	my ($ctx, $buf, $len, $flags) = @_;
+	$len -= 4;
 
 	{ promised => unpack("N", $buf),
 	  headers => hunpack($ctx, substr($buf, 4, $len), $len) };

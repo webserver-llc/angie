@@ -267,6 +267,9 @@ $sid = $s->new_stream({ path => '/expl' });
 $frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 0, 'max pushes disabled');
 
+TODO: {
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/;
+
 # server push flow control & rst
 
 $s = Test::Nginx::HTTP2->new();
@@ -303,8 +306,13 @@ push @$frames, @{ $s->read(all => [{ sid => 4, fin => 1 }], wait => 0.5) };
 is($frame->{length}, 1, 'pushed response flow control');
 is($frame->{flags}, 1, 'pushed response END_STREAM');
 
+}
+
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == 4 } @$frames;
 ok(!$frame, 'rst pushed stream');
+
+TODO: {
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/;
 
 # priority
 
@@ -335,6 +343,8 @@ $s->h2_window(2**17);
 $frames = $s->read(all => [{ sid => 2, fin => 1 }, { sid => 4, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 is(join(' ', map { $_->{sid} } @data), "2 4", 'priority 2');
+
+}
 
 # http2_max_concurrent_pushes
 

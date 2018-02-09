@@ -128,7 +128,7 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
-$t->try_run('no http2_push')->plan(38);
+$t->try_run('no http2_push')->plan(37);
 
 ###############################################################################
 
@@ -236,11 +236,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }, { sid => 2, fin => 1 }]);
 ok($frame, 'push setting enabled');
 
 $s->h2_settings(0, 0x2 => 42);
-$sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }]);
+$frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
-($frame) = grep { $_->{type} =~ "PUSH_PROMISE" } @$frames;
-ok(!$frame, 'push setting invalid - no promises');
 ($frame) = grep { $_->{type} =~ "GOAWAY" } @$frames;
 is($frame->{'code'}, 1, 'push setting invalid - GOAWAY protocol error');
 cmp_ok($frame->{'last_sid'}, '<', 5, 'push setting invalid - last sid');

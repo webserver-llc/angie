@@ -175,7 +175,7 @@ is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'preload proxy');
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/both' });
 $frames = $s->read(all => [{ sid => 8, fin => 1 }], wait => 0.5);
-is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'preload proxy');
+is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'h2_push and preload');
 
 # h2_push
 
@@ -184,7 +184,7 @@ $sid = $s->new_stream({ path => '/expl' });
 $frames = $s->read(all => [{ sid => 1, fin => 1 }, { sid => 2, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
-ok($frame, 'PUSH_PROMISE');
+ok($frame, 'h2_push only');
 
 # h2_push off
 

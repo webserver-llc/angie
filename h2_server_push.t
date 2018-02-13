@@ -128,7 +128,7 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
-$t->try_run('no http2_push')->plan(37);
+$t->try_run('no http2_push')->plan(38);
 
 ###############################################################################
 
@@ -366,5 +366,17 @@ $sid = $s->new_stream({ headers => [
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }, { sid => 2, fin => 1 }]);
 push @$frames, @{ $s->read(all => [{ sid => 4, fin => 1 }], wait => 0.2) };
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 1, 'http2 max pushes 2');
+
+# missing request header ':authority'
+
+$s = Test::Nginx::HTTP2->new(port(8082));
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 }]});
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 400, 'incomplete headers');
 
 ###############################################################################

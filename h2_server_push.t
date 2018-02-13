@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite gzip/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -109,6 +109,14 @@ http {
         location /push {
             return 200 PROMISED;
         }
+
+        location /gzip.html {
+            gzip on;
+            gzip_min_length 0;
+
+            http2_push /gzip.html;
+            return 200 PROMISED;
+        }
     }
 
     server {
@@ -128,7 +136,7 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
-$t->try_run('no http2_push')->plan(38);
+$t->try_run('no http2_push')->plan(41);
 
 ###############################################################################
 
@@ -378,5 +386,53 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'incomplete headers');
+
+# gzip tests
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/arg?push=/gzip.html' },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'accept-encoding', value => 'gzip' }]});
+$frames = $s->read(all => [{ sid => 2, fin => 1 }]);
+
+TODO: {
+local $TODO = 'not yet';
+
+($frame) = grep { $_->{type} eq "PUSH_PROMISE" && $_->{sid} == $sid } @$frames;
+is($frame->{headers}->{'accept-encoding'}, 'gzip', 'gzip - push promise');
+
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == 2 } @$frames;
+is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - headers');
+
+($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == 2 } @$frames;
+gunzip_like($frame->{data}, qr/^PROMISED\Z/, 'gzip - response');
+
+}
+
+###############################################################################
+
+sub gunzip_like {
+	my ($in, $re, $name) = @_;
+
+	SKIP: {
+		eval { require IO::Uncompress::Gunzip; };
+		Test::More::skip(
+			"IO::Uncompress::Gunzip not installed", 1) if $@;
+
+		my $out;
+
+		IO::Uncompress::Gunzip::gunzip(\$in => \$out);
+
+		if ($in =~ $re) {
+			fail($name);
+			return;
+		}
+
+		like($out, $re, $name);
+	}
+}
 
 ###############################################################################

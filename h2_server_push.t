@@ -273,7 +273,8 @@ $frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 0, 'max pushes disabled');
 
 TODO: {
-local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/;
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/
+	or $t->read_file('nginx.conf') =~ /aio threads/;
 
 # server push flow control & rst
 
@@ -317,7 +318,8 @@ is($frame->{flags}, 1, 'pushed response END_STREAM');
 ok(!$frame, 'rst pushed stream');
 
 TODO: {
-local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/;
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/
+	or $t->read_file('nginx.conf') =~ /aio threads/;
 
 # priority
 

@@ -113,8 +113,6 @@ http {
         location /gzip.html {
             gzip on;
             gzip_min_length 0;
-
-            http2_push /gzip.html;
             return 200 PROMISED;
         }
     }

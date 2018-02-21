@@ -398,9 +398,6 @@ $sid = $s->new_stream({ headers => [
 	{ name => 'accept-encoding', value => 'gzip' }]});
 $frames = $s->read(all => [{ sid => 2, fin => 1 }]);
 
-TODO: {
-local $TODO = 'not yet';
-
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{'accept-encoding'}, 'gzip', 'gzip - push promise');
 
@@ -409,8 +406,6 @@ is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - headers');
 
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == 2 } @$frames;
 gunzip_like($frame->{data}, qr/^PROMISED\Z/, 'gzip - response');
-
-}
 
 ###############################################################################
 

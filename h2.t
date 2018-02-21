@@ -772,9 +772,6 @@ $frames = $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 2**16 - 1, 'iws duplicate - default stream window');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.9');
-
 # this should effect in extra stream window octect
 # $s->h2_settings(0, 0x4 => 42, 0x4 => 2**16);
 {
@@ -795,8 +792,6 @@ $frames = $s->read(all => [{ sid => $sid, length => 80 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 80, 'iws duplicate - updated stream window 2');
-
-}
 
 # probe for negative available space in a flow control window
 

@@ -170,12 +170,12 @@ sub http_daemon {
 
 		if ($uri =~ 'bad' && $once) {
 			$once = 0;
-			sleep 1;
+			select undef, undef, undef, 1.1;
 			next;
 		}
 
 		if ($uri =~ 'header') {
-			sleep 1;
+			select undef, undef, undef, 1.1;
 		}
 
 		print $client <<EOF;
@@ -186,7 +186,7 @@ SEE-THIS-
 EOF
 
 		if ($uri =~ 'body') {
-			sleep 1;
+			select undef, undef, undef, 1.1;
 		}
 
 		print $client 'AND-THIS';

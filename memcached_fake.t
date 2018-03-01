@@ -53,7 +53,10 @@ http {
 
 EOF
 
-$t->write_file('ssi.html', '<!--#include virtual="/" set="blah" -->blah: <!--#echo var="blah" -->');
+$t->write_file('ssi.html',
+	'<!--#include virtual="/" set="blah" -->' .
+	'blah: <!--#echo var="blah" -->');
+
 $t->run_daemon(\&memcached_fake_daemon);
 $t->run();
 

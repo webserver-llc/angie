@@ -41,11 +41,11 @@ http {
 
         location / {
             proxy_pass http://127.0.0.1:8081;
+            subrequest_output_buffer_size 42;
         }
 
         location /longok {
             proxy_pass http://127.0.0.1:8081/long;
-            subrequest_output_buffer_size 42k;
         }
 
         location /ssi {
@@ -68,7 +68,7 @@ $t->write_file('ssi.html',
 	'set: <!--#echo var="x" -->');
 
 $t->write_file('length', 'TEST-OK-IF-YOU-SEE-THIS');
-$t->write_file('long', 'x' x 40000);
+$t->write_file('long', 'x' x 400);
 $t->write_file('empty', '');
 
 $t->try_run('no subrequest_output_buffer_size')->plan(4);
@@ -78,8 +78,8 @@ $t->try_run('no subrequest_output_buffer_size')->plan(4);
 my ($r, $n);
 
 like(http_get('/ssi.html?c=length'), qr/SEE-THIS/, 'request');
-like(http_get('/ssi.html?c=empty'), qr/200 OK/, 'empty');
-unlike(http_get('/ssi.html?c=long'), qr/200 OK/, 'long default');
-like(http_get('/ssi.html?c=longok'), qr/200 OK/, 'long ok');
+like(http_get('/ssi.html?c=empty'), qr/set: $/, 'empty');
+unlike(http_get('/ssi.html?c=long'), qr/200 OK/, 'long');
+like(http_get('/ssi.html?c=longok'), qr/x{400}/, 'long ok');
 
 ###############################################################################

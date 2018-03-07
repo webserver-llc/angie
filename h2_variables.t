@@ -50,7 +50,7 @@ http {
             return 200 $scheme;
         }
         location /https {
-            return 200 $https;
+            return 200 "body $https";
         }
         location /rl {
             return 200 $request_length;
@@ -98,7 +98,7 @@ $sid = $s->new_stream({ path => '/https' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, '', 'https variable');
+is($frame->{data}, 'body ', 'https variable');
 
 # $request_length, HEADERS payload length
 

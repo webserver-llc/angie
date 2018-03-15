@@ -36,8 +36,8 @@ sub new {
 	my ($port, %extra) = @_;
 
 	my $s = $extra{socket} || new_socket($port, %extra);
-	my $preface = $extra{preface}
-		|| 'PRI * HTTP/2.0' . CRLF . CRLF . 'SM' . CRLF . CRLF;
+	my $preface = defined $extra{preface} ? $extra{preface}
+		: 'PRI * HTTP/2.0' . CRLF . CRLF . 'SM' . CRLF . CRLF;
 
 	if ($extra{proxy}) {
 		raw_write($s, $extra{proxy});

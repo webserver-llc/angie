@@ -196,7 +196,8 @@ sub new_stream {
 
 	my $type = defined $uri->{h2_continue} ? 0x9 : 0x1;
 	my $flags = defined $uri->{continuation} ? 0x0 : 0x4;
-	$flags |= 0x1 unless defined $body || defined $uri->{body_more};
+	$flags |= 0x1 unless defined $body || defined $uri->{body_more}
+		|| defined $uri->{h2_continue};
 	$flags |= 0x8 if $padlen;
 	$flags |= 0x20 if defined $dep || defined $prio;
 

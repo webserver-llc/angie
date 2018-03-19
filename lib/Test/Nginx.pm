@@ -139,6 +139,7 @@ sub has_module($) {
 		fastcgi	=> '(?s)^(?!.*--without-http_fastcgi_module)',
 		uwsgi	=> '(?s)^(?!.*--without-http_uwsgi_module)',
 		scgi	=> '(?s)^(?!.*--without-http_scgi_module)',
+		grpc	=> '(?s)^(?!.*--without-http_grpc_module)',
 		memcached
 			=> '(?s)^(?!.*--without-http_memcached_module)',
 		limit_conn

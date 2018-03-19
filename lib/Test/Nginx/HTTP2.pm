@@ -360,7 +360,8 @@ sub test_fin {
 	# wait for the fin flag
 
 	@test = grep { !(defined $_->{fin}
-		&& $_->{sid} == $frame->{sid} && $_->{fin} & $frame->{flags})
+		&& (!defined $_->{sid} || $_->{sid} == $frame->{sid})
+		&& $_->{fin} & $frame->{flags})
 	} @test if defined $frame->{flags};
 
 	# wait for the specified frame

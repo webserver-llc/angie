@@ -205,8 +205,8 @@ sub new_stream {
 		$self->{last_stream} = $stream;
 	} else {
 		$self->{last_stream} += 2;
-		$self->{streams}{$self->{last_stream}} = $self->{iws};
 	}
+	$self->{streams}{$self->{last_stream}} = $self->{iws};
 
 	$buf = pack("xxx");				# Length stub
 	$buf .= pack("CC", $type, $flags);		# END_HEADERS

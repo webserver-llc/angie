@@ -100,7 +100,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_preread_alpn_protocols')->plan(6);
+$t->try_run('no ssl_preread_alpn_protocols')->plan(5);
 
 ###############################################################################
 
@@ -114,9 +114,7 @@ is(get_ssl(8081, 'bar'), $p2, 'alpn 2 again');
 
 is(get_ssl(8081, 'foo', 'bar'), $p3, 'alpn many');
 
-# fallback to an empty value
-
-ok(!get_ssl(8081, ''), 'alpn empty');
+get_ssl(8081, '');
 
 ###############################################################################
 

@@ -291,8 +291,8 @@ sub try_run($$) {
 	return $self unless $@;
 
 	if ($ENV{TEST_NGINX_VERBOSE}) {
-		$self->{_configure_args} =~ m!--error-log-path=(\S+)!;
-		my $path = $1 || 'logs/error.log';
+		my $path = $self->{_configure_args} =~ m!--error-log-path=(\S+)!
+			? $1 : 'logs/error.log';
 		$path = "$self->{_testdir}/$path" if index($path, '/');
 
 		open F, '<', $path or die "Can't open $path: $!";

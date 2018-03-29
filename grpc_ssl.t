@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite http_v2 grpc/)
+my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
 	->has(qw/upstream_keepalive http_ssl/);
 
 $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;

@@ -178,7 +178,9 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_log(req, res) {
-        req.log("SEE-THIS");
+        req.log("SEE-THIS-LOG");
+        req.warn("SEE-THIS-WARN");
+        req.error("SEE-THIS-ERROR");
     }
 
     function test_except(req, res) {
@@ -261,7 +263,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(22);
+$t->try_run('no njs available')->plan(24);
 
 ###############################################################################
 
@@ -302,7 +304,9 @@ $t->todo_alerts();
 
 $t->stop();
 
-ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'log js');
+ok(index($t->read_file('error.log'), 'SEE-THIS-LOG') > 0, 'log js');
+ok(index($t->read_file('error.log'), 'SEE-THIS-WARN') > 0, 'warn js');
+ok(index($t->read_file('error.log'), 'SEE-THIS-ERROR') > 0, 'error js');
 ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
    'js_set backtrace');
 ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,

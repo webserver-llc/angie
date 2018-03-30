@@ -122,7 +122,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-$t->plan(12);
+$t->plan(13);
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
@@ -175,11 +175,26 @@ is(get_short(), "127.0.0.1:$p3", 'short client hello');
 
 is(get_oldver(), 'foo', 'older version in ssl record');
 
+# SNI "foo|f" fragmented across TLS records
+
+is(get_frag(), 'foof', 'handshake fragment split on SNI');
+
 $t->stop();
 
 is($t->read_file('status.log'), "400\n", 'preread buffer full - log');
 
 ###############################################################################
+
+sub get_frag {
+	my $r = pack("N*", 0x16030100, 0x3b010000, 0x380303ac,
+		0x8c8678a0, 0xaa1e7eed, 0x3644eed6, 0xc3bd2c69,
+		0x7bc7deda, 0x249db0e3, 0x0c339eba, 0xa80b7600,
+		0x00020000, 0x0100000d, 0x00000009, 0x00070000,
+		0x04666f6f, 0x16030100);
+	$r .= pack("n", 0x0166);
+
+	http($r);
+}
 
 sub get_short {
 	my $r = pack("N*", 0x16030100, 0x38010000, 0x330303eb);

@@ -53,6 +53,9 @@ http {
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
+        ssl_verify_client optional;
+        ssl_client_certificate client.crt;
+
         http2_max_field_size 128k;
         http2_max_header_size 128k;
         http2_body_preread_size 128k;
@@ -73,6 +76,13 @@ http {
 
         location / {
             grpc_pass grpcs://127.0.0.1:8081;
+            grpc_ssl_name localhost;
+            grpc_ssl_verify on;
+            grpc_ssl_trusted_certificate localhost.crt;
+
+            grpc_ssl_certificate client.crt;
+            grpc_ssl_certificate_key client.key;
+            grpc_ssl_password_file password;
 
             if ($arg_if) {
                 # nothing
@@ -108,6 +118,20 @@ foreach my $name ('localhost') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
+
+foreach my $name ('client') {
+	system("openssl genrsa -out $d/$name.key -passout pass:$name "
+		. "-aes128 1024 >>$d/openssl.out 2>&1") == 0
+		or die "Can't create private key: $!\n";
+	system('openssl req -x509 -new '
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt "
+		. "-key $d/$name.key -passin pass:$name"
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't create certificate for $name: $!\n";
+}
+
+$t->write_file('password', 'client');
 
 $t->try_run('no grpc')->plan(33);
 

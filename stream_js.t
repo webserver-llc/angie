@@ -133,9 +133,7 @@ $t->write_file('functions.js', <<EOF);
     }
 
     function js_log(sess) {
-        sess.log("SEE-THIS-LOG");
-        sess.warn("SEE-THIS-WARN");
-        sess.error("SEE-THIS-ERROR");
+        sess.log("SEE-THIS");
     }
 
     function js_access_allow(sess) {
@@ -201,7 +199,7 @@ $t->write_file('functions.js', <<EOF);
 EOF
 
 $t->run_daemon(\&stream_daemon, port(8090));
-$t->try_run('no stream njs available')->plan(16);
+$t->try_run('no stream njs available')->plan(14);
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
@@ -225,9 +223,7 @@ stream('127.0.0.1:' . port(8093))->io('x');
 
 $t->stop();
 
-ok(index($t->read_file('error.log'), 'SEE-THIS-LOG') > 0, 'stream js log');
-ok(index($t->read_file('error.log'), 'SEE-THIS-WARN') > 0, 'stream js warn');
-ok(index($t->read_file('error.log'), 'SEE-THIS-ERROR') > 0, 'stream js error');
+ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'stream js log');
 ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
    'stream js_preread backtrace');
 ok(index($t->read_file('error.log'), 'at js_filter_except') > 0,

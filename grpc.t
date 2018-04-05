@@ -91,7 +91,7 @@ http {
 
 EOF
 
-$t->try_run('no grpc')->plan(97);
+$t->try_run('no grpc')->plan(100);
 
 ###############################################################################
 
@@ -356,6 +356,21 @@ is($frame->{flags}, 1, 'flow control - rest flags');
 
 $f->{http_end}();
 
+# preserve output
+
+$f->{http_start}('/Preserve');
+$f->{data}('Hello');
+$frames = $f->{http_pres}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, 4, 'preserve - HEADERS');
+
+my @data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 163840, 'preserve - DATA');
+
+(undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, 5, 'preserve - trailers');
+
 # DATA padding
 
 $f->{http_start}('/SayPadding');
@@ -422,7 +437,7 @@ $f->{http_end}();
 ###############################################################################
 
 sub grpc {
-	my ($server, $client, $f, $s, $c, $sid, $uri);
+	my ($server, $client, $f, $s, $c, $sid, $csid, $uri);
 	my $n = 0;
 
 	$server = IO::Socket::INET->new(
@@ -439,7 +454,7 @@ sub grpc {
 		my $body_more = 1 if $uri !~ /LongHeader/;
 		my $meth = $extra{method} || 'POST';
 		$s = Test::Nginx::HTTP2->new() if !defined $s;
-		$s->new_stream({ body_more => $body_more, headers => [
+		$csid = $s->new_stream({ body_more => $body_more, headers => [
 			{ name => ':method', value => $meth, mode => !!$meth },
 			{ name => ':scheme', value => 'http', mode => 0 },
 			{ name => ':path', value => $uri, },
@@ -498,6 +513,34 @@ sub grpc {
 		]}, $sid);
 		$c->h2_body('Hello world', { body_more => 1,
 			body_padding => $extra{body_padding} });
+		$c->new_stream({ headers => [
+			{ name => 'grpc-status', value => '0',
+				mode => 2, huff => 1 },
+			{ name => 'grpc-message', value => '',
+				mode => 2, huff => 1 },
+		]}, $sid);
+
+		return $s->read(all => [{ fin => 1 }]);
+	};
+	$f->{http_pres} = sub {
+		my (%extra) = @_;
+		$c->new_stream({ body_more => 1, %extra, headers => [
+			{ name => ':status', value => '200',
+				mode => $extra{mode} || 0 },
+			{ name => 'content-type', value => 'application/grpc',
+				mode => $extra{mode} || 1, huff => 1 },
+			{ name => 'x-connection', value => $n,
+				mode => 2, huff => 1 },
+		]}, $sid);
+		for (1 .. 20) {
+			$c->h2_body(sprintf('Hello %02d', $_) x 1024, {
+				body_more => 1,
+				body_padding => $extra{body_padding} });
+			$c->h2_ping("PING");
+		}
+		# reopen window
+		$s->h2_window(2**24);
+		$s->h2_window(2**24, $csid);
 		$c->new_stream({ headers => [
 			{ name => 'grpc-status', value => '0',
 				mode => 2, huff => 1 },

@@ -366,7 +366,7 @@ is($frame->{flags}, 4, 'preserve - HEADERS');
 
 my @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
-is($sum, 163840, 'preserve - DATA');
+is($sum, 20480, 'preserve - DATA');
 
 (undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{flags}, 5, 'preserve - trailers');
@@ -524,6 +524,7 @@ sub grpc {
 	};
 	$f->{http_pres} = sub {
 		my (%extra) = @_;
+		$s->h2_settings(0, 0x4 => 8192);
 		$c->new_stream({ body_more => 1, %extra, headers => [
 			{ name => ':status', value => '200',
 				mode => $extra{mode} || 0 },
@@ -533,7 +534,7 @@ sub grpc {
 				mode => 2, huff => 1 },
 		]}, $sid);
 		for (1 .. 20) {
-			$c->h2_body(sprintf('Hello %02d', $_) x 1024, {
+			$c->h2_body(sprintf('Hello %02d', $_) x 128, {
 				body_more => 1,
 				body_padding => $extra{body_padding} });
 			$c->h2_ping("PING");
@@ -548,7 +549,7 @@ sub grpc {
 				mode => 2, huff => 1 },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{http_err} = sub {
 		$c->new_stream({ headers => [

@@ -102,7 +102,20 @@ sub grpc {
 			{ name => 'content-length', value => '5' }]});
 
 		if (!$extra{reuse}) {
-			$client = $server->accept() or return;
+			eval {
+				local $SIG{ALRM} = sub { die "timeout\n" };
+				alarm(5);
+
+				$client = $server->accept() or return;
+
+				alarm(0);
+			};
+			alarm(0);
+			if ($@) {
+				log_in("died: $@");
+				return undef;
+			}
+
 			log2c("(new connection $client)");
 
 			$client->sysread(my $buf, 24) == 24 or return; # preface

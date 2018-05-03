@@ -131,6 +131,8 @@ foreach my $name ('client') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
+sleep 1 if $^O eq 'MSWin32';
+
 $t->write_file('password', 'client');
 
 $t->try_run('no grpc')->plan(33);

@@ -161,7 +161,10 @@ foreach my $name ('localhost', 'inherits') {
 
 my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 $t->write_file('password', 'localhost');
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

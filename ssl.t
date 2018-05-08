@@ -190,7 +190,9 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	SSL_session_cache_size => 100);
 
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

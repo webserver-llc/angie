@@ -13,6 +13,8 @@ use strict;
 
 use Test::More;
 
+use Socket qw/ CRLF /;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -28,8 +30,8 @@ plan(skip_all => 'IO::Socket::SSL not installed') if $@;
 eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
-	->has_daemon('openssl')->plan(20);
+my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
+	->has_daemon('openssl')->plan(21);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -77,6 +79,11 @@ http {
         }
         location /subject {
             return 200 "body $ssl_client_s_dn";
+        }
+
+        location /body {
+            add_header X-Body $request_body always;
+            proxy_pass http://127.0.0.1:8080/;
         }
     }
 
@@ -239,12 +246,32 @@ like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
 like(cert('/issuer', 8085), qr!^body CN=issuer$!m, 'issuer');
 like(cert('/subject', 8085), qr!^body CN=subject$!m, 'subject');
 
+# c->read->ready handling bug in ngx_ssl_recv(), triggered with chunked body
+
+like(get_body('/body', '0123456789', 20, 5), qr/X-Body: (0123456789){100}/,
+	'request body chunked');
+
 ###############################################################################
 
 sub get {
 	my ($uri, $port) = @_;
 	my $s = get_ssl_socket($ctx, port($port)) or return;
 	my $r = http_get($uri, socket => $s);
+	$s->close();
+	return $r;
+}
+
+sub get_body {
+	my ($uri, $body, $len, $n) = @_;
+	my $s = get_ssl_socket($ctx, port(8085)) or return;
+	http("GET /body HTTP/1.1" . CRLF
+		. "Host: localhost" . CRLF
+		. "Connection: close" . CRLF
+		. "Transfer-Encoding: chunked" . CRLF . CRLF,
+		socket => $s, start => 1);
+	http("c8" . CRLF . $body x $len . CRLF, socket => $s, start => 1)
+		for 1 .. $n;
+	my $r = http("0" . CRLF . CRLF, socket => $s);
 	$s->close();
 	return $r;
 }

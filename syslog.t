@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(59);
+my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(61);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -230,6 +230,27 @@ like(get_syslog('/nohostname'),
 	(\w{1,32}):\s				# tag
 	(.*)/x,					# MSG
 	'nohostname');
+
+# send error handling
+
+ok(get_syslog('/a'), 'send success');
+
+close $s;
+
+get_syslog('/a');
+get_syslog('/a');
+
+$s = IO::Socket::INET->new(
+	Proto => 'udp',
+	LocalAddr => '127.0.0.1:' . port(8984)
+)
+	or die "Can't open syslog socket: $!";
+
+ok(get_syslog('/a'), 'send error - recover');
+
+# broken in fa0e093b64d7
+
+$t->todo_alerts() if $t->has_version('1.15.0');
 
 ###############################################################################
 

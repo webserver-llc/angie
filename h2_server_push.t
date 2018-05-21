@@ -134,7 +134,7 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
-$t->try_run('no http2_push')->plan(41);
+$t->try_run('no http2_push')->plan(42);
 
 ###############################################################################
 
@@ -406,6 +406,24 @@ is($frame->{headers}->{'content-encoding'}, 'gzip', 'gzip - headers');
 
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == 2 } @$frames;
 gunzip_like($frame->{data}, qr/^PROMISED\Z/, 'gzip - response');
+
+# scheme https
+
+TODO: {
+local $TODO = 'not yet';
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'https', mode => 0 },
+	{ name => ':path', value => '/preload' },
+	{ name => ':authority', value => 'localhost', mode => 1 }]});
+$frames = $s->read(all => [{ sid => 2, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "PUSH_PROMISE" && $_->{sid} == $sid } @$frames;
+is($frame->{headers}->{':scheme'}, 'https', 'scheme https');
+
+}
 
 ###############################################################################
 

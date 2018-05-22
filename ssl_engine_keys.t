@@ -47,8 +47,8 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        ssl_certificate_key engine:pkcs11:slot_0-id_00;
         ssl_certificate localhost.crt;
+        ssl_certificate_key engine:pkcs11:slot_0-id_00;
 
         location / {
             # index index.html by default
@@ -81,9 +81,9 @@ pkcs11 = pkcs11_section
 
 [pkcs11_section]
 engine_id = pkcs11
-dynamic_path = /usr/local/lib/engines/engine_pkcs11.so
+dynamic_path = /usr/local/lib/engines/pkcs11.so
 MODULE_PATH = /usr/local/lib/softhsm/libsofthsm.so
-init = 0
+init = 1
 PIN = 1234
 
 [ req ]

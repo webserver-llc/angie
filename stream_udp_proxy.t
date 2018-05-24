@@ -22,7 +22,7 @@ use Test::Nginx::Stream qw/ dgram /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream udp/)->plan(5)
+my $t = Test::Nginx->new()->has(qw/stream udp/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -69,8 +69,8 @@ is($s->io('1', read => 1, read_timeout => 0.5), '', 'proxy responses 0');
 
 $s = dgram('127.0.0.1:' . port(8982));
 is($s->io('1'), '1', 'proxy responses 1');
+$s = dgram('127.0.0.1:' . port(8982));
 is($s->io('2', read => 2), '12', 'proxy responses 2');
-is($s->io('3', read => 3, read_timeout => 0.5), '12', 'proxy responses 3');
 
 $s = dgram('127.0.0.1:' . port(8983));
 is($s->io('3', read => 3), '123', 'proxy responses default');

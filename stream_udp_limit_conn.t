@@ -87,18 +87,24 @@ my $s = dgram('127.0.0.1:' . port(8981));
 
 is($s->io('1'), '1', 'passed');
 
-# if not all responses were sent to client, then new request
-# in same socket will be treated as new connection
+# regardless of incomplete responses, new requests in the same
+# socket will be treated as requests in existing session
 
-is($s->io('1', read_timeout => 0.1), '', 'rejected new connection');
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.0');
+
+is($s->io('1', read_timeout => 0.1), '1', 'passed new request');
+
+}
+
 is(dgram('127.0.0.1:' . port(8981))->io('1', read_timeout => 0.1), '',
-	'rejected same zone');
+	'rejected new session');
 is(dgram('127.0.0.1:' . port(8982))->io('1'), '1', 'passed different zone');
 is(dgram('127.0.0.1:' . port(8983))->io('1'), '1', 'passed same zone unlimited');
 
 sleep 1;	# waiting for proxy_timeout to expire
 
-is($s->io('2', read => 2), '12', 'new connection after proxy_timeout');
+is($s->io('2', read => 2), '12', 'new session after proxy_timeout');
 
 is(dgram('127.0.0.1:' . port(8981))->io('2', read => 2), '12', 'passed 2');
 

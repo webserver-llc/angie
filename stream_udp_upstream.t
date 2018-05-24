@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ dgram /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream udp/)
+my $t = Test::Nginx->new()->has(qw/stream udp/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -36,9 +36,6 @@ events {
 stream {
     proxy_responses      1;
     proxy_timeout        1s;
-
-    log_format bytes $upstream_addr!
-                     $upstream_bytes_sent!$upstream_bytes_received;
 
     upstream u {
         server 127.0.0.1:%%PORT_8984_UDP%%;
@@ -58,7 +55,7 @@ stream {
     }
 
     upstream u4 {
-        server 127.0.0.1:%%PORT_8986_UDP%%;
+        server 127.0.0.1:%%PORT_8986_UDP%% down;
         server 127.0.0.1:%%PORT_8984_UDP%% backup;
     }
 
@@ -80,7 +77,6 @@ stream {
     server {
         listen      127.0.0.1:%%PORT_8983_UDP%% udp;
         proxy_pass  u4;
-        access_log  %%TESTDIR%%/u.log bytes;
     }
 }
 
@@ -88,24 +84,28 @@ EOF
 
 $t->run_daemon(\&udp_daemon, port(8984), $t);
 $t->run_daemon(\&udp_daemon, port(8985), $t);
-$t->run()->plan(5);
+$t->run();
 
 $t->waitforfile($t->testdir . '/' . port(8984));
 $t->waitforfile($t->testdir . '/' . port(8985));
 
 ###############################################################################
 
-my @ports = my ($port4, $port5, $port6) = (port(8984), port(8985), port(8986));
+my @ports = my ($port4, $port5) = (port(8984), port(8985));
 
 is(many(10, port(8980)), "$port4: 5, $port5: 5", 'balanced');
-is(many(10, port(8981)), "$port4: 5, $port5: 5", 'failures');
+
+# no next upstream for dgram
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.0');
+
+is(many(10, port(8981)), "$port4: 5, $port5: 4", 'failures');
+
+}
+
 is(many(9, port(8982)), "$port4: 3, $port5: 6", 'weight');
 is(many(10, port(8983)), "$port4: 10", 'backup');
-
-$t->stop();
-
-like($t->read_file('u.log'), qr/127.0.0.1:$port6, 127.0.0.1:$port4!1, 1!0, 4/,
-	'per-upstream variables');
 
 ###############################################################################
 

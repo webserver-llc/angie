@@ -248,10 +248,6 @@ $s = IO::Socket::INET->new(
 
 ok(get_syslog('/a'), 'send error - recover');
 
-# broken in fa0e093b64d7
-
-$t->todo_alerts() if $t->has_version('1.15.0');
-
 ###############################################################################
 
 sub syslog_lines {

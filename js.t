@@ -96,6 +96,10 @@ http {
             return 200 $test_except;
         }
 
+        location /req_empty {
+            js_content content_empty;
+        }
+
         location /res_status {
             js_content status;
         }
@@ -259,9 +263,12 @@ $t->write_file('test.js', <<EOF);
         JSON.parse({}.a.a);
     }
 
+    function content_empty(req, res) {
+    }
+
 EOF
 
-$t->try_run('no njs available')->plan(22);
+$t->try_run('no njs available')->plan(23);
 
 ###############################################################################
 
@@ -276,6 +283,7 @@ like(http_get('/req_iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'req.args iteration');
 like(http_get('/req_var'), qr/variable=127.0.0.1/, 'req.variables');
 like(http_get('/req_log'), qr/200 OK/, 'req.log');
+like(http_get('/req_empty'), qr/500 Internal Server Error/, 'empty handler');
 
 like(http_get('/res_status'), qr/204 No Content/, 'res.status');
 like(http_get('/res_ctype'), qr/Content-Type: application\/foo/,

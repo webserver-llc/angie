@@ -43,7 +43,7 @@ ok($pid, 'master pid');
 
 kill 'USR2', $pid;
 
-for (1 .. 10) {
+for (1 .. 30) {
 	last if -e $t->testdir() . '/nginx.pid'
 		&& -e $t->testdir() . '/nginx.pid.oldbin';
 	select undef, undef, undef, 0.2

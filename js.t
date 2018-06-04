@@ -52,6 +52,10 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        location /njs {
+            js_content test_njs;
+        }
+
         location /req_method {
             return 200 $test_method;
         }
@@ -133,6 +137,10 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
+    function test_njs(req, res) {
+        res.return(200, njs.version);
+    }
+
     function test_method(req, res) {
         return 'method=' + req.method;
     }
@@ -283,7 +291,6 @@ like(http_get('/req_iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'req.args iteration');
 like(http_get('/req_var'), qr/variable=127.0.0.1/, 'req.variables');
 like(http_get('/req_log'), qr/200 OK/, 'req.log');
-like(http_get('/req_empty'), qr/500 Internal Server Error/, 'empty handler');
 
 like(http_get('/res_status'), qr/204 No Content/, 'res.status');
 like(http_get('/res_ctype'), qr/Content-Type: application\/foo/,
@@ -306,6 +313,12 @@ like(http_get('/res_ihdr'), qr/\x0d\x0a?\x0d\x0a?$/m, 'res.send zero');
 
 $t->todo_alerts();
 
+}
+
+TODO: {
+local $TODO = 'not yet'
+		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.1';
+like(http_get('/req_empty'), qr/500 Internal Server Error/, 'empty handler');
 }
 
 $t->stop();

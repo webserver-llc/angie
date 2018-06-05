@@ -306,14 +306,7 @@ like(http_get('/res_ihdr?a=12&b=34'), qr/^1234$/m, 'res.headers iteration');
 http_get('/req_except');
 http_get('/res_except');
 
-TODO: {
-local $TODO = 'zero size buf in writer';
-
 like(http_get('/res_ihdr'), qr/\x0d\x0a?\x0d\x0a?$/m, 'res.send zero');
-
-$t->todo_alerts();
-
-}
 
 TODO: {
 local $TODO = 'not yet'

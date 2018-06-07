@@ -221,8 +221,8 @@ http {
         listen       127.0.0.1:8084;
         server_name  localhost;
 
-		return 444;
-	}
+        return 444;
+    }
 }
 
 EOF

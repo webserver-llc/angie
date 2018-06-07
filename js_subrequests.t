@@ -427,8 +427,8 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->run_daemon(\&http_daemon);
 $t->try_run('no njs available')->plan(23);
+$t->run_daemon(\&http_daemon);
 
 ###############################################################################
 

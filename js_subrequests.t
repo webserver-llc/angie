@@ -235,20 +235,20 @@ $t->write_file('test.js', <<EOF);
 
     function sr_args(req, res) {
         req.subrequest('/p/sub1', 'h=xxx', function(reply) {
-                res.status = 200;
-                res.sendHeader();
-                res.send(JSON.stringify({h:reply.headers.h}))
-                res.finish();
-            });
+            res.status = 200;
+            res.sendHeader();
+            res.send(JSON.stringify({h:reply.headers.h}))
+            res.finish();
+        });
     }
 
     function sr_options_args(req, res) {
         req.subrequest('/p/sub1', {args:'h=xxx'}, function(reply) {
-                res.status = 200;
-                res.sendHeader();
-                res.send(JSON.stringify({h:reply.headers.h}))
-                res.finish();
-            });
+            res.status = 200;
+            res.sendHeader();
+            res.send(JSON.stringify({h:reply.headers.h}))
+            res.finish();
+        });
     }
 
     function sr_options_method(req, res) {
@@ -261,12 +261,12 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_options_method_head(req, res) {
-        req.subrequest('/p/method', {method:'HEAD'}, function(reply){
-                res.status = 200;
-                res.sendHeader();
-                res.send(JSON.stringify({c:reply.status, s:reply.body.length}))
-                res.finish();
-         });
+        req.subrequest('/p/method', {method:'HEAD'}, function(reply) {
+            res.status = 200;
+            res.sendHeader();
+            res.send(JSON.stringify({c:reply.status, s:reply.body.length}))
+            res.finish();
+        });
     }
 
     function sr_body(req, res) {
@@ -316,13 +316,13 @@ $t->write_file('test.js', <<EOF);
 
     function async_var(req, res) {
         req.subrequest('/p/delayed', function(reply) {
-                res.status = 200;
-                res.sendHeader();
-                res.send(JSON.stringify(["CB-VAR"]))
-                res.finish();
-         })
+            res.status = 200;
+            res.sendHeader();
+            res.send(JSON.stringify(["CB-VAR"]))
+            res.finish();
+        })
 
-         return "";
+        return "";
     }
 
     function sr_file(req, res) {
@@ -361,7 +361,7 @@ $t->write_file('test.js', <<EOF);
 
     function sr_out_of_order(req) {
         subrequest_fn(req, ['/p/delayed', '/p/sub1', '/unknown'],
-                      ['uri', 'status'])
+                      ['uri', 'status']);
     }
 
     function subrequest_fn(req, subs, props) {
@@ -369,43 +369,43 @@ $t->write_file('test.js', <<EOF);
 
         subs.forEach(function(sr) {
             req.subrequest(sr, function(reply) {
-                    req.log("subrequest handler: " + reply.uri
-                            + " status: " + reply.status)
+                req.log("subrequest handler: " + reply.uri
+                        + " status: " + reply.status)
 
-                    r = {};
-                    props.forEach(function (p) {r[p] = reply[p]});
+                r = {};
+                props.forEach(function (p) {r[p] = reply[p]});
 
-                    replies.push(r);
+                replies.push(r);
 
-                    if (replies.length == subs.length) {
-                        var res = req.response;
-                        res.status = 200;
-                        res.sendHeader();
-                        res.send(JSON.stringify(replies));
-                        res.finish();
-                    }
-                });
-            })
+                if (replies.length == subs.length) {
+                    var res = req.response;
+                    res.status = 200;
+                    res.sendHeader();
+                    res.send(JSON.stringify(replies));
+                    res.finish();
+                }
+            });
+        });
     }
 
     function sr_except_not_a_func(req, res) {
-        req.subrequest('/sub1', 'a=1', 'b')
+        req.subrequest('/sub1', 'a=1', 'b');
     }
 
     function sr_except_failed_to_convert_arg(req, res) {
-        req.subrequest('/sub1', req.args, function(){})
+        req.subrequest('/sub1', req.args, function(){});
     }
 
     function sr_except_failed_to_convert_options_arg(req, res) {
-        req.subrequest('/sub1', {args:req.args}, function(){})
+        req.subrequest('/sub1', {args:req.args}, function(){});
     }
 
     function sr_except_invalid_options_method(req, res) {
-        req.subrequest('/sub1', {method:'UNKNOWN_METHOD'}, function(){})
+        req.subrequest('/sub1', {method:'UNKNOWN_METHOD'}, function(){});
     }
 
     function sr_uri_except(req, res) {
-        req.subrequest(req, 'a=1', 'b')
+        req.subrequest(req, 'a=1', 'b');
     }
 
     function body_fwd_cb(reply) {
@@ -538,7 +538,9 @@ sub http_daemon {
 				"Content-Length: 100" . CRLF .
 				CRLF .
 				"unfinished" . CRLF;
-				close($client);
+			close($client);
 		}
 	}
 }
+
+###############################################################################

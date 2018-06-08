@@ -410,7 +410,7 @@ gunzip_like($frame->{data}, qr/^PROMISED\Z/, 'gzip - response');
 # scheme https
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.15.1');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [

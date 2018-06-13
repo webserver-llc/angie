@@ -48,7 +48,7 @@ http {
         }
 
         location /redirect {
-			internal;
+            internal;
             return 200 redirect$arg_b;
         }
 
@@ -61,18 +61,18 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_redirect(req, res) {
-		if (req.variables.arg_dest.startsWith('named')) {
-			req.internalRedirect('\@named');
+    function test_redirect(req) {
+        if (req.variables.arg_dest.startsWith('named')) {
+            req.internalRedirect('\@named');
 
-		} else {
-			if (req.variables.arg_a) {
-				req.internalRedirect('/redirect?b=' + req.variables.arg_a);
+        } else {
+            if (req.variables.arg_a) {
+                req.internalRedirect('/redirect?b=' + req.variables.arg_a);
 
-			} else {
-				req.internalRedirect('/redirect');
-			}
-		}
+            } else {
+                req.internalRedirect('/redirect');
+            }
+        }
     }
 
 EOF

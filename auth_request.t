@@ -57,15 +57,6 @@ http {
             return 204;
         }
 
-        location /auth_file {
-            auth_request /file/t;
-        }
-
-		location /file/ {
-		    alias %%TESTDIR%%/;
-		}
-
-
         location /open-static {
             auth_request /auth-open-static;
         }
@@ -153,18 +144,15 @@ EOF
 $t->write_file('htpasswd', 'user:{PLAIN}secret' . "\n");
 $t->write_file('auth-basic', 'INVISIBLE');
 $t->write_file('auth-open-static', 'INVISIBLE');
-$t->write_file('t', '["SEE-THIS"]');
 $t->run();
 
 ###############################################################################
 
-like(http_get('/auth_file'), qr/ 200 /, 'auth file');
 like(http_get('/open'), qr/ 404 /, 'auth open');
 like(http_get('/unauthorized'), qr/ 401 /, 'auth unauthorized');
 like(http_get('/forbidden'), qr/ 403 /, 'auth forbidden');
 like(http_get('/error'), qr/ 500 /, 'auth error');
 like(http_get('/off'), qr/ 404 /, 'auth off');
-
 
 like(http_post('/open'), qr/ 404 /, 'auth post open');
 like(http_post('/unauthorized'), qr/ 401 /, 'auth post unauthorized');

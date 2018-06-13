@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 
-# (C) Dmitry Volyntsev.
+# (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Tests for http JavaScript module, req.body method.
+# Tests for http njs module, req.requestBody method.
 
 ###############################################################################
 
@@ -61,17 +61,17 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_njs(req, res) {
-        res.return(200, njs.version);
+    function test_njs(r) {
+        r.return(200, njs.version);
     }
 
-    function test_body(req) {
+    function test_body(r) {
         try {
-            var body = req.body;
-            req.response.return(200, body);
+            var body = r.requestBody;
+            r.return(200, body);
 
         } catch (e) {
-            req.response.return(500, e.message);
+            r.return(500, e.message);
         }
     }
 
@@ -82,8 +82,8 @@ $t->try_run('no njs request body')->plan(3);
 ###############################################################################
 
 TODO: {
-local $TODO = 'not yet'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.1';
+local $TODO = 'deprecated api'
+		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.2';
 like(http_post('/body'), qr/REQ-BODY/, 'request body');
 like(http_post('/in_file'), qr/request body is in a file/,
 	'request body in file');

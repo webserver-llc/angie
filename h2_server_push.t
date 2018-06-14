@@ -138,6 +138,10 @@ $t->try_run('no http2_push')->plan(42);
 
 ###############################################################################
 
+# 6.6.  PUSH_PROMISE
+#   PUSH_PROMISE frames MUST only be sent on a peer-initiated stream that
+#   is in either the "open" or "half-closed (remote)" state.
+
 # preload & format
 
 my $s = Test::Nginx::HTTP2->new();
@@ -161,33 +165,33 @@ is($frame->{headers}->{'x-link'}, '</push>; rel=preload', 'sent_http_link');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/preload2' });
-$frames = $s->read(all => [{ sid => 8, fin => 1 }], wait => 0.5);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 4, 'preload 2');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/preload/many' });
-$frames = $s->read(all => [{ sid => 8, fin => 1 }], wait => 0.5);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 3, 'preload many');
 
 # preload proxy
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/preload/proxy' });
-$frames = $s->read(all => [{ sid => 8, fin => 1 }], wait => 0.5);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'preload proxy');
 
 # both h2_push & preload
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/both' });
-$frames = $s->read(all => [{ sid => 8, fin => 1 }], wait => 0.5);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'h2_push and preload');
 
 # h2_push
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ sid => 1, fin => 1 }, { sid => 2, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok($frame, 'h2_push only');
@@ -196,7 +200,7 @@ ok($frame, 'h2_push only');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/expl/off' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok(!$frame, 'h2_push off');
@@ -205,22 +209,22 @@ ok(!$frame, 'h2_push off');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/arg?push=/push' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok($frame, 'h2_push variable');
 
 $sid = $s->new_stream({ path => '/arg?push=' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok(!$frame, 'h2_push variable empty');
 
 $sid = $s->new_stream({ path => '/arg?push=off' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok(!$frame, 'h2_push variable off');
 
 $sid = $s->new_stream({ path => '/arg?push=foo' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok(!$frame, 'h2_push variable relative path');
 
@@ -229,14 +233,14 @@ ok(!$frame, 'h2_push variable relative path');
 $s = Test::Nginx::HTTP2->new();
 $s->h2_settings(0, 0x2 => 0);
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok(!$frame, 'push setting disabled');
 
 $s->h2_settings(0, 0x2 => 1);
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }, { sid => 2, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" } @$frames;
 ok($frame, 'push setting enabled');
@@ -252,27 +256,25 @@ cmp_ok($frame->{'last_sid'}, '<', 5, 'push setting invalid - last sid');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [
-	{ sid => 1, fin => 1 },
-	{ sid => 2, fin => 1 },
-	{ sid => 4, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'max pushes default');
 
 $s = Test::Nginx::HTTP2->new();
 $s->h2_settings(0, 0x3 => 1);
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ sid => 1, fin => 1 }, { sid => 2, fin => 1 }]);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 1, 'max pushes limited');
 
 $s = Test::Nginx::HTTP2->new();
 $s->h2_settings(0, 0x3 => 0);
 $sid = $s->new_stream({ path => '/expl' });
-$frames = $s->read(all => [{ type => 'PUSH_PROMISE' }], wait => 0.2);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 0, 'max pushes disabled');
 
 TODO: {
-local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/
-	or $t->read_file('nginx.conf') =~ /aio threads/;
+todo_skip 'long tests with aio', 6 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->read_file('nginx.conf') !~ /aio (on|threads)/;
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio (on|threads)/;
 
 # server push flow control & rst
 
@@ -304,7 +306,7 @@ $s->h2_rst(4, 7);
 $s->h2_window(2**16);
 
 $frames = $s->read(all => [{ sid => 2, length => 1 }]);
-push @$frames, @{ $s->read(all => [{ sid => 4, fin => 1 }], wait => 0.5) };
+push @$frames, @{ $s->read(all => [{ sid => 4, fin => 1 }], wait => 0.2) };
 
 ($frame) = grep { $_->{type} eq "DATA" && $_->{sid} == 2 } @$frames;
 is($frame->{length}, 1, 'pushed response flow control');
@@ -316,8 +318,9 @@ is($frame->{flags}, 1, 'pushed response END_STREAM');
 ok(!$frame, 'rst pushed stream');
 
 TODO: {
-local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio on/
-	or $t->read_file('nginx.conf') =~ /aio threads/;
+todo_skip 'long tests with aio', 2 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->read_file('nginx.conf') !~ /aio (on|threads)/;
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio (on|threads)/;
 
 # priority
 
@@ -359,9 +362,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
 	{ name => ':authority', value => 'max_pushes', mode => 1 }]});
-$frames = $s->read(all => [{ sid => $sid, fin => 1 },
-	{ sid => 2, fin => 1 }, { sid => 4, fin => 1 }]);
-push @$frames, @{ $s->read(all => [{ sid => 6, fin => 1 }], wait => 0.2) };
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 2, 'http2 max pushes lim');
 
 $s = Test::Nginx::HTTP2->new(port(8082));
@@ -371,8 +372,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/', mode => 0 },
 	{ name => ':authority', value => 'max_pushes', mode => 1 }]});
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }, { sid => 2, fin => 1 }]);
-push @$frames, @{ $s->read(all => [{ sid => 4, fin => 1 }], wait => 0.2) };
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 1, 'http2 max pushes 2');
 
 # missing request header ':authority'

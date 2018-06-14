@@ -93,7 +93,7 @@ is($s->io('1'), '1', 'passed');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.15.0');
 
-is($s->io('1', read_timeout => 0.1), '1', 'passed new request');
+is($s->io('1', read_timeout => 0.4), '1', 'passed new request');
 
 }
 

@@ -37,17 +37,17 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_method  test_method;
-    js_set $test_version test_version;
-    js_set $test_addr    test_addr;
-    js_set $test_uri     test_uri;
-    js_set $test_hdr     test_hdr;
-    js_set $test_ihdr    test_ihdr;
-    js_set $test_arg     test_arg;
-    js_set $test_iarg    test_iarg;
-    js_set $test_var     test_var;
-    js_set $test_log     test_log;
-    js_set $test_except  test_except;
+    js_set $test_method   test_method;
+    js_set $test_version  test_version;
+    js_set $test_addr     test_addr;
+    js_set $test_uri      test_uri;
+    js_set $test_hdr_in   test_hdr_in;
+    js_set $test_ihdr_in  test_ihdr_in;
+    js_set $test_arg      test_arg;
+    js_set $test_iarg     test_iarg;
+    js_set $test_var      test_var;
+    js_set $test_log      test_log;
+    js_set $test_except   test_except;
 
     js_include test.js;
 
@@ -76,11 +76,11 @@ http {
         }
 
         location /hdr_in {
-            return 200 $test_hdr;
+            return 200 $test_hdr_in;
         }
 
         location /ihdr_in {
-            return 200 $test_ihdr;
+            return 200 $test_ihdr_in;
         }
 
         location /arg {
@@ -132,7 +132,7 @@ http {
             js_content send;
         }
 
-        location /return {
+        location /return_method {
             js_content return_method;
         }
 
@@ -144,7 +144,7 @@ http {
             return 200 $test_log;
         }
 
-        location /var_except {
+        location /except {
             return 200 $test_except;
         }
 
@@ -181,11 +181,11 @@ $t->write_file('test.js', <<EOF);
         return 'uri=' + r.uri;
     }
 
-    function test_hdr(r) {
+    function test_hdr_in(r) {
         return 'hdr=' + r.headersIn.foo;
     }
 
-    function test_ihdr(r) {
+    function test_ihdr_in(r) {
         var s = '', h;
         for (h in r.headersIn) {
             if (h.substr(0, 3) == 'foo') {
@@ -215,8 +215,6 @@ $t->write_file('test.js', <<EOF);
 
     function status(r) {
         r.status = 204;
-        if (r.status != 204)
-            r.status = 404;
         r.sendHeader();
         r.finish();
     }
@@ -231,8 +229,6 @@ $t->write_file('test.js', <<EOF);
     function clen(r) {
         r.status = 200;
         r.headersOut['Content-Length'] = 5;
-        if (r.headersOut['Content-Length'] != 5)
-            r.headersOut['Content-Length'] = 6;
         r.sendHeader();
         r.send('foo12');
         r.finish();
@@ -243,11 +239,8 @@ $t->write_file('test.js', <<EOF);
         r.headersOut['Foo'] = r.args.fOO;
 
         if (r.args.bar) {
-            r.headersOut['Bar'] = r.headersOut['Foo'];
-        }
-
-        if (r.args.bar == 'empty') {
-            r.headersOut['Bar'] = r.headersOut['Baz'];
+            r.headersOut['Bar'] =
+                r.headersOut[(r.args.bar == 'empty' ? 'Baz' :'Foo')]
         }
 
         r.sendHeader();
@@ -302,7 +295,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_log(r) {
-        r.log("SEE-THIS");
+        r.log('SEE-THIS');
     }
 
     function test_except(r) {
@@ -320,7 +313,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(32);
+$t->try_run('no njs available')->plan(34);
 
 ###############################################################################
 
@@ -344,6 +337,8 @@ like(http_get('/clen'), qr/Content-Length: 5/, 'r.headersOut.contentLength');
 like(http_get('/hdr_out?foo=12345'), qr/Foo: 12345/, 'r.headersOut');
 like(http_get('/hdr_out?foo=123&bar=copy'), qr/Bar: 123/, 'r.headersOut get');
 like(http_get('/hdr_out?bar=empty'), qr/Bar: \x0d/, 'r.headersOut empty');
+like(http_get('/hdr_out?foo='), qr/Foo: \x0d/, 'r.headersOut no value');
+like(http_get('/hdr_out?foo'), qr/Foo: \x0d/, 'r.headersOut no value 2');
 like(http_get('/ihdr_out?a=12&b=34'), qr/^1234$/m, 'r.headersOut iteration');
 like(http_get('/ihdr_out'), qr/\x0d\x0a?\x0d\x0a?$/m, 'r.send zero');
 
@@ -351,35 +346,39 @@ like(http_post('/body'), qr/REQ-BODY/, 'request body');
 like(http_post('/in_file'), qr/request body is in a file/,
 	'request body in file');
 like(http_post_big('/body'), qr/200.*^(1234567890){1024}$/ms,
-		'request body big');
+	'request body big');
 
 like(http_get('/send?foo=12345&n=11&foo-2=bar&ndd=&foo-3=z'),
 	qr/n=foo, v=12 n=foo-2, v=ba n=foo-3, v=z/, 'r.send');
 
-like(http_get('/return?c=200'), qr/200 OK.*\x0d\x0a?\x0d\x0a?$/s, 'return code');
-like(http_get('/return?c=200&t=SEE-THIS'), qr/200 OK.*^SEE-THIS$/ms, 'return text');
-like(http_get('/return?c=301&t=path'), qr/ 301 .*Location: path/s, 'return redirect');
-like(http_get('/return?c=404'), qr/404 Not.*html/s, 'return error page');
-like(http_get('/return?c=inv'), qr/ 500 /, 'return invalid');
+like(http_get('/return_method?c=200'), qr/200 OK.*\x0d\x0a?\x0d\x0a?$/s,
+	'return code');
+like(http_get('/return_method?c=200&t=SEE-THIS'), qr/200 OK.*^SEE-THIS$/ms,
+	'return text');
+like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
+	'return redirect');
+like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
+like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 
 like(http_get('/return_headers'), qr/Foo: bar/, 'return headers');
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/log'), qr/200 OK/, 'r.log');
 
-http_get('/var_except');
+http_get('/except');
 http_get('/content_except');
 
-like(http_get('/content_empty'), qr/500 Internal Server Error/, 'empty handler');
+like(http_get('/content_empty'), qr/500 Internal Server Error/,
+	'empty handler');
 }
 
 $t->stop();
 
 ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'log js');
 ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
-   'js_set backtrace');
+	'js_set backtrace');
 ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,
-   'js_content backtrace');
+	'js_content backtrace');
 
 ###############################################################################
 

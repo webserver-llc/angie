@@ -41,12 +41,7 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        listen       127.0.0.1:8081;
         server_name  localhost;
-
-        if ($server_port = 8081) {
-            return 204;
-        }
 
         location / { }
         location /custom {
@@ -62,6 +57,13 @@ http {
             real_ip_header    X-Forwarded-For;
             real_ip_recursive on;
         }
+    }
+
+    server {
+        listen       127.0.0.1:8081;
+        server_name  localhost;
+
+        return 204;
     }
 }
 

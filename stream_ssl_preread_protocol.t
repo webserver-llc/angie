@@ -42,7 +42,7 @@ stream {
 
 EOF
 
-$t->try_run('no ssl_preread_protocol')->plan(6);
+$t->try_run('no ssl_preread_protocol')->plan(7);
 
 ###############################################################################
 
@@ -53,12 +53,8 @@ is(get('TLSv1.2'), 'TLSv1.2', 'client hello TLSv1.2');
 
 is(get_tls13(), 'TLSv1.3', 'client hello supported_versions');
 
-TODO: {
-local $TODO = 'not yet';
-
-is(get_ssl2(), 'SSLv2', 'client hello version 2');
-
-}
+is(get_ssl2('SSLv2'), 'SSLv2', 'client hello version 2');
+is(get_ssl2('TLSv1'), 'TLSv1', 'client hello version 2 - TLSv1');
 
 ###############################################################################
 
@@ -91,7 +87,13 @@ sub get_tls13 {
 }
 
 sub get_ssl2 {
-	my $r = pack("nCn4", 0x801c, 0x01, 0x0002, 0x0003, 0x0000, 0x0010);
+	my $v = shift;
+	my $ch;
+
+	$ch = 0x0002 if $v eq 'SSLv2';
+	$ch = 0x0301 if $v eq 'TLSv1';
+
+	my $r = pack("nCn4", 0x801c, 0x01, $ch, 0x0003, 0x0000, 0x0010);
 	$r .= pack("C3", 0x01, 0x00, 0x80);
 	$r .= pack("N4", 0x322dd95c, 0x4749ef17, 0x3d5f0916, 0xf0b730f8);
 

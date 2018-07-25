@@ -51,6 +51,10 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        location /njs {
+            js_content test_njs;
+        }
+
         location /sr {
             js_content sr;
         }
@@ -147,6 +151,14 @@ http {
             js_content sr_except_invalid_options_header_only;
         }
 
+        location /sr_js_in_sr_parent {
+            js_content sr_js_in_sr_parent;
+        }
+
+        location /sr_in_sr_callback {
+            js_content sr_in_sr_callback;
+        }
+
         location /sr_uri_except {
             js_content sr_uri_except;
         }
@@ -176,6 +188,10 @@ http {
 
         location /unavail {
             proxy_pass http://127.0.0.1:8084/;
+        }
+
+        location /sr_parent {
+             js_content sr_parent;
         }
 
         location /js_sub {
@@ -228,6 +244,9 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
+    function test_njs(r) {
+        r.return(200, njs.version);
+    }
 
     function sr(req) {
         subrequest_fn(req, ['/p/sub2'], ['uri', 'status'])
@@ -359,6 +378,36 @@ $t->write_file('test.js', <<EOF);
         req.subrequest('/js_sub', body_fwd_cb);
     }
 
+    function sr_js_in_sr_parent(r) {
+        r.subrequest('/sr_parent', body_fwd_cb);
+    }
+
+    function sr_in_sr_callback(r) {
+        r.subrequest('/return', function (reply) {
+                try {
+                    reply.subrequest('/return');
+
+                } catch (err) {
+                    r.return(200, JSON.stringify({e:err.message}));
+                    return;
+                }
+
+                r.return(200);
+            });
+    }
+
+    function sr_parent(r) {
+        try {
+            var parent = r.parent;
+
+        } catch (err) {
+            r.return(200, JSON.stringify({e:err.message}));
+            return;
+        }
+
+        r.return(200);
+    }
+
     function sr_out_of_order(req) {
         subrequest_fn(req, ['/p/delayed', '/p/sub1', '/unknown'],
                       ['uri', 'status']);
@@ -427,7 +476,7 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->try_run('no njs available')->plan(23);
+$t->try_run('no njs available')->plan(25);
 $t->run_daemon(\&http_daemon);
 
 ###############################################################################
@@ -466,6 +515,23 @@ http_get('/sr_except_failed_to_convert_arg');
 http_get('/sr_except_failed_to_convert_options_arg');
 http_get('/sr_except_invalid_options_method');
 http_get('/sr_uri_except');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.4';
+
+is(get_json('/sr_js_in_sr_parent'),
+	'{"e":"parent can only be returned for a subrequest"}',
+	'parent in subrequest js_content');
+
+todo_skip 'leaves coredump', 1
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.4';
+
+is(get_json('/sr_in_sr_callback'),
+	'{"e":"subrequest can only be created for the primary request"}',
+	'subrequest for non-primary request');
+
+}
 
 $t->stop();
 

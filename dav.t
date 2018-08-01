@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http dav/)->plan(18);
+my $t = Test::Nginx->new()->has(qw/http dav/)->plan(20);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -148,6 +148,25 @@ EOF
 like($r, qr/204 No Content/, 'copy file escaped');
 
 is(-s $t->testdir() . '/file-moved escape', 10, 'file copied unescaped');
+
+$t->write_file('file.exist', join '', (1 .. 42));
+
+$r = http(<<EOF);
+COPY /file HTTP/1.1
+Host: localhost
+Destination: /file.exist
+Connection: close
+
+EOF
+
+like($r, qr/204 No Content/, 'copy file overwrite');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.3');
+
+is(-s $t->testdir() . '/file.exist', 10, 'target file truncated');
+
+}
 
 $r = http(<<EOF . '0123456789');
 PUT /i/alias HTTP/1.1

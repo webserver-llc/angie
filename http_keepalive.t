@@ -136,6 +136,7 @@ EOF
 			last if $data =~ /^\x0d\x0a/ms;
 		}
 
+		log_in($data);
 	}
 
 	return $data;

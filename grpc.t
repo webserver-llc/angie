@@ -377,9 +377,9 @@ $f->{http_start}('/SayPadding');
 $f->{data}('Hello');
 $frames = $f->{http_end}(body_padding => 42);
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, 'Hello world', 'response - DATA');
-is($frame->{length}, 11, 'response - DATA length');
-is($frame->{flags}, 0, 'response - DATA flags');
+is($frame->{data}, 'Hello world', 'DATA padding');
+is($frame->{length}, 11, 'DATA padding - length');
+is($frame->{flags}, 0, 'DATA padding - flags');
 
 # :authority inheritance
 

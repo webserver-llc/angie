@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy mirror rewrite/);
+my $t = Test::Nginx->new()->has(qw/http proxy mirror rewrite limit_req/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -36,7 +36,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    log_format test $uri:$request_body;
+    limit_req_zone  $uri  zone=slow:1m  rate=30r/m;
+    log_format  test  $request_uri:$request_body;
 
     server {
         listen       127.0.0.1:8080;
@@ -56,6 +57,7 @@ http {
         location /mirror {
             internal;
             proxy_pass http://127.0.0.1:8082;
+            limit_req  zone=slow burst=1;
         }
     }
 
@@ -79,13 +81,23 @@ http {
 
 EOF
 
-$t->try_run('no mirror')->plan(6);
+$t->try_run('no mirror')->plan(7);
 
 ###############################################################################
 
 like(http_post('/'), qr/X-Body: 1234567890\x0d?$/m, 'mirror proxy');
 like(http_post('/off'), qr/X-Body: 1234567890\x0d?$/m, 'mirror_request_body');
 
+# delayed subrequest should not affect main request processing nor stuck itself
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_post('/delay?1'), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
+
+}
+
+$t->todo_alerts();
 $t->stop();
 
 my $log = $t->read_file('test.log');

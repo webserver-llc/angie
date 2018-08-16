@@ -90,10 +90,15 @@ like(http_post('/off'), qr/X-Body: 1234567890\x0d?$/m, 'mirror_request_body');
 
 # delayed subrequest should not affect main request processing nor stuck itself
 
+SKIP: {
+skip 'hang on win32', 1 if $^O eq 'MSWin32' and !$ENV{TEST_NGINX_UNSAFE};
+
 TODO: {
 local $TODO = 'not yet';
 
 like(http_post('/delay?1'), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
+
+}
 
 }
 

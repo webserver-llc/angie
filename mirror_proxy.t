@@ -102,7 +102,7 @@ like(http_post('/delay?1'), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
 
 }
 
-$t->todo_alerts();
+$t->todo_alerts() unless $^O eq 'MSWin32';
 $t->stop();
 
 my $log = $t->read_file('test.log');

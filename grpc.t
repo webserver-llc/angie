@@ -91,7 +91,7 @@ http {
 
 EOF
 
-$t->try_run('no grpc')->plan(100);
+$t->try_run('no grpc')->plan(105);
 
 ###############################################################################
 
@@ -172,6 +172,45 @@ $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-connection'}, $c, 'keepalive - connection reuse');
+
+# upstream keepalive
+# pending control frame ack after the response
+
+undef $f;
+$f = grpc();
+
+$frames = $f->{http_start}('/KeepAlive');
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{sid}, $sid, 'keepalive 2 - HEADERS sid');
+$f->{data}('Hello');
+$f->{settings}(0, 1 => 4096);
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($c = $frame->{headers}{'x-connection'}, 'keepalive 2 - connection');
+
+$frames = $f->{http_start}('/KeepAlive', reuse => 1);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.4');
+
+ok($frame, 'upstream keepalive reused');
+
+}
+
+TODO: {
+todo_skip 'upstream connection failed', 2 unless $frame;
+
+cmp_ok($frame->{sid}, '>', $sid, 'keepalive 2 - HEADERS sid next');
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{'x-connection'}, $c, 'keepalive 2 - connection reuse');
+
+}
+
+undef $f;
+$f = grpc();
 
 # various header compression formats
 
@@ -513,6 +552,9 @@ sub grpc {
 	};
 	$f->{update_sid} = sub {
 		$c->h2_window(shift, $sid);
+	};
+	$f->{settings} = sub {
+		$c->h2_settings(@_);
 	};
 	$f->{http_end} = sub {
 		my (%extra) = @_;

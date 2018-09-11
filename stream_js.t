@@ -40,7 +40,7 @@ stream {
     js_set $js_unk       js_unk;
     js_set $js_sess_unk  js_sess_unk;
 
-    js_include functions.js;
+    js_include test.js;
 
     server {
         listen  127.0.0.1:8080;
@@ -119,81 +119,81 @@ stream {
 
 EOF
 
-$t->write_file('functions.js', <<EOF);
-    function js_addr(sess) {
-        return 'addr=' + sess.remoteAddress;
+$t->write_file('test.js', <<EOF);
+    function js_addr(s) {
+        return 'addr=' + s.remoteAddress;
     }
 
-    function js_var(sess) {
-        return 'variable=' + sess.variables.remote_addr;
+    function js_var(s) {
+        return 'variable=' + s.variables.remote_addr;
     }
 
-    function js_sess_unk(sess) {
-        return 'sess_unk=' + sess.unk;
+    function js_sess_unk(s) {
+        return 'sess_unk=' + s.unk;
     }
 
-    function js_log(sess) {
-        sess.log("SEE-THIS");
+    function js_log(s) {
+        s.log("SEE-THIS");
     }
 
-    function js_access_allow(sess) {
-        if (sess.remoteAddress.match('127.0.0.1')) {
-            return sess.OK;
+    function js_access_allow(s) {
+        if (s.remoteAddress.match('127.0.0.1')) {
+            return s.OK;
         }
     }
 
-    function js_access_deny(sess) {
-        if (sess.remoteAddress.match('127.0.0.1')) {
-            return sess.ABORT;
+    function js_access_deny(s) {
+        if (s.remoteAddress.match('127.0.0.1')) {
+            return s.ABORT;
         }
     }
 
-    function js_preread(sess) {
-        var n = sess.buffer.indexOf('z');
+    function js_preread(s) {
+        var n = s.buffer.indexOf('z');
         if (n == -1) {
-            return sess.AGAIN;
+            return s.AGAIN;
         }
     }
 
-    function js_filter(sess) {
-        if (sess.fromUpstream) {
-            var n = sess.buffer.search('y');
+    function js_filter(s) {
+        if (s.fromUpstream) {
+            var n = s.buffer.search('y');
             if (n != -1) {
-                sess.buffer = 'z';
+                s.buffer = 'z';
             }
             return;
         }
 
-        n = sess.buffer.search('x');
+        n = s.buffer.search('x');
         if (n != -1) {
-            sess.buffer = 'y';
+            s.buffer = 'y';
         }
     }
 
     var res = '';
-    function js_access_step(sess) {
+    function js_access_step(s) {
         res += '1';
     }
 
-    function js_preread_step(sess) {
+    function js_preread_step(s) {
         res += '2';
     }
 
-    function js_filter_step(sess) {
-        if (sess.eof) {
-            sess.buffer = res;
+    function js_filter_step(s) {
+        if (s.eof) {
+            s.buffer = res;
             return;
         }
         res += '3';
     }
 
-    function js_preread_except(sess) {
+    function js_preread_except(s) {
         var fs = require('fs');
         fs.readFileSync();
     }
 
-    function js_filter_except(sess) {
-        sess.a.a;
+    function js_filter_except(s) {
+        s.a.a;
     }
 
 EOF
@@ -205,19 +205,21 @@ $t->waitforsocket('127.0.0.1:' . port(8090));
 ###############################################################################
 
 is(stream('127.0.0.1:' . port(8080))->read(), 'addr=127.0.0.1',
-	'sess.remoteAddress');
+	's.remoteAddress');
 is(dgram('127.0.0.1:' . port(8985))->io('.'), 'addr=127.0.0.1',
-	'sess.remoteAddress udp');
-is(stream('127.0.0.1:' . port(8081))->read(), 'undefined', 'sess.log');
+	's.remoteAddress udp');
+is(stream('127.0.0.1:' . port(8081))->read(), 'undefined', 's.log');
 is(stream('127.0.0.1:' . port(8082))->read(), 'variable=127.0.0.1',
-	'sess.variables');
+	's.variables');
 is(stream('127.0.0.1:' . port(8083))->read(), '', 'stream js unknown function');
-is(stream('127.0.0.1:' . port(8084))->read(), 'sess_unk=undefined', 'sess.unk');
+is(stream('127.0.0.1:' . port(8084))->read(), 'sess_unk=undefined', 's.unk');
+
 is(stream('127.0.0.1:' . port(8086))->read(), 'OK', 'js_access allow');
 is(stream('127.0.0.1:' . port(8087))->read(), '', 'js_access deny');
 is(stream('127.0.0.1:' . port(8088))->io('xyz'), 'xyz', 'js_preread');
 is(stream('127.0.0.1:' . port(8089))->io('x'), 'z', 'js_filter');
 is(stream('127.0.0.1:' . port(8091))->io('0'), '01233', 'handlers order');
+
 stream('127.0.0.1:' . port(8092))->io('x');
 stream('127.0.0.1:' . port(8093))->io('x');
 

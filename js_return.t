@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for http JavaScript module, return method.
+# Tests for http njs module, return method.
 
 ###############################################################################
 

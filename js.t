@@ -2,7 +2,7 @@
 
 # (C) Roman Arutyunyan
 
-# Tests for http JavaScript module.
+# Tests for http njs module.
 
 ###############################################################################
 

@@ -3,7 +3,7 @@
 # (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Async tests for http JavaScript module.
+# Async tests for http njs module.
 
 ###############################################################################
 

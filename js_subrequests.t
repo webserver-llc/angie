@@ -3,7 +3,7 @@
 # (C) Dmitry Volyntsev.
 # (C) Nginx, Inc.
 
-# Tests for subrequests in http JavaScript module.
+# Tests for subrequests in http njs module.
 
 ###############################################################################
 

@@ -4,7 +4,7 @@
 # (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Tests for stream JavaScript module.
+# Tests for stream njs module.
 
 ###############################################################################
 

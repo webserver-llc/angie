@@ -104,7 +104,7 @@ ok(Net::SSLeay::set_tlsext_host_name($ssl, 'localhost'), 'SNI');
 
 Net::SSLeay::write($ssl, 'Host: localhost' . CRLF . CRLF);
 
-is(Net::SSLeay::read($ssl), undef, 'response');
+ok(!Net::SSLeay::read($ssl), 'response');
 
 }
 

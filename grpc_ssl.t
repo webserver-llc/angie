@@ -206,7 +206,8 @@ $frames = $f->{http_end}();
 ok($c = $frame->{headers}{'x-connection'}, 'keepalive - connection');
 
 TODO: {
-local $TODO = 'not yet' if $^O eq 'MSWin32' and !$t->has_version('1.15.4');
+local $TODO = 'not yet' if ($^O eq 'MSWin32' or $^O eq 'solaris')
+	and !$t->has_version('1.15.4');
 
 $f->{http_start}('/KeepAlive');
 $f->{data}('Hello');

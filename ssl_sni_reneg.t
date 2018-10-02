@@ -40,7 +40,7 @@ eval {
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
-	->plan(4);
+	->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -59,7 +59,15 @@ http {
 
     server {
         listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
+
+        location / { }
+    }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  localhost2;
 
         location / { }
     }
@@ -89,7 +97,7 @@ $t->run();
 
 ###############################################################################
 
-my ($s, $ssl) = get_ssl_socket();
+my ($s, $ssl) = get_ssl_socket(8080);
 ok($s, 'connection');
 
 SKIP: {
@@ -108,13 +116,34 @@ ok(!Net::SSLeay::read($ssl), 'response');
 
 }
 
+# virtual servers
+# in [1.15.4..1.15.5) SSL_OP_NO_RENEGOTIATION is cleared in servername callback
+
+($s, $ssl) = get_ssl_socket(8081);
+ok($s, 'connection 2');
+
+SKIP: {
+skip 'connection failed', 3 unless $s;
+
+Net::SSLeay::write($ssl, 'GET / HTTP/1.0' . CRLF);
+
+ok(Net::SSLeay::renegotiate($ssl), 'renegotiation');
+ok(Net::SSLeay::set_tlsext_host_name($ssl, 'localhost'), 'SNI');
+
+Net::SSLeay::write($ssl, 'Host: localhost' . CRLF . CRLF);
+
+ok(!Net::SSLeay::read($ssl), 'virtual servers');
+
+}
+
 ###############################################################################
 
 sub get_ssl_socket {
+	my ($port) = @_;
 	my $s;
 
 	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in(port(8080), $dest_ip);
+	my $dest_serv_params = sockaddr_in(port($port), $dest_ip);
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
@@ -134,6 +163,7 @@ sub get_ssl_socket {
 	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
 	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::set_tlsext_host_name($ssl, 'localhost');
 	Net::SSLeay::connect($ssl) or die("ssl connect");
 
 	return ($s, $ssl);

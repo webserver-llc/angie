@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 grpc mirror proxy/);
+my $t = Test::Nginx->new()->has(qw/http http_v2 grpc mirror proxy/)->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -64,7 +64,7 @@ http {
 
 EOF
 
-$t->try_run('no grpc')->plan(12);
+$t->run();
 
 ###############################################################################
 

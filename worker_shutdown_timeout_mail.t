@@ -84,12 +84,7 @@ $s->authok('auth plain');
 
 $t->reload();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.7');
-
 ok($s->can_read(), 'mail connection shutdown');
-
-}
 
 undef $s;
 1;

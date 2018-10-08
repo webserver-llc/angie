@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy ssi/)
+my $t = Test::Nginx->new()->has(qw/http proxy ssi/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -71,7 +71,7 @@ $t->write_file('length', 'TEST-OK-IF-YOU-SEE-THIS');
 $t->write_file('long', 'x' x 400);
 $t->write_file('empty', '');
 
-$t->try_run('no subrequest_output_buffer_size')->plan(4);
+$t->run();
 
 ###############################################################################
 

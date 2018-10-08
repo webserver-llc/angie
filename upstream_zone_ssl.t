@@ -111,10 +111,6 @@ $t->run();
 
 ###############################################################################
 
-TODO: {
-todo_skip 'leaves coredump', 9 unless $^O ne 'MSWin32'
-	or $ENV{TEST_NGINX_UNSAFE} or $t->has_version('1.13.4');
-
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl');
 like(http_get('/ssl'), qr/200 OK.*X-Session: \./s, 'ssl 2');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: \./s, 'ssl session new');
@@ -125,7 +121,5 @@ like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup');
 like(http_get('/backup'), qr/200 OK.*X-Session: \./s, 'backup 2');
 like(http_get('/backup_reuse'), qr/200 OK.*X-Session: \./s, 'backup new');
 like(http_get('/backup_reuse'), qr/200 OK.*X-Session: r/s, 'backup reused');
-
-}
 
 ###############################################################################

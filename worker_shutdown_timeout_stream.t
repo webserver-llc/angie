@@ -58,12 +58,7 @@ $s->check(qr/^250 /, "ehlo");
 
 $t->reload();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.7');
-
 ok($s->can_read(), 'stream connection shutdown');
-
-}
 
 undef $s;
 1;

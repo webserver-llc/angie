@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite gzip/)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite gzip/)->plan(42)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -134,7 +134,7 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
-$t->try_run('no http2_push')->plan(42);
+$t->run();
 
 ###############################################################################
 

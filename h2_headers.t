@@ -655,9 +655,6 @@ ok($frame, 'response header - parts');
 
 SKIP: {
 skip 'response header failed', 1 unless $frame;
-skip 'broken sendfile', 1 if $^O eq 'freebsd' and
-	$Config{osvers} =~ '11.0-release' and
-	$t->read_file('nginx.conf') =~ /sendfile on/;
 
 is(length join('', @{$frame->{headers}->{'x-longheader'}}), 98304,
 	'response header - headers');
@@ -958,9 +955,6 @@ is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
 
 # missing mandatory request header ':scheme'
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.2');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
@@ -970,8 +964,6 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'incomplete headers');
-
-}
 
 # empty request header ':authority'
 
@@ -988,16 +980,11 @@ is($frame->{headers}->{':status'}, 400, 'empty authority');
 
 # client sent invalid :path header
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.9');
-
 $sid = $s->new_stream({ path => 't1.html' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'invalid path');
-
-}
 
 ###############################################################################
 

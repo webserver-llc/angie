@@ -226,13 +226,8 @@ $frames = $s->read(all => [
 	{ type => 'GOAWAY' }
 ]);
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.2');
-
 ($frame) = grep { $_->{type} eq 'SETTINGS' } @$frames;
 is($frame, undef, 'SETTINGS PROTOCOL_ERROR - no ack');
-
-}
 
 ($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
 ok($frame, 'SETTINGS PROTOCOL_ERROR - GOAWAY');
@@ -839,9 +834,6 @@ is(@$frames[0]->{length}, 1, 'positive window - data length');
 
 }
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.2');
-
 $s = Test::Nginx::HTTP2->new();
 $s->h2_window(2**30);
 $s->h2_settings(0, 0x4 => 2**30);
@@ -854,8 +846,6 @@ $s->h2_settings(0, 0x5 => 2**15);
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 $lengths = join ' ', map { $_->{length} } @$frames;
 unlike($lengths, qr/16384 0 16384/, 'SETTINGS ack after queued DATA');
-
-}
 
 # ask write handler in sending large response
 
@@ -926,9 +916,6 @@ is($data[0]->{length}, 2**15, 'max frame size - custom');
 # Expanding available stream window should not result in emitting
 # new frames before remaining SETTINGS parameters were applied.
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.2');
-
 $s = Test::Nginx::HTTP2->new();
 $s->h2_window(2**17);
 $s->h2_settings(0, 0x4 => 42);
@@ -942,8 +929,6 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $lengths = join ' ', map { $_->{length} } @data;
 is($lengths, '32768 32768 38', 'multiple SETTINGS');
-
-}
 
 # stream multiplexing + WINDOW_UPDATE
 

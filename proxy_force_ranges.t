@@ -94,14 +94,9 @@ like(http_get_range('/cache/t.html', 'Range: bytes=0-2,4-'), qr/^SEE.*^THIS/ms,
 
 # If-Range HTTP-date request
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.5');
-
 like(http_get_range('/proxy/t.html',
 	"Range: bytes=4-\nIf-Range: Mon, 28 Sep 1970 06:00:00 GMT"),
 	qr/^THIS/m, 'if-range last-modified proxy');
-
-}
 
 # If-Range entity-tag request
 

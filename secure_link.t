@@ -132,16 +132,8 @@ like(http_get('/test.html?hash=q-5vpkjBkRXXtkUMXiJVHA=='),
 	qr/PASSED/, 'request md5');
 like(http_get('/test.html?hash=q-5vpkjBkRXXtkUMXiJVHA'),
 	qr/PASSED/, 'request md5 no padding');
-
-TODO: {
-todo_skip 'stack-buffer-overflow', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.13.5');
-
 like(http_get('/test.html?hash=q-5vpkjBkRXXtkUMXiJVHAQQ'),
 	qr/^HTTP.*403/, 'request md5 too long');
-
-}
-
 like(http_get('/test.html?hash=q-5vpkjBkRXXtkUMXiJVHA-TOOLONG'),
 	qr/^HTTP.*403/, 'request md5 too long encoding');
 like(http_get('/test.html?hash=BADHASHLENGTH'),

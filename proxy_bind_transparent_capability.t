@@ -63,8 +63,6 @@ http {
 
 EOF
 
-plan(skip_all => 'no capability support yet') unless $t->has_version('1.13.8');
-
 $t->run()->plan(1);
 
 ###############################################################################

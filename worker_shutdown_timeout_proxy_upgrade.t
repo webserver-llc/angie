@@ -76,12 +76,7 @@ like($buf, qr!HTTP/1.1 101!, 'upgraded connection');
 
 $t->reload();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.7');
-
 ok($sel->can_read(3), 'upgraded connection shutdown');
-
-}
 
 undef $s;
 

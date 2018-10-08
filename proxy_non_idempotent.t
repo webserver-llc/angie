@@ -106,13 +106,7 @@ like(http_post('/'), qr/X-IP: (\S+)\x0d?$/m, 'post');
 # in particular, not emit builtin error page due to next upstream
 
 like(http_get('/404'), qr/X-IP: (\S+), \1.*SEE-THIS/s, 'get 404');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.11');
-
 like(http_post('/404'), qr/X-IP: (\S++)(?! ).*SEE-THIS/s, 'post 404');
-
-}
 
 # with "proxy_next_upstream non_idempotent" there is no
 # difference between idempotent and non-idempotent requests,

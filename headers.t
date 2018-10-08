@@ -157,13 +157,8 @@ like(http_get('/modified'), qr/max-age=204./, 'expires modified');
 
 # "expires modified" with proxy
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.5');
-
 like(http_get('/modified/proxy'), qr/Expires: Mon, 28 Sep 1970 06:34:08 GMT/,
 	'expires modified proxy');
-
-}
 
 # expires with variables
 

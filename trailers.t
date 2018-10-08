@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(17)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -77,7 +77,7 @@ EOF
 
 $t->write_file('t1', 'SEE-THIS');
 $t->write_file('header', '');
-$t->try_run('no add_trailer')->plan(17);
+$t->run();
 
 ###############################################################################
 

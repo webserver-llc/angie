@@ -87,12 +87,6 @@ like($r, qr/^(XXXXXXXXXX){4000}\x0d?\x0a?$/m, 'response body');
 # the read timer used to be a delay timer in the next request
 
 like(http_get('/keepalive'), qr/200 OK/, 'keepalive');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.8');
-
 like(http_get('/keepalive'), qr/200 OK/, 'keepalive 2');
-
-}
 
 ###############################################################################

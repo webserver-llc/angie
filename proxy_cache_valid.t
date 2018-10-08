@@ -106,12 +106,7 @@ like(get('/t2.html', 'X-CC: max-age=1'), qr/403 Forbidden/, 'intercept error');
 
 $t->write_file('t2.html', 'NOOP');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.6');
-
 like(http_get('/t2.html'), qr/403 Forbidden/, 'error cached from max-age');
-
-}
 
 # ticket #1382, cache item "error" field was set regardless of u->cacheable.
 
@@ -119,12 +114,7 @@ like(http_get('/'), qr/403 Forbidden/, 'error no-cache');
 
 $t->write_file('index.html', '');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.6');
-
 like(http_get('/'), qr/200 OK/, 'error no-cache - not cacheable');
-
-}
 
 ###############################################################################
 

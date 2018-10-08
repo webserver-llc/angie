@@ -78,13 +78,7 @@ $t->run();
 
 my $p = port(8081);
 
-TODO: {
-todo_skip 'leaves coredump', 2 unless $^O ne 'MSWin32'
-	or $ENV{TEST_NGINX_UNSAFE} or $t->has_version('1.13.4');
-
 like(http_get('/'), qr/X-Name: 127.0.0.1:$p/, 'upstream name');
 like(http_get('/down'), qr/X-Name: u2/, 'no live upstreams');
-
-}
 
 ###############################################################################

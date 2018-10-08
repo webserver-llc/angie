@@ -220,9 +220,6 @@ like(http_get('/updating/t2.html'), qr/STALE/,
 # before 1.13.1, if stale response was not sent in one pass, its remaining
 # part was blocked and not sent until background update has been finished
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.1');
-
 $t->write_file('t7.html', 'SEE-THAT' x 1024);
 
 my $r = read_all(get('/t7.html?lim=1', 'max-age=1', start => 1));
@@ -233,8 +230,6 @@ $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html?lim=1" --> xxx');
 
 $r = read_all(http_get('/ssi.html', start => 1));
 like($r, qr/^xxx (SEE-THIS){1024} xxx$/ms, 's-w-r - not blocked in subrequest');
-
-}
 
 # "aio_write" is used to produce "open socket ... left in connection" alerts.
 
@@ -255,15 +250,9 @@ $t->write_file('escape html', 'SEE-THAT');
 get('/escape.htm%6C', 'max-age=1');
 get('/escape html', 'max-age=1');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.13.8');
-
 like(http_get('/escape.htm%6C'), qr/HIT/, 'escaped after escaped');
 like(http_get('/escape.html'), qr/MISS/, 'unescaped after escaped');
 like(http_get('/escape html'), qr/HIT/, 'space after escaped space');
-
-}
-
 like(http_get('/escape%20html'), qr/HIT/, 'escaped space after escaped space');
 
 ###############################################################################

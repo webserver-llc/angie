@@ -28,7 +28,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -79,7 +79,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_client_escaped_cert')->plan(3);
+$t->run();
 
 ###############################################################################
 

@@ -83,6 +83,4 @@ like(http_head('/big.html'), qr/200 OK/, 'head request');
 # leading to an attempt to return additional error response and
 # the "header already sent" alert; fixed in 93abb5a855d6
 
-$t->todo_alerts() unless $t->has_version('1.13.9');
-
 ###############################################################################

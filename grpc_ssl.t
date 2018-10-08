@@ -29,7 +29,7 @@ my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
 $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
 plan(skip_all => 'OpenSSL too old') unless defined $1 and $1 ge '1.0.2';
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(33);
 
 %%TEST_GLOBALS%%
 
@@ -135,7 +135,7 @@ sleep 1 if $^O eq 'MSWin32';
 
 $t->write_file('password', 'client');
 
-$t->try_run('no grpc')->plan(33);
+$t->run();
 
 ###############################################################################
 

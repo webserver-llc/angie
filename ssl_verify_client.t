@@ -139,14 +139,7 @@ $t->run();
 
 like(http_get('/t'), qr/x:x/, 'plain connection');
 like(get('on'), qr/400 Bad Request/, 'no cert');
-
-TODO: {
-todo_skip 'leaves coredump', 1 unless $t->has_version('1.13.9');
-
 like(get('no_context'), qr/400 Bad Request/, 'no server cert');
-
-}
-
 like(get('optional'), qr/NONE:x/, 'no optional cert');
 like(get('optional', '1.example.com'), qr/400 Bad/, 'bad optional cert');
 like(get('optional_no_ca', '1.example.com'), qr/FAILED.*BEGIN/,

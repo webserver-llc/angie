@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy mirror rewrite limit_req/);
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(7);
 
 %%TEST_GLOBALS%%
 
@@ -81,7 +81,7 @@ http {
 
 EOF
 
-$t->try_run('no mirror')->plan(7);
+$t->run();
 
 ###############################################################################
 

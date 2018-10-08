@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http mirror/);
+my $t = Test::Nginx->new()->has(qw/http mirror/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -67,7 +67,7 @@ EOF
 $t->write_file('index.html', '');
 $t->write_file('many', '');
 $t->write_file('off', '');
-$t->try_run('no mirror')->plan(8);
+$t->run();
 
 ###############################################################################
 

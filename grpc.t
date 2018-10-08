@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/);
+	->has(qw/upstream_keepalive/)->plan(105);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -91,7 +91,7 @@ http {
 
 EOF
 
-$t->try_run('no grpc')->plan(105);
+$t->run();
 
 ###############################################################################
 

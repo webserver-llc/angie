@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2/)
+my $t = Test::Nginx->new()->has(qw/http http_v2/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -62,7 +62,7 @@ EOF
 $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('empty', '');
 $t->write_file('continuation', 'SEE-THIS');
-$t->try_run('no add_trailer')->plan(22);
+$t->run();
 
 ###############################################################################
 

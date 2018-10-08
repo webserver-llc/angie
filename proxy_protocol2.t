@@ -24,8 +24,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http access realip/);
 
-plan(skip_all => 'no proxy protocol v2') unless $t->has_version('1.13.11');
-
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(21);
 
 %%TEST_GLOBALS%%

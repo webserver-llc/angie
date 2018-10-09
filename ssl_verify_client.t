@@ -56,6 +56,9 @@ http {
 
     add_header X-Verify x$ssl_client_verify:${ssl_client_cert}x;
 
+    ssl_session_cache shared:SSL:1m;
+    ssl_session_tickets off;
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;

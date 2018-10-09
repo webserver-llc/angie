@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(21);
+	->has_daemon('openssl')->plan(23);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -68,6 +68,9 @@ http {
         location /cipher {
             return 200 "body $ssl_cipher";
         }
+        location /ciphers {
+            return 200 "body $ssl_ciphers";
+        }
         location /client_verify {
             return 200 "body $ssl_client_verify";
         }
@@ -75,10 +78,13 @@ http {
             return 200 "body $ssl_protocol";
         }
         location /issuer {
-            return 200 "body $ssl_client_i_dn";
+            return 200 "body $ssl_client_i_dn:$ssl_client_i_dn_legacy";
         }
         location /subject {
-            return 200 "body $ssl_client_s_dn";
+            return 200 "body $ssl_client_s_dn:$ssl_client_s_dn_legacy";
+        }
+        location /time {
+            return 200 "body $ssl_client_v_start!$ssl_client_v_end!$ssl_client_v_remain";
         }
 
         location /body {
@@ -241,10 +247,12 @@ like(get('/', 8081), qr/^body \.$/m, 'session timeout');
 like(get('/id', 8085), qr/^body \w{64}$/m, 'session id');
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
+like(get('/ciphers', 8085), qr/^body [:\w-]+$/m, 'ciphers');
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
-like(cert('/issuer', 8085), qr!^body CN=issuer$!m, 'issuer');
-like(cert('/subject', 8085), qr!^body CN=subject$!m, 'subject');
+like(cert('/issuer', 8085), qr!^body CN=issuer:/CN=issuer$!m, 'issuer');
+like(cert('/subject', 8085), qr!^body CN=subject:/CN=subject$!m, 'subject');
+like(cert('/time', 8085), qr/^body [:\s\w]+![:\s\w]+![23]$/m, 'time');
 
 # c->read->ready handling bug in ngx_ssl_recv(), triggered with chunked body
 

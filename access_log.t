@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
 # Tests for access_log.
@@ -21,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -37,6 +38,10 @@ http {
     log_format test "$uri:$status";
     log_format long "long line $uri:$status";
     log_format binary $binary_remote_addr;
+
+    log_format default  escape=default  $arg_a$arg_b$arg_c;
+    log_format none     escape=none     $arg_a$arg_b$arg_c;
+    log_format json     escape=json     $arg_a$arg_b$arg_c;
 
     server {
         listen       127.0.0.1:8080;
@@ -99,6 +104,12 @@ http {
         location /binary {
             access_log %%TESTDIR%%/binary.log binary;
         }
+
+        location /escape {
+            access_log %%TESTDIR%%/test.log default;
+            access_log %%TESTDIR%%/none.log none;
+            access_log %%TESTDIR%%/json.log json;
+        }
     }
 }
 
@@ -145,6 +156,8 @@ http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
 
 http_get('/binary');
+
+http_get('/escape?a="1 \\ ' . pack("n", 0x1b1c) . ' "&c=2');
 
 http_get('/cache?logname=lru');
 http_get('/cache?logname=lru');
@@ -242,6 +255,15 @@ is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
 my $expected = join '', map { sprintf "\\x%02X", $_ } split /\./, $addr;
 
 is($t->read_file('binary.log'), "$expected\n", 'binary');
+
+# characters escaping
+
+is($t->read_file('test.log'),
+	'\x221 \x5C \x1B\x1C \x22-2' . "\n", 'escape - default');
+is($t->read_file('none.log'),
+	'"1 \\ ' . pack("n", 0x1b1c) . " \"2\n", 'escape - none');
+is($t->read_file('json.log'),
+	'\"1 \\\\ \u001B\u001C \"2' . "\n", 'escape - json');
 
 SKIP: {
 skip 'win32', 4 if $^O eq 'MSWin32';

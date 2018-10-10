@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(7)
+my $t = Test::Nginx->new()->has(qw/http/)->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -67,6 +67,13 @@ http {
             index $server_name.html;
         }
 
+        location /va2/ {
+            alias %%TESTDIR%%/;
+            # before 1.13.8, the token produced emerg:
+            # directive "index" is not terminated by ";"
+            index ${server_name}.html;
+        }
+
         location /var_redirect/ {
             index /$server_name.html;
         }
@@ -90,6 +97,7 @@ like(http_get('/redirect/'), qr/X-URI: \/re.html.*rebody/ms, 'redirect');
 like(http_get('/loop/'), qr/500 Internal/, 'redirect loop');
 like(http_get('/many/'), qr/X-URI: \/many\/many.html.*manybody/ms, 'many');
 like(http_get('/var/'), qr/X-URI: \/var\/localhost.html.*varbody/ms, 'var');
+like(http_get('/va2/'), qr/X-URI: \/va2\/localhost.html.*varbody/ms, 'var 2');
 like(http_get('/var_redirect/'), qr/X-URI: \/localhost.html.*varbody/ms,
 	'var with redirect');
 

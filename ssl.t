@@ -68,9 +68,6 @@ http {
         location /cipher {
             return 200 "body $ssl_cipher";
         }
-        location /ciphers {
-            return 200 "body $ssl_ciphers";
-        }
         location /client_verify {
             return 200 "body $ssl_client_verify";
         }
@@ -138,6 +135,9 @@ http {
 
         location / {
             return 200 "body $ssl_session_reused";
+        }
+        location /ciphers {
+            return 200 "body $ssl_ciphers";
         }
     }
 }
@@ -247,7 +247,7 @@ like(get('/', 8081), qr/^body \.$/m, 'session timeout');
 like(get('/id', 8085), qr/^body \w{64}$/m, 'session id');
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
-like(get('/ciphers', 8085), qr/^body [:\w-]+$/m, 'ciphers');
+like(get('/ciphers', 8084), qr/^body [:\w-]+$/m, 'ciphers');
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
 like(cert('/issuer', 8085), qr!^body CN=issuer:/CN=issuer$!m, 'issuer');

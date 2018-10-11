@@ -39,8 +39,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
-	->plan(8);
+my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -94,6 +93,14 @@ foreach my $name ('localhost') {
 }
 
 $t->run();
+
+{
+	my (undef, $ssl) = get_ssl_socket(8080);
+	plan(skip_all => "TLS 1.3 forbids renegotiation")
+		if Net::SSLeay::version($ssl) > 0x0303;
+}
+
+$t->plan(8);
 
 ###############################################################################
 

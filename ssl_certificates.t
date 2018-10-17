@@ -22,10 +22,14 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
-plan(skip_all => 'IO::Socket::SSL too old') if $@;
+eval {
+	require Net::SSLeay;
+	Net::SSLeay::load_error_strings();
+	Net::SSLeay::SSLeay_add_ssl_algorithms();
+	Net::SSLeay::randomize();
+	Net::SSLeay::SSLeay();
+};
+plan(skip_all => 'Net::SSLeay not installed or too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
 
@@ -94,22 +98,29 @@ like(get_cert('ECDSA'), qr/CN=ec/, 'ssl cert ECDSA');
 
 ###############################################################################
 
+sub get_version {
+	my ($s, $ssl) = get_ssl_socket();
+	return Net::SSLeay::version($ssl);
+}
+
 sub get_cert {
-	my ($ciphers) = @_;
+	my ($type) = @_;
+	$type = 'PSS' if $type eq 'RSA' && get_version() > 0x0303;
+	my ($s, $ssl) = get_ssl_socket($type);
+	my $cipher = Net::SSLeay::get_cipher($ssl);
+	Test::Nginx::log_core('||', "cipher: $cipher");
+	return Net::SSLeay::dump_peer_certificate($ssl);
+}
+
+sub get_ssl_socket {
+	my ($type) = @_;
 	my $s;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(2);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port(8080),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_cipher_list => $ciphers,
-			SSL_error_trap => sub { die $_[1] }
-		);
+		$s = IO::Socket::INET->new('127.0.0.1:' . port(8080));
 		alarm(0);
 	};
 	alarm(0);
@@ -119,11 +130,23 @@ sub get_cert {
 		return undef;
 	}
 
-	my $cipher = $s->get_cipher();
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 
-	Test::Nginx::log_core('||', "cipher: $cipher");
+	if (defined $type) {
+		if (Net::SSLeay::SSLeay() < 0x1000200f) {
+			Net::SSLeay::CTX_set_cipher_list($ctx, $type)
+				or die("Failed to set cipher list");
+		} else {
+			# SSL_CTRL_SET_SIGALGS_LIST
+			Net::SSLeay::CTX_ctrl($ctx, 98, 0, $type . '+SHA256')
+				or die("Failed to set sigalgs");
+		}
+	}
 
-	return $s->dump_peer_certificate;
+	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::connect($ssl) or die("ssl connect");
+	return ($s, $ssl);
 }
 
 ###############################################################################

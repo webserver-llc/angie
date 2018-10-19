@@ -24,10 +24,15 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL->can_ocsp() or die; };
-plan(skip_all => 'IO::Socket::SSL with OCSP support required') if $@;
+eval {
+	require Net::SSLeay;
+	Net::SSLeay::load_error_strings();
+	Net::SSLeay::SSLeay_add_ssl_algorithms();
+	Net::SSLeay::randomize();
+	Net::SSLeay::SSLeay();
+	defined &Net::SSLeay::set_tlsext_status_type or die;
+};
+plan(skip_all => 'Net::SSLeay not installed or too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
 	->plan(9)->write_file_expand('nginx.conf', <<'EOF');
@@ -236,6 +241,8 @@ $t->waitforsocket("127.0.0.1:" . port(8081));
 
 ###############################################################################
 
+my $version = get_version();
+
 staple(8443, 'RSA');
 staple(8443, 'ECDSA');
 staple(8444, 'RSA');
@@ -271,30 +278,21 @@ sub staple {
 		my ($ssl, $resp) = @_;
 		push @resp, !!$resp;
 		return 1 unless $resp;
-		my $obj = $ssl->_get_ssl_object;
-		my $cert = Net::SSLeay::get_peer_certificate($obj);
-		my $certid = eval { Net::SSLeay::OCSP_cert2ids($obj, $cert) }
+		my $cert = Net::SSLeay::get_peer_certificate($ssl);
+		my $certid = eval { Net::SSLeay::OCSP_cert2ids($ssl, $cert) }
 			or do { die "no OCSP_CERTID for certificate: $@"; };
 
 		my @res = Net::SSLeay::OCSP_response_results($resp, $certid);
 		push @resp, $res[0][2]->{'statusType'};
 	};
 
+	my $s;
+
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(2);
-		IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port($port),
-			SSL_cipher_list => $ciphers,
-			SSL_ca_file => $ca,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_ocsp_mode => IO::Socket::SSL::SSL_OCSP_TRY_STAPLE(),
-			SSL_ocsp_staple_callback => $staple_cb,
-			SSL_error_trap => sub { die $_[1] }
-		);
+		$s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 		alarm(0);
 	};
 	alarm(0);
@@ -304,7 +302,52 @@ sub staple {
 		return undef;
 	}
 
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+
+	if (Net::SSLeay::SSLeay() < 0x1000200f) {
+		Net::SSLeay::CTX_set_cipher_list($ctx, $ciphers)
+			or die("Failed to set cipher list");
+	} else {
+		# SSL_CTRL_SET_SIGALGS_LIST
+		$ciphers = 'PSS' if $ciphers eq 'RSA' && $version > 0x0303;
+		Net::SSLeay::CTX_ctrl($ctx, 98, 0, $ciphers . '+SHA256')
+			or die("Failed to set sigalgs");
+	}
+
+	Net::SSLeay::CTX_load_verify_locations($ctx, $ca || '', '');
+	Net::SSLeay::CTX_set_tlsext_status_cb($ctx, $staple_cb);
+	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_tlsext_status_type($ssl,
+		Net::SSLeay::TLSEXT_STATUSTYPE_ocsp());
+	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::connect($ssl) or die("ssl connect");
+
 	return join ' ', @resp;
+}
+
+sub get_version {
+	my $s;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(2);
+		$s = IO::Socket::INET->new('127.0.0.1:' . port(8443));
+		alarm(0);
+	};
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::connect($ssl) or die("ssl connect");
+
+	Net::SSLeay::version($ssl);
 }
 
 ###############################################################################

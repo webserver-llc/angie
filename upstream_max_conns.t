@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_least_conn/)
-	->has(qw/upstream_ip_hash/)->plan(14);
+	->has(qw/upstream_ip_hash upstream_hash/)->plan(16);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -100,6 +100,17 @@ http {
 
     upstream u_ih {
         ip_hash;
+        server 127.0.0.1:8081 max_conns=1;
+        server 127.0.0.1:8082 max_conns=2;
+    }
+
+    upstream u_hash {
+        hash $remote_addr;
+        server 127.0.0.1:8081 max_conns=1;
+        server 127.0.0.1:8082 max_conns=2;
+    }
+    upstream u_chash {
+        hash $remote_addr consistent;
         server 127.0.0.1:8081 max_conns=1;
         server 127.0.0.1:8082 max_conns=2;
     }
@@ -199,6 +210,11 @@ is(peers('/u_lc_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ",
 # ip_hash balancer tests
 
 is(parallel('/u_ih', 4), "$p1: 1, $p2: 2", 'ip_hash');
+
+# hash balancer tests
+
+is(parallel('/u_hash', 4), "$p1: 1, $p2: 2", 'hash');
+is(parallel('/u_chash', 4), "$p1: 1, $p2: 2", 'hash consistent');
 
 ###############################################################################
 

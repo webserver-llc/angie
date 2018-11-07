@@ -25,7 +25,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_upstream_least_conn/)
-	->plan(12);
+	->has(qw/stream_upstream_hash/)->plan(14);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -89,6 +89,17 @@ stream {
         server 127.0.0.1:8082 backup max_conns=3;
     }
 
+    upstream u_hash {
+        hash $remote_addr;
+        server 127.0.0.1:8081 max_conns=1;
+        server 127.0.0.1:8082 max_conns=2;
+    }
+    upstream u_chash {
+        hash $remote_addr consistent;
+        server 127.0.0.1:8081 max_conns=1;
+        server 127.0.0.1:8082 max_conns=2;
+    }
+
     server {
         listen      127.0.0.1:8086;
         proxy_pass  u_unlim;
@@ -142,6 +153,16 @@ stream {
     server {
         listen      127.0.0.1:8096;
         proxy_pass  u_lc_backup_lim;
+    }
+
+    server {
+        listen      127.0.0.1:8097;
+        proxy_pass  u_hash;
+    }
+
+    server {
+        listen      127.0.0.1:8098;
+        proxy_pass  u_chash;
     }
 }
 
@@ -206,6 +227,11 @@ is(peers(8095, '/u_lc_backup', 6), "$p1 $p1 $p2 $p2 $p2 $p2",
 	'least_conn backup');
 is(peers(8096, '/u_lc_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ",
 	'least_conn backup limited');
+
+# hash balancer tests
+
+is(parallel(8097, '/u_hash', 4), "$p1: 1, $p2: 2", 'hash');
+is(parallel(8098, '/u_chash', 4), "$p1: 1, $p2: 2", 'hash consistent');
 
 ###############################################################################
 

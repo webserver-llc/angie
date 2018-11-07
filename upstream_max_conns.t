@@ -101,6 +101,7 @@ http {
     upstream u_ih {
         ip_hash;
         server 127.0.0.1:8081 max_conns=1;
+        server 127.0.0.1:8082 max_conns=2;
     }
 
     server {
@@ -197,7 +198,7 @@ is(peers('/u_lc_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ",
 
 # ip_hash balancer tests
 
-is(parallel('/u_ih', 4), "$p1: 1", 'ip_hash');
+is(parallel('/u_ih', 4), "$p1: 1, $p2: 2", 'ip_hash');
 
 ###############################################################################
 

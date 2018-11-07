@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 
 # (C) Nginx, Inc.
+# (C) Sergey Kandaurov
 
-# Tests for upstream module with max_conns feature.
+# Tests for stream upstream module with max_conns feature.
 
 ###############################################################################
 
@@ -23,8 +24,8 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_least_conn/)
-	->has(qw/upstream_ip_hash/)->plan(14);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_least_conn/)
+	->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -35,9 +36,7 @@ daemon off;
 events {
 }
 
-http {
-    %%TEST_GLOBALS_HTTP%%
-
+stream {
     upstream u_unlim {
         server 127.0.0.1:8081 max_conns=0;
         server 127.0.0.1:8082;
@@ -74,14 +73,6 @@ http {
         server 127.0.0.1:8082;
     }
 
-    upstream u_pnu {
-        # special server to force next upstream
-        server 127.0.0.1:8084;
-
-        server 127.0.0.1:8081 max_conns=1;
-        server 127.0.0.1:8082 max_conns=2;
-    }
-
     upstream u_lc {
         least_conn;
         server 127.0.0.1:8081 max_conns=1;
@@ -98,35 +89,59 @@ http {
         server 127.0.0.1:8082 backup max_conns=3;
     }
 
-    upstream u_ih {
-        ip_hash;
-        server 127.0.0.1:8081 max_conns=1;
+    server {
+        listen      127.0.0.1:8086;
+        proxy_pass  u_unlim;
     }
 
     server {
-        listen       127.0.0.1:8084;
-        server_name  localhost;
-
-        location / {
-            return 444;
-        }
+        listen      127.0.0.1:8087;
+        proxy_pass  u_lim;
     }
 
     server {
-        listen       127.0.0.1:8080;
-        server_name  localhost;
+        listen      127.0.0.1:8088;
+        proxy_pass  u_backup;
+    }
 
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_buffering off;
+    server {
+        listen      127.0.0.1:8089;
+        proxy_pass  u_backup_lim;
+    }
 
-        location /u {
-            proxy_pass http:/$uri;
-        }
+    server {
+        listen      127.0.0.1:8090;
+        proxy_pass  u_two;
+    }
 
-        location /close {
-            proxy_pass http://127.0.0.1:8085;
-        }
+    server {
+        listen      127.0.0.1:8091;
+        proxy_pass  u_some;
+    }
+
+    server {
+        listen      127.0.0.1:8092;
+        proxy_pass  u_many;
+    }
+
+    server {
+        listen      127.0.0.1:8093;
+        proxy_pass  u_weight;
+    }
+
+    server {
+        listen      127.0.0.1:8094;
+        proxy_pass  u_lc;
+    }
+
+    server {
+        listen      127.0.0.1:8095;
+        proxy_pass  u_lc_backup;
+    }
+
+    server {
+        listen      127.0.0.1:8096;
+        proxy_pass  u_lc_backup_lim;
     }
 }
 
@@ -145,90 +160,95 @@ my @ports = my ($p1, $p2) = (port(8081), port(8082));
 
 # two peers without max_conns
 
-is(parallel('/u_unlim?delay=0', 4), "$p1: 2, $p2: 2", 'unlimited');
+is(parallel(8086, '/u_unlim?delay=0', 4), "$p1: 2, $p2: 2", 'unlimited');
 
 # reopen connection to test connection subtraction
 
-my @s = http_get_multi('/u_lim', 2, 1.1);
-http_get('/u_lim/close');
-push @s, http_get_multi('/u_lim', 1, 1.1);
-http_get('/closeall');
+my @s = http_get_multi(8087, '/u_lim', 2, 1.1);
+get(8087, '/close');
+push @s, http_get_multi(8087, '/u_lim', 1, 1.1);
+get(8085, '/closeall');
 
 is(http_end_multi(\@s), "$p1: 3", 'conn subtraction');
 
 # simple test with limited peer
 
-is(parallel('/u_lim', 4), "$p1: 3", 'single');
+is(parallel(8087, '/u_lim', 4), "$p1: 3", 'single');
 
 # limited peer with backup peer
 
-is(peers('/u_backup', 6), "$p1 $p1 $p2 $p2 $p2 $p2", 'backup');
+is(peers(8088, '/u_backup', 6), "$p1 $p1 $p2 $p2 $p2 $p2", 'backup');
 
 # peer and backup peer, both limited
 
-is(peers('/u_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ", 'backup limited');
+is(peers(8089, '/u_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ", 'backup limited');
 
 # all peers limited
 
-is(parallel('/u_two', 4), "$p1: 1, $p2: 1", 'all peers');
+is(parallel(8090, '/u_two', 4), "$p1: 1, $p2: 1", 'all peers');
 
 # subset of peers limited
 
-is(parallel('/u_some', 4), "$p1: 1, $p2: 3", 'some peers');
+is(parallel(8091, '/u_some', 4), "$p1: 1, $p2: 3", 'some peers');
 
 # ensure that peer "weight" does not affect its max_conns limit
 
-is(parallel('/u_weight', 4), "$p1: 1, $p2: 3", 'weight');
+is(parallel(8093, '/u_weight', 4), "$p1: 1, $p2: 3", 'weight');
 
 # peers with equal server value aggregate max_conns limit
 
-is(parallel('/u_many', 6), "$p1: 2, $p2: 4", 'equal peer');
-
-# connections to peer selected with proxy_next_upstream are counted
-
-is(parallel('/u_pnu', 4), "$p1: 1, $p2: 2", 'proxy_next_upstream');
+is(parallel(8092, '/u_many', 6), "$p1: 2, $p2: 4", 'equal peer');
 
 # least_conn balancer tests
 
-is(parallel('/u_lc', 4), "$p1: 1, $p2: 3", 'least_conn');
-is(peers('/u_lc_backup', 6), "$p1 $p1 $p2 $p2 $p2 $p2", 'least_conn backup');
-is(peers('/u_lc_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ",
+is(parallel(8094, '/u_lc', 4), "$p1: 1, $p2: 3", 'least_conn');
+is(peers(8095, '/u_lc_backup', 6), "$p1 $p1 $p2 $p2 $p2 $p2",
+	'least_conn backup');
+is(peers(8096, '/u_lc_backup_lim', 6), "$p1 $p1 $p2 $p2 $p2 ",
 	'least_conn backup limited');
-
-# ip_hash balancer tests
-
-is(parallel('/u_ih', 4), "$p1: 1", 'ip_hash');
 
 ###############################################################################
 
 sub peers {
-	my ($uri, $count) = @_;
+	my ($port, $uri, $count) = @_;
 
-	my @sockets = http_get_multi($uri, $count, 1.1);
-	http_get('/closeall');
+	my @sockets = http_get_multi($port, $uri, $count, 1.1);
+	get(8085, '/closeall');
 
-	join ' ', map { /X-Port: (\d+)/ && $1 }
+	join ' ', map { defined $_ && /X-Port: (\d+)/ && $1 }
 		map { http_end $_ } (@sockets);
 }
 
 sub parallel {
-	my ($uri, $count) = @_;
+	my ($port, $uri, $count) = @_;
 
-	my @sockets = http_get_multi($uri, $count);
+	my @sockets = http_get_multi($port, $uri, $count);
 	for (1 .. 20) {
 		last if IO::Select->new(@sockets)->can_read(3) == $count;
 		select undef, undef, undef, 0.01;
 	}
-	http_get('/closeall');
+	get(8085, '/closeall');
 	return http_end_multi(\@sockets);
 }
 
+sub get {
+	my ($port, $uri, %opts) = @_;
+	my $s = IO::Socket::INET->new(
+		Proto => 'tcp',
+		PeerAddr => '127.0.0.1',
+		PeerPort => port($port),
+	)
+		or die "Can't connect to nginx: $!\n";
+
+	http_get($uri, socket => $s, %opts);
+}
+
 sub http_get_multi {
-	my ($uri, $count, $wait) = @_;
+	my ($port, $uri, $count, $wait) = @_;
 	my @sockets;
 
 	for (0 .. $count - 1) {
-		$sockets[$_] = http_get($uri, start => 1);
+		$sockets[$_] = get($port, $uri, start => 1);
 		IO::Select->new($sockets[$_])->can_read($wait) if $wait;
 	}
 
@@ -240,7 +260,8 @@ sub http_end_multi {
 	my %ports;
 
 	for my $sock (@$sockets) {
-		if (http_end($sock) =~ /X-Port: (\d+)/) {
+		my $r = http_end($sock);
+		if ($r && $r =~ /X-Port: (\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}

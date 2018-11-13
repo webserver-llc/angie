@@ -304,7 +304,8 @@ sub staple {
 
 	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 
-	if (Net::SSLeay::SSLeay() < 0x1000200f) {
+	my $ssleay = Net::SSLeay::SSLeay();
+	if ($ssleay < 0x1000200f || $ssleay == 0x20000000) {
 		Net::SSLeay::CTX_set_cipher_list($ctx, $ciphers)
 			or die("Failed to set cipher list");
 	} else {

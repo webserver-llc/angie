@@ -34,8 +34,11 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay not installed or too old') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
-	->plan(9)->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
+
+plan(skip_all => 'no OCSP stapling') if $t->has_module('BoringSSL');
+
+$t->plan(9)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

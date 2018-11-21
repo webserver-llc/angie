@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(19)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -84,7 +84,7 @@ $t->waitforsocket('127.0.0.1:' . port(8081));
 
 my $re = qr/(\d\.\d{3})/;
 my $p0 = port(8080);
-my ($ct, $ht, $rt, $ct2, $ht2, $rt2);
+my ($ct, $ht, $rt, $ct2, $ht2, $rt2, $ct3, $ht3, $rt3);
 
 like(http_get('/vars'), qr/X-Proxy-Host:\s127\.0\.0\.1:$p0/, 'proxy_host');
 like(http_get('/vars'), qr/X-Proxy-Port:\s$p0/, 'proxy_port');
@@ -98,6 +98,10 @@ cmp_ok($ht, '>=', 1, 'header time - slow response header');
 ($ct, $ht) = get('/body');
 cmp_ok($ct, '<', 1, 'connect time - slow response body');
 cmp_ok($ht, '<', 1, 'header time - slow response body');
+
+my $s = http_get('/header_close', start => 1);
+select undef, undef, undef, 0.4;
+close ($s);
 
 # expect no header time in 1st (bad) upstream, no (yet) response time in 2nd
 
@@ -125,18 +129,32 @@ is($rt2, '-', 'response time - next 2');
 
 $t->stop();
 
-$re = qr/(\d\.\d{3})/;
-($ct, $ht, $rt, $ct2, $ht2, $rt2)
-	= $t->read_file('time.log') =~ /^$re:$re:$re\n$re:$re:$re$/;
+($ct, $ht, $rt, $ct2, $ht2, $rt2, $ct3, $ht3, $rt3)
+	= $t->read_file('time.log') =~ /^$re:$re:$re\n$re:$re:$re\n$re:$re:$re$/;
 
 cmp_ok($ct, '<', 1, 'connect time log - slow response header');
 cmp_ok($ct2, '<', 1, 'connect time log - slow response body');
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.7');
+
+cmp_ok($ct3, '<', 1, 'connect time log - client close');
+
+}
+
 cmp_ok($ht, '>=', 1, 'header time log - slow response header');
 cmp_ok($ht2, '<', 1, 'header time log - slow response body');
+is($ht3, '-', 'header time log - client close');
 
 cmp_ok($rt, '>=', 1, 'response time log - slow response header');
 cmp_ok($rt2, '>=', 1, 'response time log - slow response body');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.7');
+
+cmp_ok($rt3, '>', $ct3, 'response time log - client close');
+
+}
 
 ###############################################################################
 

@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(19)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -99,15 +99,33 @@ cmp_ok($ht, '>=', 1, 'header time - slow response header');
 cmp_ok($ct, '<', 1, 'connect time - slow response body');
 cmp_ok($ht, '<', 1, 'header time - slow response body');
 
-($ct, $ct2, $ht, $ht2, $rt) = get('/pnu', many => 1);
+# expect no header time in 1st (bad) upstream, no (yet) response time in 2nd
+
+$re = qr/(\d\.\d{3}|-)/;
+($ct, $ct2, $ht, $ht2, $rt, $rt2) = get('/pnu', many => 1);
 cmp_ok($ct, '<', 1, 'connect time - next');
 cmp_ok($ct2, '<', 1, 'connect time - next 2');
-cmp_ok($ht, '>=', 1, 'header time - next');
+
+TODO: {
+local $TODO = 'not yet';
+
+is($ht, '-', 'header time - next');
+
+}
+
 cmp_ok($ht2, '<', 1, 'header time - next 2');
-is($ht, $rt, 'header time - bad response');
+cmp_ok($rt, '>=', 1, 'response time - next');
+
+TODO: {
+local $TODO = 'not yet';
+
+is($rt2, '-', 'response time - next 2');
+
+}
 
 $t->stop();
 
+$re = qr/(\d\.\d{3})/;
 ($ct, $ht, $rt, $ct2, $ht2, $rt2)
 	= $t->read_file('time.log') =~ /^$re:$re:$re\n$re:$re:$re$/;
 

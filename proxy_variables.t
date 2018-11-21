@@ -107,7 +107,7 @@ cmp_ok($ct, '<', 1, 'connect time - next');
 cmp_ok($ct2, '<', 1, 'connect time - next 2');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.15.7');
 
 is($ht, '-', 'header time - next');
 
@@ -117,7 +117,7 @@ cmp_ok($ht2, '<', 1, 'header time - next 2');
 cmp_ok($rt, '>=', 1, 'response time - next');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.15.7');
 
 is($rt2, '-', 'response time - next 2');
 

@@ -259,7 +259,7 @@ isnt(http_get('/proxy_buffer/jpeg'), undef, 'small buffer proxy');
 ###############################################################################
 
 sub gif_size {
-	join ' ', unpack("x6S2", http_get_body(@_));
+	join ' ', unpack("x6v2", http_get_body(@_));
 }
 
 sub http_get_body {

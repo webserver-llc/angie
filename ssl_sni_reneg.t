@@ -155,7 +155,7 @@ sub get_ssl_socket {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(2);
+		alarm(5);
 		socket($s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
 		connect($s, $dest_serv_params) or die "connect: $!";
 		alarm(0);

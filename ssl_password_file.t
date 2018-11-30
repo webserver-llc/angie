@@ -147,7 +147,7 @@ sub get_ssl_socket {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(2);
+		alarm(5);
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1:' . port(8081),

@@ -46,7 +46,7 @@ http {
             proxy_pass    http://127.0.0.1:8081;
             proxy_cache   NAME;
 
-            proxy_read_timeout 100ms;
+            proxy_read_timeout 500ms;
         }
     }
 
@@ -70,7 +70,7 @@ $t->run();
 
 ###############################################################################
 
-# make a HEAD request; as cache is enabled, nginx convert HEAD to GET
+# make a HEAD request; since cache is enabled, nginx converts HEAD to GET
 # and will set u->pipe->downstream_error to suppress sending the response
 # body to the client
 

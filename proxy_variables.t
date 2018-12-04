@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(22)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(24)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -138,9 +138,12 @@ cmp_ok($ct2, '<', 1, 'connect time log - slow response body');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.15.7');
 
-cmp_ok($ct3, '<', 1, 'connect time log - client close');
+isnt($ct3, '-', 'connect time log - client close set');
 
 }
+
+$ct3 = 0 if $ct3 eq '-';
+cmp_ok($ct3, '<', 1, 'connect time log - client close');
 
 cmp_ok($ht, '>=', 1, 'header time log - slow response header');
 cmp_ok($ht2, '<', 1, 'header time log - slow response body');
@@ -152,6 +155,8 @@ cmp_ok($rt2, '>=', 1, 'response time log - slow response body');
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.15.7');
 
+isnt($rt3, '-', 'response time log - client close set');
+$rt3 = 0 if $rt3 eq '-';
 cmp_ok($rt3, '>', $ct3, 'response time log - client close');
 
 }

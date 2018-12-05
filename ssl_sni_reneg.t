@@ -104,6 +104,8 @@ $t->plan(8);
 
 ###############################################################################
 
+my ($ossl) = $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
+
 my ($s, $ssl) = get_ssl_socket(8080);
 ok($s, 'connection');
 
@@ -119,7 +121,13 @@ ok(Net::SSLeay::set_tlsext_host_name($ssl, 'localhost'), 'SNI');
 
 Net::SSLeay::write($ssl, 'Host: localhost' . CRLF . CRLF);
 
+TODO: {
+local $TODO = 'not yet' if $ossl ge '1.1.1' and $^O eq 'linux'
+	and !$t->has_version('1.15.2');
+
 ok(!Net::SSLeay::read($ssl), 'response');
+
+}
 
 }
 
@@ -141,7 +149,13 @@ ok(Net::SSLeay::set_tlsext_host_name($ssl, 'localhost'), 'SNI');
 
 Net::SSLeay::write($ssl, 'Host: localhost' . CRLF . CRLF);
 
+TODO: {
+local $TODO = 'not yet' if $ossl ge '1.1.1' and $^O eq 'linux'
+	and !$t->has_version('1.15.2');
+
 ok(!Net::SSLeay::read($ssl), 'virtual servers');
+
+}
 
 }
 

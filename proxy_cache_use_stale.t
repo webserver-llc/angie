@@ -39,7 +39,7 @@ http {
 
     proxy_cache_path   %%TESTDIR%%/cache  levels=1:2  keys_zone=NAME:1m;
 
-    limit_req_zone  $binary_remote_addr  zone=one:1m  rate=15r/m;
+    limit_req_zone  $binary_remote_addr  zone=one:1m  rate=10r/m;
 
     server {
         listen       127.0.0.1:8080;

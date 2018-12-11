@@ -46,6 +46,7 @@ http {
     js_set $test_arg      test_arg;
     js_set $test_iarg     test_iarg;
     js_set $test_var      test_var;
+    js_set $test_global   test_global;
     js_set $test_log      test_log;
     js_set $test_except   test_except;
 
@@ -93,6 +94,10 @@ http {
 
         location /var {
             return 200 $test_var;
+        }
+
+        location /global {
+            return 200 $test_global;
         }
 
         location /body {
@@ -161,6 +166,8 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
+    var global = ['n', 'j', 's'].join("");
+
     function test_njs(r) {
         r.return(200, njs.version);
     }
@@ -211,6 +218,10 @@ $t->write_file('test.js', <<EOF);
 
     function test_var(r) {
         return 'variable=' + r.variables.remote_addr;
+    }
+
+    function test_global(r) {
+        return 'global=' + global;
     }
 
     function status(r) {
@@ -313,7 +324,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(34);
+$t->try_run('no njs available')->plan(35);
 
 ###############################################################################
 
@@ -363,6 +374,7 @@ like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 like(http_get('/return_headers'), qr/Foo: bar/, 'return headers');
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
+like(http_get('/global'), qr/global=njs/, 'global code');
 like(http_get('/log'), qr/200 OK/, 'r.log');
 
 http_get('/except');

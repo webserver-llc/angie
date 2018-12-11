@@ -91,33 +91,19 @@ is($frame->{headers}{'x-body'}, 'Hello', 'request body in memory');
 # tcp_nopush usage on peer connections
 # reopen window for request body after initial window was exhausted
 
-TODO: {
-local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /sendfile on/
-	and !$t->has_version('1.15.1') and $^O eq 'freebsd';
-
 $frames = $f->{http_start}('/proxy');
 is(eval(join '+', map { $_->{length} } grep { $_->{type} eq "DATA" } @$frames),
 	65535, 'preserve_output - first body bytes');
 
-}
-
 # expect body cleanup is disabled with preserve_output (ticket #1565).
 # after request body first bytes were proxied on behalf of initial window size,
 # send response header from upstream, this leads to body cleanup code path
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.1');
 
 $frames = $f->{http_end}();
 is(eval(join '+', map { $_->{length} } grep { $_->{type} eq "DATA" } @$frames),
 	465, 'preserve_output - last body bytes');
 
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crits');
-
-}
-
-$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/
-	and !$t->has_version('1.15.1');
 
 ###############################################################################
 

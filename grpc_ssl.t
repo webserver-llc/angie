@@ -205,17 +205,11 @@ $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 ok($c = $frame->{headers}{'x-connection'}, 'keepalive - connection');
 
-TODO: {
-local $TODO = 'not yet' if ($^O eq 'MSWin32' or $^O eq 'solaris')
-	and !$t->has_version('1.15.4');
-
 $f->{http_start}('/KeepAlive');
 $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-connection'}, $c, 'keepalive - connection reuse');
-
-}
 
 ###############################################################################
 

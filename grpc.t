@@ -190,24 +190,13 @@ ok($c = $frame->{headers}{'x-connection'}, 'keepalive 2 - connection');
 
 $frames = $f->{http_start}('/KeepAlive', reuse => 1);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.4');
-
 ok($frame, 'upstream keepalive reused');
-
-}
-
-TODO: {
-todo_skip 'upstream connection failed', 2 unless $frame;
 
 cmp_ok($frame->{sid}, '>', $sid, 'keepalive 2 - HEADERS sid next');
 $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-connection'}, $c, 'keepalive 2 - connection reuse');
-
-}
 
 undef $f;
 # don't bother with a new instance until the old one is over

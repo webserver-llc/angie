@@ -82,6 +82,12 @@ http {
                 proxy_cache_background_update  off;
             }
 
+            location ~ /(reg)(?P<name>exp).html {
+                proxy_pass    http://127.0.0.1:8081/$1$name.html;
+
+                proxy_cache_background_update  on;
+            }
+
             location /updating/ {
                 proxy_pass    http://127.0.0.1:8081/;
 
@@ -143,8 +149,9 @@ $t->write_file('t9.html', 'SEE-THIS' x 1024);
 $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html" --> xxx');
 $t->write_file('escape.html', 'SEE-THIS');
 $t->write_file('escape html', 'SEE-THIS');
+$t->write_file('regexp.html', 'SEE-THIS');
 
-$t->run()->plan(33);
+$t->run()->plan(35);
 
 ###############################################################################
 
@@ -167,6 +174,7 @@ get('/updating/t2.html', 'max-age=1, stale-while-revalidate=2');
 get('/t8.html', 'stale-while-revalidate=10');
 get('/escape.htm%6C', 'max-age=1, stale-while-revalidate=10');
 get('/escape html', 'max-age=1, stale-while-revalidate=10');
+get('/regexp.html', 'max-age=1, stale-while-revalidate=10');
 
 sleep 2;
 
@@ -185,6 +193,17 @@ like(http_get('/t4.html'), qr/HIT/, 's-w-r - unconditional revalidated');
 like(http_get('/t5.html?e=1'), qr/STALE/,
 	's-w-r - foreground revalidate error');
 like(http_get('/t5.html'), qr/REVALIDATED/, 's-w-r - foreground revalidated');
+
+# proxy_pass to regular expression with named and positional captures
+
+like(http_get('/regexp.html'), qr/STALE/, 's-w-r - regexp background update');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.15.8');
+
+like(http_get('/regexp.html'), qr/HIT/, 's-w-r - regexp revalidated');
+
+}
 
 # UPDATING while s-w-r
 

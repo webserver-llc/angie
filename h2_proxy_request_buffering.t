@@ -265,7 +265,7 @@ sub backend_read {
 	my ($s, $timo) = @_;
 	my $buf = '';
 
-	if (IO::Select->new($s)->can_read($timo || 3)) {
+	if (IO::Select->new($s)->can_read($timo || 5)) {
 		$s->sysread($buf, 16384) or return;
 		log2i($buf);
 	}

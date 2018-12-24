@@ -156,7 +156,7 @@ sub pp_get {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 		IO::Socket::SSL->start_SSL($s,
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_error_trap => sub { die $_[1] }

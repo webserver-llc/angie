@@ -465,7 +465,7 @@ sub unpack_length {
 
 sub raw_read {
 	my ($s, $buf, $len, $timo) = @_;
-	$timo = 5 unless $timo;
+	$timo = 8 unless $timo;
 	my $got = '';
 
 	while (length($buf) < $len && IO::Select->new($s)->can_read($timo)) {
@@ -501,7 +501,7 @@ sub new_socket {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 		$s = IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => "127.0.0.1:$port",

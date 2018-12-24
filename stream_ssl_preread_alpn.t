@@ -127,7 +127,7 @@ sub get_ssl {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 		IO::Socket::SSL->start_SSL($s->{_socket},
 			SSL_alpn_protocols => [ @alpn ],
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),

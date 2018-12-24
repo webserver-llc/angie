@@ -294,7 +294,7 @@ sub staple {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 		$s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 		alarm(0);
 	};
@@ -335,7 +335,7 @@ sub get_version {
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(5);
+		alarm(8);
 		$s = IO::Socket::INET->new('127.0.0.1:' . port(8443));
 		alarm(0);
 	};

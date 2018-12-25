@@ -60,7 +60,7 @@ sub read {
 	my $socket = $self->{_socket};
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
-		alarm(3);
+		alarm(8);
 		while (<$socket>) {
 			log_in($_);
 			next if m/^\d\d\d-/;

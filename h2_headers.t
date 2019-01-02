@@ -644,6 +644,9 @@ cmp_ok($data[-1], '<=', 2**14, 'response header frames limited');
 
 # response header frame sent in parts
 
+SKIP: {
+skip 'broken tcp', 5 if $^O eq 'freebsd' and $Config{osvers} =~ '12.0-release';
+
 $s = Test::Nginx::HTTP2->new(port(8082));
 $s->h2_settings(0, 0x5 => 2**17);
 
@@ -678,6 +681,8 @@ cmp_ok($lengths, '<=', 16384, 'response header split - max size');
 
 is(length join('', @{$data[-1]->{headers}->{'x-longheader'}}), 98304,
 	'response header split - headers');
+
+}
 
 }
 

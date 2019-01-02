@@ -228,7 +228,7 @@ $addr = $bigendian ? "00000001" : "01000000";
 is(substr(uid_set(http_get('/ip6')), 0, 8), $addr, 'service ipv6');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.15.8');
 
 is(substr(uid_set(http_get('/unix')), 0, 8), "00000000", 'service unix');
 

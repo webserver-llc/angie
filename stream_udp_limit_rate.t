@@ -51,7 +51,7 @@ stream {
     server {
         listen               127.0.0.1:%%PORT_8984_UDP%% udp;
         proxy_pass           127.0.0.1:%%PORT_8980_UDP%%;
-        proxy_upload_rate    1000;
+        proxy_upload_rate    500;
     }
 }
 
@@ -85,7 +85,7 @@ $s = dgram('127.0.0.1:' . port(8984));
 is($s->io($str), $str, 'upload');
 is($s->io($str, read_timeout => 0.5), '', 'upload limited');
 
-select undef, undef, undef, 0.6;
+select undef, undef, undef, 1.6;
 is($s->io($str), $str, 'upload passed');
 
 ###############################################################################

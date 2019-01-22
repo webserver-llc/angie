@@ -74,12 +74,23 @@ is($s->io($str), $str, 'unlimited 2');
 
 # datagram doesn't get split
 
+my $t1;
+
+TODO: {
+local $TODO = 'split datagram' unless $t->has_version('1.15.9');
+
 $s = dgram('127.0.0.1:' . port(8983));
 is($s->io($str), $str, 'download');
-my $t1 = time();
+$t1 = time();
 is($s->io($str), $str, 'download 2');
+
+}
+
 my $t2 = time();
 cmp_ok($t1, '<', $t2, 'download 2 delayed');
+
+TODO: {
+todo_skip 'infinite event report', 3 unless $t->has_version('1.15.9');
 
 $s = dgram('127.0.0.1:' . port(8984));
 is($s->io($str), $str, 'upload');
@@ -87,6 +98,8 @@ is($s->io($str, read_timeout => 0.5), '', 'upload limited');
 
 select undef, undef, undef, 1.6;
 is($s->io($str), $str, 'upload passed');
+
+}
 
 ###############################################################################
 

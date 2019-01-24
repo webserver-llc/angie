@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(31);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(30);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -111,7 +111,6 @@ unlike(http_head('/'), qr/SEE-THIS/, 'proxy head request');
 like(http_get('/var?b=127.0.0.1:' . port(8081) . '/'), qr/SEE-THIS/,
 	'proxy with variables');
 like(http_get('/var?b=u/'), qr/SEE-THIS/, 'proxy with variables to upstream');
-ok(http_get("/var?b=[::]"), 'proxy with variables - no ipv6 port');
 
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 

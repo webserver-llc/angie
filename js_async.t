@@ -77,61 +77,61 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function set_timeout(req, res) {
-        var timerId = setTimeout(timeout_cb_r, 5, req, res, 0);
+    function set_timeout(r) {
+        var timerId = setTimeout(timeout_cb_r, 5, r, 0);
         clearTimeout(timerId);
-        setTimeout(timeout_cb_r, 5, req, res, 0)
+        setTimeout(timeout_cb_r, 5, r, 0)
     }
 
-    function set_timeout_data(req, res) {
-        setTimeout(timeout_cb_data, 5, req, res, 0);
+    function set_timeout_data(r) {
+        setTimeout(timeout_cb_data, 5, r, 0);
     }
 
-    function set_timeout_many(req, res) {
+    function set_timeout_many(r) {
         for (var i = 0; i < 5; i++) {
-            setTimeout(timeout_cb_empty, 5, req, i);
+            setTimeout(timeout_cb_empty, 5, r, i);
         }
 
-        setTimeout(timeout_cb_reply, 10, res);
+        setTimeout(timeout_cb_reply, 10, r);
     }
 
-    function timeout_cb_r(req, res, cnt) {
+    function timeout_cb_r(r, cnt) {
         if (cnt == 10) {
-            res.status = 200;
-            res.contentType = 'foo';
-            res.sendHeader();
-            res.finish();
+            r.status = 200;
+            r.headersOut['Content-Type'] = 'foo';
+            r.sendHeader();
+            r.finish();
 
         } else {
-            setTimeout(timeout_cb_r, 5, req, res, ++cnt);
+            setTimeout(timeout_cb_r, 5, r, ++cnt);
         }
     }
 
-    function timeout_cb_empty(req, arg) {
-        req.log("timeout_cb_empty" + arg);
+    function timeout_cb_empty(r, arg) {
+        r.log("timeout_cb_empty" + arg);
     }
 
-    function timeout_cb_reply(res) {
-        res.status = 200;
-        res.contentType = 'reply';
-        res.sendHeader();
-        res.finish();
+    function timeout_cb_reply(r) {
+        r.status = 200;
+        r.headersOut['Content-Type'] = 'reply';
+        r.sendHeader();
+        r.finish();
     }
 
-    function timeout_cb_data(req, res, counter) {
+    function timeout_cb_data(r, counter) {
         if (counter == 0) {
-            req.log("timeout_cb_data: init");
-            res.status = 200;
-            res.sendHeader();
-            setTimeout(timeout_cb_data, 5, req, res, ++counter);
+            r.log("timeout_cb_data: init");
+            r.status = 200;
+            r.sendHeader();
+            setTimeout(timeout_cb_data, 5, r, ++counter);
 
         } else if (counter == 10) {
-            req.log("timeout_cb_data: finish");
-            res.finish();
+            r.log("timeout_cb_data: finish");
+            r.finish();
 
         } else {
-            res.send("" + counter);
-            setTimeout(timeout_cb_data, 5, req, res, ++counter);
+            r.send("" + counter);
+            setTimeout(timeout_cb_data, 5, r, ++counter);
         }
     }
 
@@ -140,23 +140,23 @@ $t->write_file('test.js', <<EOF);
         return js_;
     }
 
-    function shared_ctx(req, res) {
-        js_ = req.variables.arg_a;
+    function shared_ctx(r) {
+        js_ = r.variables.arg_a;
 
-        res.status = 200;
-        res.sendHeader();
-        res.finish();
+        r.status = 200;
+        r.sendHeader();
+        r.finish();
     }
 
-    function limit_rate_cb(res) {
-        res.finish();
+    function limit_rate_cb(r) {
+        r.finish();
     }
 
-    function limit_rate(req, res) {
-        res.status = 200;
-        res.sendHeader();
-        res.send("AAAAA".repeat(10))
-        setTimeout(limit_rate_cb, 1000, res);
+    function limit_rate(r) {
+        r.status = 200;
+        r.sendHeader();
+        r.send("AAAAA".repeat(10))
+        setTimeout(limit_rate_cb, 1000, r);
     }
 
 EOF

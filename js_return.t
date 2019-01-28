@@ -56,12 +56,12 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_njs(req, res) {
-        res.return(200, njs.version);
+    function test_njs(r) {
+        r.return(200, njs.version);
     }
 
-    function test_return(req, res) {
-        res.return(Number(req.args.c), req.args.t);
+    function test_return(r) {
+        r.return(Number(r.args.c), r.args.t);
     }
 
 EOF

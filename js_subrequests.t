@@ -248,134 +248,135 @@ $t->write_file('test.js', <<EOF);
         r.return(200, njs.version);
     }
 
-    function sr(req) {
-        subrequest_fn(req, ['/p/sub2'], ['uri', 'status'])
+    function sr(r) {
+        subrequest_fn(r, ['/p/sub2'], ['uri', 'status'])
     }
 
-    function sr_args(req, res) {
-        req.subrequest('/p/sub1', 'h=xxx', function(reply) {
-            res.status = 200;
-            res.sendHeader();
-            res.send(JSON.stringify({h:reply.headers.h}))
-            res.finish();
+    function sr_args(r) {
+        r.subrequest('/p/sub1', 'h=xxx', function(reply) {
+            r.status = 200;
+            r.sendHeader();
+            r.send(JSON.stringify({h:reply.headersOut.h}))
+            r.finish();
         });
     }
 
-    function sr_options_args(req, res) {
-        req.subrequest('/p/sub1', {args:'h=xxx'}, function(reply) {
-            res.status = 200;
-            res.sendHeader();
-            res.send(JSON.stringify({h:reply.headers.h}))
-            res.finish();
+    function sr_options_args(r) {
+        r.subrequest('/p/sub1', {args:'h=xxx'}, function(reply) {
+            r.status = 200;
+            r.sendHeader();
+            r.send(JSON.stringify({h:reply.headersOut.h}))
+            r.finish();
         });
     }
 
-    function sr_options_method(req, res) {
-        req.subrequest('/p/method', {method:'POST'}, body_fwd_cb);
+    function sr_options_method(r) {
+        r.subrequest('/p/method', {method:'POST'}, body_fwd_cb);
     }
 
-    function sr_options_body(req, res) {
-        req.subrequest('/p/body', {method:'POST', body:'["REQ-BODY"]'},
+    function sr_options_body(r) {
+        r.subrequest('/p/body', {method:'POST', body:'["REQ-BODY"]'},
                        body_fwd_cb);
     }
 
-    function sr_options_method_head(req, res) {
-        req.subrequest('/p/method', {method:'HEAD'}, function(reply) {
-            res.status = 200;
-            res.sendHeader();
-            res.send(JSON.stringify({c:reply.status, s:reply.body.length}))
-            res.finish();
+    function sr_options_method_head(r) {
+        r.subrequest('/p/method', {method:'HEAD'}, function(reply) {
+            r.status = 200;
+            r.sendHeader();
+            r.send(JSON.stringify({c:reply.status,
+                                   s:reply.responseBody.length}))
+            r.finish();
         });
     }
 
-    function sr_body(req, res) {
-        req.subrequest('/p/sub1', body_fwd_cb);
+    function sr_body(r) {
+        r.subrequest('/p/sub1', body_fwd_cb);
     }
 
-    function sr_body_special(req, res) {
-        req.subrequest('/p/sub2', body_fwd_cb);
+    function sr_body_special(r) {
+        r.subrequest('/p/sub2', body_fwd_cb);
     }
 
-    function sr_background(req, res) {
-        req.subrequest('/p/background');
-        req.subrequest('/p/background', 'a=xxx');
-        req.subrequest('/p/background', {args: 'a=yyy', method:'POST'});
+    function sr_background(r) {
+        r.subrequest('/p/background');
+        r.subrequest('/p/background', 'a=xxx');
+        r.subrequest('/p/background', {args: 'a=yyy', method:'POST'});
 
-        res.status = 200;
-        res.sendHeader();
-        res.finish();
+        r.status = 200;
+        r.sendHeader();
+        r.finish();
     }
 
-    function body(req, res) {
-        res.status = 200;
-        res.sendHeader();
-        res.send(req.variables.request_body);
-        res.finish();
+    function body(r) {
+        r.status = 200;
+        r.sendHeader();
+        r.send(r.variables.request_body);
+        r.finish();
     }
 
-    function delayed(req) {
-        setTimeout(function(res) {
-                        res.status = 200;
-                        res.sendHeader();
-                        res.finish();
-                   }, 100, req.response);
+    function delayed(r) {
+        setTimeout(function(r) {
+                        r.status = 200;
+                        r.sendHeader();
+                        r.finish();
+                   }, 100, r);
      }
 
-    function background(req, res) {
-        req.log("BACKGROUND: " + req.variables.request_method
-                + " args: " + req.variables.args);
+    function background(r) {
+        r.log("BACKGROUND: " + r.variables.request_method
+                + " args: " + r.variables.args);
 
-        res.status = 200;
-        res.sendHeader();
-        res.finish();
+        r.status = 200;
+        r.sendHeader();
+        r.finish();
     }
 
-    function sr_in_variable_handler(req, res) {
+    function sr_in_variable_handler(r) {
     }
 
-    function async_var(req, res) {
-        req.subrequest('/p/delayed', function(reply) {
-            res.status = 200;
-            res.sendHeader();
-            res.send(JSON.stringify(["CB-VAR"]))
-            res.finish();
+    function async_var(r) {
+        r.subrequest('/p/delayed', function(reply) {
+            r.status = 200;
+            r.sendHeader();
+            r.send(JSON.stringify(["CB-VAR"]))
+            r.finish();
         })
 
         return "";
     }
 
-    function sr_file(req, res) {
-        req.subrequest('/file/t', body_fwd_cb);
+    function sr_file(r) {
+        r.subrequest('/file/t', body_fwd_cb);
     }
 
-    function sr_cache(req, res) {
-        req.subrequest('/p/t', body_fwd_cb);
+    function sr_cache(r) {
+        r.subrequest('/p/t', body_fwd_cb);
     }
 
     function sr_unavail(req) {
         subrequest_fn(req, ['/unavail'], ['uri', 'status']);
     }
 
-    function sr_broken(req, res) {
-        req.subrequest('/daemon/unfinished',
+    function sr_broken(r) {
+        r.subrequest('/daemon/unfinished',
                        function(reply) {
-                            res.status = 200;
-                            res.sendHeader();
-                            res.send(JSON.stringify({code:reply.status}))
-                            res.finish();
+                            r.status = 200;
+                            r.sendHeader();
+                            r.send(JSON.stringify({code:reply.status}))
+                            r.finish();
                         });
     }
 
-    function sr_too_large(req, res) {
-        req.subrequest('/too_large/t', body_fwd_cb);
+    function sr_too_large(r) {
+        r.subrequest('/too_large/t', body_fwd_cb);
     }
 
-    function sr_in_sr(req, res) {
-        req.subrequest('/sr', body_fwd_cb);
+    function sr_in_sr(r) {
+        r.subrequest('/sr', body_fwd_cb);
     }
 
-    function sr_js_in_subrequest(req, res) {
-        req.subrequest('/js_sub', body_fwd_cb);
+    function sr_js_in_subrequest(r) {
+        r.subrequest('/js_sub', body_fwd_cb);
     }
 
     function sr_js_in_sr_parent(r) {
@@ -408,68 +409,67 @@ $t->write_file('test.js', <<EOF);
         r.return(200);
     }
 
-    function sr_out_of_order(req) {
-        subrequest_fn(req, ['/p/delayed', '/p/sub1', '/unknown'],
+    function sr_out_of_order(r) {
+        subrequest_fn(r, ['/p/delayed', '/p/sub1', '/unknown'],
                       ['uri', 'status']);
     }
 
-    function subrequest_fn(req, subs, props) {
-        var r, replies = [];
+    function subrequest_fn(r, subs, props) {
+        var rep, replies = [];
 
         subs.forEach(function(sr) {
-            req.subrequest(sr, function(reply) {
-                req.log("subrequest handler: " + reply.uri
+            r.subrequest(sr, function(reply) {
+                r.log("subrequest handler: " + reply.uri
                         + " status: " + reply.status)
 
-                r = {};
-                props.forEach(function (p) {r[p] = reply[p]});
+                rep = {};
+                props.forEach(function (p) {rep[p] = reply[p]});
 
-                replies.push(r);
+                replies.push(rep);
 
                 if (replies.length == subs.length) {
-                    var res = req.response;
-                    res.status = 200;
-                    res.sendHeader();
-                    res.send(JSON.stringify(replies));
-                    res.finish();
+                    r.status = 200;
+                    r.sendHeader();
+                    r.send(JSON.stringify(replies));
+                    r.finish();
                 }
             });
         });
     }
 
-    function sr_except_not_a_func(req, res) {
-        req.subrequest('/sub1', 'a=1', 'b');
+    function sr_except_not_a_func(r) {
+        r.subrequest('/sub1', 'a=1', 'b');
     }
 
-    function sr_except_failed_to_convert_arg(req, res) {
-        req.subrequest('/sub1', req.args, function(){});
+    function sr_except_failed_to_convert_arg(r) {
+        r.subrequest('/sub1', r.args, function(){});
     }
 
-    function sr_except_failed_to_convert_options_arg(req, res) {
-        req.subrequest('/sub1', {args:req.args}, function(){});
+    function sr_except_failed_to_convert_options_arg(r) {
+        r.subrequest('/sub1', {args:r.args}, function(){});
     }
 
-    function sr_except_invalid_options_method(req, res) {
-        req.subrequest('/sub1', {method:'UNKNOWN_METHOD'}, function(){});
+    function sr_except_invalid_options_method(r) {
+        r.subrequest('/sub1', {method:'UNKNOWN_METHOD'}, function(){});
     }
 
-    function sr_uri_except(req, res) {
-        req.subrequest(req, 'a=1', 'b');
+    function sr_uri_except(r) {
+        r.subrequest(r, 'a=1', 'b');
     }
 
     function body_fwd_cb(reply) {
-        var res = reply.parent.response;
-        res.status = 200;
-        res.sendHeader();
-        res.send(JSON.stringify(JSON.parse(reply.body)));
-        res.finish();
+        var p = reply.parent;
+        p.status = 200;
+        p.sendHeader();
+        p.send(JSON.stringify(JSON.parse(reply.responseBody)));
+        p.finish();
     }
 
-    function js_sub(req, res) {
-        res.status = 200;
-        res.sendHeader();
-        res.send('["JS-SUB"]');
-        res.finish();
+    function js_sub(r) {
+        r.status = 200;
+        r.sendHeader();
+        r.send('["JS-SUB"]');
+        r.finish();
     }
 
 EOF

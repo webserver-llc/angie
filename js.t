@@ -328,9 +328,6 @@ $t->try_run('no njs available')->plan(35);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.2';
 
 like(http_get('/method'), qr/method=GET/, 'r.method');
 like(http_get('/version'), qr/version=1.0/, 'r.httpVersion');
@@ -347,11 +344,18 @@ like(http_get('/ctype'), qr/Content-Type: application\/foo/,
 like(http_get('/clen'), qr/Content-Length: 5/, 'r.headersOut.contentLength');
 like(http_get('/hdr_out?foo=12345'), qr/Foo: 12345/, 'r.headersOut');
 like(http_get('/hdr_out?foo=123&bar=copy'), qr/Bar: 123/, 'r.headersOut get');
-like(http_get('/hdr_out?bar=empty'), qr/Bar: \x0d/, 'r.headersOut empty');
-like(http_get('/hdr_out?foo='), qr/Foo: \x0d/, 'r.headersOut no value');
-like(http_get('/hdr_out?foo'), qr/Foo: \x0d/, 'r.headersOut no value 2');
 like(http_get('/ihdr_out?a=12&b=34'), qr/^1234$/m, 'r.headersOut iteration');
 like(http_get('/ihdr_out'), qr/\x0d\x0a?\x0d\x0a?$/m, 'r.send zero');
+
+TODO: {
+local $TODO = 'not yet'
+		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.8';
+
+unlike(http_get('/hdr_out?bar=empty'), qr/Bar:/, 'r.headersOut empty');
+unlike(http_get('/hdr_out?foo='), qr/Foo:/, 'r.headersOut no value');
+unlike(http_get('/hdr_out?foo'), qr/Foo:/, 'r.headersOut no value 2');
+
+}
 
 like(http_post('/body'), qr/REQ-BODY/, 'request body');
 like(http_post('/in_file'), qr/request body is in a file/,
@@ -382,7 +386,6 @@ http_get('/content_except');
 
 like(http_get('/content_empty'), qr/500 Internal Server Error/,
 	'empty handler');
-}
 
 $t->stop();
 

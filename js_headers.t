@@ -37,6 +37,9 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    js_set $test_hdr_in   test_hdr_in;
+    js_set $test_ihdr_in  test_ihdr_in;
+
     js_include test.js;
 
     server {
@@ -64,6 +67,22 @@ http {
 
         location /headers_list {
             js_content headers_list;
+        }
+
+        location /hdr_in {
+            return 200 $test_hdr_in;
+        }
+
+        location /ihdr_in {
+            return 200 $test_ihdr_in;
+        }
+
+        location /hdr_out {
+            js_content hdr_out;
+        }
+
+        location /ihdr_out {
+            js_content ihdr_out;
         }
     }
 }
@@ -119,9 +138,52 @@ $t->write_file('test.js', <<EOF);
         r.return(200, out);
     }
 
+    function test_hdr_in(r) {
+        return 'hdr=' + r.headersIn.foo;
+    }
+
+    function test_ihdr_in(r) {
+        var s = '', h;
+        for (h in r.headersIn) {
+            if (h.substr(0, 3) == 'foo') {
+                s += r.headersIn[h];
+            }
+        }
+        return s;
+    }
+
+    function hdr_out(r) {
+        r.status = 200;
+        r.headersOut['Foo'] = r.args.fOO;
+
+        if (r.args.bar) {
+            r.headersOut['Bar'] =
+                r.headersOut[(r.args.bar == 'empty' ? 'Baz' :'Foo')]
+        }
+
+        r.sendHeader();
+        r.finish();
+    }
+
+    function ihdr_out(r) {
+        r.status = 200;
+        r.headersOut['a'] = r.args.a;
+        r.headersOut['b'] = r.args.b;
+
+        var s = '', h;
+        for (h in r.headersOut) {
+            s += r.headersOut[h];
+        }
+
+        r.sendHeader();
+        r.send(s);
+        r.finish();
+    }
+
+
 EOF
 
-$t->try_run('no njs')->plan(5);
+$t->try_run('no njs')->plan(12);
 
 ###############################################################################
 
@@ -140,6 +202,13 @@ like(http_get('/content_encoding'), qr/Content-Encoding: gzip/,
 	'set Content-Encoding');
 like(http_get('/headers_list'), qr/a:c:d/, 'headers list');
 
+like(http_get('/ihdr_out?a=12&b=34'), qr/^1234$/m, 'r.headersOut iteration');
+like(http_get('/ihdr_out'), qr/\x0d\x0a?\x0d\x0a?$/m, 'r.send zero');
+like(http_get('/hdr_out?foo=12345'), qr/Foo: 12345/, 'r.headersOut');
+like(http_get('/hdr_out?foo=123&bar=copy'), qr/Bar: 123/, 'r.headersOut get');
+unlike(http_get('/hdr_out?bar=empty'), qr/Bar:/, 'r.headersOut empty');
+unlike(http_get('/hdr_out?foo='), qr/Foo:/, 'r.headersOut no value');
+unlike(http_get('/hdr_out?foo'), qr/Foo:/, 'r.headersOut no value 2');
 }
 
 ###############################################################################

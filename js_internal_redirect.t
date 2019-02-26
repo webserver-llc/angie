@@ -68,7 +68,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_redirect(req) {
-        if (req.variables.arg_dest.startsWith('named')) {
+        if (req.variables.arg_dest == 'named') {
             req.internalRedirect('\@named');
 
         } else {

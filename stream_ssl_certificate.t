@@ -103,6 +103,14 @@ stream {
         ssl_certificate $two.crt;
         ssl_certificate_key $two.key;
     }
+
+    server {
+        listen       127.0.0.1:8084 ssl;
+        return       $ssl_server_name:$ssl_session_reused;
+
+        ssl_certificate $ssl_server_name.crt;
+        ssl_certificate_key $ssl_server_name.key;
+    }
 }
 
 EOF
@@ -138,7 +146,7 @@ foreach my $name ('pass') {
 $t->write_file('password_file', 'pass');
 $t->write_file('index.html', '');
 
-$t->try_run('no ssl_certificate variables')->plan(6);
+$t->try_run('no ssl_certificate variables')->plan(7);
 
 ###############################################################################
 
@@ -159,6 +167,12 @@ like(get('default', 8080, $ses), qr/:r/, 'session reused');
 
 like(get('default', 8081, $ses), qr/:r/, 'session id context match');
 like(get('default', 8082, $ses), qr/:\./, 'session id context distinct');
+
+# errors
+
+Net::SSLeay::ERR_clear_error();
+get_ssl_socket('nx', 8084);
+ok(Net::SSLeay::ERR_peek_error(), 'no certificate');
 
 ###############################################################################
 

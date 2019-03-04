@@ -117,7 +117,7 @@ local $TODO = 'not yet' if $t->has_module('OpenSSL (1.1.1|3)')
 	&& !$t->has_version('1.15.10');
 
 my $ses = Net::SSLeay::get_session($ssl);
-($s, $ssl) = get_ssl_socket(port(8082), $ses);
+($s, $ssl) = get_ssl_socket(port(8082), $ses, 'example.com');
 is(Net::SSLeay::ssl_read_all($ssl), 'example.com', 'ssl server name - reused');
 
 }

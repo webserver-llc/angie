@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(23);
+	->has_daemon('openssl')->plan(25);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -61,6 +61,9 @@ http {
 
         location /reuse {
             return 200 "body $ssl_session_reused";
+        }
+        location /sni {
+            return 200 "body $ssl_session_reused:$ssl_server_name";
         }
         location /id {
             return 200 "body $ssl_session_id";
@@ -224,6 +227,27 @@ like(get('/', 8083), qr/^body \.$/m, 'session not reused 1');
 like(get('/', 8084), qr/^body \.$/m, 'reused off initial session');
 like(get('/', 8084), qr/^body \.$/m, 'session not reused 2');
 
+# ssl_server_name
+
+SKIP: {
+skip 'no sni', 2 unless $t->has_module('sni');
+
+$ctx = new IO::Socket::SSL::SSL_Context(
+	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+	SSL_session_cache_size => 100);
+
+like(get('/sni', 8085), qr/^body \.:localhost$/m, 'ssl server name');
+
+TODO: {
+local $TODO = 'not yet' if $t->has_module('OpenSSL (1.1.1|3)')
+	&& !$t->has_version('1.15.10');
+
+like(get('/sni', 8085), qr/^body r:localhost$/m, 'ssl server name - reused');
+
+}
+
+}
+
 # ssl certificate inheritance
 
 my $s = get_ssl_socket($ctx, port(8081));
@@ -307,6 +331,7 @@ sub get_ssl_socket {
 			PeerPort => $port,
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_reuse_ctx => $ctx,
+			SSL_hostname => 'localhost',
 			SSL_error_trap => sub { die $_[1] },
 			%extra
 		);

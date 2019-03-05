@@ -59,6 +59,18 @@ http {
             return 200 $server_name;
         }
     }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  localhost;
+
+        ssl_certificate_key localhost.key;
+        ssl_certificate localhost.crt;
+
+        location / {
+            return 200 $ssl_session_reused:$ssl_server_name;
+        }
+    }
 }
 
 EOF
@@ -80,7 +92,7 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-$t->plan(6);
+$t->plan(8);
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
@@ -124,10 +136,28 @@ like(https_get_host('example.org', 'example.com'), qr!400 Bad Request!,
 
 }
 
+# $ssl_server_name in sessions
+
+my $ctx = new IO::Socket::SSL::SSL_Context(
+	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+	SSL_session_cache_size => 100);
+
+like(http_get('/', socket => get_ssl_socket('localhost', 8081, $ctx)),
+	qr/^\.:localhost$/m, 'ssl server name');
+
+TODO: {
+local $TODO = 'not yet' if $t->has_module('OpenSSL (1.1.1|3)')
+	&& !$t->has_version('1.15.10');
+
+like(http_get('/', socket => get_ssl_socket('localhost', 8081, $ctx)),
+	qr/^r:localhost$/m, 'ssl server name - reused');
+
+}
+
 ###############################################################################
 
 sub get_ssl_socket {
-	my ($host) = @_;
+	my ($host, $port, $ctx) = @_;
 	my $s;
 
 	eval {
@@ -136,8 +166,9 @@ sub get_ssl_socket {
 		alarm(8);
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port(8080),
+			PeerAddr => '127.0.0.1:' . port($port || 8080),
 			SSL_hostname => $host,
+			SSL_reuse_ctx => $ctx,
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_error_trap => sub { die $_[1] }
 		);

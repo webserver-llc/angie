@@ -142,15 +142,14 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	SSL_session_cache_size => 100);
 
-like(http_get('/', socket => get_ssl_socket('localhost', 8081, $ctx)),
-	qr/^\.:localhost$/m, 'ssl server name');
+like(get('/', 'localhost', 8081, $ctx), qr/^\.:localhost$/m, 'ssl server name');
 
 TODO: {
 local $TODO = 'not yet' if $t->has_module('OpenSSL (1.1.1|3)')
 	&& !$t->has_version('1.15.10');
 
-like(http_get('/', socket => get_ssl_socket('localhost', 8081, $ctx)),
-	qr/^r:localhost$/m, 'ssl server name - reused');
+like(get('/', 'localhost', 8081, $ctx), qr/^r:localhost$/m,
+	'ssl server name - reused');
 
 }
 
@@ -200,6 +199,14 @@ GET / HTTP/1.0
 Host: $host
 
 EOF
+}
+
+sub get {
+	my ($uri, $host, $port, $ctx) = @_;
+	my $s = get_ssl_socket($host, $port, $ctx) or return;
+	my $r = http_get($uri, socket => $s);
+	$s->close();
+	return $r;
 }
 
 ###############################################################################

@@ -52,7 +52,6 @@ $t->run();
 
 ###############################################################################
 
-
 is(http_host_header('www.abcd-ef.g02.xyz'), 'www.abcd-ef.g02.xyz',
 	'domain w/o port (host header)');
 is(http_host_header('abcd-ef.g02.xyz:' . port(8080)), 'abcd-ef.g02.xyz',
@@ -191,3 +190,5 @@ Host: localhost
 EOF
 	return ($all ? $r : Test::Nginx::http_content($r));
 }
+
+###############################################################################

@@ -37,7 +37,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    limit_req_zone   $binary_remote_addr  zone=req:1m rate=30r/m;
+    limit_req_zone   $binary_remote_addr  zone=req:1m rate=20r/m;
 
     server {
         listen       127.0.0.1:8080 http2;

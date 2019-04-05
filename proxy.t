@@ -11,8 +11,6 @@ use strict;
 
 use Test::More;
 
-use Socket;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';

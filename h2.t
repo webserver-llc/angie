@@ -852,6 +852,7 @@ unlike($lengths, qr/16384 0 16384/, 'SETTINGS ack after queued DATA');
 SKIP: {
 skip 'unsafe socket tests', 4 unless $ENV{TEST_NGINX_UNSAFE};
 
+$s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/tbig.html' });
 
 $s->h2_window(2**30, $sid);

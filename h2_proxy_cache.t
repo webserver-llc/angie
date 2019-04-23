@@ -38,10 +38,6 @@ http {
 
     proxy_cache_path %%TESTDIR%%/cache    keys_zone=NAME:1m;
 
-    # quit unfixed nginx timely on different linuces
-    http2_idle_timeout 2s;
-    http2_recv_timeout 2s;
-
     server {
         listen       127.0.0.1:8080 http2;
         listen       127.0.0.1:8081;

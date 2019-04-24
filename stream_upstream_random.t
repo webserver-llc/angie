@@ -153,8 +153,6 @@ stream {
         proxy_pass  ztwo;
     }
 
-    proxy_connect_timeout 1s;
-
     server {
         listen      127.0.0.1:8091;
         proxy_pass  fail;

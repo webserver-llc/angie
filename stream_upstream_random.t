@@ -243,7 +243,8 @@ sub parallel {
 	my @s = map { get($port, $uri, start => 1, sleep => 0.1) } (1 .. $n);
 
 	for (@s) {
-		if (http_end($_) =~ /X-Port: (\d+)/) {
+		my $r = http_end($_);
+		if ($r && $r =~ /X-Port: (\d+)/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;
 		}

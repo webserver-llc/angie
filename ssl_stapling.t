@@ -59,6 +59,8 @@ http {
     ssl_certificate end-int.crt;
     ssl_certificate_key end.key;
 
+    ssl_ciphers DEFAULT:ECCdraft;
+
     server {
         listen       127.0.0.1:8443 ssl;
         listen       127.0.0.1:8080;

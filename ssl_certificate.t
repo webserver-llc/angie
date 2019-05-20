@@ -180,7 +180,7 @@ like(get('password', 8083), qr/password/, 'ssl_password_file');
 
 # session reuse
 
-my ($s, $ssl) = get_ssl_socket('default', 8080);
+my ($s, $ssl) = get('default', 8080);
 my $ses = Net::SSLeay::get_session($ssl);
 
 like(get('default', 8080, $ses), qr/default:r/, 'session reused');
@@ -201,7 +201,8 @@ sub get {
 	Net::SSLeay::write($ssl, 'GET / HTTP/1.0' . CRLF . CRLF);
 	my $r = Net::SSLeay::read($ssl);
 	$s->close();
-	return $r;
+	return $r unless wantarray();
+	return ($s, $ssl);
 }
 
 sub cert {

@@ -136,8 +136,13 @@ http {
         location / {
             return 200 "body $ssl_session_reused";
         }
+
         location /ciphers {
             return 200 "body $ssl_ciphers";
+        }
+
+        location /protocol {
+            return 200 "body $ssl_protocol";
         }
     }
 }
@@ -210,13 +215,18 @@ open STDERR, ">&", \*OLDERR;
 ###############################################################################
 
 like(get('/reuse', 8085), qr/^body \.$/m, 'shared initial session');
-like(get('/reuse', 8085), qr/^body r$/m, 'shared session reused');
-
 like(get('/', 8081), qr/^body \.$/m, 'builtin initial session');
-like(get('/', 8081), qr/^body r$/m, 'builtin session reused');
-
 like(get('/', 8082), qr/^body \.$/m, 'builtin size initial session');
+
+SKIP: {
+skip 'no TLS 1.3 sessions', 3 if get('/protocol', 8084) =~ /TLSv1.3/
+	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
+
+like(get('/reuse', 8085), qr/^body r$/m, 'shared session reused');
+like(get('/', 8081), qr/^body r$/m, 'builtin session reused');
 like(get('/', 8082), qr/^body r$/m, 'builtin size session reused');
+
+}
 
 like(get('/', 8083), qr/^body \.$/m, 'reused none initial session');
 like(get('/', 8083), qr/^body \.$/m, 'session not reused 1');

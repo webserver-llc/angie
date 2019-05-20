@@ -46,6 +46,10 @@ http {
         location / {
             return 200 $server_name;
         }
+
+        location /protocol {
+            return 200 $ssl_protocol;
+        }
     }
 
     server {
@@ -144,12 +148,18 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 
 like(get('/', 'localhost', 8081, $ctx), qr/^\.:localhost$/m, 'ssl server name');
 
+SKIP: {
+skip 'no TLS 1.3 sessions', 1 if get('/protocol', 'localhost') =~ /TLSv1.3/
+	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
+
 TODO: {
 local $TODO = 'not yet' if $t->has_module('OpenSSL (1.1.1|3)')
 	&& !$t->has_version('1.15.10');
 
 like(get('/', 'localhost', 8081, $ctx), qr/^r:localhost$/m,
 	'ssl server name - reused');
+
+}
 
 }
 

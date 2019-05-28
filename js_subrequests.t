@@ -143,10 +143,6 @@ http {
             js_content sr_except_failed_to_convert_options_arg;
         }
 
-        location /sr_except_invalid_options_method {
-            js_content sr_except_invalid_options_method;
-        }
-
         location /sr_except_invalid_options_header_only {
             js_content sr_except_invalid_options_header_only;
         }
@@ -271,7 +267,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_options_method(r) {
-        r.subrequest('/p/method', {method:'POST'}, body_fwd_cb);
+        r.subrequest('/p/method', {method:r.args.m}, body_fwd_cb);
     }
 
     function sr_options_body(r) {
@@ -449,10 +445,6 @@ $t->write_file('test.js', <<EOF);
         r.subrequest('/sub1', {args:r.args}, function(){});
     }
 
-    function sr_except_invalid_options_method(r) {
-        r.subrequest('/sub1', {method:'UNKNOWN_METHOD'}, function(){});
-    }
-
     function sr_uri_except(r) {
         r.subrequest(r, 'a=1', 'b');
     }
@@ -484,7 +476,16 @@ $t->run_daemon(\&http_daemon);
 is(get_json('/sr'), '[{"status":404,"uri":"/p/sub2"}]', 'sr');
 is(get_json('/sr_args'), '{"h":"xxx"}', 'sr_args');
 is(get_json('/sr_options_args'), '{"h":"xxx"}', 'sr_options_args');
-is(get_json('/sr_options_method'), '["POST"]', 'sr_options_method');
+is(get_json('/sr_options_method?m=POST'), '["POST"]', 'sr method POST');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.3';
+
+is(get_json('/sr_options_method?m=PURGE'), '["PURGE"]', 'sr method PURGE');
+
+}
+
 is(get_json('/sr_options_body'), '["REQ-BODY"]', 'sr_options_body');
 is(get_json('/sr_options_method_head'), '{"c":200,"s":0}',
 	'sr_options_method_head');
@@ -523,7 +524,6 @@ http_get('/sr_too_large');
 http_get('/sr_except_not_a_func');
 http_get('/sr_except_failed_to_convert_arg');
 http_get('/sr_except_failed_to_convert_options_arg');
-http_get('/sr_except_invalid_options_method');
 http_get('/sr_uri_except');
 
 TODO: {
@@ -551,8 +551,6 @@ ok(index($t->read_file('error.log'), 'failed to convert uri arg') > 0,
 	'subrequest uri exception');
 ok(index($t->read_file('error.log'), 'failed to convert args') > 0,
 	'subrequest invalid args exception');
-ok(index($t->read_file('error.log'), 'unknown method "UNKNOWN_METHOD"') > 0,
-	'subrequest unknown method exception');
 ok(index($t->read_file('error.log'), 'BACKGROUND') > 0,
 	'background subrequest');
 ok(index($t->read_file('error.log'), 'too big subrequest response') > 0,

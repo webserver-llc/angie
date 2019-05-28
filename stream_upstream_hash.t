@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_upstream_hash/)->plan(2);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_hash/)->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -49,6 +49,18 @@ stream {
         server 127.0.0.1:8083;
     }
 
+    upstream empty {
+        hash $proxy_protocol_addr;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
+    }
+
+    upstream cempty {
+        hash $proxy_protocol_addr consistent;
+        server 127.0.0.1:8082;
+        server 127.0.0.1:8083;
+    }
+
     server {
         listen      127.0.0.1:8080;
         proxy_pass  hash;
@@ -57,6 +69,16 @@ stream {
     server {
         listen      127.0.0.1:8081;
         proxy_pass  cons;
+    }
+
+    server {
+        listen      127.0.0.1:8084;
+        proxy_pass  empty;
+    }
+
+    server {
+        listen      127.0.0.1:8085;
+        proxy_pass  cempty;
     }
 }
 
@@ -75,6 +97,16 @@ my @ports = my ($port2, $port3) = (port(8082), port(8083));
 
 is(many(10, port(8080)), "$port3: 10", 'hash');
 like(many(10, port(8081)), qr/($port2|$port3): 10/, 'hash consistent');
+
+# fallback to round-robin
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.1');
+
+like(many(4, port(8084)), qr/$port2: 2, $port3: 2/, 'empty key');
+like(many(4, port(8085)), qr/$port2: 2, $port3: 2/, 'empty key - consistent');
+
+}
 
 ###############################################################################
 

@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(17)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -181,6 +181,18 @@ like(http(
 	. 'Host: localhost' . CRLF
 	. 'Range: bytes=100000-' . CRLF . CRLF
 ), qr|^\QHTTP/1.1 416\E.*(?!xxx)|ms, 'perl range not satisfiable');
+
+}
+
+TODO: {
+todo_skip 'leaves coredump', 1 unless $t->has_version('1.17.1')
+	or $ENV{TEST_NGINX_UNSAFE};
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Host: localhost' . CRLF
+	. 'If-Match: tt' . CRLF . CRLF
+), qr|200 OK|ms, 'perl precondition failed');
 
 }
 

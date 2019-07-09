@@ -106,7 +106,7 @@ plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
-default_bits = 1024
+default_bits = 2048
 encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]

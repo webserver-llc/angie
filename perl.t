@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(20)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -47,6 +47,8 @@ http {
                 use strict;
 
                 my $r = shift;
+
+                $r->status(204) if $r->args =~ /204/;
 
                 $r->send_http_header("text/plain");
 
@@ -114,7 +116,9 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/'), qr/TEST/, 'perl response');
+like(http_get('/'), qr/ 200 .*TEST/s, 'perl response');
+like(http_head('/'), qr/ 200 (?!.*TEST)/s, 'perl header_only');
+like(http_get('/?204'), qr/ 204 (?!.*TEST)/s, 'perl status, args');
 
 # various $r->header_in() cases
 

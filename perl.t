@@ -178,7 +178,7 @@ like(http(
 	'perl header_out content-length multipart');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.17.2');
 
 like(http(
 	'GET /range HTTP/1.0' . CRLF

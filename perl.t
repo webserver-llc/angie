@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(20)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(24)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -105,6 +105,25 @@ http {
                     $r->print("body: ", $r->request_body, "\n");
                     $r->print("file: ", $r->request_body_file, "\n");
                 }
+            }';
+        }
+
+        location /discard {
+            perl 'sub {
+                use warnings;
+                use strict;
+
+                my $r = shift;
+
+                $r->discard_request_body;
+
+                $r->send_http_header("text/plain");
+
+                return OK if $r->header_only;
+
+                $r->print("host: ", $r->header_in("Host"), "\n");
+
+                return OK;
             }';
         }
     }
@@ -202,6 +221,8 @@ like(http(
 
 # various request body tests
 
+like(http_get('/body'), qr/400 Bad Request/, 'perl no body');
+
 like(http(
 	'GET /body HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF
@@ -255,5 +276,40 @@ like(http(
 	sleep => 0.1,
 	body => '67890' . CRLF . '0' . CRLF . CRLF
 ), qr/body: 1234567890/, 'perl body chunked split');
+
+like(http(
+	'GET /discard HTTP/1.1' . CRLF
+	. 'Host: localhost' . CRLF
+	. 'Connection: close' . CRLF
+	. 'Transfer-Encoding: chunked' . CRLF . CRLF
+	. 'a' . CRLF
+	. '1234567890' . CRLF
+	. '0' . CRLF . CRLF
+), qr/host: localhost/, 'perl body discard');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.2');
+
+like(http(
+	'GET /discard HTTP/1.1' . CRLF
+	. 'Host: localhost' . CRLF
+	. 'Connection: close' . CRLF
+	. 'Transfer-Encoding: chunked' . CRLF . CRLF
+	. 'ak' . CRLF
+	. '1234567890' . CRLF
+	. '0' . CRLF . CRLF
+), qr/400 Bad Request/, 'perl body discard bad chunk');
+
+like(http(
+	'GET /body HTTP/1.1' . CRLF
+	. 'Host: localhost' . CRLF
+	. 'Connection: close' . CRLF
+	. 'Transfer-Encoding: chunked' . CRLF . CRLF
+	. 'ak' . CRLF
+	. '1234567890' . CRLF
+	. '0' . CRLF . CRLF
+), qr/400 Bad Request/, 'perl body bad chunk');
+
+}
 
 ###############################################################################

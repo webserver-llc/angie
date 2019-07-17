@@ -36,6 +36,7 @@ events {
 stream {
     proxy_requests           2;
     proxy_responses          1;
+    proxy_timeout            3s;
 
     server {
         listen               127.0.0.1:%%PORT_8982_UDP%% udp;

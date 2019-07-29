@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -128,6 +128,7 @@ $t->waitforfile($t->testdir . '/' . port($_)) foreach (8981 .. 8987);
 # PTR
 
 my $s = Test::Nginx::SMTP->new();
+my $s2 = Test::Nginx::SMTP->new();
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -139,6 +140,10 @@ $s->ok('PTR');
 
 $s->send('QUIT');
 $s->read();
+
+$s2->read();
+$s2->send('EHLO example.com');
+$s2->ok('PTR waiting');
 
 # Cached PTR prevents from querying bad ns on port 8983
 
@@ -173,6 +178,7 @@ $s->read();
 # PTR with zero length RDATA
 
 $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8028));
+$s2 = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8028));
 $s->read();
 $s->send('EHLO example.com');
 $s->read();
@@ -184,6 +190,12 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR empty');
 
 $s->send('QUIT');
 $s->read();
+
+# resolver timeout is set
+
+$s2->read();
+$s2->send('EHLO example.com');
+$s2->ok('PTR empty waiting');
 
 # CNAME
 

@@ -99,8 +99,8 @@ like($t->read_file('test.log'), qr!proxy/data::0!, 'X-Accel-Redirect');
 
 # X-Accel-Limit-Rate has higher precedence
 
-http_get('/proxy/data?xar=/redirect&xal=25000');
-like($t->read_file('test.log'), qr!proxy/data:25000:1!, 'X-Accel-Limit-Rate');
+http_get('/proxy/data?xar=/redirect&xal=13000');
+like($t->read_file('test.log'), qr!roxy/data:13000:[12]!, 'X-Accel-Limit-Rate');
 
 http_get('/var?l=12k&a=256');
 like($t->read_file('test.log'), qr/var:256:[12]/, 'variable');

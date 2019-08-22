@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(10);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -64,6 +64,10 @@ http {
             client_body_in_single_buffer on;
             add_header X-Body "$request_body";
             add_header X-Body-File "$request_body_file";
+            proxy_pass http://127.0.0.1:8081;
+        }
+        location /large {
+            client_max_body_size 1k;
             proxy_pass http://127.0.0.1:8081;
         }
         location /discard {
@@ -113,6 +117,8 @@ like(read_body_file(http_get_body('/b', '0123456789' x 512)),
 
 like(http_get_body('/single', '0123456789' x 128),
 	qr/X-Body: (0123456789){128}\x0d?$/ms, 'body in single buffer');
+
+like(http_get_body('/large', '0123456789' x 128), qr/ 413 /, 'body too large');
 
 # pipelined requests
 

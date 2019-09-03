@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -133,6 +133,39 @@ like(http_get_body('/discard', '0123456789', '0123456789' x 128,
 like(http_get_body('/discard', '0123456789' x 128, '0123456789' x 512,
 	'0123456789', 'foobar'), qr/(TEST.*){4}/ms,
 	'chunked body discard 2');
+
+# invalid chunks
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.4');
+
+like(
+	http(
+		'GET / HTTP/1.1' . CRLF
+		. 'Host: localhost' . CRLF
+		. 'Connection: close' . CRLF
+		. 'Transfer-Encoding: chunked' . CRLF . CRLF
+		. '4' . CRLF
+		. 'SEE-THIS' . CRLF
+		. '0' . CRLF . CRLF
+	),
+	qr/400 Bad/, 'runaway chunk'
+);
+
+unlike(
+	http(
+		'GET /discard HTTP/1.1' . CRLF
+		. 'Host: localhost' . CRLF
+		. 'Connection: close' . CRLF
+		. 'Transfer-Encoding: chunked' . CRLF . CRLF
+		. '4' . CRLF
+		. 'SEE-THIS' . CRLF
+		. '0' . CRLF . CRLF
+	),
+	qr/200 OK/, 'runaway chunk discard'
+);
+
+}
 
 # proxy_next_upstream
 

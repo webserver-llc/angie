@@ -152,7 +152,7 @@ like(
 	qr/400 Bad/, 'runaway chunk'
 );
 
-unlike(
+like(
 	http(
 		'GET /discard HTTP/1.1' . CRLF
 		. 'Host: localhost' . CRLF
@@ -162,7 +162,7 @@ unlike(
 		. 'SEE-THIS' . CRLF
 		. '0' . CRLF . CRLF
 	),
-	qr/200 OK/, 'runaway chunk discard'
+	qr/400 Bad/, 'runaway chunk discard'
 );
 
 }

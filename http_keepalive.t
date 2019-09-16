@@ -108,7 +108,7 @@ like(http_keepalive('/zero'), qr/Connection: close/, 'keepalive timeout 0');
 
 sub http_keepalive {
 	my ($url, %opts) = @_;
-	my $data = '';
+	my $total = '';
 
 	$opts{ua} = $opts{ua} || '';
 	$opts{req} = $opts{req} || 1;
@@ -130,6 +130,8 @@ User-Agent: $opts{ua}
 
 EOF
 
+		my $data = '';
+
 		while (IO::Select->new($s)->can_read(3)) {
 			sysread($s, my $buffer, 4096) or last;
 			$data .= $buffer;
@@ -137,9 +139,11 @@ EOF
 		}
 
 		log_in($data);
+
+		$total .= $data;
 	}
 
-	return $data;
+	return $total;
 }
 
 sub count_keepalive {

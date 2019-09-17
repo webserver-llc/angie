@@ -209,7 +209,7 @@ is($sids, "$sid $sid2", 'dependency - PRIORITY 2');
 # Instead, we respond with a connection error of type PROTOCOL_ERROR.
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.17.4');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream();
@@ -279,7 +279,7 @@ is($sids, "$sid $sid2", 'dependency - HEADERS PRIORITY 2');
 # HEADERS - self dependency
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.17.4');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ dep => 1 });

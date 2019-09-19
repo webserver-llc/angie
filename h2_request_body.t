@@ -167,7 +167,7 @@ is($frame->{headers}->{'x-length'}, undef,
 # RST_STREAM with zero code received
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.17.4');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1 });

@@ -59,7 +59,9 @@ my $s = Test::Nginx::HTTP2->new();
 ok($s->new_stream(), 'new stream');
 
 select undef, undef, undef, 0.1;
-$t->stop()->todo_alerts();
+$t->stop();
+
+$t->todo_alerts() unless $t->has_version('1.17.4');
 
 ###############################################################################
 

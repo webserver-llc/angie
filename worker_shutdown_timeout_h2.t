@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(1);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -44,7 +44,7 @@ http {
 
         location / {
             proxy_pass http://127.0.0.1:8081;
-            proxy_read_timeout 200ms;
+            proxy_read_timeout 5s;
         }
     }
 }
@@ -60,6 +60,13 @@ ok($s->new_stream(), 'new stream');
 
 select undef, undef, undef, 0.1;
 $t->stop();
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.4');
+
+like($t->read_file('access.log'), qr/ (?!504)\d{3} /, 'shutdown timeout');
+
+}
 
 $t->todo_alerts() unless $t->has_version('1.17.4');
 

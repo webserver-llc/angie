@@ -59,7 +59,7 @@ http {
         ssl_session_cache shared:SSL:1m;
         ssl_verify_client optional_no_ca;
 
-        location /reuse {
+        location / {
             return 200 "body $ssl_session_reused";
         }
         location /id {
@@ -67,6 +67,9 @@ http {
         }
         location /cipher {
             return 200 "body $ssl_cipher";
+        }
+        location /ciphers {
+            return 200 "body $ssl_ciphers";
         }
         location /client_verify {
             return 200 "body $ssl_client_verify";
@@ -136,14 +139,6 @@ http {
         location / {
             return 200 "body $ssl_session_reused";
         }
-
-        location /ciphers {
-            return 200 "body $ssl_ciphers";
-        }
-
-        location /protocol {
-            return 200 "body $ssl_protocol";
-        }
     }
 }
 
@@ -204,9 +199,7 @@ foreach my $name ('localhost', 'inner') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-my $ctx = new IO::Socket::SSL::SSL_Context(
-	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-	SSL_session_cache_size => 100);
+# suppress deprecation warning
 
 open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
@@ -214,34 +207,47 @@ open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
-like(get('/reuse', 8085), qr/^body \.$/m, 'shared initial session');
-like(get('/', 8081), qr/^body \.$/m, 'builtin initial session');
-like(get('/', 8082), qr/^body \.$/m, 'builtin size initial session');
+my $ctx;
 
 SKIP: {
-skip 'no TLS 1.3 sessions', 3 if get('/protocol', 8084) =~ /TLSv1.3/
+skip 'no TLS 1.3 sessions', 6 if get('/protocol', 8085) =~ /TLSv1.3/
 	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
 
-like(get('/reuse', 8085), qr/^body r$/m, 'shared session reused');
-like(get('/', 8081), qr/^body r$/m, 'builtin session reused');
-like(get('/', 8082), qr/^body r$/m, 'builtin size session reused');
+$ctx = get_ssl_context();
+
+like(get('/', 8085, $ctx), qr/^body \.$/m, 'cache shared');
+like(get('/', 8085, $ctx), qr/^body r$/m, 'cache shared reused');
+
+$ctx = get_ssl_context();
+
+like(get('/', 8081, $ctx), qr/^body \.$/m, 'cache builtin');
+like(get('/', 8081, $ctx), qr/^body r$/m, 'cache builtin reused');
+
+$ctx = get_ssl_context();
+
+like(get('/', 8082, $ctx), qr/^body \.$/m, 'cache builtin size');
+like(get('/', 8082, $ctx), qr/^body r$/m, 'cache builtin size reused');
 
 }
 
-like(get('/', 8083), qr/^body \.$/m, 'reused none initial session');
-like(get('/', 8083), qr/^body \.$/m, 'session not reused 1');
+$ctx = get_ssl_context();
 
-like(get('/', 8084), qr/^body \.$/m, 'reused off initial session');
-like(get('/', 8084), qr/^body \.$/m, 'session not reused 2');
+like(get('/', 8083, $ctx), qr/^body \.$/m, 'cache none');
+like(get('/', 8083, $ctx), qr/^body \.$/m, 'cache none not reused');
+
+$ctx = get_ssl_context();
+
+like(get('/', 8084, $ctx), qr/^body \.$/m, 'cache off');
+like(get('/', 8084, $ctx), qr/^body \.$/m, 'cache off not reused');
 
 # ssl certificate inheritance
 
-my $s = get_ssl_socket($ctx, port(8081));
+my $s = get_ssl_socket(8081);
 like($s->dump_peer_certificate(), qr/CN=localhost/, 'CN');
 
 $s->close();
 
-$s = get_ssl_socket($ctx, port(8085));
+$s = get_ssl_socket(8085);
 like($s->dump_peer_certificate(), qr/CN=inner/, 'CN inner');
 
 $s->close();
@@ -257,8 +263,14 @@ like(get('/', 8081), qr/^body \.$/m, 'session timeout');
 like(get('/id', 8085), qr/^body \w{64}$/m, 'session id');
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
-my $re = $t->has_module('BoringSSL') ? '' : qr/[:\w-]+/;
-like(get('/ciphers', 8084), qr/^body $re$/m, 'ciphers');
+
+SKIP: {
+skip 'BoringSSL', 1 if $t->has_module('BoringSSL');
+
+like(get('/ciphers', 8085), qr/^body [:\w-]+$/m, 'ciphers');
+
+}
+
 like(get('/client_verify', 8085), qr/^body NONE$/m, 'client verify');
 like(get('/protocol', 8085), qr/^body (TLS|SSL)v(\d|\.)+$/m, 'protocol');
 like(cert('/issuer', 8085), qr!^body CN=issuer:/CN=issuer$!m, 'issuer');
@@ -273,8 +285,8 @@ like(get_body('/body', '0123456789', 20, 5), qr/X-Body: (0123456789){100}/,
 ###############################################################################
 
 sub get {
-	my ($uri, $port) = @_;
-	my $s = get_ssl_socket($ctx, port($port)) or return;
+	my ($uri, $port, $ctx) = @_;
+	my $s = get_ssl_socket($port, $ctx) or return;
 	my $r = http_get($uri, socket => $s);
 	$s->close();
 	return $r;
@@ -282,13 +294,14 @@ sub get {
 
 sub get_body {
 	my ($uri, $body, $len, $n) = @_;
-	my $s = get_ssl_socket($ctx, port(8085)) or return;
+	my $s = get_ssl_socket(8085) or return;
 	http("GET /body HTTP/1.1" . CRLF
 		. "Host: localhost" . CRLF
 		. "Connection: close" . CRLF
 		. "Transfer-Encoding: chunked" . CRLF . CRLF,
 		socket => $s, start => 1);
-	http("c8" . CRLF . $body x $len . CRLF, socket => $s, start => 1)
+	my $chs = unpack("H*", pack("C", length($body) * $len));
+	http($chs . CRLF . $body x $len . CRLF, socket => $s, start => 1)
 		for 1 .. $n;
 	my $r = http("0" . CRLF . CRLF, socket => $s);
 	$s->close();
@@ -297,14 +310,21 @@ sub get_body {
 
 sub cert {
 	my ($uri, $port) = @_;
-	my $s = get_ssl_socket(undef, port($port),
+	my $s = get_ssl_socket($port, undef,
 		SSL_cert_file => "$d/subject.crt",
 		SSL_key_file => "$d/subject.key") or return;
 	http_get($uri, socket => $s);
 }
 
+sub get_ssl_context {
+	return IO::Socket::SSL::SSL_Context->new(
+		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+		SSL_session_cache_size => 100
+	);
+}
+
 sub get_ssl_socket {
-	my ($ctx, $port, %extra) = @_;
+	my ($port, $ctx, %extra) = @_;
 	my $s;
 
 	eval {
@@ -314,7 +334,7 @@ sub get_ssl_socket {
 		$s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1',
-			PeerPort => $port,
+			PeerPort => port($port),
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_reuse_ctx => $ctx,
 			SSL_error_trap => sub { die $_[1] },

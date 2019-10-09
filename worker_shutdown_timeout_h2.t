@@ -58,7 +58,7 @@ $t->run()->waitforsocket('127.0.0.1:' . port(8081));
 my $s = Test::Nginx::HTTP2->new();
 ok($s->new_stream(), 'new stream');
 
-select undef, undef, undef, 0.1;
+select undef, undef, undef, 0.2;
 $t->stop();
 
 TODO: {

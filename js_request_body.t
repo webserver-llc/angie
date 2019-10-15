@@ -81,15 +81,11 @@ $t->try_run('no njs request body')->plan(3);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'deprecated api'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.2';
 like(http_post('/body'), qr/REQ-BODY/, 'request body');
 like(http_post('/in_file'), qr/request body is in a file/,
 	'request body in file');
 like(http_post_big('/body'), qr/200.*^(1234567890){1024}$/ms,
 		'request body big');
-}
 
 ###############################################################################
 

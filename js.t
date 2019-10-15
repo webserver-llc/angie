@@ -245,16 +245,10 @@ like(http_get('/arg?foO=12345'), qr/arg=12345/, 'r.args');
 like(http_get('/iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'r.args iteration');
 
-TODO: {
-local $TODO = 'not yet'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.0';
-
 like(http_get('/iarg?foo=123&foo2=&foo3&foo4=456'), qr/123undefined456/,
 	'r.args iteration 2');
 like(http_get('/iarg?foo=123&foo2=&foo3'), qr/123/, 'r.args iteration 3');
 like(http_get('/iarg?foo=123&foo2='), qr/123/, 'r.args iteration 4');
-
-}
 
 like(http_get('/status'), qr/204 No Content/, 'r.status');
 

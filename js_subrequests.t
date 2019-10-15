@@ -526,22 +526,13 @@ http_get('/sr_except_failed_to_convert_arg');
 http_get('/sr_except_failed_to_convert_options_arg');
 http_get('/sr_uri_except');
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.4';
-
 is(get_json('/sr_js_in_sr_parent'),
 	'{"e":"parent can only be returned for a subrequest"}',
 	'parent in subrequest js_content');
 
-todo_skip 'leaves coredump', 1
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.4';
-
 is(get_json('/sr_in_sr_callback'),
 	'{"e":"subrequest can only be created for the primary request"}',
 	'subrequest for non-primary request');
-
-}
 
 $t->stop();
 

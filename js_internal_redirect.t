@@ -87,14 +87,8 @@ $t->try_run('no njs available')->plan(3);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'no njs internalRedirect'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.2';
-
 like(http_get('/test'), qr/redirect/s, 'redirect');
 like(http_get('/test?a=A'), qr/redirectA/s, 'redirect with args');
 like(http_get('/test?dest=named'), qr/named/s, 'redirect to named location');
-
-}
 
 ###############################################################################

@@ -185,11 +185,6 @@ $t->try_run('no njs')->plan(12);
 
 ###############################################################################
 
-
-TODO: {
-local $TODO = 'not yet'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.8';
-
 like(http_get('/content_length'), qr/Content-Length: 3/,
 	'set Content-Length');
 like(http_get('/content_type'), qr/Content-Type: text\/xml; charset="utf-8"\r/,
@@ -207,6 +202,5 @@ like(http_get('/hdr_out?foo=123&bar=copy'), qr/Bar: 123/, 'r.headersOut get');
 unlike(http_get('/hdr_out?bar=empty'), qr/Bar:/, 'r.headersOut empty');
 unlike(http_get('/hdr_out?foo='), qr/Foo:/, 'r.headersOut no value');
 unlike(http_get('/hdr_out?foo'), qr/Foo:/, 'r.headersOut no value 2');
-}
 
 ###############################################################################

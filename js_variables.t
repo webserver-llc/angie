@@ -94,14 +94,8 @@ $t->try_run('no njs')->plan(3);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-		unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.8';
-
 like(http_get('/var_set?a=bar'), qr/test_varbar/, 'var set');
 like(http_get('/content_set?a=bar'), qr/bar/, 'content set');
 like(http_get('/not_found_set'), qr/variable not found/, 'not found exception');
-
-}
 
 ###############################################################################

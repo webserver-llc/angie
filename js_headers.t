@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use Socket qw/ CRLF /;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -35,8 +37,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_hdr_in   test_hdr_in;
-    js_set $test_ihdr_in  test_ihdr_in;
+    js_set $test_foo_in   test_foo_in;
+    js_set $test_ifoo_in  test_ifoo_in;
 
     js_include test.js;
 
@@ -67,12 +69,16 @@ http {
             js_content headers_list;
         }
 
-        location /hdr_in {
-            return 200 $test_hdr_in;
+        location /foo_in {
+            return 200 $test_foo_in;
         }
 
-        location /ihdr_in {
-            return 200 $test_ihdr_in;
+        location /ifoo_in {
+            return 200 $test_ifoo_in;
+        }
+
+        location /hdr_in {
+            js_content hdr_in;
         }
 
         location /hdr_out {
@@ -136,11 +142,20 @@ $t->write_file('test.js', <<EOF);
         r.return(200, out);
     }
 
-    function test_hdr_in(r) {
+    function hdr_in(r) {
+        var s = '', h;
+        for (h in r.headersIn) {
+            s += `\${h.toLowerCase()}: \${r.headersIn[h]}\n`;
+        }
+
+        r.return(200, s);
+    }
+
+    function test_foo_in(r) {
         return 'hdr=' + r.headersIn.foo;
     }
 
-    function test_ihdr_in(r) {
+    function test_ifoo_in(r) {
         var s = '', h;
         for (h in r.headersIn) {
             if (h.substr(0, 3) == 'foo') {
@@ -181,7 +196,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs')->plan(12);
+$t->try_run('no njs')->plan(16);
 
 ###############################################################################
 
@@ -202,5 +217,38 @@ like(http_get('/hdr_out?foo=123&bar=copy'), qr/Bar: 123/, 'r.headersOut get');
 unlike(http_get('/hdr_out?bar=empty'), qr/Bar:/, 'r.headersOut empty');
 unlike(http_get('/hdr_out?foo='), qr/Foo:/, 'r.headersOut no value');
 unlike(http_get('/hdr_out?foo'), qr/Foo:/, 'r.headersOut no value 2');
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'Cookie: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/cookie: foo/, 'r.headersIn cookie');
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'X-Forwarded-For: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/x-forwarded-for: foo/, 'r.headersIn xff');
+
+
+TODO: {
+local $TODO = 'not yet'
+               unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.6';
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'Cookie: foo1' . CRLF
+	. 'Cookie: foo2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/cookie: foo1; foo2/, 'r.headersIn cookie2');
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'X-Forwarded-For: foo1' . CRLF
+	. 'X-Forwarded-For: foo2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/x-forwarded-for: foo1, foo2/, 'r.headersIn xff2');
+
+}
 
 ###############################################################################

@@ -3,8 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for HTTP/2 protocol with headers.
-# various HEADERS compression/encoding, see hpack() for mode details.
+# Tests for HTTP/2 headers.
 
 ###############################################################################
 
@@ -24,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(93)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(97)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -102,6 +101,22 @@ http {
         server_name  localhost;
 
         http2_max_header_size 64;
+    }
+
+    server {
+        listen       127.0.0.1:8086 http2;
+        server_name  localhost;
+
+        underscores_in_headers on;
+        add_header X-Sent-Foo $http_x_foo always;
+    }
+
+    server {
+        listen       127.0.0.1:8087 http2;
+        server_name  localhost;
+
+        ignore_invalid_headers off;
+        add_header X-Sent-Foo $http_x_foo always;
     }
 }
 
@@ -950,6 +965,54 @@ $frames = $s->read(all => [{ type => 'HEADERS' }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
+
+# other invalid header name characters as seen with ':' result in RST_STREAM
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x:foo', value => "x-bar", mode => 2 },
+	{ name => 'referer', value => "see-this", mode => 1 }]});
+$frames = $s->read(all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+is($frame->{sid}, $sid, 'colon in header name - RST_STREAM sid');
+is($frame->{code}, 1, 'colon in header name - RST_STREAM code');
+
+# header name with underscore - underscores_in_headers on
+
+$s = Test::Nginx::HTTP2->new(port(8086));
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x_foo', value => "x-bar", mode => 2 },
+	{ name => 'referer', value => "see-this", mode => 1 }]});
+$frames = $s->read(all => [{ type => 'HEADERS' }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-sent-foo'}, 'x-bar',
+	'underscore in header name - underscores_in_headers');
+
+# header name with underscore - ignore_invalid_headers off
+
+$s = Test::Nginx::HTTP2->new(port(8087));
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x_foo', value => "x-bar", mode => 2 },
+	{ name => 'referer', value => "see-this", mode => 1 }]});
+$frames = $s->read(all => [{ type => 'HEADERS' }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-sent-foo'}, 'x-bar',
+	'underscore in header name - ignore_invalid_headers');
 
 # missing mandatory request header ':scheme'
 

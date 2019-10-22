@@ -74,13 +74,6 @@ like(http_get('/?c=200'), qr/200 OK.*\x0d\x0a?\x0d\x0a?$/s, 'return code');
 like(http_get('/?c=200&t=SEE-THIS'), qr/200 OK.*^SEE-THIS$/ms, 'return text');
 like(http_get('/?c=301&t=path'), qr/ 301 .*Location: path/s, 'return redirect');
 like(http_get('/?c=404'), qr/404 Not.*html/s, 'return error page');
-
-TODO: {
-my ($v) = http_get('/njs') =~ /^([.0-9]+)$/m;
-local $TODO = 'not yet' unless $Config{archname} !~ /aarch64/;
-
 like(http_get('/?c=inv'), qr/ 500 /, 'return invalid');
-
-}
 
 ###############################################################################

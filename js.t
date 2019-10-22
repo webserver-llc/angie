@@ -115,6 +115,10 @@ http {
             js_content return_method;
         }
 
+        location /arg_keys {
+            js_content arg_keys;
+        }
+
         location /log {
             return 200 $test_log;
         }
@@ -213,6 +217,10 @@ $t->write_file('test.js', <<EOF);
         r.return(Number(r.args.c), r.args.t);
     }
 
+    function arg_keys(r) {
+        r.return(200, Object.keys(r.args).sort());
+    }
+
     function test_log(r) {
         r.log('SEE-THIS');
     }
@@ -232,7 +240,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(26);
+$t->try_run('no njs available')->plan(27);
 
 ###############################################################################
 
@@ -269,6 +277,14 @@ like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
 	'return redirect');
 like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
+
+TODO: {
+local $TODO = 'not yet'
+               unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.7';
+
+like(http_get('/arg_keys?b=1&c=2&a=5'), qr/a,b,c/m, 'r.args sorted keys');
+
+}
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');

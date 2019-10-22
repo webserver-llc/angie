@@ -88,6 +88,10 @@ http {
         location /ihdr_out {
             js_content ihdr_out;
         }
+
+        location /hdr_sorted_keys {
+            js_content hdr_sorted_keys;
+        }
     }
 }
 
@@ -151,6 +155,19 @@ $t->write_file('test.js', <<EOF);
         r.return(200, s);
     }
 
+    function hdr_sorted_keys(r) {
+        var s = '';
+        var hdr = r.args.in ? r.headersIn : r.headersOut;
+
+        if (!r.args.in) {
+            r.headersOut.b = 'b';
+            r.headersOut.c = 'c';
+            r.headersOut.a = 'a';
+        }
+
+        r.return(200, Object.keys(hdr).sort());
+    }
+
     function test_foo_in(r) {
         return 'hdr=' + r.headersIn.foo;
     }
@@ -196,7 +213,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs')->plan(16);
+$t->try_run('no njs')->plan(18);
 
 ###############################################################################
 
@@ -248,6 +265,25 @@ like(http(
 	. 'X-Forwarded-For: foo2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/x-forwarded-for: foo1, foo2/, 'r.headersIn xff2');
+
+}
+
+TODO: {
+local $TODO = 'not yet'
+               unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.7';
+
+like(http(
+	'GET /hdr_sorted_keys?in=1 HTTP/1.0' . CRLF
+	. 'Cookie: foo1' . CRLF
+	. 'Accept: */*' . CRLF
+	. 'Cookie: foo2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/Accept,Cookie,Host/, 'r.headersIn sorted keys');
+
+like(http(
+	'GET /hdr_sorted_keys HTTP/1.0' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/a,b,c/, 'r.headersOut sorted keys');
 
 }
 

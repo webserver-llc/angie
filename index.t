@@ -124,4 +124,6 @@ $t->stop();
 like($t->read_file('log_not_found.log'), qr/error/, 'log_not_found');
 unlike($t->read_file('off.log'), qr/error/, 'log_not_found off');
 
+chmod(0700, "$d/forbidden");
+
 ###############################################################################

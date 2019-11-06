@@ -43,6 +43,7 @@ http {
         server_name  localhost;
 
         limit_req_dry_run  on;
+        add_header X-Status $limit_req_status always;
 
         location /delay {
             limit_req    zone=one  burst=2;
@@ -64,15 +65,15 @@ EOF
 
 $t->write_file('delay', 'SEE-THIS');
 $t->write_file('reject', 'SEE-THIS');
-$t->try_run('no limit_req_dry_run')->plan(6);
+$t->try_run('no limit_req_dry_run/limit_req_status')->plan(6);
 
 ###############################################################################
 
-like(http_get('/delay'), qr/^HTTP\/1.. 200 /m, 'dry run');
-like(http_get('/delay'), qr/^HTTP\/1.. 200 /m, 'dry run - not delayed');
-like(http_get('/reject'), qr/^HTTP\/1.. 200 /m, 'dry run - not rejected');
+like(http_get('/delay'), qr/ 200 .*PASSED/ms, 'dry run - passed');
+like(http_get('/delay'), qr/ 200 .*DELAYED_DRY_RUN/ms, 'dry run - delayed');
+like(http_get('/reject'), qr/ 200 .*REJECTED_DRY_RUN/ms, 'dry run - rejected');
 
-like(http_get('/reject/off'), qr/^HTTP\/1.. 503 /m, 'dry run off - rejected');
+like(http_get('/reject/off'), qr/ 503 .*REJECTED/ms, 'dry run off - rejected');
 
 $t->stop();
 

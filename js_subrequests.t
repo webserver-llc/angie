@@ -147,10 +147,6 @@ http {
             js_content sr_except_invalid_options_header_only;
         }
 
-        location /sr_js_in_sr_parent {
-            js_content sr_js_in_sr_parent;
-        }
-
         location /sr_in_sr_callback {
             js_content sr_in_sr_callback;
         }
@@ -375,10 +371,6 @@ $t->write_file('test.js', <<EOF);
         r.subrequest('/js_sub', body_fwd_cb);
     }
 
-    function sr_js_in_sr_parent(r) {
-        r.subrequest('/sr_parent', body_fwd_cb);
-    }
-
     function sr_in_sr_callback(r) {
         r.subrequest('/return', function (reply) {
                 try {
@@ -468,7 +460,7 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->try_run('no njs available')->plan(25);
+$t->try_run('no njs available')->plan(24);
 $t->run_daemon(\&http_daemon);
 
 ###############################################################################
@@ -525,10 +517,6 @@ http_get('/sr_except_not_a_func');
 http_get('/sr_except_failed_to_convert_arg');
 http_get('/sr_except_failed_to_convert_options_arg');
 http_get('/sr_uri_except');
-
-is(get_json('/sr_js_in_sr_parent'),
-	'{"e":"parent can only be returned for a subrequest"}',
-	'parent in subrequest js_content');
 
 is(get_json('/sr_in_sr_callback'),
 	'{"e":"subrequest can only be created for the primary request"}',

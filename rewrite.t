@@ -161,12 +161,7 @@ like(http_get('/return405'), qr!HTTP/1.1 405.*body!ms, 'return 405');
 # this used to result in 404, but was changed in 1.15.4
 # to respond with 405 instead, much like a real error would do
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.4');
-
 like(http_get('/error404return405'), qr!HTTP/1.1 405!, 'error 404 return 405');
-
-}
 
 # status code should be 405, and entity body is expected (vs. normal 204
 # replies which doesn't expect to have body); use HTTP/1.1 for test

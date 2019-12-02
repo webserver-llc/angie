@@ -199,8 +199,6 @@ $frames = $f->{http_end}();
 is($frame->{headers}{'x-connection'}, $c, 'keepalive 2 - connection reuse');
 
 undef $f;
-# don't bother with a new instance until the old one is over
-select undef, undef, undef, 0.2 unless $t->has_version('1.15.4');
 $f = grpc();
 
 # various header compression formats

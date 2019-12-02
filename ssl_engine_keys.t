@@ -28,7 +28,7 @@ plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm')->has_daemon('pkcs11-tool');
+	->has_daemon('softhsm')->has_daemon('pkcs11-tool')->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -137,7 +137,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_certificate variables')->plan(2);
+$t->run();
 
 $t->write_file('index.html', '');
 

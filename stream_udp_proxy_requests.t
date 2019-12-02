@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ dgram /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream udp/)
+my $t = Test::Nginx->new()->has(qw/stream udp/)->plan(26)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -87,7 +87,7 @@ EOF
 
 $t->run_daemon(\&udp_daemon, $t, port(8990));
 $t->run_daemon(\&udp_daemon, $t, port(8991));
-$t->try_run('no proxy_requests')->plan(26);
+$t->run();
 
 $t->waitforfile($t->testdir . '/' . port(8990));
 $t->waitforfile($t->testdir . '/' . port(8991));

@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl_preread stream_return/)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF')->plan(7)->run();
 
 %%TEST_GLOBALS%%
 
@@ -41,8 +41,6 @@ stream {
 }
 
 EOF
-
-$t->try_run('no ssl_preread_protocol')->plan(7);
 
 ###############################################################################
 

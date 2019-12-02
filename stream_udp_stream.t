@@ -62,16 +62,11 @@ isnt($data2, '', 'udp_stream response 2');
 
 isnt($data, $data2, 'udp_stream two sessions');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.0');
-
 is($s->io('1'), $data, 'udp_stream session 1');
 is($s->io('1'), $data, 'udp_stream session 2');
 
 is($s2->io('1'), $data2, 'udp_stream another session 1');
 is($s2->io('1'), $data2, 'udp_stream another session 2');
-
-}
 
 select undef, undef, undef, 1.1;
 

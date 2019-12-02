@@ -409,9 +409,6 @@ gunzip_like($frame->{data}, qr/^PROMISED\Z/, 'gzip - response');
 
 # scheme https
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.1');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
@@ -422,8 +419,6 @@ $frames = $s->read(all => [{ sid => 2, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "PUSH_PROMISE" && $_->{sid} == $sid } @$frames;
 is($frame->{headers}->{':scheme'}, 'https', 'scheme https');
-
-}
 
 ###############################################################################
 

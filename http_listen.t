@@ -76,7 +76,7 @@ plan(skip_all => 'listen on wildcard address')
 plan(skip_all => 'no requested ranges')
 	if "$p0$p1$p2$p3$p4$p5$p6$p7" ne "80808081808280838084808580868087";
 
-$t->try_run('no listen port ranges')->plan(12);
+$t->run()->plan(12);
 
 ###############################################################################
 

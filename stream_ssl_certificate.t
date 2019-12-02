@@ -146,7 +146,7 @@ foreach my $name ('pass') {
 $t->write_file('password_file', 'pass');
 $t->write_file('index.html', '');
 
-$t->try_run('no ssl_certificate variables')->plan(7);
+$t->run()->plan(7);
 
 ###############################################################################
 

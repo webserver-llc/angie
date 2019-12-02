@@ -93,15 +93,8 @@ $t->run();
 ###############################################################################
 
 my $r = http_get('/');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.15.8');
-
 like($r, qr/^X-Geo: none/m, 'geo unix');
 like($r, qr/^X-Ranges: none/m, 'geo unix ranges');
-
-}
-
 like($r, qr/^X-Addr: none/m, 'geo unix remote addr');
 like($r, qr/^X-Ranges-Addr: none/m, 'geo unix ranges remote addr');
 

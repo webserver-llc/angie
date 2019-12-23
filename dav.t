@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http dav/)->plan(20);
+my $t = Test::Nginx->new()->has(qw/http dav/)->plan(21);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -38,6 +38,8 @@ http {
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
+
+        absolute_redirect off;
 
         location / {
             dav_methods PUT DELETE MKCOL COPY MOVE;
@@ -117,6 +119,13 @@ EOF
 
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'mkcol');
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.7');
+
+like($r, qr!(?(?{ $r =~ /Location/ })Location: /test/)!, 'mkcol location');
+
+}
+
 $r = http(<<EOF);
 COPY /test/ HTTP/1.1
 Host: localhost
@@ -170,7 +179,7 @@ Content-Length: 10
 EOF
 
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'put alias');
-like($r, qr!Location: http://localhost:\d+/i/alias\x0d?$!ms, 'location alias');
+like($r, qr!Location: /i/alias\x0d?$!ms, 'location alias');
 is(-s $t->testdir() . '/alias', 10, 'put alias size');
 
 ###############################################################################

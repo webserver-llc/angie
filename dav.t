@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http dav/)->plan(21);
+my $t = Test::Nginx->new()->has(qw/http dav/)->plan(27);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -181,5 +181,87 @@ EOF
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'put alias');
 like($r, qr!Location: /i/alias\x0d?$!ms, 'location alias');
 is(-s $t->testdir() . '/alias', 10, 'put alias size');
+
+# request methods with unsupported request body
+
+$r = http(<<EOF . '0123456789');
+MKCOL /test/ HTTP/1.1
+Host: localhost
+Connection: close
+Content-Length: 10
+
+EOF
+
+like($r, qr/415 Unsupported/, 'mkcol body');
+
+$r = http(<<EOF . '0123456789');
+COPY /file HTTP/1.1
+Host: localhost
+Destination: /file.exist
+Connection: close
+Content-Length: 10
+
+EOF
+
+like($r, qr/415 Unsupported/, 'copy body');
+
+
+$r = http(<<EOF . '0123456789');
+DELETE /file HTTP/1.1
+Host: localhost
+Connection: close
+Content-Length: 10
+
+EOF
+
+like($r, qr/415 Unsupported/, 'delete body');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.7');
+
+$r = http(<<EOF);
+MKCOL /test/ HTTP/1.1
+Host: localhost
+Connection: close
+Transfer-Encoding: chunked
+
+a
+0123456789
+0
+
+EOF
+
+like($r, qr/415 Unsupported/, 'mkcol body chunked');
+
+$r = http(<<EOF);
+COPY /file HTTP/1.1
+Host: localhost
+Destination: /file.exist
+Connection: close
+Transfer-Encoding: chunked
+
+a
+0123456789
+0
+
+EOF
+
+like($r, qr/415 Unsupported/, 'copy body chunked');
+
+$r = http(<<EOF);
+DELETE /file HTTP/1.1
+Host: localhost
+Connection: close
+Transfer-Encoding: chunked
+
+a
+0123456789
+0
+
+EOF
+
+like($r, qr/415 Unsupported/, 'delete body chunked');
+
+}
 
 ###############################################################################

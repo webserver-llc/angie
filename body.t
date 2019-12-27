@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(14);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(15);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -80,6 +80,9 @@ http {
         }
         location /next {
             proxy_pass http://u/;
+        }
+        location /redirect {
+            error_page 404 http://example.com/;
         }
     }
 
@@ -164,6 +167,24 @@ like(
 
 like(http_get_body('/next', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'body next upstream');
+
+# discarded request body in redirect via error_page
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.7');
+
+unlike(
+	http(
+		'POST /redirect HTTP/1.1' . CRLF
+		. 'Host: localhost' . CRLF
+		. 'Content-Length: 10' . CRLF . CRLF
+		. '0123456789' .
+		'GET /next HTTP/1.0' . CRLF . CRLF
+	),
+	qr/400 Bad Request/ms, 'redirect - discard request body'
+);
+
+}
 
 ###############################################################################
 

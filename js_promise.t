@@ -55,6 +55,10 @@ http {
         location /sub_token {
             js_content sub_token;
         }
+
+        location /njs {
+            js_content test_njs;
+        }
     }
 }
 
@@ -160,14 +164,24 @@ $t->write_file('test.js', <<EOF);
         r.return(parseInt(code), '{"token": "'+ token +'"}');
     }
 
+    function test_njs(r) {
+        r.return(200, njs.version);
+    }
+
 EOF
 
 $t->try_run('no njs available')->plan(3);
 
 ###############################################################################
 
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
+
 like(http_get('/promise'), qr/{"token": "b"}/, "Promise");
 like(http_get('/promise_throw'), qr/{"token": "x"}/, "Promise throw and catch");
 like(http_get('/timeout'), qr/{"token": "R"}/, "Promise with timeout");
+
+}
 
 ###############################################################################

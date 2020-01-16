@@ -59,6 +59,10 @@ http {
             js_content sr;
         }
 
+        location /sr_pr {
+            js_content sr_pr;
+        }
+
         location /sr_args {
             js_content sr_args;
         }
@@ -67,8 +71,16 @@ http {
             js_content sr_options_args;
         }
 
+        location /sr_options_args_pr {
+            js_content sr_options_args_pr;
+        }
+
         location /sr_options_method {
             js_content sr_options_method;
+        }
+
+        location /sr_options_method_pr {
+            js_content sr_options_method_pr;
         }
 
         location /sr_options_body {
@@ -83,12 +95,12 @@ http {
             js_content sr_body;
         }
 
-        location /sr_body_special {
-            js_content sr_body_special;
+        location /sr_body_pr {
+            js_content sr_body_pr;
         }
 
-        location /sr_background {
-            js_content sr_background;
+        location /sr_body_special {
+            js_content sr_body_special;
         }
 
         location /sr_in_variable_handler {
@@ -106,6 +118,10 @@ http {
             js_content sr_js_in_subrequest;
         }
 
+        location /sr_js_in_subrequest_pr {
+            js_content sr_js_in_subrequest_pr;
+        }
+
         location /sr_file {
             js_content sr_file;
         }
@@ -117,6 +133,10 @@ http {
 
         location /sr_unavail {
             js_content sr_unavail;
+        }
+
+        location /sr_unavail_pr {
+            js_content sr_unavail_pr;
         }
 
         location /sr_broken {
@@ -216,10 +236,6 @@ http {
             js_content body;
         }
 
-        location /background {
-            js_content background;
-        }
-
         location /delayed {
             js_content delayed;
         }
@@ -244,6 +260,11 @@ $t->write_file('test.js', <<EOF);
         subrequest_fn(r, ['/p/sub2'], ['uri', 'status'])
     }
 
+    function sr_pr(r) {
+        r.subrequest('/p/sub1', 'h=xxx')
+        .then(reply => r.return(200, JSON.stringify({h:reply.headersOut.h})))
+    }
+
     function sr_args(r) {
         r.subrequest('/p/sub1', 'h=xxx', reply => {
             r.return(200, JSON.stringify({h:reply.headersOut.h}));
@@ -256,8 +277,18 @@ $t->write_file('test.js', <<EOF);
         });
     }
 
+    function sr_options_args_pr(r) {
+        r.subrequest('/p/sub1', {args:'h=xxx'})
+        .then(reply => r.return(200, JSON.stringify({h:reply.headersOut.h})))
+    }
+
     function sr_options_method(r) {
         r.subrequest('/p/method', {method:r.args.m}, body_fwd_cb);
+    }
+
+    function sr_options_method_pr(r) {
+        r.subrequest('/p/method', {method:r.args.m})
+        .then(body_fwd_cb);
     }
 
     function sr_options_body(r) {
@@ -276,16 +307,13 @@ $t->write_file('test.js', <<EOF);
         r.subrequest('/p/sub1', body_fwd_cb);
     }
 
-    function sr_body_special(r) {
-        r.subrequest('/p/sub2', body_fwd_cb);
+    function sr_body_pr(r) {
+        r.subrequest('/p/sub1')
+        .then(body_fwd_cb);
     }
 
-    function sr_background(r) {
-        r.subrequest('/p/background');
-        r.subrequest('/p/background', 'a=xxx');
-        r.subrequest('/p/background', {args: 'a=yyy', method:'POST'});
-
-        r.return(200);
+    function sr_body_special(r) {
+        r.subrequest('/p/sub2', body_fwd_cb);
     }
 
     function body(r) {
@@ -295,13 +323,6 @@ $t->write_file('test.js', <<EOF);
     function delayed(r) {
         setTimeout(r => r.return(200), 100, r);
      }
-
-    function background(r) {
-        r.log("BACKGROUND: " + r.variables.request_method
-                + " args: " + r.variables.args);
-
-        r.return(200);
-    }
 
     function sr_in_variable_handler(r) {
     }
@@ -326,6 +347,10 @@ $t->write_file('test.js', <<EOF);
         subrequest_fn(req, ['/unavail'], ['uri', 'status']);
     }
 
+    function sr_unavail_pr(req) {
+        subrequest_fn_pr(req, ['/unavail'], ['uri', 'status']);
+    }
+
     function sr_broken(r) {
         r.subrequest('/daemon/unfinished', reply => {
             r.return(200, JSON.stringify({code:reply.status}));
@@ -342,6 +367,11 @@ $t->write_file('test.js', <<EOF);
 
     function sr_js_in_subrequest(r) {
         r.subrequest('/js_sub', body_fwd_cb);
+    }
+
+    function sr_js_in_subrequest_pr(r) {
+        r.subrequest('/js_sub')
+        .then(body_fwd_cb);
     }
 
     function sr_in_sr_callback(r) {
@@ -375,24 +405,32 @@ $t->write_file('test.js', <<EOF);
                       ['uri', 'status']);
     }
 
+    function collect(replies, props, total, reply) {
+        reply.log(`subrequest handler: \${reply.uri} status: \${reply.status}`)
+
+        var rep = {};
+        props.forEach(p => {rep[p] = reply[p]});
+
+        replies.push(rep);
+
+        if (replies.length == total) {
+            reply.parent.return(200, JSON.stringify(replies));
+        }
+    }
+
     function subrequest_fn(r, subs, props) {
-        var rep, replies = [];
+        var replies = [];
 
-        subs.forEach(sr => {
-            r.subrequest(sr, reply => {
-                r.log("subrequest handler: " + reply.uri
-                        + " status: " + reply.status)
+        subs.forEach(sr =>
+                     r.subrequest(sr, collect.bind(null, replies,
+                                                   props, subs.length)));
+    }
 
-                rep = {};
-                props.forEach(p => {rep[p] = reply[p]});
+    function subrequest_fn_pr(r, subs, props) {
+        var replies = [];
 
-                replies.push(rep);
-
-                if (replies.length == subs.length) {
-                    r.return(200, JSON.stringify(replies));
-                }
-            });
-        });
+        subs.forEach(sr => r.subrequest(sr)
+            .then(collect.bind(null, replies, props, subs.length)));
     }
 
     function sr_except_not_a_func(r) {
@@ -423,7 +461,7 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->try_run('no njs available')->plan(24);
+$t->try_run('no njs available')->plan(29);
 $t->run_daemon(\&http_daemon);
 
 ###############################################################################
@@ -461,7 +499,19 @@ is(get_json('/sr_out_of_order'),
 	'{"status":200,"uri":"/p/delayed"}]',
 	'sr_multi');
 
-http_get('/sr_background');
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
+
+is(get_json('/sr_pr'), '{"h":"xxx"}', 'sr_promise');
+is(get_json('/sr_options_args_pr'), '{"h":"xxx"}', 'sr_options_args_pr');
+is(get_json('/sr_options_method_pr?m=PUT'), '["PUT"]', 'sr method PUT');
+is(get_json('/sr_body_pr'), '{"a":{"b":1}}', 'sr_body_pr');
+is(get_json('/sr_js_in_subrequest_pr'), '["JS-SUB"]', 'sr_js_in_subrequest_pr');
+is(get_json('/sr_unavail_pr'), '[{"status":502,"uri":"/unavail"}]',
+	'sr_unavail_pr');
+
+}
 
 http_get('/sr_broken');
 http_get('/sr_in_sr');
@@ -485,8 +535,6 @@ ok(index($t->read_file('error.log'), 'failed to convert uri arg') > 0,
 	'subrequest uri exception');
 ok(index($t->read_file('error.log'), 'failed to convert args') > 0,
 	'subrequest invalid args exception');
-ok(index($t->read_file('error.log'), 'BACKGROUND') > 0,
-	'background subrequest');
 ok(index($t->read_file('error.log'), 'too big subrequest response') > 0,
 	'subrequest too large body');
 ok(index($t->read_file('error.log'), 'subrequest creation failed') > 0,

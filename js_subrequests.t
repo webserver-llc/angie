@@ -245,20 +245,14 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_args(r) {
-        r.subrequest('/p/sub1', 'h=xxx', function(reply) {
-            r.status = 200;
-            r.sendHeader();
-            r.send(JSON.stringify({h:reply.headersOut.h}))
-            r.finish();
+        r.subrequest('/p/sub1', 'h=xxx', reply => {
+            r.return(200, JSON.stringify({h:reply.headersOut.h}));
         });
     }
 
     function sr_options_args(r) {
-        r.subrequest('/p/sub1', {args:'h=xxx'}, function(reply) {
-            r.status = 200;
-            r.sendHeader();
-            r.send(JSON.stringify({h:reply.headersOut.h}))
-            r.finish();
+        r.subrequest('/p/sub1', {args:'h=xxx'}, reply => {
+            r.return(200, JSON.stringify({h:reply.headersOut.h}));
         });
     }
 
@@ -268,16 +262,13 @@ $t->write_file('test.js', <<EOF);
 
     function sr_options_body(r) {
         r.subrequest('/p/body', {method:'POST', body:'["REQ-BODY"]'},
-                       body_fwd_cb);
+                     body_fwd_cb);
     }
 
     function sr_options_method_head(r) {
-        r.subrequest('/p/method', {method:'HEAD'}, function(reply) {
-            r.status = 200;
-            r.sendHeader();
-            r.send(JSON.stringify({c:reply.status,
-                                   s:reply.responseBody.length}))
-            r.finish();
+        r.subrequest('/p/method', {method:'HEAD'}, reply => {
+            r.return(200, JSON.stringify({c:reply.status,
+                                          s:reply.responseBody.length}));
         });
     }
 
@@ -294,45 +285,31 @@ $t->write_file('test.js', <<EOF);
         r.subrequest('/p/background', 'a=xxx');
         r.subrequest('/p/background', {args: 'a=yyy', method:'POST'});
 
-        r.status = 200;
-        r.sendHeader();
-        r.finish();
+        r.return(200);
     }
 
     function body(r) {
-        r.status = 200;
-        r.sendHeader();
-        r.send(r.variables.request_body);
-        r.finish();
+        r.return(200, r.variables.request_body);
     }
 
     function delayed(r) {
-        setTimeout(function(r) {
-                        r.status = 200;
-                        r.sendHeader();
-                        r.finish();
-                   }, 100, r);
+        setTimeout(r => r.return(200), 100, r);
      }
 
     function background(r) {
         r.log("BACKGROUND: " + r.variables.request_method
                 + " args: " + r.variables.args);
 
-        r.status = 200;
-        r.sendHeader();
-        r.finish();
+        r.return(200);
     }
 
     function sr_in_variable_handler(r) {
     }
 
     function async_var(r) {
-        r.subrequest('/p/delayed', function(reply) {
-            r.status = 200;
-            r.sendHeader();
-            r.send(JSON.stringify(["CB-VAR"]))
-            r.finish();
-        })
+        r.subrequest('/p/delayed', reply => {
+            r.return(200, JSON.stringify(["CB-VAR"]));
+        });
 
         return "";
     }
@@ -350,13 +327,9 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_broken(r) {
-        r.subrequest('/daemon/unfinished',
-                       function(reply) {
-                            r.status = 200;
-                            r.sendHeader();
-                            r.send(JSON.stringify({code:reply.status}))
-                            r.finish();
-                        });
+        r.subrequest('/daemon/unfinished', reply => {
+            r.return(200, JSON.stringify({code:reply.status}));
+        });
     }
 
     function sr_too_large(r) {
@@ -405,21 +378,18 @@ $t->write_file('test.js', <<EOF);
     function subrequest_fn(r, subs, props) {
         var rep, replies = [];
 
-        subs.forEach(function(sr) {
-            r.subrequest(sr, function(reply) {
+        subs.forEach(sr => {
+            r.subrequest(sr, reply => {
                 r.log("subrequest handler: " + reply.uri
                         + " status: " + reply.status)
 
                 rep = {};
-                props.forEach(function (p) {rep[p] = reply[p]});
+                props.forEach(p => {rep[p] = reply[p]});
 
                 replies.push(rep);
 
                 if (replies.length == subs.length) {
-                    r.status = 200;
-                    r.sendHeader();
-                    r.send(JSON.stringify(replies));
-                    r.finish();
+                    r.return(200, JSON.stringify(replies));
                 }
             });
         });
@@ -430,30 +400,23 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_except_failed_to_convert_arg(r) {
-        r.subrequest('/sub1', r.args, function(){});
+        r.subrequest('/sub1', r.args, ()=>{});
     }
 
     function sr_except_failed_to_convert_options_arg(r) {
-        r.subrequest('/sub1', {args:r.args}, function(){});
+        r.subrequest('/sub1', {args:r.args}, ()=>{});
     }
 
     function sr_uri_except(r) {
         r.subrequest(r, 'a=1', 'b');
     }
 
-    function body_fwd_cb(reply) {
-        var p = reply.parent;
-        p.status = 200;
-        p.sendHeader();
-        p.send(JSON.stringify(JSON.parse(reply.responseBody)));
-        p.finish();
+    function body_fwd_cb(r) {
+        r.parent.return(200, JSON.stringify(JSON.parse(r.responseBody)));
     }
 
     function js_sub(r) {
-        r.status = 200;
-        r.sendHeader();
-        r.send('["JS-SUB"]');
-        r.finish();
+        r.return(200, '["JS-SUB"]');
     }
 
 EOF

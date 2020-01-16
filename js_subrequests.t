@@ -432,15 +432,7 @@ is(get_json('/sr'), '[{"status":404,"uri":"/p/sub2"}]', 'sr');
 is(get_json('/sr_args'), '{"h":"xxx"}', 'sr_args');
 is(get_json('/sr_options_args'), '{"h":"xxx"}', 'sr_options_args');
 is(get_json('/sr_options_method?m=POST'), '["POST"]', 'sr method POST');
-
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.3';
-
 is(get_json('/sr_options_method?m=PURGE'), '["PURGE"]', 'sr method PURGE');
-
-}
-
 is(get_json('/sr_options_body'), '["REQ-BODY"]', 'sr_options_body');
 is(get_json('/sr_options_method_head'), '{"c":200,"s":0}',
 	'sr_options_method_head');

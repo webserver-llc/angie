@@ -367,10 +367,6 @@ is(stream('127.0.0.1:' . port(8082))->read(), 'variable=127.0.0.1',
 is(stream('127.0.0.1:' . port(8083))->read(), '', 'stream js unknown function');
 is(stream('127.0.0.1:' . port(8084))->read(), 'sess_unk=undefined', 's.unk');
 
-TODO: {
-local $TODO = 'not yet'
-	unless get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.2.4';
-
 is(stream('127.0.0.1:' . port(8086))->io('0'), '0122345',
 	'async handlers order');
 is(stream('127.0.0.1:' . port(8087))->io('#'), 'OK', 'js_access_undecided');
@@ -384,8 +380,6 @@ is(stream('127.0.0.1:' . port(8093))->io("xy\na"), 'xy', 'js_preread_req_line');
 is(stream('127.0.0.1:' . port(8094))->io('x'), 'x', 'js_filter_empty');
 like(get('/p/return'), qr/foo/, 'js_filter_injected_header');
 is(stream('127.0.0.1:' . port(8096))->io('x'), 'z', 'js_filter_search');
-
-}
 
 stream('127.0.0.1:' . port(8097))->io('x');
 stream('127.0.0.1:' . port(8098))->io('x');

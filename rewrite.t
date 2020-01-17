@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(22)
+my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(23)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -130,6 +130,12 @@ http {
             rewrite ^(.*) $1?c=$1;
             return 200 "uri:$uri args:$args";
         }
+
+        location /break {
+            rewrite ^ /return200;
+            break;
+            proxy_pass http://127.0.0.1:8080/return204;
+        }
     }
 }
 
@@ -230,5 +236,14 @@ like(http_get('/capture/%25?a=b'),
 like(http_get('/capturedup/%25?a=b'),
 	qr!^uri:/capturedup/% args:c=/capturedup/%25&a=b$!ms,
 	'escape with added args');
+
+# break
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.8');
+
+like(http_get('/break'), qr/200/, 'valid_location reset');
+
+}
 
 ###############################################################################

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(97)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(103)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -1046,6 +1046,79 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'invalid path');
+
+
+# ngx_http_v2_parse_int() error handling
+
+# NGX_ERROR
+
+$s = Test::Nginx::HTTP2->new();
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C3NC", 1, 0x1, 5, 1, 0xff));
+}
+$frames = $s->read(all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
+is($frame->{code}, 0x6, 'invalid index length');
+
+$s = Test::Nginx::HTTP2->new();
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C3NC2", 2, 0x1, 5, 1, 0x42, 0xff));
+}
+$frames = $s->read(all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
+is($frame->{code}, 0x6, 'invalid literal length');
+
+# NGX_DECLINED
+
+$s = Test::Nginx::HTTP2->new();
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C3NN", 5, 0x1, 5, 1, 0xffffffff));
+}
+$frames = $s->read(all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
+is($frame->{code}, 0x9, 'too long index');
+
+$s = Test::Nginx::HTTP2->new();
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C3NCN", 6, 0x1, 5, 1, 0x42, 0xffffffff));
+}
+$frames = $s->read(all => [{ type => "GOAWAY" }]);
+
+($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;
+is($frame->{code}, 0x9, 'too long literal');
+
+# NGX_AGAIN
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ split => [35], split_delay => 1.1, headers => [
+        { name => ':method', value => 'GET', mode => 3, huff => 0 },
+        { name => ':scheme', value => 'http', mode => 3, huff => 0 },
+        { name => ':path', value => '/', mode => 3, huff => 0 },
+        { name => ':authority', value => 'localhost', mode => 3, huff => 0 },
+        { name => 'referer', value => 'foo', mode => 3, huff => 0 }]});
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-referer'}, 'foo', 'header split index');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ split => [37], split_delay => 1.1, headers => [
+        { name => ':method', value => 'GET', mode => 3, huff => 0 },
+        { name => ':scheme', value => 'http', mode => 3, huff => 0 },
+        { name => ':path', value => '/', mode => 3, huff => 0 },
+        { name => ':authority', value => 'localhost', mode => 3, huff => 0 },
+        { name => 'referer', value => '1234' x 32, mode => 3, huff => 0 }]});
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{'x-referer'}, '1234' x 32, 'header split field length');
 
 ###############################################################################
 

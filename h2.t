@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(147);
+	->plan(150);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -655,6 +655,28 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 
 ($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
 ok($frame, 'client header timeout - PING');
+
+# partial request header frame received (no field split),
+# the rest of frame is received after client header timeout
+
+$s = Test::Nginx::HTTP2->new(port(8087));
+$sid = $s->new_stream({ path => '/t2.html', split => [20], split_delay => 2.1 });
+$frames = $s->read(all => [{ type => 'RST_STREAM' }]);
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.9');
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'client header timeout 2');
+is($frame->{code}, 1, 'client header timeout 2 - protocol error');
+
+}
+
+$s->h2_ping('SEE-THIS');
+$frames = $s->read(all => [{ type => 'PING' }]);
+
+($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
+ok($frame, 'client header timeout 2 - PING');
 
 # partial request body data frame received, the rest is after body timeout
 

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(103)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(104)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -470,8 +470,20 @@ $sid = $s->new_stream({ headers => [
 	{ name => 'referer', value => 'foo', mode => 0 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame, undef, 'invalid index');
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame->{code}, 0x9, 'invalid index');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'unknown', value => 'foo', mode => 3 }]});
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame->{code}, 0x9, 'invalid index in literal header field');
 
 # 5.4.1.  Connection Error Handling
 #   An endpoint that encounters a connection error SHOULD first send a

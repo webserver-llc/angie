@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(13);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(16);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -172,6 +172,22 @@ like(
 like(http_get_body('/next', '0123456789'),
 	qr/X-Body: 0123456789\x0d?$/ms, 'body chunked next upstream');
 
+# invalid Transfer-Encoding
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.17.9');
+
+like(http_transfer_encoding('identity'), qr/501 Not Implemented/,
+	'transfer encoding identity');
+
+like(http_transfer_encoding("chunked\nTransfer-Encoding: chunked"),
+	qr/400 Bad/, 'transfer encoding repeat');
+
+}
+
+like(http_transfer_encoding('chunked, identity'), qr/501 Not Implemented/,
+	'transfer encoding list');
+
 ###############################################################################
 
 sub read_body_file {
@@ -205,6 +221,16 @@ sub http_get_body {
 		. $last . CRLF
 		. "0" . CRLF . CRLF
 	);
+}
+
+sub http_transfer_encoding {
+	my ($encoding) = @_;
+
+	http("GET / HTTP/1.1" . CRLF
+		. "Host: localhost" . CRLF
+		. "Connection: close" . CRLF
+		. "Transfer-Encoding: $encoding" . CRLF . CRLF
+		. "0" . CRLF . CRLF);
 }
 
 ###############################################################################

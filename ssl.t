@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(23);
+	->has_daemon('openssl')->plan(24);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -58,6 +58,8 @@ http {
         ssl_certificate inner.crt;
         ssl_session_cache shared:SSL:1m;
         ssl_verify_client optional_no_ca;
+
+        keepalive_requests 1000;
 
         location / {
             return 200 "body $ssl_session_reused";
@@ -281,6 +283,20 @@ like(cert('/time', 8085), qr/^body [:\s\w]+![:\s\w]+![23]$/m, 'time');
 
 like(get_body('/body', '0123456789', 20, 5), qr/X-Body: (0123456789){100}/,
 	'request body chunked');
+
+# pipelined requests
+
+$s = get_ssl_socket(8085);
+my $req = <<EOF;
+GET / HTTP/1.1
+Host: localhost
+
+EOF
+
+$req x= 1000;
+
+my $r = http($req, socket => $s) || "";
+is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
 
 ###############################################################################
 

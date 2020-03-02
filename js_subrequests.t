@@ -45,7 +45,8 @@ http {
 
     js_include test.js;
 
-    js_set $async_var async_var;
+    js_set $async_var       async_var;
+    js_set $subrequest_var  subrequest_var;
 
     server {
         listen       127.0.0.1:8080;
@@ -106,6 +107,10 @@ http {
         location /sr_in_variable_handler {
             set $_ $async_var;
             js_content sr_in_variable_handler;
+        }
+
+        location /sr_detached_in_variable_handler {
+            return 200 $subrequest_var;
         }
 
         location /sr_error_page {
@@ -236,6 +241,10 @@ http {
             js_content body;
         }
 
+        location /detached {
+            js_content detached;
+        }
+
         location /delayed {
             js_content delayed;
         }
@@ -322,7 +331,14 @@ $t->write_file('test.js', <<EOF);
 
     function delayed(r) {
         setTimeout(r => r.return(200), 100, r);
-     }
+    }
+
+    function detached(r) {
+        var method = r.variables.request_method;
+        r.log(`DETACHED: \${method} args: \${r.variables.args}`);
+
+        r.return(200);
+    }
 
     function sr_in_variable_handler(r) {
     }
@@ -333,6 +349,14 @@ $t->write_file('test.js', <<EOF);
         });
 
         return "";
+    }
+
+    function subrequest_var(r) {
+        r.subrequest('/p/detached',  {detached:true});
+        r.subrequest('/p/detached',  {detached:true, args:'a=yyy',
+                                      method:'POST'});
+
+        return "subrequest_var";
     }
 
     function sr_file(r) {
@@ -461,7 +485,7 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->try_run('no njs available')->plan(29);
+$t->try_run('no njs available')->plan(31);
 $t->run_daemon(\&http_daemon);
 
 ###############################################################################
@@ -502,9 +526,11 @@ is(get_json('/sr_out_of_order'),
 	'{"status":200,"uri":"/p/delayed"}]',
 	'sr_multi');
 
+my $ver = http_get('/njs');
+
 TODO: {
 local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
+	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
 
 is(get_json('/sr_pr'), '{"h":"xxx"}', 'sr_promise');
 is(get_json('/sr_options_args_pr'), '{"h":"xxx"}', 'sr_options_args_pr');
@@ -514,6 +540,14 @@ is(get_json('/sr_js_in_subrequest_pr'), '["JS-SUB"]', 'sr_js_in_subrequest_pr');
 is(get_json('/sr_unavail_pr'), '[{"status":502,"uri":"/unavail"}]',
 	'sr_unavail_pr');
 
+}
+
+TODO: {
+local $TODO = 'not yet'
+	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.9';
+
+like(http_get('/sr_detached_in_variable_handler'), qr/subrequest_var/,
+     'sr_detached_in_variable_handler');
 }
 
 http_get('/sr_broken');
@@ -545,6 +579,14 @@ ok(index($t->read_file('error.log'), 'subrequest creation failed') > 0,
 ok(index($t->read_file('error.log'),
 		'js subrequest: failed to get the parent context') > 0,
 	'zero parent ctx');
+
+TODO: {
+local $TODO = 'not yet'
+	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.9';
+
+ok(index($t->read_file('error.log'), 'DETACHED') > 0,
+	'detached subrequest');
+}
 
 ###############################################################################
 

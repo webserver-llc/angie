@@ -124,6 +124,9 @@ like(http_get("/bad.mp4?start=0.5"), qr/500 Internal/, 'co64 chunk beyond EOF');
 
 }
 
+$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/
+	and !$t->has_version('1.17.9');
+
 ###############################################################################
 
 sub durations {

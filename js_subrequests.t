@@ -307,8 +307,7 @@ $t->write_file('test.js', <<EOF);
 
     function sr_options_method_head(r) {
         r.subrequest('/p/method', {method:'HEAD'}, reply => {
-            r.return(200, JSON.stringify({c:reply.status,
-                                          s:reply.responseBody.length}));
+            r.return(200, JSON.stringify({c:reply.status}));
         });
     }
 
@@ -462,7 +461,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_except_failed_to_convert_arg(r) {
-        r.subrequest('/sub1', r.args, ()=>{});
+        r.subrequest('/sub1', Symbol.toStringTag, ()=>{});
     }
 
     function sr_except_failed_to_convert_options_arg(r) {
@@ -470,7 +469,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function sr_uri_except(r) {
-        r.subrequest(r, 'a=1', 'b');
+        r.subrequest(Symbol.toStringTag, 'a=1', 'b');
     }
 
     function body_fwd_cb(r) {
@@ -496,8 +495,7 @@ is(get_json('/sr_options_args'), '{"h":"xxx"}', 'sr_options_args');
 is(get_json('/sr_options_method?m=POST'), '["POST"]', 'sr method POST');
 is(get_json('/sr_options_method?m=PURGE'), '["PURGE"]', 'sr method PURGE');
 is(get_json('/sr_options_body'), '["REQ-BODY"]', 'sr_options_body');
-is(get_json('/sr_options_method_head'), '{"c":200,"s":0}',
-	'sr_options_method_head');
+is(get_json('/sr_options_method_head'), '{"c":200}', 'sr_options_method_head');
 is(get_json('/sr_body'), '{"a":{"b":1}}', 'sr_body');
 is(get_json('/sr_body_special'), '{"e":"msg"}', 'sr_body_special');
 is(get_json('/sr_in_variable_handler'), '["CB-VAR"]', 'sr_in_variable_handler');

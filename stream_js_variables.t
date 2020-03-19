@@ -97,16 +97,3 @@ is(stream('127.0.0.1:' . port(8082))->read(), 'not_found', 'not found set');
 $t->stop();
 
 ###############################################################################
-#
-sub get {
-	my ($url, %extra) = @_;
-
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => '127.0.0.1:' . port(8080)
-	) or die "Can't connect to nginx: $!\n";
-
-	return http_get($url, socket => $s);
-}
-
-###############################################################################

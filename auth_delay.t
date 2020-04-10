@@ -53,7 +53,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->write_file('htpasswd', 'user:' . crypt('good', 'salt') . "\n");
+$t->write_file('htpasswd', 'user:' . '{PLAIN}good' . "\n");
 
 $t->try_run('no auth_delay')->plan(4);
 

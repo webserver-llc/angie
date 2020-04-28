@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(105);
+	->has(qw/upstream_keepalive/)->plan(109);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -462,6 +462,39 @@ is($frame->{headers}{':method'}, 'HEAD', 'method head');
 $f->{data}('Hello');
 $f->{http_end}();
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.0');
+
+# receiving END_STREAM followed by WINDOW_UPDATE on incomplete request body
+
+$f->{http_start}('/Discard_WU');
+$frames = $f->{discard}();
+(undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, 5, 'discard WINDOW_UPDATE - trailers');
+
+# receiving END_STREAM followed by RST_STREAM NO_ERROR
+
+$f->{http_start}('/Discard_NE');
+$frames = $f->{discard}();
+(undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, 5, 'discard NO_ERROR - trailers');
+
+}
+
+# receiving END_STREAM followed by several RST_STREAM NO_ERROR
+
+$f->{http_start}('/Discard_NE3');
+$frames = $f->{discard}();
+(undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, undef, 'discard NO_ERROR many - no trailers');
+
+# receiving END_STREAM followed by RST_STREAM CANCEL
+
+$f->{http_start}('/Discard_CNL');
+$frames = $f->{discard}();
+(undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{flags}, undef, 'discard CANCEL - no trailers');
+
 ###############################################################################
 
 sub grpc {
@@ -649,6 +682,37 @@ sub grpc {
 		]}, $sid);
 
 		return $s->read(all => [{ fin => 1 }]);
+	};
+	$f->{discard} = sub {
+		my (%extra) = @_;
+		$c->new_stream({ body_more => 1, %extra, headers => [
+			{ name => ':status', value => '200',
+				mode => $extra{mode} || 0 },
+			{ name => 'content-type', value => 'application/grpc',
+				mode => $extra{mode} || 1, huff => 1 },
+			{ name => 'x-connection', value => $n,
+				mode => 2, huff => 1 },
+		]}, $sid);
+		$c->h2_body('Hello world', { body_more => 1,
+			body_padding => $extra{body_padding} });
+
+		# stick trailers and subsequent frames for reproducibility
+
+		my $fld = $c->hpack('grpc-status', '0', mode => 2);
+		my $trailers = pack("x2CCCN", length($fld), 1, 5, $sid) . $fld;
+		my $window = pack("xxCCCNN", 4, 8, 0, $sid, 42);
+		my $rst = pack("x2C2xNN", 4, 3, $sid, 0);
+		my $cnl = pack("x2C2xNN", 4, 3, $sid, 8);
+
+		$trailers .= $window if $uri eq '/Discard_WU';
+		$trailers .= $rst if $uri eq '/Discard_NE';
+		$trailers .= ($rst x 3) if $uri eq '/Discard_NE3';
+		$trailers .= $cnl if $uri eq '/Discard_CNL';
+		Test::Nginx::HTTP2::raw_write($client, $trailers);
+
+		return $s->read(all => [{ fin => 1 }], wait => 2)
+			if $uri eq '/Discard_WU' || $uri eq '/Discard_NE';
+		return $s->read(all => [{ type => 'RST_STREAM' }]);
 	};
 	return $f;
 }

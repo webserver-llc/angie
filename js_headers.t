@@ -303,7 +303,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs')->plan(34);
+$t->try_run('no njs')->plan(37);
 
 ###############################################################################
 
@@ -380,14 +380,41 @@ like(http(
 	. 'Cookie: foo1' . CRLF
 	. 'Cookie: foo2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
-), qr/cookie: foo1; foo2/, 'r.headersIn cookie2');
+), qr/cookie: foo1;\s?foo2/, 'r.headersIn cookie2');
 
 like(http(
 	'GET /hdr_in HTTP/1.0' . CRLF
 	. 'X-Forwarded-For: foo1' . CRLF
 	. 'X-Forwarded-For: foo2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
-), qr/x-forwarded-for: foo1, foo2/, 'r.headersIn xff2');
+), qr/x-forwarded-for: foo1,\s?foo2/, 'r.headersIn xff2');
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'ETag: bar1' . CRLF
+	. 'ETag: bar2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/etag: bar1(?!,\s?bar2)/, 'r.headersIn duplicate single');
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'Content-Type: bar1' . CRLF
+	. 'Content-Type: bar2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/content-type: bar1(?!,\s?bar2)/, 'r.headersIn duplicate single 2');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.4.1';
+
+like(http(
+	'GET /hdr_in HTTP/1.0' . CRLF
+	. 'Foo: bar1' . CRLF
+	. 'Foo: bar2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/foo: bar1,bar2/, 'r.headersIn duplicate generic');
+
+}
 
 like(http(
 	'GET /hdr_sorted_keys?in=1 HTTP/1.0' . CRLF

@@ -375,11 +375,6 @@ like(http(
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/x-forwarded-for: foo/, 'r.headersIn xff');
 
-
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.6';
-
 like(http(
 	'GET /hdr_in HTTP/1.0' . CRLF
 	. 'Cookie: foo1' . CRLF
@@ -394,12 +389,6 @@ like(http(
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/x-forwarded-for: foo1, foo2/, 'r.headersIn xff2');
 
-}
-
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.7';
-
 like(http(
 	'GET /hdr_sorted_keys?in=1 HTTP/1.0' . CRLF
 	. 'Cookie: foo1' . CRLF
@@ -412,7 +401,5 @@ like(http(
 	'GET /hdr_sorted_keys HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/a,b,c/, 'r.headersOut sorted keys');
-
-}
 
 ###############################################################################

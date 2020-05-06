@@ -160,10 +160,6 @@ http {
             js_content sr_except_not_a_func;
         }
 
-        location /sr_except_failed_to_convert_arg {
-            js_content sr_except_failed_to_convert_arg;
-        }
-
         location /sr_except_failed_to_convert_options_arg {
             js_content sr_except_failed_to_convert_options_arg;
         }
@@ -261,6 +257,8 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
+    this.Failed = {get toConvert() { return {toString(){return {};}}}};
+
     function test_njs(r) {
         r.return(200, njs.version);
     }
@@ -460,16 +458,12 @@ $t->write_file('test.js', <<EOF);
         r.subrequest('/sub1', 'a=1', 'b');
     }
 
-    function sr_except_failed_to_convert_arg(r) {
-        r.subrequest('/sub1', Symbol.toStringTag, ()=>{});
-    }
-
     function sr_except_failed_to_convert_options_arg(r) {
-        r.subrequest('/sub1', {args:r.args}, ()=>{});
+        r.subrequest('/sub1', {args:Failed.toConvert}, ()=>{});
     }
 
     function sr_uri_except(r) {
-        r.subrequest(Symbol.toStringTag, 'a=1', 'b');
+        r.subrequest(Failed.toConvert, 'a=1', 'b');
     }
 
     function body_fwd_cb(r) {
@@ -554,7 +548,6 @@ http_get('/sr_in_variable_handler');
 http_get('/sr_error_page');
 http_get('/sr_too_large');
 http_get('/sr_except_not_a_func');
-http_get('/sr_except_failed_to_convert_arg');
 http_get('/sr_except_failed_to_convert_options_arg');
 http_get('/sr_uri_except');
 
@@ -568,7 +561,7 @@ ok(index($t->read_file('error.log'), 'callback is not a function') > 0,
 	'subrequest cb exception');
 ok(index($t->read_file('error.log'), 'failed to convert uri arg') > 0,
 	'subrequest uri exception');
-ok(index($t->read_file('error.log'), 'failed to convert args') > 0,
+ok(index($t->read_file('error.log'), 'failed to convert options.args') > 0,
 	'subrequest invalid args exception');
 ok(index($t->read_file('error.log'), 'too big subrequest response') > 0,
 	'subrequest too large body');

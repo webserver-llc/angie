@@ -100,8 +100,16 @@ http {
             js_content hdr_in;
         }
 
+        location /raw_hdr_in {
+            js_content raw_hdr_in;
+        }
+
         location /hdr_out {
             js_content hdr_out;
+        }
+
+        location /raw_hdr_out {
+            js_content raw_hdr_out;
         }
 
         location /hdr_out_array {
@@ -216,6 +224,12 @@ $t->write_file('test.js', <<EOF);
         r.return(200, s);
     }
 
+    function raw_hdr_in(r) {
+        var filtered = r.rawHeadersIn
+                       .filter(v=>v[0].toLowerCase() == r.args.filter);
+        r.return(200, 'raw:' + filtered.map(v=>v[1]).join('|'));
+    }
+
     function hdr_sorted_keys(r) {
         var s = '';
         var hdr = r.args.in ? r.headersIn : r.headersOut;
@@ -254,6 +268,15 @@ $t->write_file('test.js', <<EOF);
 
         r.sendHeader();
         r.finish();
+    }
+
+    function raw_hdr_out(r) {
+        r.headersOut.a = ['foo', 'bar'];
+        r.headersOut.b = 'b';
+
+        var filtered = r.rawHeadersOut
+                       .filter(v=>v[0].toLowerCase() == r.args.filter);
+        r.return(200, 'raw:' + filtered.map(v=>v[1]).join('|'));
     }
 
     function hdr_out_array(r) {
@@ -303,7 +326,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs')->plan(37);
+$t->try_run('no njs')->plan(39);
 
 ###############################################################################
 
@@ -413,6 +436,15 @@ like(http(
 	. 'Foo: bar2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/foo: bar1,bar2/, 'r.headersIn duplicate generic');
+
+like(http(
+	'GET /raw_hdr_in?filter=foo HTTP/1.0' . CRLF
+	. 'foo: bar1' . CRLF
+	. 'Foo: bar2' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/raw: bar1|bar2/, 'r.rawHeadersIn');
+
+like(http_get('/raw_hdr_out?filter=a'), qr/raw: foo|bar/, 'r.rawHeadersOut');
 
 }
 

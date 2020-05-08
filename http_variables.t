@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -46,6 +46,10 @@ http {
 
         location / {
             return 200 OK;
+        }
+
+        location /arg {
+            return 200 $arg_l:$arg_;
         }
 
         location /set {
@@ -77,6 +81,14 @@ $t->run();
 http_get('/');
 http_get('/../bad_uri');
 http_get('/redefine');
+
+TODO: {
+todo_skip 'overflow', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.19.0');
+
+like(http_get('/arg?l=42'), qr/42:$/, 'arg');
+
+}
 
 # $limit_rate is a special variable that has its own set_handler / get_handler
 

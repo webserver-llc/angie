@@ -227,7 +227,7 @@ sub get_ssl_socket {
 	Net::SSLeay::set_tlsext_host_name($ssl, $host);
 	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
 	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
+	Net::SSLeay::connect($ssl);
 	return ($s, $ssl);
 }
 

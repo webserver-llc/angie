@@ -95,7 +95,7 @@ http {
 
     server {
         listen       127.0.0.1:8081 ssl;
-        server_name  optional_no_ca;
+        server_name  optional.no.ca;
 
         ssl_certificate_key 1.example.com.key;
         ssl_certificate 1.example.com.crt;
@@ -106,7 +106,7 @@ http {
 
     server {
         listen       127.0.0.1:8081;
-        server_name  no_context;
+        server_name  no.context;
 
         ssl_verify_client on;
     }
@@ -142,10 +142,10 @@ $t->run();
 
 like(http_get('/t'), qr/x:x/, 'plain connection');
 like(get('on'), qr/400 Bad Request/, 'no cert');
-like(get('no_context'), qr/400 Bad Request/, 'no server cert');
+like(get('no.context'), qr/400 Bad Request/, 'no server cert');
 like(get('optional'), qr/NONE:x/, 'no optional cert');
 like(get('optional', '1.example.com'), qr/400 Bad/, 'bad optional cert');
-like(get('optional_no_ca', '1.example.com'), qr/FAILED.*BEGIN/,
+like(get('optional.no.ca', '1.example.com'), qr/FAILED.*BEGIN/,
 	'bad optional_no_ca cert');
 
 like(get('localhost', '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert');

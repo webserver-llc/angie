@@ -25,14 +25,26 @@ select STDOUT; $| = 1;
 plan(skip_all => 'can leave orphaned process group')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
-my $t = Test::Nginx->new()->plan(2)->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new(qr/http unix/)->plan(4)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
 events {
 }
 
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    server {
+        listen       unix:%%TESTDIR%%/unix.sock;
+        server_name  localhost;
+    }
+}
+
 EOF
+
+my $d = $t->testdir();
 
 $t->run();
 
@@ -44,13 +56,44 @@ ok($pid, 'master pid');
 kill 'USR2', $pid;
 
 for (1 .. 30) {
-	last if -e $t->testdir() . '/nginx.pid'
-		&& -e $t->testdir() . '/nginx.pid.oldbin';
+	last if -e "$d/nginx.pid" && -e "$d/nginx.pid.oldbin";
 	select undef, undef, undef, 0.2
 }
 
 isnt($t->read_file('nginx.pid'), $pid, 'master pid changed');
 
 kill 'QUIT', $pid;
+
+for (1 .. 30) {
+	last if ! -e "$d/nginx.pid.oldbin";
+	select undef, undef, undef, 0.2
+}
+
+ok(-e "$d/unix.sock", 'unix socket exists on old master shutdown');
+
+# unix socket on new master termination
+
+$pid = $t->read_file('nginx.pid');
+
+kill 'USR2', $pid;
+
+for (1 .. 30) {
+	last if -e "$d/nginx.pid" && -e "$d/nginx.pid.oldbin";
+	select undef, undef, undef, 0.2
+}
+
+kill 'TERM', $t->read_file('nginx.pid');
+
+for (1 .. 30) {
+	last if ! -e "$d/nginx.pid.oldbin";
+	select undef, undef, undef, 0.2
+}
+
+TODO: {
+$TODO = 'not yet' unless $t->has_version('1.19.1');
+
+ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
+
+}
 
 ###############################################################################

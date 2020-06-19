@@ -88,9 +88,17 @@ http {
     }
 
     server {
+        listen       127.0.0.1:8443 ssl;
+        server_name  resolver;
+
+        ssl_ocsp on;
+    }
+
+    server {
         listen       127.0.0.1:8444 ssl;
         server_name  localhost;
 
+        ssl_ocsp_responder http://127.0.0.1:8081;
         ssl_ocsp on;
     }
 
@@ -151,6 +159,29 @@ basicConstraints = critical,CA:TRUE
 authorityInfoAccess = OCSP;URI:http://127.0.0.1:$p
 EOF
 
+# variant for int.crt to trigger missing resolver
+
+$t->write_file('ca2.conf', <<EOF);
+[ ca ]
+default_ca = myca
+
+[ myca ]
+new_certs_dir = $d
+database = $d/certindex
+default_md = sha256
+policy = myca_policy
+serial = $d/certserial
+default_days = 1
+x509_extensions = myca_extensions
+
+[ myca_policy ]
+commonName = supplied
+
+[ myca_extensions ]
+basicConstraints = critical,CA:TRUE
+authorityInfoAccess = OCSP;URI:http://localhost:$p
+EOF
+
 foreach my $name ('root') {
 	system('openssl req -x509 -new '
 		. "-config $d/openssl.conf -subj /CN=$name/ "
@@ -181,7 +212,7 @@ foreach my $name ('ec-end') {
 $t->write_file('certserial', '1000');
 $t->write_file('certindex', '');
 
-system("openssl ca -batch -config $d/ca.conf "
+system("openssl ca -batch -config $d/ca2.conf "
 	. "-keyfile $d/root.key -cert $d/root.crt "
 	. "-subj /CN=int/ -in $d/int.csr -out $d/int.crt "
 	. ">>$d/openssl.out 2>&1") == 0
@@ -256,7 +287,7 @@ foreach my $name ('ec', 'rsa') {
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
-$t->try_run('no ssl_ocsp')->plan(13);
+$t->try_run('no ssl_ocsp')->plan(14);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
@@ -266,6 +297,18 @@ my $version = get_version();
 ###############################################################################
 
 like(get('RSA', 'end'), qr/200 OK.*SUCCESS/s, 'ocsp leaf');
+
+# demonstrate that ocsp int request is failed due to missing resolver
+
+TODO: {
+todo_skip 'leaves coredump', 1 unless $t->has_version('1.19.1')
+	or $ENV{TEST_NGINX_UNSAFE};
+
+like(get('RSA', 'end', sni => 'resolver'),
+	qr/400 Bad.*FAILED:certificate status request failed/s,
+	'ocsp many failed request');
+
+}
 
 # demonstrate that ocsp int request is actually made by failing ocsp response
 

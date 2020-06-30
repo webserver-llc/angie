@@ -40,7 +40,7 @@ eval {
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)
-	->has_daemon('openssl')->plan(11);
+	->has_daemon('openssl')->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -89,6 +89,18 @@ http {
         ssl_certificate 1.example.com.crt;
 
         ssl_verify_client optional;
+        ssl_client_certificate 2.example.com.crt;
+        ssl_trusted_certificate 3.example.com.crt;
+    }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  off;
+
+        ssl_certificate_key 1.example.com.key;
+        ssl_certificate 1.example.com.crt;
+
+        ssl_verify_client off;
         ssl_client_certificate 2.example.com.crt;
         ssl_trusted_certificate 3.example.com.crt;
     }
@@ -147,6 +159,8 @@ like(get('optional'), qr/NONE:x/, 'no optional cert');
 like(get('optional', '1.example.com'), qr/400 Bad/, 'bad optional cert');
 like(get('optional.no.ca', '1.example.com'), qr/FAILED.*BEGIN/,
 	'bad optional_no_ca cert');
+like(get('off', '2.example.com'), qr/NONE/, 'off cert');
+like(get('off', '3.example.com'), qr/NONE/, 'off cert trusted');
 
 like(get('localhost', '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert');
 like(get('optional', '2.example.com'), qr/SUCCESS.*BEGI/, 'good cert optional');

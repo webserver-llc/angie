@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(61);
+my $t = Test::Nginx->new()->has(qw/http limit_req/)->plan(62);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -220,7 +220,8 @@ http_get('/if/work?logme=yes');
 
 get_syslog('/a');
 
-like($t->read_file('s_if.log'), qr/good:404.*work:404/s, 'syslog if success');
+like($t->read_file('s_if.log'), qr/good:404/s, 'syslog if success');
+like($t->read_file('s_if.log'), qr/work:404/s, 'syslog if success 2');
 unlike($t->read_file('s_if.log'), qr/(if:|empty:|zero:)404/, 'syslog if fail');
 
 like(get_syslog('/nohostname'),

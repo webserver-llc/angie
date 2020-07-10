@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(109);
+	->has(qw/upstream_keepalive/)->plan(111);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -276,6 +276,25 @@ $frames = $f->{http_err}();
 is($frame->{flags}, 5, 'grpc error - HEADERS flags');
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 ok(!$frame, 'grpc error - no DATA frame');
+
+# malformed response body length not equal to content-length
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.1');
+
+$f->{http_start}('/SayHello');
+$f->{data}('Hello');
+$frames = $f->{http_err2}(cl => 42);
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'response body less than content-length');
+
+$f->{http_start}('/SayHello');
+$f->{data}('Hello');
+$frames = $f->{http_err2}(cl => 8);
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'response body more than content-length');
+
+}
 
 # continuation from backend, expect parts assembled
 
@@ -640,6 +659,26 @@ sub grpc {
 		]}, $sid);
 
 		return $s->read(all => [{ fin => 1 }]);
+	};
+	$f->{http_err2} = sub {
+		my %extra = @_;
+		$c->new_stream({ body_more => 1, headers => [
+			{ name => ':status', value => '200', mode => 0 },
+			{ name => 'content-type', value => 'application/grpc',
+				mode => 1, huff => 1 },
+			{ name => 'content-length', value => $extra{cl},
+				mode => 1, huff => 1 },
+		]}, $sid);
+		$c->h2_body('Hello world',
+			{ body_more => 1, body_split => [5] });
+		$c->new_stream({ headers => [
+			{ name => 'grpc-status', value => '0',
+				mode => 2, huff => 1 },
+			{ name => 'grpc-message', value => '',
+				mode => 2, huff => 1 },
+		]}, $sid);
+
+		return $s->read(all => [{ type => 'RST_STREAM' }]);
 	};
 	$f->{continuation} = sub {
 		$c->new_stream({ continuation => 1, body_more => 1, headers => [

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http xslt/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http xslt/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -124,6 +124,22 @@ todo_skip 'heap-buffer-overflow', 1 unless $t->has_version('1.17.2')
 	or $ENV{TEST_NGINX_UNSAFE};
 
 like(http_get("/x5"), qr!200 OK.*param1=localhost!ms, 'params variable');
+
+}
+
+# xslt and ranges
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.2');
+
+unlike(http_get("/x1"), qr!Accept-Ranges!, 'no Accept-Ranges');
+like(http(<<EOF), qr!200 OK.*test xslt result!ms, 'no ranges');
+GET /x1 HTTP/1.1
+Host: localhost
+Connection: close
+Range: bytes=-10
+
+EOF
 
 }
 

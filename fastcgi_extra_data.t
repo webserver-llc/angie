@@ -27,7 +27,7 @@ plan(skip_all => 'FCGI not installed') if $@;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()
-	->has(qw/http fastcgi cache rewrite addition/)->plan(20)
+	->has(qw/http fastcgi cache rewrite addition/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -135,6 +135,20 @@ like(http_get('/head/short'), qr/SEE-THIS(?!.*:after)/s,
 
 }
 
+# "zero size buf" alerts (ticket #2018)
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.2');
+
+like(http_get('/zero'), qr/200 OK(?!.*NOT-THIS)/s, 'zero size');
+like(http_get('/unbuf/zero'), qr/200 OK(?!.*NOT-THIS)/s,
+	'unbuffered zero size');
+
+}
+
+$t->todo_alerts() unless $t->has_version('1.19.2')
+	or !$t->has_version('1.19.1');
+
 ###############################################################################
 
 sub fastcgi_daemon {
@@ -154,6 +168,11 @@ sub fastcgi_daemon {
 			print "Content-Type: text/html\n";
 			print "Content-Length: 8\n\n";
 			print "SEE-THIS-BUT-NOT-THIS\n";
+
+		} elsif ($uri eq '/zero') {
+			print "Content-Type: text/html\n";
+			print "Content-Length: 0\n\n";
+			print "NOT-THIS\n";
 
 		} elsif ($uri eq '/short') {
 			print "Content-Type: text/html\n";

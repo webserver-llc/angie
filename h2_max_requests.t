@@ -90,7 +90,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }, { type => 'GOAWAY' }]);
 is($frame->{headers}->{':status'}, 200, 'max requests limited');
 
 TODO: {
-local $TODO = 'not yet' if $^O eq 'linux' or $^O eq 'freebsd'
+local $TODO = 'not yet' if ($^O eq 'linux' or $^O eq 'freebsd')
 	and !$t->has_version('1.19.1');
 
 my @data = grep { $_->{type} eq "DATA" } @$frames;
@@ -128,7 +128,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }, { type => 'GOAWAY' }]);
 is($frame->{headers}->{':status'}, 200, 'graceful shutdown in idle');
 
 TODO: {
-local $TODO = 'not yet' if $^O eq 'linux' or $^O eq 'freebsd'
+local $TODO = 'not yet' if ($^O eq 'linux' or $^O eq 'freebsd')
 	and !$t->has_version('1.19.1');
 
 my @data = grep { $_->{type} eq "DATA" } @$frames;

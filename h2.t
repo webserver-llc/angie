@@ -301,7 +301,7 @@ is($frame->{code}, 6, 'GOAWAY invalid length - GOAWAY FRAME_SIZE_ERROR');
 #   than 0x0 as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.19.3');
 
 $s = Test::Nginx::HTTP2->new();
 $s->h2_goaway(1, 0, 5, 'foobar');

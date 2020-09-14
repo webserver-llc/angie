@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)
-	->plan(42)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(49)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -81,6 +81,9 @@ http {
             if ($args = "novary") {
                 return 200 "the only variant\n";
             }
+
+            add_header Vary $arg_vary;
+            add_header Xtra $arg_xtra;
         }
 
         location /asterisk {
@@ -248,6 +251,49 @@ like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
 
 }
 
+# keep c->body_start when Vary changes (ticket #2029)
+
+# before 1.19.3, this prevented updating c->body_start of a main key
+# triggering "cache file .. has too long header" critical errors
+
+like(get1('/?vary=x,y', 'x:1'), qr/MISS/, 'change first');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.3');
+
+like(get1('/?vary=x,y', 'x:1'), qr/HIT/, 'change first cached');
+
+}
+
+like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/MISS/, 'change second');
+like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'change second cached');
+
+$t->stop();
+$t->run();
+
+# reset c->body_start when loading a secondary key variant
+
+# before 1.19.3, it was loaded using a variant stored with a main key
+# triggering "cache file .. has too long header" critical errors
+
+like(get1('/?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.3');
+
+like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
+
+}
+
+$t->stop();
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.3');
+
+like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
+
+}
+
 ###############################################################################
 
 sub get {
@@ -257,6 +303,17 @@ GET $url HTTP/1.1
 Host: localhost
 Connection: close
 Accept-Encoding: $extra
+
+EOF
+}
+
+sub get1 {
+	my ($url, $extra) = @_;
+	return http(<<EOF);
+GET $url HTTP/1.1
+Host: localhost
+Connection: close
+$extra
 
 EOF
 }

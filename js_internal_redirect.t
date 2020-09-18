@@ -67,16 +67,16 @@ $t->write_file('test.js', <<EOF);
         r.return(200, njs.version);
     }
 
-    function test_redirect(req) {
-        if (req.variables.arg_dest == 'named') {
-            req.internalRedirect('\@named');
+    function test_redirect(r) {
+        if (r.variables.arg_dest == 'named') {
+            r.internalRedirect('\@named');
 
         } else {
-            if (req.variables.arg_a) {
-                req.internalRedirect('/redirect?b=' + req.variables.arg_a);
+            if (r.variables.arg_a) {
+                r.internalRedirect('/redirect?b=' + r.variables.arg_a);
 
             } else {
-                req.internalRedirect('/redirect');
+                r.internalRedirect('/redirect');
             }
         }
     }

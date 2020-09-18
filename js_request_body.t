@@ -3,7 +3,7 @@
 # (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Tests for http njs module, req.requestBody method.
+# Tests for http njs module, r.requestBody method.
 
 ###############################################################################
 

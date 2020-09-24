@@ -180,6 +180,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-stream_map_module)',
 		stream_return
 			=> '(?s)^(?!.*--without-stream_return_module)',
+		stream_set
+			=> '(?s)^(?!.*--without-stream_set_module)',
 		stream_split_clients
 			=> '(?s)^(?!.*--without-stream_split_clients_module)',
 		stream_ssl

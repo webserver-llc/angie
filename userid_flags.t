@@ -51,11 +51,17 @@ http {
             location /many {
                 userid_flags httponly samesite=none secure;
             }
+
+            location /off {
+                userid_flags off;
+            }
         }
 
         location /lax {
             userid_flags samesite=lax;
         }
+
+        location /unset { }
     }
 }
 
@@ -64,12 +70,14 @@ EOF
 $t->write_file('index.html', '');
 $t->write_file('lax', '');
 $t->write_file('many', '');
-$t->try_run('no userid_flags')->plan(3);
+$t->try_run('no userid_flags')->plan(5);
 
 ###############################################################################
 
-like(http_get('/'), qr/samesite=strict/, 'strict');
-like(http_get('/lax'), qr/samesite=lax/, 'lax');
-like(http_get('/many'), qr/secure; httponly; samesite=none/, 'many');
+like(http_get('/'), qr/samesite=strict/i, 'strict');
+like(http_get('/lax'), qr/samesite=lax/i, 'lax');
+like(http_get('/many'), qr/secure; httponly; samesite=none/i, 'many');
+unlike(http_get('/off'), qr/(secure|httponly|samesite)/i, 'off');
+unlike(http_get('/unset'), qr/(secure|httponly|samesite)/i, 'unset');
 
 ###############################################################################

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(44);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(45);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -41,6 +41,8 @@ http {
         listen       127.0.0.1:8080 http2;
         listen       127.0.0.1:8081;
         server_name  localhost;
+
+        error_page 400 /proxy2/t.html;
 
         location / {
             add_header X-Length $http_content_length;
@@ -460,6 +462,22 @@ $s->h2_ping('xxxx');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 isnt($frame->{headers}->{'x-body'}, 'xxxx', 'sync buffer');
+
+# request body after 400 errors redirected to a proxied location
+
+TODO: {
+todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or $t->has_version('1.19.3');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ body => "", headers => [
+	{ name => ':method', value => "" }]});
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+($frame) = grep { $_->{type} eq 'DATA' } @$frames;
+is($frame->{data}, 'SEE-THIS', 'request body after 400 redirect');
+
+}
 
 ###############################################################################
 

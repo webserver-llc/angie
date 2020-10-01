@@ -95,12 +95,15 @@ my @uwsgiopts = ();
 if ($uwsgihelp !~ /--wsgi-file/) {
 	# uwsgi has no python support, maybe plugin load is necessary
 	push @uwsgiopts, '--plugin', 'python';
+	push @uwsgiopts, '--plugin', 'python3';
 }
 
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run_daemon('uwsgi', @uwsgiopts,
 	'--ssl-socket', '127.0.0.1:' . port(8081) . ",$crt,$key",
 	'--wsgi-file', $d . '/uwsgi_test_app.py',
 	'--logto', $d . '/uwsgi_log');
+open STDERR, ">&", \*OLDERR;
 
 $t->run();
 

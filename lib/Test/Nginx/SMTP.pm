@@ -122,6 +122,8 @@ sub smtp_test_daemon {
 				print $client '250 hello ok' . CRLF;
 			} elsif (/^rset/i) {
 				print $client '250 rset ok' . CRLF;
+			} elsif (/^auth plain/i) {
+				print $client '235 auth ok' . CRLF;
 			} elsif (/^mail from:[^@]+$/i) {
 				print $client '500 mail from error' . CRLF;
 			} elsif (/^mail from:/i) {

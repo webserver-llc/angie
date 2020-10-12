@@ -13,6 +13,7 @@ use strict;
 use Test::More;
 
 use IO::Select;
+use Sys::Hostname;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -321,8 +322,7 @@ sub parse_syslog_message {
 	ok($sec < 60, "$desc valid seconds");
 
 	ok(defined($host), "$desc has host");
-	chomp(my $hostname = lc `hostname`);
-	is($host , $hostname, "$desc valid host");
+	is($host, lc(hostname()), "$desc valid host");
 
 	ok(defined($tag), "$desc has tag");
 	like($tag, qr'\w+', "$desc valid tag");

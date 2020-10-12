@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use Sys::Hostname;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -158,7 +160,7 @@ is($t->read_file('filtered.log'), "127.0.0.1\n", 'log filtering');
 ok($t->read_file('complex.log'), 'if with complex value');
 ok($t->read_file('varlog_3.log'), 'variable in file');
 
-chomp(my $hostname = lc `hostname`);
+my $hostname = lc hostname();
 like($t->read_file('vars.log'), qr/^\d+:[\d.]+:$hostname:\d+$/, 'log vars');
 is($t->read_file('addr.log'),
 	"$escaped:$lhost:$lport:127.0.0.1:$dport:127.0.0.1:$uport\n",

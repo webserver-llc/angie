@@ -46,14 +46,19 @@ http {
     ssl_certificate localhost.crt;
 
     ssl_verify_client on;
-    ssl_client_certificate int-root.crt;
+    ssl_client_certificate root.crt;
 
-    add_header X-Verify $ssl_client_verify;
+    add_header X-Verify $ssl_client_verify always;
 
     server {
         listen       127.0.0.1:8080 ssl;
         server_name  localhost;
-        ssl_verify_depth 0;
+        ssl_verify_depth 3;
+    }
+
+    server {
+        listen       127.0.0.1:8081 ssl;
+        server_name  localhost;
     }
 }
 
@@ -80,9 +85,13 @@ default_md = sha256
 policy = myca_policy
 serial = $d/certserial
 default_days = 1
+x509_extensions = myca_extensions
 
 [ myca_policy ]
 commonName = supplied
+
+[ myca_extensions ]
+basicConstraints = critical,CA:TRUE
 EOF
 
 foreach my $name ('root', 'localhost') {
@@ -93,7 +102,7 @@ foreach my $name ('root', 'localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-foreach my $name ('int', 'end') {
+foreach my $name ('int', 'int2', 'end') {
 	system("openssl req -new "
 		. "-config $d/openssl.conf -subj /CN=$name/ "
 		. "-out $d/$name.csr -keyout $d/$name.key "
@@ -112,20 +121,28 @@ system("openssl ca -batch -config $d/ca.conf "
 
 system("openssl ca -batch -config $d/ca.conf "
 	. "-keyfile $d/int.key -cert $d/int.crt "
+	. "-subj /CN=int2/ -in $d/int2.csr -out $d/int2.crt "
+	. ">>$d/openssl.out 2>&1") == 0
+	or die "Can't sign certificate for int2: $!\n";
+
+system("openssl ca -batch -config $d/ca.conf "
+	. "-keyfile $d/int2.key -cert $d/int2.crt "
 	. "-subj /CN=end/ -in $d/end.csr -out $d/end.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't sign certificate for end: $!\n";
 
-$t->write_file('int-root.crt',
-	$t->read_file('int.crt') . $t->read_file('root.crt'));
+$t->write_file('client.key', $t->read_file('end.key') .
+	$t->read_file('int.key') . $t->read_file('int2.key'));
+$t->write_file('client.crt', $t->read_file('end.crt') .
+	$t->read_file('int.crt') . $t->read_file('int2.crt'));
 
 $t->write_file('t', '');
 $t->run();
 
 ###############################################################################
 
-like(get(8080, 'root'), qr/SUCCESS/, 'verify depth');
-like(get(8080, 'end'), qr/400 Bad Request/, 'verify depth limited');
+like(get(8080, 'client'), qr/SUCCESS/, 'verify depth');
+like(get(8081, 'client'), qr/FAILED/, 'verify depth limited');
 
 ###############################################################################
 

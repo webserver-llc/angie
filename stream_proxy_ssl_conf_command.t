@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -81,6 +82,7 @@ $t->try_run('no proxy_ssl_conf_command')->plan(1);
 
 ###############################################################################
 
-like(http_get('/'), qr/CN=override/, 'Certificate');
+like(stream('127.0.0.1:' . port(8080))->read(), qr/CN=override/,
+	'Certificate');
 
 ###############################################################################

@@ -222,7 +222,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function test_log(r) {
-        r.log('SEE-THIS');
+        r.log('SEE-LOG');
     }
 
     function test_except(r) {
@@ -298,7 +298,7 @@ like(http_get('/content_empty'), qr/500 Internal Server Error/,
 
 $t->stop();
 
-ok(index($t->read_file('error.log'), 'SEE-THIS') > 0, 'log js');
+ok(index($t->read_file('error.log'), 'SEE-LOG') > 0, 'log js');
 ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
 	'js_set backtrace');
 ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,

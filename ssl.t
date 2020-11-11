@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(24);
+	->has_daemon('openssl')->plan(25);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -298,6 +298,15 @@ $req x= 1000;
 my $r = http($req, socket => $s) || "";
 is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
 
+# close_notify is sent before lingering close
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.5');
+
+is(get_ssl_shutdown(8085), 1, 'ssl shutdown on lingering close');
+
+}
+
 ###############################################################################
 
 sub get {
@@ -366,6 +375,20 @@ sub get_ssl_socket {
 	}
 
 	return $s;
+}
+
+sub get_ssl_shutdown {
+	my ($port) = @_;
+
+	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
+	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_fd($ssl, fileno($s));
+	Net::SSLeay::connect($ssl) or die("ssl connect");
+	Net::SSLeay::write($ssl, 'GET /' . CRLF . 'extra');
+	Net::SSLeay::read($ssl);
+	Net::SSLeay::set_shutdown($ssl, 1);
+	Net::SSLeay::shutdown($ssl);
 }
 
 ###############################################################################

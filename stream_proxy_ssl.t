@@ -37,6 +37,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     proxy_ssl on;
     proxy_ssl_session_reuse on;
     proxy_connect_timeout 2s;

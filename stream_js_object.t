@@ -49,6 +49,8 @@ http {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     js_set $test     test;
 
     js_include test.js;

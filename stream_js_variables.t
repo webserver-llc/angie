@@ -49,6 +49,8 @@ http {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     js_set $test_var       test_var;
     js_set $test_not_found test_not_found;
 

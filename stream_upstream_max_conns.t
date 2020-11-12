@@ -37,6 +37,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     upstream u_unlim {
         server 127.0.0.1:8081 max_conns=0;
         server 127.0.0.1:8082;

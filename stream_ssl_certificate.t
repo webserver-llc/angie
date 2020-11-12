@@ -55,6 +55,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     geo $one {
         default one;
     }

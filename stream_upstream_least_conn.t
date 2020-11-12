@@ -36,6 +36,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     upstream u {
         least_conn;
         server 127.0.0.1:8081;

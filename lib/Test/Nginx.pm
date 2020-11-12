@@ -548,6 +548,7 @@ sub write_file_expand($$) {
 
 	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals()/gmse;
 	$content =~ s/%%TEST_GLOBALS_HTTP%%/$self->test_globals_http()/gmse;
+	$content =~ s/%%TEST_GLOBALS_STREAM%%/$self->test_globals_stream()/gmse;
 	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
 
 	$content =~ s/127\.0\.0\.1:(8\d\d\d)/'127.0.0.1:' . port($1)/gmse;
@@ -687,6 +688,20 @@ sub test_globals_http() {
 		if $ENV{TEST_NGINX_GLOBALS_HTTP};
 
 	$self->{_test_globals_http} = $s;
+}
+
+sub test_globals_stream() {
+	my ($self) = @_;
+
+	return $self->{_test_globals_stream}
+		if defined $self->{_test_globals_stream};
+
+	my $s = '';
+
+	$s .= $ENV{TEST_NGINX_GLOBALS_STREAM}
+		if $ENV{TEST_NGINX_GLOBALS_STREAM};
+
+	$self->{_test_globals_stream} = $s;
 }
 
 ###############################################################################

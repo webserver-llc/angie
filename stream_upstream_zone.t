@@ -34,6 +34,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     log_format test $upstream_addr;
 
     upstream u {

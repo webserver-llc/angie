@@ -36,6 +36,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     # download and upload rates are set equal to the maximum
     # number of bytes transmitted
 

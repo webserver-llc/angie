@@ -37,6 +37,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     upstream hash {
         hash $remote_addr;
         server 127.0.0.1:8082;

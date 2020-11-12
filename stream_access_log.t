@@ -37,6 +37,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     log_format  test  $server_addr;
     log_format  vars  $connection:$nginx_version:$hostname:$pid;
     log_format  addr  $binary_remote_addr:$remote_addr:$remote_port:

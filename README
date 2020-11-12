@@ -48,4 +48,8 @@ TEST_NGINX_GLOBALS_HTTP
 
     Sets additional directives in http context.
 
+TEST_NGINX_GLOBALS_STREAM
+
+    Sets additional directives in stream context.
+
 Happy testing!

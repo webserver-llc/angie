@@ -44,6 +44,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     upstream u {
         server 127.0.0.1:%%PORT_8983_UDP%% down;
     }

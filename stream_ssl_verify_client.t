@@ -47,6 +47,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     log_format  status  $status;
 
     ssl_certificate_key 1.example.com.key;

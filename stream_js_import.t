@@ -34,6 +34,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     js_set $test foo.bar.p;
 
     js_import lib.js;

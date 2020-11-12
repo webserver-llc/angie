@@ -43,6 +43,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     server {
         listen       127.0.0.1:8443 ssl;
         return       OK;

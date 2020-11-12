@@ -53,6 +53,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
     ssl_session_cache builtin;

@@ -34,6 +34,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     proxy_requests           2;
     proxy_responses          1;
     proxy_timeout            3s;

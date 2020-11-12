@@ -35,6 +35,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     upstream u {
         server 127.0.0.1:8083 max_fails=0;
         server 127.0.0.1:8084 max_fails=0;

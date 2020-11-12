@@ -36,6 +36,8 @@ events {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     log_format bytes $upstream_addr!
                      $upstream_bytes_sent!$upstream_bytes_received;
 

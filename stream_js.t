@@ -59,6 +59,8 @@ http {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     js_set $js_addr      js_addr;
     js_set $js_var       js_var;
     js_set $js_log       js_log;

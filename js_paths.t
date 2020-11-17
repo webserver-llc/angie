@@ -44,10 +44,6 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /njs {
-            js_content test_njs;
-        }
-
         location /test {
             js_content test;
         }
@@ -64,10 +60,6 @@ $t->write_file('test.js', <<EOF);
     import m1 from 'module1.js';
     import m2 from 'module2.js';
     import m3 from 'lib1/module1.js';
-
-    function test_njs(r) {
-        r.return(200, njs.version);
-    }
 
     function test(r) {
         r.return(200, m1[r.args.fun](r.args.a, r.args.b));

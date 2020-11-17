@@ -41,10 +41,6 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /njs {
-            js_content test_njs;
-        }
-
         location /test {
             js_content test_redirect;
         }
@@ -63,10 +59,6 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_njs(r) {
-        r.return(200, njs.version);
-    }
-
     function test_redirect(r) {
         if (r.variables.arg_dest == 'named') {
             r.internalRedirect('\@named');

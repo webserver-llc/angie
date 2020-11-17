@@ -52,10 +52,6 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /njs {
-            js_content test_njs;
-        }
-
         location /sr {
             js_content sr;
         }
@@ -258,10 +254,6 @@ EOF
 
 $t->write_file('test.js', <<EOF);
     this.Failed = {get toConvert() { return {toString(){return {};}}}};
-
-    function test_njs(r) {
-        r.return(200, njs.version);
-    }
 
     function sr(r) {
         subrequest_fn(r, ['/p/sub2'], ['uri', 'status'])
@@ -518,12 +510,6 @@ is(get_json('/sr_out_of_order'),
 	'{"status":200,"uri":"/p/delayed"}]',
 	'sr_multi');
 
-my $ver = http_get('/njs');
-
-TODO: {
-local $TODO = 'not yet'
-	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
-
 is(get_json('/sr_pr'), '{"h":"xxx"}', 'sr_promise');
 is(get_json('/sr_options_args_pr'), '{"h":"xxx"}', 'sr_options_args_pr');
 is(get_json('/sr_options_method_pr?m=PUT'), '["PUT"]', 'sr method PUT');
@@ -532,15 +518,8 @@ is(get_json('/sr_js_in_subrequest_pr'), '["JS-SUB"]', 'sr_js_in_subrequest_pr');
 is(get_json('/sr_unavail_pr'), '[{"status":502,"uri":"/unavail"}]',
 	'sr_unavail_pr');
 
-}
-
-TODO: {
-local $TODO = 'not yet'
-	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.9';
-
 like(http_get('/sr_detached_in_variable_handler'), qr/subrequest_var/,
      'sr_detached_in_variable_handler');
-}
 
 http_get('/sr_broken');
 http_get('/sr_in_sr');
@@ -571,13 +550,8 @@ ok(index($t->read_file('error.log'),
 		'js subrequest: failed to get the parent context') > 0,
 	'zero parent ctx');
 
-TODO: {
-local $TODO = 'not yet'
-	unless $ver =~ /^([.0-9]+)$/m && $1 ge '0.3.9';
-
 ok(index($t->read_file('error.log'), 'DETACHED') > 0,
 	'detached subrequest');
-}
 
 ###############################################################################
 

@@ -244,7 +244,6 @@ $t->try_run('no njs available')->plan(27);
 
 ###############################################################################
 
-
 like(http_get('/method'), qr/method=GET/, 'r.method');
 like(http_get('/version'), qr/version=1.0/, 'r.httpVersion');
 like(http_get('/addr'), qr/addr=127.0.0.1/, 'r.remoteAddress');
@@ -278,13 +277,7 @@ like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
 like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 
-TODO: {
-local $TODO = 'not yet'
-               unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.7';
-
 like(http_get('/arg_keys?b=1&c=2&a=5'), qr/a,b,c/m, 'r.args sorted keys');
-
-}
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');

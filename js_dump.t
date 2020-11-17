@@ -42,10 +42,6 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /njs {
-            js_content test_njs;
-        }
-
         location /dump {
             js_content test_dump;
         }
@@ -67,10 +63,6 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_njs(r) {
-        r.return(200, njs.version);
-    }
-
     function test_dump(r) {
         r.headersOut.baz = 'bar';
         r.return(200, njs.dump(r));
@@ -94,10 +86,6 @@ $t->try_run('no njs dump')->plan(3);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-               unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.3.8';
-
 like(http(
 	'GET /dump?v=1&t=x HTTP/1.0' . CRLF
 	. 'Foo: bar' . CRLF
@@ -116,7 +104,5 @@ like(http(
 	'GET /stringify_subrequest HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/responseBody":"\{GET}"/, 'JSON.stringify(reply)');
-
-}
 
 ###############################################################################

@@ -45,10 +45,6 @@ http {
 
         set $foo       foo_orig;
 
-        location /njs {
-            js_content test_njs;
-        }
-
         location /var_set {
             return 200 $test_var$foo;
         }
@@ -66,10 +62,6 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_njs(r) {
-        r.return(200, njs.version);
-    }
-
     function test_var(r) {
         r.variables.foo = r.variables.arg_a;
         return 'test_var';

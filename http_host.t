@@ -15,7 +15,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_content /;
 
 ###############################################################################
 
@@ -185,7 +185,7 @@ GET / HTTP/1.0
 Host: $host
 
 EOF
-	return ($all ? $r : Test::Nginx::http_content($r));
+	return ($all ? $r : http_content($r));
 }
 
 sub http_absolute_path {
@@ -195,7 +195,7 @@ GET http://$host/ HTTP/1.0
 Host: localhost
 
 EOF
-	return ($all ? $r : Test::Nginx::http_content($r));
+	return ($all ? $r : http_content($r));
 }
 
 ###############################################################################

@@ -16,7 +16,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_content /;
 
 ###############################################################################
 
@@ -144,7 +144,7 @@ sub durations {
 		$uri .= "?end=$end";
 	}
 
-	$t->write_file('frag.mp4', Test::Nginx::http_content(http_get($uri)));
+	$t->write_file('frag.mp4', http_content(http_get($uri)));
 
 	my $r = `ffprobe -show_streams $path 2>/dev/null`;
 	Test::Nginx::log_core('||', $r);

@@ -12,7 +12,9 @@ use strict;
 use base qw/ Exporter /;
 
 our @EXPORT = qw/ log_in log_out http http_get http_head port /;
-our @EXPORT_OK = qw/ http_gzip_request http_gzip_like http_start http_end /;
+our @EXPORT_OK = qw/
+	http_gzip_request http_gzip_like http_start http_end http_content
+/;
 our %EXPORT_TAGS = (
 	gzip => [ qw/ http_gzip_request http_gzip_like / ]
 );

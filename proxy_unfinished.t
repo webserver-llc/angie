@@ -24,7 +24,7 @@ use Socket qw/ CRLF /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_content /;
 
 ###############################################################################
 
@@ -144,7 +144,7 @@ chmod(0000, $t->testdir() . '/proxy_temp');
 my $r = http_get_11('/proxy/big.html', sleep => 0.5);
 
 SKIP: {
-skip 'finished', 1 if length(Test::Nginx::http_content($r)) == 1024 * 1024 + 8;
+skip 'finished', 1 if length(http_content($r)) == 1024 * 1024 + 8;
 
 like($r, qr/X(?!.*\x0d\x0a?0\x0d\x0a?)/s, 'no proxy temp');
 

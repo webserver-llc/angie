@@ -853,10 +853,16 @@ sub http_content {
 	}
 
 	my $content = '';
+	my $len = -1;
+
 	while ($body =~ /\G\x0d?\x0a?([0-9a-f]+)\x0d\x0a?/gcmsi) {
-		my $len = hex($1);
+		$len = hex($1);
 		$content .= substr($body, pos($body), $len);
 		pos($body) += $len;
+	}
+
+	if ($len != 0) {
+		$content .= '[no-last-chunk]';
 	}
 
 	return $content;

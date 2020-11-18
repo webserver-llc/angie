@@ -52,6 +52,10 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        location /njs {
+            js_content test_njs;
+        }
+
         location /sr {
             js_content sr;
         }
@@ -109,10 +113,14 @@ http {
             return 200 $subrequest_var;
         }
 
-        location /sr_error_page {
+        location /sr_async_var {
             set $_ $async_var;
             error_page 404 /return;
             return 404;
+        }
+
+        location /sr_error_page {
+            js_content sr_error_page;
         }
 
         location /sr_js_in_subrequest {
@@ -210,6 +218,12 @@ http {
         location /return {
             return 200 '["$request_method"]';
         }
+
+        location /error_page_404 {
+            return 404;
+
+            error_page 404 /404.html;
+        }
     }
 
     server {
@@ -254,6 +268,10 @@ EOF
 
 $t->write_file('test.js', <<EOF);
     this.Failed = {get toConvert() { return {toString(){return {};}}}};
+
+    function test_njs(r) {
+        r.return(200, njs.version);
+    }
 
     function sr(r) {
         subrequest_fn(r, ['/p/sub2'], ['uri', 'status'])
@@ -338,6 +356,11 @@ $t->write_file('test.js', <<EOF);
         });
 
         return "";
+    }
+
+    function sr_error_page(r) {
+         r.subrequest('/error_page_404')
+         .then(reply => {r.return(200, `reply.status:\${reply.status}`)});
     }
 
     function subrequest_var(r) {
@@ -470,7 +493,7 @@ EOF
 
 $t->write_file('t', '["SEE-THIS"]');
 
-$t->try_run('no njs available')->plan(31);
+$t->try_run('no njs available')->plan(32);
 $t->run_daemon(\&http_daemon);
 
 ###############################################################################
@@ -521,10 +544,19 @@ is(get_json('/sr_unavail_pr'), '[{"status":502,"uri":"/unavail"}]',
 like(http_get('/sr_detached_in_variable_handler'), qr/subrequest_var/,
      'sr_detached_in_variable_handler');
 
+TODO: {
+todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
+	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
+
+like(http_get('/sr_error_page'), qr/reply\.status:404/,
+     'sr_error_page');
+
+}
+
 http_get('/sr_broken');
 http_get('/sr_in_sr');
 http_get('/sr_in_variable_handler');
-http_get('/sr_error_page');
+http_get('/sr_async_var');
 http_get('/sr_too_large');
 http_get('/sr_except_not_a_func');
 http_get('/sr_except_failed_to_convert_options_arg');

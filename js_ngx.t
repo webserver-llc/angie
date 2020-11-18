@@ -41,6 +41,10 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
+        location /njs {
+            js_content test.njs;
+        }
+
         location /log {
             js_content test.log;
         }
@@ -50,6 +54,10 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
+    function test_njs(r) {
+        r.return(200, njs.version);
+    }
+
     function level(r) {
         switch (r.args.level) {
         case 'INFO': return ngx.INFO;
@@ -65,13 +73,17 @@ $t->write_file('test.js', <<EOF);
         r.return(200);
     }
 
-    export default {log};
+    export default {njs: test_njs, log};
 
 EOF
 
 $t->try_run('no njs ngx')->plan(3);
 
 ###############################################################################
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
 
 http_get('/log?level=INFO&text=FOO');
 http_get('/log?level=WARN&text=BAR');
@@ -82,5 +94,7 @@ $t->stop();
 like($t->read_file('error.log'), qr/\[info\].*ngx.log:FOO/, 'ngx.log info');
 like($t->read_file('error.log'), qr/\[warn\].*ngx.log:BAR/, 'ngx.log warn');
 like($t->read_file('error.log'), qr/\[error\].*ngx.log:BAZ/, 'ngx.log err');
+
+}
 
 ###############################################################################

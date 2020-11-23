@@ -103,6 +103,6 @@ like(http(
 like(http(
 	'GET /stringify_subrequest HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
-), qr/responseBody":"\{GET}"/, 'JSON.stringify(reply)');
+), qr/"status":201/, 'JSON.stringify(reply)');
 
 ###############################################################################

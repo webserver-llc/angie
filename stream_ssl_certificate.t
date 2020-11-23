@@ -182,6 +182,7 @@ sub get {
 	my ($host, $port, $ctx) = @_;
 	my ($s, $ssl) = get_ssl_socket($host, $port, $ctx) or return;
 	my $r = Net::SSLeay::read($ssl);
+	Net::SSLeay::shutdown($ssl);
 	$s->close();
 	return $r unless wantarray();
 	return ($s, $ssl);

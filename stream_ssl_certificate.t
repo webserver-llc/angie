@@ -162,13 +162,9 @@ like(get('password', 8083), qr/password/, 'ssl_password_file');
 my ($s, $ssl) = get('default', 8080);
 my $ses = Net::SSLeay::get_session($ssl);
 
-like(get('default', 8080, $ses), qr/:r/, 'session reused');
-
-# do not check $ssl_server_name, since stream doesn't install SNI callback
-# see for more details: https://github.com/openssl/openssl/issues/7014
-
-like(get('default', 8081, $ses), qr/:r/, 'session id context match');
-like(get('default', 8082, $ses), qr/:\./, 'session id context distinct');
+like(get('default', 8080, $ses), qr/default:r/, 'session reused');
+like(get('default', 8081, $ses), qr/default:r/, 'session id context match');
+like(get('default', 8082, $ses), qr/default:\./, 'session id context distinct');
 
 # errors
 

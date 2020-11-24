@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(111);
+	->has(qw/upstream_keepalive/)->plan(113);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -514,6 +514,28 @@ $frames = $f->{discard}();
 (undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{flags}, undef, 'discard CANCEL - no trailers');
 
+# upstream keepalive, grpc error
+# receiving END_STREAM followed by RST_STREAM NO_ERROR
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_err_rst}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($frame->{headers}{'grpc-status'}, 'keepalive 3 - grpc error, rst');
+
+$frames = $f->{http_start}('/KeepAlive', reuse => 1);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.5');
+
+ok($frame, 'keepalive 3 - connection reused');
+
+}
+
+undef $f;
+$f = grpc();
+
 ###############################################################################
 
 sub grpc {
@@ -657,6 +679,20 @@ sub grpc {
 			{ name => 'grpc-message', value => 'unknown service',
 				mode => 2, huff => 1 },
 		]}, $sid);
+
+		return $s->read(all => [{ fin => 1 }]);
+	};
+	$f->{http_err_rst} = sub {
+		$c->start_chain();
+		$c->new_stream({ headers => [
+			{ name => ':status', value => '200', mode => 0 },
+			{ name => 'content-type', value => 'application/grpc' },
+			{ name => 'grpc-status', value => '12', mode => 2 },
+			{ name => 'grpc-message', value => 'unknown service',
+				mode => 2 },
+		]}, $sid);
+		$c->h2_rst($sid, 0);
+		$c->send_chain();
 
 		return $s->read(all => [{ fin => 1 }]);
 	};

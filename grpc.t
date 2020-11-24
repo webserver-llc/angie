@@ -747,7 +747,7 @@ sub grpc {
 		$trailers .= $rst if $uri eq '/Discard_NE';
 		$trailers .= ($rst x 3) if $uri eq '/Discard_NE3';
 		$trailers .= $cnl if $uri eq '/Discard_CNL';
-		Test::Nginx::HTTP2::raw_write($client, $trailers);
+		$c->raw_write($trailers);
 
 		return $s->read(all => [{ fin => 1 }], wait => 2)
 			if $uri eq '/Discard_WU' || $uri eq '/Discard_NE';

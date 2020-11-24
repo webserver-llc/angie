@@ -12,7 +12,7 @@ use strict;
 
 use Test::More;
 
-use Socket qw/ :DEFAULT CRLF /;
+use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -150,15 +150,11 @@ sub get_ssl_socket {
 	my ($port) = @_;
 	my $s;
 
-	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in(port($port), $dest_ip);
-
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(8);
-		socket($s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
-		connect($s, $dest_serv_params) or die "connect: $!";
+		$s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 		alarm(0);
 	};
 	alarm(0);

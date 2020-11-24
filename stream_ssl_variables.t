@@ -12,8 +12,6 @@ use strict;
 
 use Test::More;
 
-use Socket;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -127,14 +125,8 @@ is(Net::SSLeay::ssl_read_all($ssl), '', 'ssl server name empty');
 
 sub get_ssl_socket {
 	my ($port, $ses, $name) = @_;
-	my $s;
 
-	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in($port, $dest_ip);
-
-	socket($s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
-	connect($s, $dest_serv_params) or die "connect: $!";
-
+	my $s = IO::Socket::INET->new('127.0.0.1:' . $port);
 	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
 	Net::SSLeay::set_tlsext_host_name($ssl, $name) if defined $name;

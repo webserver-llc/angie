@@ -12,7 +12,7 @@ use strict;
 
 use Test::More;
 
-use Socket qw/ :DEFAULT CRLF /;
+use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -185,12 +185,7 @@ sub get {
 
 	$host = $sni if !defined $host;
 
-	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in(port(8081), $dest_ip);
-
-	socket(my $s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
-	connect($s, $dest_serv_params) or die "connect: $!";
-
+	my $s = IO::Socket::INET->new('127.0.0.1:' . port(8081));
 	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
 		or die if $cert;

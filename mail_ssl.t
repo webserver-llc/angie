@@ -12,8 +12,6 @@ use strict;
 
 use Test::More;
 
-use Socket qw/ :DEFAULT $CRLF /;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -294,14 +292,8 @@ $s->ok('smtp starttls only');
 
 sub get_ssl_socket {
 	my ($port, $ses) = @_;
-	my $s;
 
-	my $dest_ip = inet_aton('127.0.0.1');
-	my $dest_serv_params = sockaddr_in(port($port), $dest_ip);
-
-	socket($s, &AF_INET, &SOCK_STREAM, 0) or die "socket: $!";
-	connect($s, $dest_serv_params) or die "connect: $!";
-
+	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
 	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
 	Net::SSLeay::set_fd($ssl, fileno($s));

@@ -337,6 +337,11 @@ sub raw_read {
 
 sub raw_write {
 	my ($self, $message) = @_;
+
+	if ($self->{chaining}) {
+		return add_chain($self, $message);
+	}
+
 	my $s = $self->{socket};
 
 	local $SIG{PIPE} = 'IGNORE';
@@ -348,6 +353,30 @@ sub raw_write {
 		$message = substr($message, $n);
 		last unless length $message;
 	}
+}
+
+sub start_chain {
+	my ($self) = @_;
+
+	$self->{chaining} = 1;
+}
+
+sub add_chain {
+	my ($self, $buf) = @_;
+
+	if ($self->{chained_buf}) {
+		$self->{chained_buf} .= $buf;
+	} else {
+		$self->{chained_buf} = $buf;
+	}
+}
+
+sub send_chain {
+	my ($self) = @_;
+
+	undef $self->{chaining};
+	$self->raw_write($self->{chained_buf}) if $self->{chained_buf};
+	undef $self->{chained_buf};
 }
 
 ###############################################################################

@@ -737,17 +737,16 @@ sub grpc {
 
 		# stick trailers and subsequent frames for reproducibility
 
-		my $fld = $c->hpack('grpc-status', '0', mode => 2);
-		my $trailers = pack("x2CCCN", length($fld), 1, 5, $sid) . $fld;
-		my $window = pack("xxCCCNN", 4, 8, 0, $sid, 42);
-		my $rst = pack("x2C2xNN", 4, 3, $sid, 0);
-		my $cnl = pack("x2C2xNN", 4, 3, $sid, 8);
-
-		$trailers .= $window if $uri eq '/Discard_WU';
-		$trailers .= $rst if $uri eq '/Discard_NE';
-		$trailers .= ($rst x 3) if $uri eq '/Discard_NE3';
-		$trailers .= $cnl if $uri eq '/Discard_CNL';
-		$c->raw_write($trailers);
+		$c->start_chain();
+		$c->new_stream({ headers => [
+			{ name => 'grpc-status', value => '0', mode => 2 }
+		]}, $sid);
+		$c->h2_window(42, $sid) if $uri eq '/Discard_WU';
+		$c->h2_rst($sid, 0) if $uri eq '/Discard_NE';
+		$c->h2_rst($sid, 0), $c->h2_rst($sid, 0), $c->h2_rst($sid, 0)
+			if $uri eq '/Discard_NE3';
+		$c->h2_rst($sid, 8) if $uri eq '/Discard_CNL';
+		$c->send_chain();
 
 		return $s->read(all => [{ fin => 1 }], wait => 2)
 			if $uri eq '/Discard_WU' || $uri eq '/Discard_NE';

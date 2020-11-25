@@ -44,6 +44,7 @@ http {
     js_set $test_arg      test_arg;
     js_set $test_iarg     test_iarg;
     js_set $test_var      test_var;
+    js_set $test_type     test_type;
     js_set $test_global   test_global;
     js_set $test_log      test_log;
     js_set $test_except   test_except;
@@ -107,6 +108,10 @@ http {
             js_content request_body;
         }
 
+        location /request_body_cache {
+            js_content request_body_cache;
+        }
+
         location /send {
             js_content send;
         }
@@ -117,6 +122,10 @@ http {
 
         location /arg_keys {
             js_content arg_keys;
+        }
+
+        location /type {
+            js_content test_type;
         }
 
         location /log {
@@ -200,6 +209,12 @@ $t->write_file('test.js', <<EOF);
         }
     }
 
+    function request_body_cache(r) {
+        function t(v) {return Buffer.isBuffer(v) ? 'buffer' : (typeof v);}
+        r.return(200,
+                 `requestBody:\${t(r.requestBody)} reqBody:\${t(r.reqBody)}`);
+    }
+
     function send(r) {
         var a, s;
         r.status = 200;
@@ -221,6 +236,13 @@ $t->write_file('test.js', <<EOF);
         r.return(200, Object.keys(r.args).sort());
     }
 
+    function test_type(r) {
+        var p = r.args.path.split('.').reduce((a, v) => a[v], r);
+
+        var type = Buffer.isBuffer(p) ? 'buffer' : (typeof p);
+        r.return(200, `type: \${type}`);
+    }
+
     function test_log(r) {
         r.log('SEE-LOG');
     }
@@ -240,7 +262,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(27);
+$t->try_run('no njs available')->plan(32);
 
 ###############################################################################
 
@@ -278,6 +300,24 @@ like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 
 like(http_get('/arg_keys?b=1&c=2&a=5'), qr/a,b,c/m, 'r.args sorted keys');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
+
+like(http_get('/type?path=variables.host'), qr/200 OK.*type: string$/s,
+	'variables type');
+like(http_get('/type?path=vars.host'), qr/200 OK.*type: buffer$/s,
+	'vars type');
+
+like(http_post('/type?path=requestBody'), qr/200 OK.*type: string$/s,
+	'requestBody type');
+like(http_post('/type?path=reqBody'), qr/200 OK.*type: buffer$/s,
+	'reqBody type');
+like(http_post('/request_body_cache'), qr/requestBody:string reqBody:buffer$/s,
+	'reqBody type');
+
+}
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');

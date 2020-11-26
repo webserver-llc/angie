@@ -112,12 +112,13 @@ $t->write_file('test.js', <<EOF);
     }
 
     function binary_var(r) {
-        var test = r.vars.binary_remote_addr.equals(Buffer.from([127,0,0,1]));
+        var test = r.rawVariables.binary_remote_addr
+                   .equals(Buffer.from([127,0,0,1]));
         r.return(200, test);
     }
 
     export default {njs: test_njs, return: test_return, req_body, res_body,
-	                binary_var};
+                    binary_var};
 
 EOF
 

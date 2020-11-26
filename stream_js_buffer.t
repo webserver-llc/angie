@@ -99,13 +99,14 @@ $t->write_file('test.js', <<EOF);
     }
 
     function type(s) {
-		var v = s.vars.remote_addr;
+		var v = s.rawVariables.remote_addr;
 		var type = Buffer.isBuffer(v) ? 'buffer' : (typeof v);
 		return type;
     }
 
     function binary_var(s) {
-        var test = s.vars.binary_remote_addr.equals(Buffer.from([127,0,0,1]));
+        var test = s.rawVariables
+                   .binary_remote_addr.equals(Buffer.from([127,0,0,1]));
         return test;
     }
 

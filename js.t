@@ -307,8 +307,8 @@ local $TODO = 'not yet'
 
 like(http_get('/type?path=variables.host'), qr/200 OK.*type: string$/s,
 	'variables type');
-like(http_get('/type?path=vars.host'), qr/200 OK.*type: buffer$/s,
-	'vars type');
+like(http_get('/type?path=rawVariables.host'), qr/200 OK.*type: buffer$/s,
+	'rawVariables type');
 
 like(http_post('/type?path=requestBody'), qr/200 OK.*type: string$/s,
 	'requestBody type');

@@ -212,7 +212,7 @@ $t->write_file('test.js', <<EOF);
     function request_body_cache(r) {
         function t(v) {return Buffer.isBuffer(v) ? 'buffer' : (typeof v);}
         r.return(200,
-                 `requestBody:\${t(r.requestBody)} reqBody:\${t(r.reqBody)}`);
+      `requestText:\${t(r.requestText)} requestBuffer:\${t(r.requestBuffer)}`);
     }
 
     function send(r) {
@@ -262,7 +262,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(32);
+$t->try_run('no njs available')->plan(33);
 
 ###############################################################################
 
@@ -312,10 +312,12 @@ like(http_get('/type?path=rawVariables.host'), qr/200 OK.*type: buffer$/s,
 
 like(http_post('/type?path=requestBody'), qr/200 OK.*type: string$/s,
 	'requestBody type');
-like(http_post('/type?path=reqBody'), qr/200 OK.*type: buffer$/s,
-	'reqBody type');
-like(http_post('/request_body_cache'), qr/requestBody:string reqBody:buffer$/s,
-	'reqBody type');
+like(http_post('/type?path=requestText'), qr/200 OK.*type: string$/s,
+	'requestText type');
+like(http_post('/type?path=requestBuffer'), qr/200 OK.*type: buffer$/s,
+	'requestBuffer type');
+like(http_post('/request_body_cache'),
+	qr/requestText:string requestBuffer:buffer$/s, 'request body cache');
 
 }
 

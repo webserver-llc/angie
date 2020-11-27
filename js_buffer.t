@@ -62,6 +62,10 @@ http {
             js_content test.res_body;
         }
 
+        location /res_text {
+            js_content test.res_text;
+        }
+
         location /binary_var {
             js_content test.binary_var;
         }
@@ -95,19 +99,32 @@ $t->write_file('test.js', <<EOF);
     }
 
     function req_body(r) {
-        var body = r.reqBody;
+        var body = r.requestBuffer;
         var view = new DataView(body.buffer);
         view.setInt8(2, 'c'.charCodeAt(0));
         r.return(200, JSON.parse(body).c.b);
     }
 
+    function type(v) {return Buffer.isBuffer(v) ? 'buffer' : (typeof v);}
+
     function res_body(r) {
         r.subrequest('/p/sub1')
         .then(reply => {
-            var body = reply.resBody;
+            var body = reply.responseBuffer;
             var view = new DataView(body.buffer);
             view.setInt8(2, 'c'.charCodeAt(0));
-            r.return(200, JSON.stringify(JSON.parse(body)));
+            body = JSON.parse(body);
+            body.type = type(reply.responseBuffer);
+            r.return(200, JSON.stringify(body));
+        })
+    }
+
+    function res_text(r) {
+        r.subrequest('/p/sub1')
+        .then(reply => {
+            var body = JSON.parse(reply.responseText);
+            body.type = type(reply.responseText);
+            r.return(200, JSON.stringify(body));
         })
     }
 
@@ -118,11 +135,11 @@ $t->write_file('test.js', <<EOF);
     }
 
     export default {njs: test_njs, return: test_return, req_body, res_body,
-                    binary_var};
+                    res_text, binary_var};
 
 EOF
 
-$t->try_run('no njs buffer')->plan(4);
+$t->try_run('no njs buffer')->plan(5);
 
 ###############################################################################
 
@@ -132,8 +149,9 @@ local $TODO = 'not yet'
 
 like(http_get('/return?text=FOO'), qr/200 OK.*body: FOO$/s,
 	'return buffer');
-like(http_post('/req_body'), qr/200 OK.*BAR$/s, 'req body');
-is(get_json('/res_body'), '{"c":{"b":1}}', 'res body');
+like(http_post('/req_body'), qr/200 OK.*BAR$/s, 'request buffer');
+is(get_json('/res_body'), '{"c":{"b":1},"type":"buffer"}', 'response buffer');
+is(get_json('/res_text'), '{"a":{"b":1},"type":"string"}', 'response text');
 like(http_get('/binary_var'), qr/200 OK.*true$/s,
 	'binary var');
 

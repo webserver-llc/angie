@@ -514,6 +514,9 @@ $frames = $f->{discard}();
 (undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{flags}, undef, 'discard CANCEL - no trailers');
 
+undef $f;
+$f = grpc();
+
 # upstream keepalive, grpc error
 # receiving END_STREAM followed by RST_STREAM NO_ERROR
 

@@ -350,7 +350,10 @@ sub run(;$) {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		exec($NGINX, '-p', "$testdir/", '-c', 'nginx.conf', @globals),
+		my @error = $self->has_version('1.19.5') ?
+			('-e', 'error.log') : ();
+		exec($NGINX, '-p', "$testdir/", '-c', 'nginx.conf',
+			@error, @globals)
 			or die "Unable to exec(): $!\n";
 	}
 
@@ -422,8 +425,10 @@ sub dump_config() {
 	my @globals = $self->{_test_globals} ?
 		() : ('-g', "pid $testdir/nginx.pid; "
 		. "error_log $testdir/error.log debug;");
+	my @error = $self->has_version('1.19.5') ?
+		('-e', 'error.log') : ();
 	my $command = "$NGINX -T -p $testdir/ -c nginx.conf "
-		. join(' ', @globals);
+		. join(' ', @error, @globals);
 
 	return qx/$command 2>&1/;
 }
@@ -476,8 +481,10 @@ sub reload() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
+		my @error = $self->has_version('1.19.5') ? 
+			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'reload', @globals) == 0
+			'-s', 'reload', @error, @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {
@@ -499,8 +506,10 @@ sub stop() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
+		my @error = $self->has_version('1.19.5') ?
+			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'stop', @globals) == 0
+			'-s', 'stop', @error, @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {

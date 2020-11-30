@@ -291,19 +291,24 @@ sub try_run($$) {
 	my ($self, $message) = @_;
 
 	eval {
-		open OLDERR, ">&", \*STDERR; close STDERR;
+		open OLDERR, ">&", \*STDERR;
+		open NEWERR, ">", $self->{_testdir} . '/stderr'
+			or die "Can't open stderr: $!";
+		close STDERR;
+		open STDERR, ">&", \*NEWERR;
+		close NEWERR;
+
 		$self->run();
+
+		close STDERR;
 		open STDERR, ">&", \*OLDERR;
 	};
 
 	return $self unless $@;
 
 	if ($ENV{TEST_NGINX_VERBOSE}) {
-		my $path = $self->{_configure_args} =~ m!--error-log-path=(\S+)!
-			? $1 : 'logs/error.log';
-		$path = "$self->{_testdir}/$path" if index($path, '/');
-
-		open F, '<', $path or die "Can't open $path: $!";
+		open F, '<', $self->{_testdir} . '/stderr'
+			or die "Can't open stderr: $!";
 		log_core($_) while (<F>);
 		close F;
 	}

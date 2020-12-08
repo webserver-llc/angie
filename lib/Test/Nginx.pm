@@ -481,7 +481,7 @@ sub reload() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		my @error = $self->has_version('1.19.5') ? 
+		my @error = $self->has_version('1.19.5') ?
 			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
 			'-s', 'reload', @error, @globals) == 0

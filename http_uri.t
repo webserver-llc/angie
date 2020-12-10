@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(17)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -40,7 +40,9 @@ http {
         server_name  localhost;
 
         location / {
-            add_header  X-URI  "x $uri x";
+            add_header  X-URI          "x $uri x";
+            add_header  X-Args         "y $args y";
+            add_header  X-Request-URI  "z $request_uri z";
             return      204;
         }
     }
@@ -49,8 +51,6 @@ http {
 EOF
 
 ###############################################################################
-
-local $TODO = 'not yet' unless $t->has_version('1.17.5');
 
 like(http_get('/foo/bar%'), qr/400 Bad/, 'percent');
 like(http_get('/foo/bar%1'), qr/400 Bad/, 'percent digit');
@@ -61,5 +61,33 @@ like(http_get('/foo/bar/..?args'), qr!x /foo/ x!, 'dot dot args');
 like(http_get('/foo/bar/..#frag'), qr!x /foo/ x!, 'dot dot frag');
 like(http_get('/foo/bar/.'), qr!x /foo/bar/ x!, 'trailing dot');
 like(http_get('/foo/bar/..'), qr!x /foo/ x!, 'trailing dot dot');
+
+like(http_get('http://localhost'), qr!x / x!, 'absolute');
+like(http_get('http://localhost/'), qr!x / x!, 'absolute slash');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.6');
+
+like(http_get('http://localhost?args'), qr!x / x.*y args y!ms,
+	'absolute args');
+like(http_get('http://localhost?args#frag'), qr!x / x.*y args y!ms,
+	'absolute args and frag');
+
+}
+
+like(http_get('http://localhost:8080'), qr!x / x!, 'port');
+like(http_get('http://localhost:8080/'), qr!x / x!, 'port slash');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.6');
+
+like(http_get('http://localhost:8080?args'), qr!x / x.*y args y!ms,
+	'port args');
+like(http_get('http://localhost:8080?args#frag'), qr!x / x.*y args y!ms,
+	'port args and frag');
+
+}
+
+like(http_get('/ /'), qr!x / / x!, 'space');
 
 ###############################################################################

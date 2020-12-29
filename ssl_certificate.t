@@ -198,6 +198,9 @@ ok(Net::SSLeay::ERR_peek_error(), 'no certificate');
 sub get {
 	my ($host, $port, $ctx) = @_;
 	my ($s, $ssl) = get_ssl_socket($host, $port, $ctx) or return;
+
+	local $SIG{PIPE} = 'IGNORE';
+
 	Net::SSLeay::write($ssl, 'GET / HTTP/1.0' . CRLF . CRLF);
 	my $r = Net::SSLeay::read($ssl);
 	Net::SSLeay::shutdown($ssl);

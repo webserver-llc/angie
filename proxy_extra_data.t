@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http proxy cache rewrite addition/)->plan(20)
+	->has(qw/http proxy cache rewrite addition/)->plan(22)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -131,6 +131,26 @@ like(http_get('/head/extra'), qr/SEE-THIS(?!-BUT-NOT-THIS)/s,
 like(http_get('/head/short'), qr/SEE-THIS(?!.*:after)/s,
 	'head too short cached');
 
+
+# "zero size buf" alerts (ticket #2117)
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.1');
+
+like(http_get('/zero'), qr/200 OK(?!.*NOT-THIS)/s, 'zero size');
+
+}
+
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/unbuf/zero'), qr/200 OK(?!.*NOT-THIS)/s,
+	'unbuffered zero size');
+
+}
+
+$t->todo_alerts() if $t->has_version('1.19.1');
+
 ###############################################################################
 
 sub http_daemon {
@@ -167,6 +187,12 @@ sub http_daemon {
 			$c->print("Content-Type: text/html\n");
 			$c->print("Content-Length: 8\n\n");
 			$c->print("SEE-THIS-BUT-NOT-THIS\n");
+
+		} elsif ($uri eq '/zero') {
+			$c->print("HTTP/1.1 200 OK\n");
+			$c->print("Content-Type: text/html\n");
+			$c->print("Content-Length: 0\n\n");
+			$c->print("NOT-THIS\n");
 
 		} elsif ($uri eq '/short') {
 			$c->print("HTTP/1.1 200 OK\n");

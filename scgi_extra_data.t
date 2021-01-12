@@ -145,14 +145,14 @@ like(http_get('/zero'), qr/200 OK(?!.*NOT-THIS)/s, 'zero size');
 }
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.19.7');
 
 like(http_get('/unbuf/zero'), qr/200 OK(?!.*NOT-THIS)/s,
 	'unbuffered zero size');
 
 }
 
-$t->todo_alerts() if $t->has_version('1.19.1');
+$t->todo_alerts() if $t->has_version('1.19.1') and !$t->has_version('1.19.7');
 
 ###############################################################################
 

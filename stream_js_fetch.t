@@ -71,6 +71,8 @@ stream {
 
 EOF
 
+my $p = port(8080);
+
 $t->write_file('test.js', <<EOF);
     function test_njs(r) {
         r.return(200, njs.version);
@@ -88,7 +90,7 @@ $t->write_file('test.js', <<EOF);
 
             if (collect.length >= 4 && collect.readUInt16BE(0) == 0xabcd) {
                 s.off('upstream');
-                ngx.fetch('http://127.0.0.1:8080/validate',
+                ngx.fetch('http://127.0.0.1:$p/validate',
                           {body: collect.slice(2,4), headers: {Host:'aaa'}})
                 .then(reply => (reply.status == 200) ? s.done(): s.deny())
 

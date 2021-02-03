@@ -70,6 +70,8 @@ stream {
 
     js_include test.js;
 
+    log_format status $server_port:$status;
+
     server {
         listen  127.0.0.1:8080;
         return  $js_addr;
@@ -112,18 +114,21 @@ stream {
         listen      127.0.0.1:8087;
         js_access   js_access_undecided;
         return      OK;
+        access_log  %%TESTDIR%%/status.log status;
     }
 
     server {
         listen      127.0.0.1:8088;
         js_access   js_access_allow;
         return      OK;
+        access_log  %%TESTDIR%%/status.log status;
     }
 
     server {
         listen      127.0.0.1:8089;
         js_access   js_access_deny;
         return      OK;
+        access_log  %%TESTDIR%%/status.log status;
     }
 
     server {
@@ -255,12 +260,12 @@ $t->write_file('test.js', <<EOF);
             return;
         }
 
-        s.abort();
+        s.deny();
     }
 
     function js_access_deny(s) {
         if (s.remoteAddress.match('127.0.0.1')) {
-            s.abort();
+            s.deny();
             return;
         }
 
@@ -354,7 +359,7 @@ $t->write_file('test.js', <<EOF);
 EOF
 
 $t->run_daemon(\&stream_daemon, port(8090));
-$t->try_run('no stream njs available')->plan(19);
+$t->try_run('no stream njs available')->plan(22);
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
@@ -394,6 +399,11 @@ ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
 	'stream js_preread backtrace');
 ok(index($t->read_file('error.log'), 'at js_filter_except') > 0,
 	'stream js_filter backtrace');
+
+my @p = (port(8087), port(8088), port(8089));
+like($t->read_file('status.log'), qr/$p[0]:200/, 'status undecided');
+like($t->read_file('status.log'), qr/$p[1]:200/, 'status allow');
+like($t->read_file('status.log'), qr/$p[2]:403/, 'status deny');
 
 ###############################################################################
 

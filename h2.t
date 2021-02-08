@@ -695,6 +695,15 @@ $frames = $s->read(all => [{ type => 'PING' }]);
 ($frame) = grep { $_->{type} eq "PING" && $_->{flags} & 0x1 } @$frames;
 ok($frame, 'client body timeout - PING');
 
+# partial request body data frame with connection close after body timeout
+
+$s = Test::Nginx::HTTP2->new(port(8087));
+$sid = $s->new_stream({ path => '/proxy/t2.html', body_more => 1 });
+$s->h2_body('TEST', { split => [ 12 ], abort => 1 });
+
+select undef, undef, undef, 1.1;
+undef $s;
+
 # proxied request with logging pristine request header field (e.g., referer)
 
 $s = Test::Nginx::HTTP2->new();
@@ -1154,15 +1163,6 @@ $grace2->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 my $grace3 = Test::Nginx::HTTP2->new(port(8085));
 $sid = $grace3->new_stream({ path => '/proxy2/t2.html', body_more => 1 });
 $grace3->h2_body('TEST', { body_more => 1 });
-
-# partial request body data frame with connection close after body timeout
-
-my $grace4 = Test::Nginx::HTTP2->new(port(8087));
-$sid = $grace4->new_stream({ path => '/proxy/t2.html', body_more => 1 });
-$grace4->h2_body('TEST', { split => [ 12 ], abort => 1 });
-
-select undef, undef, undef, 1.1;
-undef $grace4;
 
 # GOAWAY without awaiting active streams, further streams ignored
 

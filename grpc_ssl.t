@@ -56,10 +56,6 @@ http {
         ssl_verify_client optional;
         ssl_client_certificate client.crt;
 
-        http2_max_field_size 128k;
-        http2_max_header_size 128k;
-        http2_body_preread_size 128k;
-
         location / {
             grpc_pass 127.0.0.1:8082;
             add_header X-Connection $connection;
@@ -69,10 +65,6 @@ http {
     server {
         listen       127.0.0.1:8080 http2;
         server_name  localhost;
-
-        http2_max_field_size 128k;
-        http2_max_header_size 128k;
-        http2_body_preread_size 128k;
 
         location / {
             grpc_pass grpcs://127.0.0.1:8081;

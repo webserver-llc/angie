@@ -107,25 +107,6 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8084 http2;
-        server_name  localhost;
-
-        client_header_timeout 1s;
-    }
-
-    server {
-        listen       127.0.0.1:8085 http2;
-        server_name  localhost;
-
-        client_body_timeout 1s;
-
-        location /proxy2/ {
-            add_header X-Body $request_body;
-            proxy_pass http://127.0.0.1:8081/;
-        }
-    }
-
-    server {
         listen       127.0.0.1:8086 http2;
         server_name  localhost;
 
@@ -138,6 +119,8 @@ http {
 
         client_header_timeout 1s;
         client_body_timeout 1s;
+
+        location / { }
 
         location /proxy/ {
             proxy_pass http://127.0.0.1:8081/;
@@ -1112,13 +1095,13 @@ is($frame->{value}, 'SEE-THIS', 'unknown frame type');
 
 # graceful shutdown with stream waiting on HEADERS payload
 
-my $grace = Test::Nginx::HTTP2->new(port(8084));
+my $grace = Test::Nginx::HTTP2->new(port(8087));
 $grace->new_stream({ split => [ 9 ], abort => 1 });
 
 # graceful shutdown waiting on incomplete request body DATA frames
 
-my $grace3 = Test::Nginx::HTTP2->new(port(8085));
-$sid = $grace3->new_stream({ path => '/proxy2/t2.html', body_more => 1 });
+my $grace3 = Test::Nginx::HTTP2->new(port(8087));
+$sid = $grace3->new_stream({ path => '/proxy/t2.html', body_more => 1 });
 $grace3->h2_body('TEST', { body_more => 1 });
 
 # GOAWAY without awaiting active streams, further streams ignored

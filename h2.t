@@ -111,7 +111,6 @@ http {
         server_name  localhost;
 
         client_header_timeout 1s;
-        send_timeout 1s;
     }
 
     server {
@@ -1115,12 +1114,6 @@ is($frame->{value}, 'SEE-THIS', 'unknown frame type');
 
 my $grace = Test::Nginx::HTTP2->new(port(8084));
 $grace->new_stream({ split => [ 9 ], abort => 1 });
-
-# graceful shutdown with stream waiting on WINDOW_UPDATE
-
-my $grace2 = Test::Nginx::HTTP2->new(port(8084));
-$sid = $grace2->new_stream({ path => '/t1.html' });
-$grace2->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 # graceful shutdown waiting on incomplete request body DATA frames
 

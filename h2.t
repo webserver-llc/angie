@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(150);
+	->plan(144);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -110,7 +110,6 @@ http {
         listen       127.0.0.1:8084 http2;
         server_name  localhost;
 
-        http2_recv_timeout 1s;
         client_header_timeout 1s;
         send_timeout 1s;
     }
@@ -119,7 +118,6 @@ http {
         listen       127.0.0.1:8085 http2;
         server_name  localhost;
 
-        http2_idle_timeout 1s;
         client_body_timeout 1s;
 
         location /proxy2/ {
@@ -243,40 +241,6 @@ ok($frame, 'PING frame');
 is($frame->{value}, 'SEE-THIS', 'PING payload');
 is($frame->{flags}, 1, 'PING flags ack');
 is($frame->{sid}, 0, 'PING stream');
-
-# timeouts
-
-SKIP: {
-skip 'long tests', 6 unless $ENV{TEST_NGINX_UNSAFE};
-
-push my @s, Test::Nginx::HTTP2->new(port(8084), pure => 1);
-push @s, Test::Nginx::HTTP2->new(port(8084), pure => 1);
-$s[-1]->h2_ping('SEE-THIS');
-push @s, Test::Nginx::HTTP2->new(port(8085), pure => 1);
-push @s, Test::Nginx::HTTP2->new(port(8085), pure => 1);
-$s[-1]->h2_ping('SEE-THIS');
-
-select undef, undef, undef, 2.1;
-
-$frames = (shift @s)->read(all => [{ type => "GOAWAY" }]);
-($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-ok($frame, 'recv timeout - new connection GOAWAY');
-is($frame->{code}, 1, 'recv timeout - new connection code');
-
-$frames = (shift @s)->read(all => [{ type => "GOAWAY" }]);
-($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-is($frame, undef, 'recv timeout - idle connection GOAWAY');
-
-$frames = (shift @s)->read(all => [{ type => "GOAWAY" }]);
-($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-is($frame, undef, 'idle timeout - new connection GOAWAY');
-
-$frames = (shift @s)->read(all => [{ type => "GOAWAY" }]);
-($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
-ok($frame, 'idle timeout - idle connection GOAWAY');
-is($frame->{code}, 0, 'idle timeout - idle connection code');
-
-}
 
 # GOAWAY
 

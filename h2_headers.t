@@ -44,6 +44,7 @@ http {
 
         http2_max_field_size 128k;
         http2_max_header_size 128k;
+        large_client_header_buffers 2 64k;
 
         location / {
             add_header X-Sent-Foo $http_x_foo;
@@ -93,14 +94,16 @@ http {
         listen       127.0.0.1:8084 http2;
         server_name  localhost;
 
-        http2_max_field_size 22;
+        http2_max_field_size 512;
+        large_client_header_buffers 4 512;
     }
 
     server {
         listen       127.0.0.1:8085 http2;
         server_name  localhost;
 
-        http2_max_header_size 64;
+        http2_max_header_size 512;
+        large_client_header_buffers 1 512;
     }
 
     server {
@@ -123,7 +126,14 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon);
-$t->run()->waitforsocket('127.0.0.1:' . port(8083));
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
+$t->run();
+open STDERR, ">&", \*OLDERR;
+
+$t->waitforsocket('127.0.0.1:' . port(8083));
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 
@@ -714,7 +724,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname10' x 2 . 'x', value => 'value', mode => 2 }]});
+	{ name => 'x' x 511, value => 'value', mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -725,7 +735,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname10' x 2 . 'x', value => 'value', mode => 2 }]});
+	{ name => 'x' x 511, value => 'value', mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -737,7 +747,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname10' x 2 . 'xx', value => 'value', mode => 2 }]});
+	{ name => 'x' x 512, value => 'value', mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -749,7 +759,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname10' x 2 . 'xxx', value => 'value', mode => 2 }]});
+	{ name =>  'x' x 513, value => 'value', mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -763,7 +773,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'name', value => 'valu5' x 4 . 'x', mode => 2 }]});
+	{ name => 'name', value => 'x' x 511, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -775,7 +785,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'name', value => 'valu5' x 4 . 'xx', mode => 2 }]});
+	{ name => 'name', value => 'x' x 511, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -787,7 +797,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'name', value => 'valu5' x 4 . 'xxx', mode => 2 }]});
+	{ name => 'name', value => 'x' x 513, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -801,7 +811,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'x', mode => 2 }]});
+	{ name => 'longname', value => 'x' x 450, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -812,7 +822,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'x', mode => 2 }]});
+	{ name => 'longname', value => 'x' x 450, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -824,7 +834,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'xx', mode => 2 }]});
+	{ name => 'longname', value => 'x' x 451, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -836,7 +846,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'xxx', mode => 2 }]});
+	{ name => 'longname', value => 'x' x 452, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -851,7 +861,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'x', mode => 2 }]});
+	{ name => 'longname', value => 'x' x 400, mode => 2 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -862,7 +872,7 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'x', mode => 0 }]});
+	{ name => 'longname', value => 'x' x 400, mode => 0 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
@@ -873,8 +883,8 @@ $sid = $s->new_stream({ headers => [
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/t2.html', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'longname9', value => 'x', mode => 0 },
-	{ name => 'longname9', value => 'x', mode => 0 }]});
+	{ name => 'longname', value => 'x' x 400, mode => 0 },
+	{ name => 'longname', value => 'x' x 400, mode => 0 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq 'GOAWAY' } @$frames;

@@ -50,6 +50,7 @@ http {
         http2_max_field_size 128k;
         http2_max_header_size 128k;
         http2_body_preread_size 128k;
+        large_client_header_buffers 4 32k;
 
         location / {
             grpc_pass grpc://127.0.0.1:8081;
@@ -91,7 +92,11 @@ http {
 
 EOF
 
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

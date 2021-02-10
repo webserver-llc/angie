@@ -43,6 +43,7 @@ http {
         server_name  localhost;
 
         http2_max_requests 2;
+        keepalive_requests 2;
 
         location / { }
     }
@@ -51,7 +52,12 @@ http {
 EOF
 
 $t->write_file('index.html', 'SEE-THAT' x 50000);
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run()->plan(10);
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

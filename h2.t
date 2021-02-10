@@ -111,6 +111,7 @@ http {
         server_name  localhost;
 
         send_timeout 1s;
+        lingering_close off;
     }
 
     server {
@@ -119,6 +120,7 @@ http {
 
         client_header_timeout 1s;
         client_body_timeout 1s;
+        lingering_close off;
 
         location / { }
 
@@ -1133,7 +1135,7 @@ is($sum, 81, 'GOAWAY with active stream - active stream DATA after GOAWAY');
 
 # GOAWAY - force closing a connection by server with idle or active streams
 
-$s = Test::Nginx::HTTP2->new();
+$s = Test::Nginx::HTTP2->new(port(8086));
 $sid = $s->new_stream();
 $s->read(all => [{ sid => $sid, fin => 1 }]);
 

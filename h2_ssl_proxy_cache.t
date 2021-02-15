@@ -51,6 +51,7 @@ http {
         ssl_certificate localhost.crt;
 
         send_timeout 1s;
+        lingering_close off;
 
         location / {
             proxy_pass   http://127.0.0.1:8081;

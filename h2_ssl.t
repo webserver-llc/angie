@@ -48,6 +48,8 @@ http {
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
+        lingering_close off;
+
         location / { }
     }
 }

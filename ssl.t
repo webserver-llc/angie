@@ -103,7 +103,6 @@ http {
 
         ssl on;
         ssl_session_cache builtin;
-        ssl_session_timeout 1;
 
         location / {
             return 200 "body $ssl_session_reused";
@@ -137,6 +136,18 @@ http {
         server_name  localhost;
 
         ssl_session_cache off;
+
+        location / {
+            return 200 "body $ssl_session_reused";
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8086 ssl;
+        server_name  localhost;
+
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_timeout 1;
 
         location / {
             return 200 "body $ssl_session_reused";
@@ -256,9 +267,12 @@ $s->close();
 
 # session timeout
 
+$ctx = get_ssl_context();
+
+get('/', 8086, $ctx);
 select undef, undef, undef, 2.1;
 
-like(get('/', 8081), qr/^body \.$/m, 'session timeout');
+like(get('/', 8086, $ctx), qr/^body \.$/m, 'session timeout');
 
 # embedded variables
 

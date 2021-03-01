@@ -47,16 +47,26 @@ http {
 
         location / { }
     }
+
+    server {
+        listen       127.0.0.1:8081 http2;
+        server_name  localhost;
+
+        keepalive_timeout 0;
+
+        location / { }
+    }
 }
 
 EOF
 
 $t->write_file('index.html', 'SEE-THAT' x 50000);
+$t->write_file('t.html', 'SEE-THAT');
 
 # suppress deprecation warning
 
 open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run()->plan(10);
+$t->run()->plan(12);
 open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
@@ -108,6 +118,28 @@ is($sum, 400000, 'max requests limited - all data received');
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'max requests limited - GOAWAY');
 is($frame->{last_sid}, $sid, 'max requests limited - GOAWAY last stream');
+
+# keepalive_timeout 0
+
+SKIP: {
+skip 'not yet', 2 unless $t->has_version('1.19.7');
+
+$s = Test::Nginx::HTTP2->new(port(8081));
+$sid = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }, { type => 'GOAWAY' }]);
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.19.8');
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'keepalive_timeout 0');
+
+}
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'keepalive_timeout 0 - GOAWAY');
+
+}
 
 # graceful shutdown in idle state
 

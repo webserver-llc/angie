@@ -56,6 +56,11 @@ http {
                 proxy_cookie_flags off;
             }
         }
+
+        location /var/ {
+            proxy_pass http://127.0.0.1:8081;
+            proxy_cookie_flags $arg_v $arg_f1 $arg_f2 $arg_f3;
+        }
     }
 
     server {
@@ -72,7 +77,7 @@ http {
 
 EOF
 
-$t->try_run('no proxy_cookie_flags')->plan(11);
+$t->try_run('no proxy_cookie_flags')->plan(14);
 
 ###############################################################################
 
@@ -112,6 +117,20 @@ is(http_get_set_cookie('/?v=foobarbaz'),
 
 is(http_get_set_cookie('/off/?v=a'), 'a=path=domain=; Domain=example.org',
 	'flags off');
+
+# variables in flags
+
+is(http_get_set_cookie('/var/?v=v&f1=secure&f2=httponly&f3=samesite=none'),
+	'v=path=domain=; Domain=example.org; Secure; HttpOnly; SameSite=None',
+	'flags set');
+is(http_get_set_cookie('/var/?v=v&f=;Secure;HttpOnly;SameSite=Lax' .
+	'&f1=secure&f2=httponly&f3=samesite=none'),
+	'v=path=domain=; Domain=example.org; Secure; HttpOnly; SameSite=None',
+	'flags reset');
+is(http_get_set_cookie('/var/?v=v&f=;secure;httponly;samesite=lax' .
+	'&f1=nosecure&f2=nohttponly&f3=nosamesite'),
+	'v=path=domain=; Domain=example.org',
+	'flags remove');
 
 ###############################################################################
 

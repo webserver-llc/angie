@@ -100,6 +100,7 @@ sub can_read {
 
 sub smtp_test_daemon {
 	my ($port) = @_;
+	my $proxy_protocol;
 
 	my $server = IO::Socket::INET->new(
 		Proto => 'tcp',
@@ -112,6 +113,8 @@ sub smtp_test_daemon {
 	while (my $client = $server->accept()) {
 		$client->autoflush(1);
 		print $client "220 fake esmtp server ready" . CRLF;
+
+		$proxy_protocol = '';
 
 		while (<$client>) {
 			Test::Nginx::log_core('||', $_);
@@ -134,6 +137,10 @@ sub smtp_test_daemon {
 				print $client '250 rcpt to ok' . CRLF;
 			} elsif (/^xclient/i) {
 				print $client '220 xclient ok' . CRLF;
+			} elsif (/^proxy/i) {
+				$proxy_protocol = $_;
+			} elsif (/^xproxy/i) {
+				print $client '211 ' . $proxy_protocol . CRLF;
 			} else {
 				print $client "500 unknown command" . CRLF;
 			}

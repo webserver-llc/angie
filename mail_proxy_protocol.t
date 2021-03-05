@@ -40,6 +40,7 @@ events {
 mail {
     proxy_pass_error_message  on;
     proxy_smtp_auth           on;
+    proxy_protocol            on;
     auth_http  http://127.0.0.1:8080/mail/auth;
     smtp_auth  login plain;
 
@@ -90,7 +91,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->try_run('no proxy_protocol')->plan(6);
+$t->try_run('no proxy_protocol')->plan(8);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 
@@ -108,6 +109,10 @@ $s->check(qr/^250 /, "ehlo with proxy_protocol");
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
 $s->authok('auth with proxy_protocol');
 
+$s->send('XPROXY');
+$s->check(qr/^211 PROXY TCP4 127.0.0.1 127.0.0.1 \d+ \d+/,
+	'proxy protocol to backend');
+
 # connection with PROXY protocol and set_realip_from
 
 $s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8027));
@@ -120,5 +125,9 @@ $s->check(qr/^250 /, "ehlo with proxy_protocol and realip");
 
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
 $s->authok('auth with proxy_protocol and realip');
+
+$s->send('XPROXY');
+$s->check(qr/^211 PROXY TCP4 192.0.2.1 127.0.0.1 \d+ \d+/,
+	'proxy_protocol to backend and realip');
 
 ###############################################################################

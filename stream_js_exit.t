@@ -69,8 +69,6 @@ stream {
 
 EOF
 
-my $p = port(8080);
-
 $t->write_file('test.js', <<EOF);
     function test_njs(r) {
         r.return(200, njs.version);
@@ -140,9 +138,10 @@ sub stream_daemon {
 
 		log2i("$client $buffer");
 
+		$buffer = $buffer . $buffer;
+
 		log2o("$client $buffer");
 
-		$client->syswrite($buffer);
 		$client->syswrite($buffer);
 
 		close $client;

@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(14)
+my $t = Test::Nginx->new()->has(qw/http/)->plan(15)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -37,8 +37,10 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    log_format test $sent_http_connection;
-    access_log %%TESTDIR%%/test.log test if=$arg_l;
+    log_format test1 $sent_http_connection;
+    log_format test2 $sent_http_keep_alive;
+    access_log %%TESTDIR%%/test1.log test1 if=$arg_l;
+    access_log %%TESTDIR%%/test2.log test2 if=$arg_l;
 
     server {
         listen       127.0.0.1:8080;
@@ -112,7 +114,8 @@ $t->stop();
 TODO: {
 local $TODO = 'not yet';
 
-is($t->read_file('test.log'), "keep-alive\nclose\n", 'sent_http_connection');
+is($t->read_file('test1.log'), "keep-alive\nclose\n", 'sent_http_connection');
+is($t->read_file('test2.log'), "timeout=9\n-\n", 'sent_http_keep_alive');
 
 }
 

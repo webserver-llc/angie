@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(113);
+	->has(qw/upstream_keepalive/)->plan(116);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -433,6 +433,22 @@ is($frame->{data}, 'Hello world', 'DATA padding');
 is($frame->{length}, 11, 'DATA padding - length');
 is($frame->{flags}, 0, 'DATA padding - flags');
 
+# DATA padding with Content-Length
+
+TODO: {
+local $TODO = 'not yet'
+	if $t->has_version('1.19.1') and !$t->has_version('1.19.9');
+
+$f->{http_start}('/SayPadding');
+$f->{data}('Hello');
+$frames = $f->{http_end}(body_padding => 42, cl => length('Hello world'));
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'Hello world', 'DATA padding cl');
+is($frame->{length}, 11, 'DATA padding cl - length');
+is($frame->{flags}, 0, 'DATA padding cl - flags');
+
+}
+
 # :authority inheritance
 
 $frames = $f->{http_start}('/SayHello?if=1');
@@ -629,14 +645,16 @@ sub grpc {
 	};
 	$f->{http_end} = sub {
 		my (%extra) = @_;
-		$c->new_stream({ body_more => 1, %extra, headers => [
+		my $h = [
 			{ name => ':status', value => '200',
 				mode => $extra{mode} || 0 },
 			{ name => 'content-type', value => 'application/grpc',
 				mode => $extra{mode} || 1, huff => 1 },
 			{ name => 'x-connection', value => $n,
-				mode => 2, huff => 1 },
-		]}, $sid);
+				mode => 2, huff => 1 }];
+		push @$h, { name => 'content-length', value => $extra{cl} }
+			if $extra{cl};
+		$c->new_stream({ body_more => 1, headers => $h, %extra }, $sid);
 		$c->h2_body('Hello world', { body_more => 1,
 			body_padding => $extra{body_padding} });
 		$c->new_stream({ headers => [

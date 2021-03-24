@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/http/)->plan(16)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -52,6 +52,7 @@ http {
         location / { }
         location /r {
             keepalive_requests  4;
+            keepalive_timeout   30s;
         }
 
         location /safari {
@@ -109,6 +110,26 @@ like($r, qr/Keep-Alive: timeout=9/, 'keepalive timeout header');
 
 like(http_keepalive('/zero'), qr/Connection: close/, 'keepalive timeout 0');
 
+# cancel keepalive on EOF while discarding body
+
+my $s = http(<<EOF, start => 1);
+POST /r HTTP/1.1
+Host: localhost
+Content-Length: 10
+
+EOF
+
+read_keepalive($s);
+shutdown($s, 1);
+
+TODO: {
+local $TODO = 'not yet' unless ($^O eq 'MSWin32' or $^O eq 'solaris')
+	or $t->has_version('1.19.9');
+
+ok(IO::Select->new($s)->can_read(3), 'EOF in discard body');
+
+}
+
 $t->stop();
 
 TODO: {
@@ -145,20 +166,24 @@ User-Agent: $opts{ua}
 
 EOF
 
-		my $data = '';
-
-		while (IO::Select->new($s)->can_read(3)) {
-			sysread($s, my $buffer, 4096) or last;
-			$data .= $buffer;
-			last if $data =~ /^\x0d\x0a/ms;
-		}
-
-		log_in($data);
-
-		$total .= $data;
+		$total .= read_keepalive($s);
 	}
 
 	return $total;
+}
+
+sub read_keepalive {
+	my ($s) = @_;
+	my $data = '';
+
+	while (IO::Select->new($s)->can_read(3)) {
+		sysread($s, my $buffer, 4096) or last;
+		$data .= $buffer;
+		last if $data =~ /^\x0d\x0a/ms;
+	}
+
+	log_in($data);
+	return $data;
 }
 
 sub count_keepalive {

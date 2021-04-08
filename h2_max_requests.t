@@ -63,6 +63,8 @@ http {
 
         keepalive_time 1s;
 
+        add_header X-Conn $connection_requests:$connection_time;
+
         location / { }
     }
 }
@@ -75,7 +77,7 @@ $t->write_file('t.html', 'SEE-THAT');
 # suppress deprecation warning
 
 open OLDERR, ">&", \*STDERR; close STDERR;
-$t->try_run('no keepalive_time')->plan(17);
+$t->try_run('no keepalive_time')->plan(19);
 open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
@@ -158,6 +160,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'keepalive time request');
+like($frame->{headers}->{'x-conn'}, qr/^1:0/, 'keepalive time variables');
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }], wait => 0.5);
 
@@ -171,6 +174,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }, { type => 'GOAWAY' }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'keepalive time request 2');
+like($frame->{headers}->{'x-conn'}, qr/^2:[^0]/, 'keepalive time variables 2');
 
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'keepalive time limit - GOAWAY');

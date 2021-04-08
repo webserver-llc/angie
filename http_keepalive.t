@@ -49,6 +49,8 @@ http {
         keepalive_requests  2;
         keepalive_timeout   1 9;
 
+        add_header X-Conn $connection_requests:$connection_time;
+
         location / { }
         location /r {
             keepalive_requests  4;
@@ -83,7 +85,7 @@ $t->write_file('time', '');
 $t->write_file('safari', '');
 $t->write_file('none', '');
 $t->write_file('zero', '');
-$t->try_run('no keepalive_time')->plan(20);
+$t->try_run('no keepalive_time')->plan(21);
 
 ###############################################################################
 
@@ -126,6 +128,8 @@ unlike($r, qr/Connection: close/, 'keepalive time connection');
 $r = http_keepalive('/time', req => 3, sleep => 1.1);
 is(() = $r =~ /(200 OK)/g, 2, 'keepalive time limit requests');
 like($r, qr/Connection: close/, 'keepalive time limit connection');
+
+like($r, qr/X-Conn: 1:0.*X-Conn: 2:[^0]/s, 'keepalive time limit variables');
 
 # cancel keepalive on EOF while discarding body
 

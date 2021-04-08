@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(16)
+my $t = Test::Nginx->new()->has(qw/http/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -55,6 +55,12 @@ http {
             keepalive_timeout   30s;
         }
 
+        location /time {
+            keepalive_requests  100;
+            keepalive_timeout   75s;
+            keepalive_time      1s;
+        }
+
         location /safari {
             keepalive_disable  safari;
         }
@@ -73,10 +79,11 @@ EOF
 
 $t->write_file('index.html', '');
 $t->write_file('r', '');
+$t->write_file('time', '');
 $t->write_file('safari', '');
 $t->write_file('none', '');
 $t->write_file('zero', '');
-$t->run();
+$t->try_run('no keepalive_time')->plan(20);
 
 ###############################################################################
 
@@ -109,6 +116,16 @@ is(count_keepalive($r), 1, 'keepalive timeout request');
 like($r, qr/Keep-Alive: timeout=9/, 'keepalive timeout header');
 
 like(http_keepalive('/zero'), qr/Connection: close/, 'keepalive timeout 0');
+
+# keepalive_time
+
+$r = http_keepalive('/time', req => 3);
+is(() = $r =~ /(200 OK)/g, 3, 'keepalive time requests');
+unlike($r, qr/Connection: close/, 'keepalive time connection');
+
+$r = http_keepalive('/time', req => 3, sleep => 1.1);
+is(() = $r =~ /(200 OK)/g, 2, 'keepalive time limit requests');
+like($r, qr/Connection: close/, 'keepalive time limit connection');
 
 # cancel keepalive on EOF while discarding body
 

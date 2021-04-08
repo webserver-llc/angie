@@ -56,6 +56,15 @@ http {
 
         location / { }
     }
+
+    server {
+        listen       127.0.0.1:8082 http2;
+        server_name  localhost;
+
+        keepalive_time 1s;
+
+        location / { }
+    }
 }
 
 EOF
@@ -66,7 +75,7 @@ $t->write_file('t.html', 'SEE-THAT');
 # suppress deprecation warning
 
 open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run()->plan(12);
+$t->try_run('no keepalive_time')->plan(17);
 open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
@@ -140,6 +149,32 @@ is($frame->{headers}->{':status'}, 200, 'keepalive_timeout 0');
 ok($frame, 'keepalive_timeout 0 - GOAWAY');
 
 }
+
+# keepalive_time
+
+$s = Test::Nginx::HTTP2->new(port(8082));
+$sid = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'keepalive time request');
+
+$frames = $s->read(all => [{ type => 'GOAWAY' }], wait => 0.5);
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+is($frame, undef, 'keepalive time - no GOAWAY yet');
+
+select undef, undef, undef, 1.1;
+
+$sid = $s->new_stream({ path => '/t.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }, { type => 'GOAWAY' }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 200, 'keepalive time request 2');
+
+($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
+ok($frame, 'keepalive time limit - GOAWAY');
+is($frame->{last_sid}, $sid, 'keepalive time limit - GOAWAY last stream');
 
 # graceful shutdown in idle state
 

@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(18)
+my $t = Test::Nginx->new()->has(qw/http rewrite gzip/)->plan(19)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -37,6 +37,7 @@ http {
 
     log_format test "$uri:$status";
     log_format long "long line $uri:$status";
+    log_format addr "$remote_addr:$remote_port:$server_addr:$server_port";
     log_format binary $binary_remote_addr;
 
     log_format default  escape=default  $arg_a$arg_b$arg_c;
@@ -101,6 +102,10 @@ http {
             return 200 OK;
         }
 
+        location /addr {
+            access_log %%TESTDIR%%/addr.log addr;
+        }
+
         location /binary {
             access_log %%TESTDIR%%/binary.log binary;
         }
@@ -155,6 +160,13 @@ http_get('/varlog?logname=');
 http_get('/varlog?logname=0');
 http_get('/varlog?logname=filename');
 
+my $s = http('', start => 1);
+http_get('/addr', socket => $s);
+my $addr = $s->sockhost();
+my $port = $s->sockport();
+my $saddr = $s->peerhost();
+my $sport = $s->peerport();
+
 http_get('/binary');
 
 http_get('/escape?a="1 \\ ' . pack("n", 0x1b1c) . ' "&c=2');
@@ -203,8 +215,6 @@ $t->stop();
 
 # verify that by default, 'combined' format is used, 'off' disables logging
 
-my $addr = IO::Socket::INET->new(LocalAddr => '127.0.0.1')->sockhost();
-
 like($t->read_file('combined.log'),
 	qr!^\Q$addr - - [\E .*
 		\Q] "GET /combined HTTP/1.0" 200 2 "-" "-"\E$!x,
@@ -248,6 +258,8 @@ is($t->read_file('long.log'), "long line /multi:200\n", 'long line format');
 
 is($t->read_file('varlog_0'), "/varlog:200\n", 'varlog literal zero name');
 is($t->read_file('varlog_filename'), "/varlog:200\n", 'varlog good name');
+
+is($t->read_file('addr.log'), "$addr:$port:$saddr:$sport\n", 'addr');
 
 # binary data is escaped
 # that's "\\x7F\\x00\\x00\\x01\n" in $binary_remote_addr for "127.0.0.1"

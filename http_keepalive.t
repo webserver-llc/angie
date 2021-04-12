@@ -125,7 +125,7 @@ $r = http_keepalive('/time', req => 3);
 is(() = $r =~ /(200 OK)/g, 3, 'keepalive time requests');
 unlike($r, qr/Connection: close/, 'keepalive time connection');
 
-$r = http_keepalive('/time', req => 3, sleep => 1.1);
+$r = http_keepalive('/time', req => 3, sleep => 1.2);
 is(() = $r =~ /(200 OK)/g, 2, 'keepalive time limit requests');
 like($r, qr/Connection: close/, 'keepalive time limit connection');
 

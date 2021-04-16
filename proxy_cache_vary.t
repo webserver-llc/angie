@@ -81,9 +81,6 @@ http {
             if ($args = "novary") {
                 return 200 "the only variant\n";
             }
-
-            add_header Vary $arg_vary;
-            add_header Xtra $arg_xtra;
         }
 
         location /asterisk {
@@ -95,6 +92,12 @@ http {
             gzip off;
             add_header Vary ",, Accept-encoding , ,";
         }
+
+        location /cold {
+            expires max;
+            add_header Vary $arg_vary;
+            add_header Xtra $arg_xtra;
+        }
     }
 }
 
@@ -103,6 +106,7 @@ EOF
 $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('asterisk', 'SEE-THIS');
 $t->write_file('complex', 'SEE-THIS');
+$t->write_file('cold', 'SEE-THIS');
 
 $t->run();
 
@@ -256,17 +260,18 @@ like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
 # before 1.19.3, this prevented updating c->body_start of a main key
 # triggering "cache file .. has too long header" critical errors
 
-like(get1('/?vary=x,y', 'x:1'), qr/MISS/, 'change first');
+get1('/cold?vary=z', 'z:1');
+like(get1('/cold?vary=x,y', 'x:1'), qr/MISS/, 'change first');
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.19.3');
 
-like(get1('/?vary=x,y', 'x:1'), qr/HIT/, 'change first cached');
+like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'change first cached');
 
 }
 
-like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/MISS/, 'change second');
-like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'change second cached');
+like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/MISS/, 'change second');
+like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'change second cached');
 
 $t->stop();
 $t->run();
@@ -276,12 +281,12 @@ $t->run();
 # before 1.19.3, it was loaded using a variant stored with a main key
 # triggering "cache file .. has too long header" critical errors
 
-like(get1('/?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
+like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.19.3');
 
-like(get1('/?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
+like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
 
 }
 

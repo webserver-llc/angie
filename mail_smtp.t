@@ -47,6 +47,13 @@ mail {
         protocol   smtp;
         smtp_auth  login plain none cram-md5 external;
     }
+
+    server {
+        listen     127.0.0.1:8027;
+        protocol   smtp;
+        smtp_auth  login plain none cram-md5 external;
+        smtp_client_buffer 128;
+    }
 }
 
 http {
@@ -90,7 +97,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run()->plan(30);
+$t->run()->plan(36);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 
@@ -239,6 +246,33 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 $s->ok('pipelined mail from');
 $s->ok('pipelined rcpt to');
 $s->ok('pipelined rset');
+
+# Pipelining longer than smtp_client_buffer
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8027));
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
+	. 'RCPT TO:<foo@example.com>' . CRLF
+	. 'RCPT TO:<bar@example.com>' . CRLF
+	. 'RCPT TO:<baz@example.com>' . CRLF
+	. 'RCPT TO:<foobar@example.com>' . CRLF
+	. 'RSET');
+
+$s->ok('long pipelined mail from');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.0');
+
+$s->ok('long pipelined rcpt to');
+$s->ok('long pipelined rcpt to 2');
+$s->ok('long pipelined rcpt to 3');
+$s->ok('long pipelined rcpt to 4');
+$s->ok('long pipelined rset');
+
+}
 
 # Connection must stay even if error returned to rcpt to command
 

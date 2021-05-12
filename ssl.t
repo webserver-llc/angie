@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(25);
+	->has_daemon('openssl')->plan(26);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -48,6 +48,8 @@ http {
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
     ssl_session_tickets off;
+
+    log_format ssl $ssl_protocol;
 
     server {
         listen       127.0.0.1:8085 ssl;
@@ -92,6 +94,8 @@ http {
         location /body {
             add_header X-Body $request_body always;
             proxy_pass http://127.0.0.1:8080/;
+
+            access_log %%TESTDIR%%/ssl.log ssl;
         }
     }
 
@@ -318,6 +322,16 @@ TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.19.5');
 
 is(get_ssl_shutdown(8085), 1, 'ssl shutdown on lingering close');
+
+}
+
+$t->stop();
+
+TODO: {
+local $TODO = 'not yet' if $t->has_version('1.19.5');
+
+like($t->read_file('ssl.log'), qr/^(TLS|SSL)v(\d|\.)+$/m,
+	'log ssl variable on lingering close');
 
 }
 

@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(116);
+	->has(qw/upstream_keepalive/)->plan(123);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -382,6 +382,52 @@ $f->{data}('Hello');
 $frames = $f->{field_len}(2**15);
 ($frame) = grep { $_->{flags} & 0x4 } @$frames;
 is($frame->{headers}{'x' x 2**15}, 'y' x 2**15, 'long header field 3');
+
+# Intermediary Encapsulation Attacks, malformed header fields
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}(n => 'n:n');
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid header name colon');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}(n => 'NN');
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid header name uppercase');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}(n => "n\nn");
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid header name ctl');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}(v => "v\nv");
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid header value ctl');
+
+# invalid HPACK index
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}('m' => 0);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid index - indexed header');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}('m' => 1);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid index - with indexing');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}('m' => 3);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid index - without indexing');
 
 # flow control
 
@@ -780,6 +826,18 @@ sub grpc {
 				mode => 2, huff => 1 },
 			{ name => 'grpc-message', value => '',
 				mode => 2, huff => 1 },
+		]}, $sid);
+
+		return $s->read(all => [{ fin => 1 }]);
+	};
+	$f->{field_bad} = sub {
+		my (%extra) = @_;
+		my $n = defined $extra{'n'} ? $extra{'n'} : 'n';
+		my $v = defined $extra{'v'} ? $extra{'v'} : 'v';
+		my $m = defined $extra{'m'} ? $extra{'m'} : 2;
+		$c->new_stream({ headers => [
+			{ name => ':status', value => '200' },
+			{ name => $n, value => $v, mode => $m },
 		]}, $sid);
 
 		return $s->read(all => [{ fin => 1 }]);

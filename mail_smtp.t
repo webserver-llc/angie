@@ -98,7 +98,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run()->plan(36);
+$t->run()->plan(39);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 
@@ -247,6 +247,29 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 $s->ok('pipelined mail from');
 $s->ok('pipelined rcpt to');
 $s->ok('pipelined rset');
+
+# Pipelining with split command
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->print('MAIL FROM:<test@example.com> SIZE=100' . CRLF
+	. 'RCPT TO:<test@example.com>' . CRLF
+	. 'RS');
+
+$s->ok('split pipelined mail from');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.0');
+
+$s->ok('split pipelined rcpt to');
+
+}
+
+$s->send('ET');
+$s->ok('split pipelined rset');
 
 # Pipelining longer than smtp_client_buffer
 

@@ -59,10 +59,6 @@ http {
             set $reply ERROR;
             set $passw "";
 
-            if ($http_auth_smtp_to ~ example.com) {
-                set $reply OK;
-            }
-
             set $userpass "$http_auth_user:$http_auth_pass";
             if ($userpass ~ '^test@example.com:secret$') {
                 set $reply OK;

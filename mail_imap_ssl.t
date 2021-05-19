@@ -46,6 +46,7 @@ events {
 
 mail {
     proxy_pass_error_message  on;
+    proxy_timeout  15s;
     auth_http  http://127.0.0.1:8080/mail/auth;
     auth_http_pass_client_cert on;
 

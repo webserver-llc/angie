@@ -509,14 +509,39 @@ sub stop() {
 		my @error = $self->has_version('1.19.5') ?
 			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'stop', @error, @globals) == 0
+			'-s', 'quit', @error, @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {
 		kill 'QUIT', $pid;
 	}
 
-	waitpid($pid, 0);
+	my $exited;
+
+	for (1 .. 900) {
+		$exited = waitpid($pid, WNOHANG) != 0;
+		last if $exited;
+		select undef, undef, undef, 0.1;
+	}
+
+	if (!$exited) {
+		if ($^O eq 'MSWin32') {
+			my $testdir = $self->{_testdir};
+			my @globals = $self->{_test_globals} ?
+				() : ('-g', "pid $testdir/nginx.pid; "
+				. "error_log $testdir/error.log debug;");
+			my @error = $self->has_version('1.19.5') ?
+				('-e', 'error.log') : ();
+			system($NGINX, '-p', $testdir, '-c', "nginx.conf",
+				'-s', 'stop', @error, @globals) == 0
+				or die "system() failed: $?\n";
+
+		} else {
+			kill 'TERM', $pid;
+		}
+
+		waitpid($pid, 0);
+	}
 
 	$self->{_started} = 0;
 

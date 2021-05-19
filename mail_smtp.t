@@ -98,7 +98,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run()->plan(39);
+$t->run()->plan(41);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 
@@ -320,7 +320,26 @@ $s = Test::Nginx::SMTP->new();
 $s->read();
 
 $s->print('HEL');
+select undef, undef, undef, 0.1;
 $s->send('O example.com');
 $s->ok('split command');
+
+# Invalid command split into many packets
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+
+$s->print('FOO B');
+select undef, undef, undef, 0.1;
+$s->send('AR');
+$s->check(qr/^5.. /, 'invalid split command');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.0');
+
+$s->send('HELO example.com');
+$s->ok('good after invalid split command');
+
+}
 
 ###############################################################################

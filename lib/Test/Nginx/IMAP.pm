@@ -125,6 +125,17 @@ sub imap_test_daemon {
 		print $client "* OK fake imap server ready" . CRLF;
 
 		while (<$client>) {
+			Test::Nginx::log_core('||', $_);
+
+			while (m/{(\d+)}\x0d?$/) {
+				print $client '+ ' . CRLF;
+				$client->sysread(my $buf, $1);
+				Test::Nginx::log_core('||', $buf);
+				$buf = <$client>;
+				Test::Nginx::log_core('||', $buf);
+				$_ .= $buf;
+			}
+
 			my $tag = '';
 
 			$tag = $1 if m/^(\S+)/;

@@ -52,7 +52,7 @@ mail {
     server {
         listen     127.0.0.1:8027;
         protocol   smtp;
-        smtp_auth  login plain none cram-md5 external;
+        smtp_auth  none;
         smtp_client_buffer 128;
     }
 }
@@ -285,11 +285,10 @@ $s->send('MAIL FROM:<test@example.com> SIZE=100' . CRLF
 	. 'RCPT TO:<foobar@example.com>' . CRLF
 	. 'RSET');
 
-$s->ok('long pipelined mail from');
-
 TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.0');
+todo_skip 'long pipelined - not yet', 6 unless $t->has_version('1.21.0');
 
+$s->ok('long pipelined mail from');
 $s->ok('long pipelined rcpt to');
 $s->ok('long pipelined rcpt to 2');
 $s->ok('long pipelined rcpt to 3');

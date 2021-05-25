@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(144);
+	->plan(142);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -144,25 +144,6 @@ $t->write_file('tbig.html',
 $t->write_file('t2.html', 'SEE-THIS');
 
 ###############################################################################
-
-# Upgrade mechanism
-
-my $r = http(<<EOF);
-GET / HTTP/1.1
-Host: localhost
-Connection: Upgrade, HTTP2-Settings
-Upgrade: h2c
-HTTP2-Settings: AAMAAABkAAQAAP__
-
-EOF
-
-SKIP: {
-skip 'no Upgrade-based negotiation', 2 if $r !~ m!HTTP/1.1 101!;
-
-like($r, qr!Connection: Upgrade!, 'upgrade - connection');
-like($r, qr!Upgrade: h2c!, 'upgrade - token');
-
-}
 
 # SETTINGS
 

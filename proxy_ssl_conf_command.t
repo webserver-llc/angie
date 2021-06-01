@@ -27,6 +27,7 @@ my $t = Test::Nginx->new()->has(qw/http http_ssl proxy/)
 
 $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
 plan(skip_all => 'OpenSSL too old') unless defined $1 and $1 ge '1.0.2';
+plan(skip_all => 'no ssl_conf_command') if $t->has_module('BoringSSL');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

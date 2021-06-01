@@ -64,29 +64,17 @@ like(http_get('/foo/bar/..'), qr!x /foo/ x!, 'trailing dot dot');
 
 like(http_get('http://localhost'), qr!x / x!, 'absolute');
 like(http_get('http://localhost/'), qr!x / x!, 'absolute slash');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.6');
-
 like(http_get('http://localhost?args'), qr!x / x.*y args y!ms,
 	'absolute args');
 like(http_get('http://localhost?args#frag'), qr!x / x.*y args y!ms,
 	'absolute args and frag');
 
-}
-
 like(http_get('http://localhost:8080'), qr!x / x!, 'port');
 like(http_get('http://localhost:8080/'), qr!x / x!, 'port slash');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.6');
-
 like(http_get('http://localhost:8080?args'), qr!x / x.*y args y!ms,
 	'port args');
 like(http_get('http://localhost:8080?args#frag'), qr!x / x.*y args y!ms,
 	'port args and frag');
-
-}
 
 like(http_get('/ /'), qr!x / / x!, 'space');
 

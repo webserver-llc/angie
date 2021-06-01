@@ -82,7 +82,7 @@ http {
 EOF
 
 $t->write_file('data', 'X' x 30000);
-$t->try_run('no limit_rate variables')->plan(7);
+$t->run()->plan(7);
 
 ###############################################################################
 

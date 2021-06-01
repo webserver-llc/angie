@@ -84,13 +84,7 @@ $t->todo_alerts();
 
 http_get('/t.html');
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.17.1');
-
 like(http_match_get('/t.html'), qr//, 'request 412 cached');
-
-}
 
 ###############################################################################
 

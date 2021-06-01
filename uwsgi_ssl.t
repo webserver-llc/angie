@@ -112,9 +112,6 @@ $t->waitforsocket('127.0.0.1:' . port(8081))
 
 ###############################################################################
 
-TODO: {
-todo_skip 'not yet', 7 unless $t->has_version('1.19.1');
-
 like(http_get('/'), qr/SEE-THIS/, 'uwsgi request');
 like(http_head('/head'), qr/200 OK(?!.*SEE-THIS)/s, 'no data in HEAD');
 
@@ -127,8 +124,6 @@ like(http_get('/var?b=u'), qr/SEE-THIS/, 'uwsgi with variables to upstream');
 
 like(http_post('/'), qr/SEE-THIS/, 'uwsgi post');
 like(http_post_big('/'), qr/SEE-THIS/, 'uwsgi big post');
-
-}
 
 ###############################################################################
 

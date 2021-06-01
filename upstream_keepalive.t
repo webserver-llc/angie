@@ -77,7 +77,7 @@ http {
 EOF
 
 $t->write_file('index.html', 'SEE-THIS');
-$t->try_run('no keepalive_time')->plan(11);
+$t->run()->plan(11);
 
 ###############################################################################
 

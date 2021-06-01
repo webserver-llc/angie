@@ -262,13 +262,7 @@ like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
 
 get1('/cold?vary=z', 'z:1');
 like(get1('/cold?vary=x,y', 'x:1'), qr/MISS/, 'change first');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'change first cached');
-
-}
 
 like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/MISS/, 'change second');
 like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'change second cached');
@@ -282,22 +276,11 @@ $t->run();
 # triggering "cache file .. has too long header" critical errors
 
 like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
-
-}
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
-
-}
 
 ###############################################################################
 

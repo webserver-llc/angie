@@ -23,7 +23,8 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return stream_set/);
+my $t = Test::Nginx->new()
+	->has(qw/stream stream_return stream_map stream_set/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -36,7 +37,6 @@ events {
 
 stream {
     %%TEST_GLOBALS_STREAM%%
-
 
     map 0 $map_var {
         default "original";
@@ -58,7 +58,7 @@ stream {
 
 EOF
 
-$t->try_run('no stream set')->plan(2);
+$t->run()->plan(2);
 
 ###############################################################################
 

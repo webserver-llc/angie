@@ -170,9 +170,6 @@ like(http_get_body('/next', '0123456789'),
 
 # discarded request body in redirect via error_page
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.7');
-
 unlike(
 	http(
 		'POST /redirect HTTP/1.1' . CRLF
@@ -183,8 +180,6 @@ unlike(
 	),
 	qr/400 Bad Request/ms, 'redirect - discard request body'
 );
-
-}
 
 ###############################################################################
 

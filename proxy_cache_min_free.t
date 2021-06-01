@@ -64,7 +64,7 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
-$t->try_run('no proxy_cache_path min_free')->plan(2);
+$t->run()->plan(2);
 
 ###############################################################################
 

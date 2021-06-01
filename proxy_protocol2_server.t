@@ -70,7 +70,7 @@ http {
 EOF
 
 $t->write_file('t1', 'SEE-THIS');
-$t->try_run('no proxy_protocol_server_addr')->plan(28);
+$t->run()->plan(28);
 
 ###############################################################################
 

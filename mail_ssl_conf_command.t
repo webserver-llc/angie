@@ -88,7 +88,7 @@ foreach my $name ('localhost', 'override') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_conf_command')->plan(3);
+$t->run()->plan(3);
 
 ###############################################################################
 

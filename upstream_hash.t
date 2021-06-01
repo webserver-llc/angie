@@ -180,13 +180,8 @@ like(many('/c?a=1', 10), qr/($p1|$p2|$p3): 10/, 'stable hash - consistent');
 
 # fallback to round-robin
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.1');
-
 like(many('/?a=', 6), qr/$p1: 2, $p2: 2, $p3: 2/, 'empty key');
 like(many('/c?a=', 6), qr/$p1: 2, $p2: 2, $p3: 2/, 'empty key - consistent');
-
-}
 
 my @res = iter('/', 10);
 

@@ -15,7 +15,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_end /;
+use Test::Nginx;
 
 ###############################################################################
 
@@ -134,13 +134,7 @@ like(http_get('/cache/t'), qr/ 200 .*0123456789abcdef$/ms, 'no range');
 $r = get('/proxy/t', 'Range: bytes=3-4');
 like($r, qr/ 206 /, 'proxy - 206 partial reply');
 like($r, qr/^34$/m, 'proxy - correct content');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.2');
-
 unlike($r, qr/Accept-Ranges/, 'proxy - no original accept-ranges');
-
-}
 
 $r = get('/cache/t?single', "Range: bytes=0-0");
 like($r, qr/ 206 /, 'single - 206 partial reply');

@@ -169,12 +169,7 @@ is(http_absolute_path(
 is(http_host_header('123.40.56.78:9000:80'), '123.40.56.78',
 	'double port hack');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.9');
-
 like(http_host_header("localhost\nHost: again", 1), qr/ 400 /, 'host repeat');
-
-}
 
 ###############################################################################
 

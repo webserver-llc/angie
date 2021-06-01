@@ -76,7 +76,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->try_run('no proxy_smtp_auth')->plan(7);
+$t->run()->plan(7);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 

@@ -102,13 +102,8 @@ like(many(10, port(8081)), qr/($port2|$port3): 10/, 'hash consistent');
 
 # fallback to round-robin
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.1');
-
 like(many(4, port(8084)), qr/$port2: 2, $port3: 2/, 'empty key');
 like(many(4, port(8085)), qr/$port2: 2, $port3: 2/, 'empty key - consistent');
-
-}
 
 ###############################################################################
 

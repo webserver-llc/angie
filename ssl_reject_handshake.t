@@ -109,7 +109,12 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', '');
-$t->try_run('no ssl_reject_handshake')->plan(9);
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
+$t->run()->plan(9);
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

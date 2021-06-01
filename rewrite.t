@@ -239,11 +239,6 @@ like(http_get('/capturedup/%25?a=b'),
 
 # break
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.8');
-
 like(http_get('/break'), qr/200/, 'valid_location reset');
-
-}
 
 ###############################################################################

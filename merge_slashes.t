@@ -52,8 +52,6 @@ EOF
 
 ###############################################################################
 
-local $TODO = 'not yet' unless $t->has_version('1.17.5');
-
 like(http_get('/foo//../bar'), qr!x /foo/bar x!, 'merge slashes');
 like(http_get('/foo///../bar'), qr!x /foo//bar x!, 'merge slashes 2');
 

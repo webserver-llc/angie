@@ -85,7 +85,7 @@ $t->write_file('time', '');
 $t->write_file('safari', '');
 $t->write_file('none', '');
 $t->write_file('zero', '');
-$t->try_run('no keepalive_time')->plan(21);
+$t->run()->plan(21);
 
 ###############################################################################
 
@@ -143,13 +143,7 @@ EOF
 read_keepalive($s);
 shutdown($s, 1);
 
-TODO: {
-local $TODO = 'not yet' unless ($^O eq 'MSWin32' or $^O eq 'solaris')
-	or $t->has_version('1.19.9');
-
 ok(IO::Select->new($s)->can_read(3), 'EOF in discard body');
-
-}
 
 $t->stop();
 

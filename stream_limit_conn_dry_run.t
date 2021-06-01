@@ -84,7 +84,7 @@ http {
 EOF
 
 $t->write_file('index.html', 'OK');
-$t->try_run('no limit_conn_dry_run/limit_conn_status')->plan(9);
+$t->run()->plan(9);
 
 ###############################################################################
 

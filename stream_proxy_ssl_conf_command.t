@@ -83,7 +83,7 @@ foreach my $name ('localhost', 'override') {
 }
 
 $t->write_file('index.html', '');
-$t->try_run('no proxy_ssl_conf_command')->plan(1);
+$t->run()->plan(1);
 
 ###############################################################################
 

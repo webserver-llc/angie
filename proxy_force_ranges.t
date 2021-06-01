@@ -109,13 +109,8 @@ like(http_get_range('/proxy/t.html',
 
 # range sent using chunked transfer encoding
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.0');
-
 like(http_get_range('/proxy/t.html', 'Range: bytes=-2'),
 	qr/2${CRLF}IS${CRLF}0$CRLF$CRLF$/, 'no dublicate final chunk');
-
-}
 
 ###############################################################################
 

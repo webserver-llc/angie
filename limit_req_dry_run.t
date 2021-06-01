@@ -70,7 +70,7 @@ EOF
 
 $t->write_file('delay', 'SEE-THIS');
 $t->write_file('reject', 'SEE-THIS');
-$t->try_run('no limit_req_dry_run/limit_req_status')->plan(8);
+$t->run()->plan(8);
 
 ###############################################################################
 

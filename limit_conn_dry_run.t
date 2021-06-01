@@ -74,7 +74,7 @@ http {
 EOF
 
 $t->write_file('w', '');
-$t->try_run('no limit_conn_dry_run/limit_conn_status')->plan(6);
+$t->run()->plan(6);
 
 ###############################################################################
 

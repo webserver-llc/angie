@@ -79,9 +79,6 @@ is($s->io('3', read => 3), '123', 'proxy responses default');
 
 # zero-length payload
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 $s = dgram('127.0.0.1:' . port(8982));
 $s->write('');
 is($s->read(), 'zero', 'upstream read zero bytes');
@@ -90,8 +87,6 @@ is($s->read(), '', 'upstream sent zero bytes');
 $s->write('');
 is($s->read(), 'zero', 'upstream read zero bytes again');
 is($s->read(), '', 'upstream sent zero bytes again');
-
-}
 
 ###############################################################################
 

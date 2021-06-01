@@ -287,7 +287,7 @@ foreach my $name ('ec', 'rsa') {
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
-$t->try_run('no ssl_ocsp')->plan(14);
+$t->run()->plan(14);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
@@ -300,15 +300,9 @@ like(get('RSA', 'end'), qr/200 OK.*SUCCESS/s, 'ocsp leaf');
 
 # demonstrate that ocsp int request is failed due to missing resolver
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $t->has_version('1.19.1')
-	or $ENV{TEST_NGINX_UNSAFE};
-
 like(get('RSA', 'end', sni => 'resolver'),
 	qr/400 Bad.*FAILED:certificate status request failed/s,
 	'ocsp many failed request');
-
-}
 
 # demonstrate that ocsp int request is actually made by failing ocsp response
 

@@ -102,7 +102,7 @@ EOF
 
 $t->run_daemon(\&stream_daemon, port(8080));
 $t->run_daemon(\&stream_daemon, port(8087));
-$t->try_run('no proxy_download_rate variables')->plan(9);
+$t->run()->plan(9);
 
 $t->waitforsocket('127.0.0.1:' . port(8080));
 $t->waitforsocket('127.0.0.1:' . port(8087));

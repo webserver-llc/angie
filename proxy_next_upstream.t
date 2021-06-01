@@ -146,11 +146,6 @@ like(http_get('/all/rr'),
 # make sure backend marked as down doesn't count towards "no live upstreams"
 # after all backends are tried with http_404
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.6');
-
 like(http_get('/down/'), qr/Not Found/, 'all tried with down');
-
-}
 
 ###############################################################################

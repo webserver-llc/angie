@@ -196,28 +196,17 @@ like(http(
 ), qr/Content-Length: (?!42).*^xx\x0d.*^xxx\x0d/ms,
 	'perl header_out content-length multipart');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.2');
-
 like(http(
 	'GET /range HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF
 	. 'Range: bytes=100000-' . CRLF . CRLF
 ), qr|^\QHTTP/1.1 416\E.*(?!xxx)|ms, 'perl range not satisfiable');
 
-}
-
-TODO: {
-todo_skip 'leaves coredump', 1 unless $t->has_version('1.17.1')
-	or $ENV{TEST_NGINX_UNSAFE};
-
 like(http(
 	'GET / HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF
 	. 'If-Match: tt' . CRLF . CRLF
 ), qr|200 OK|ms, 'perl precondition failed');
-
-}
 
 # various request body tests
 
@@ -287,9 +276,6 @@ like(http(
 	. '0' . CRLF . CRLF
 ), qr/host: localhost/, 'perl body discard');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.2');
-
 like(http(
 	'GET /discard HTTP/1.1' . CRLF
 	. 'Host: localhost' . CRLF
@@ -309,7 +295,5 @@ like(http(
 	. '1234567890' . CRLF
 	. '0' . CRLF . CRLF
 ), qr/400 Bad Request/, 'perl body bad chunk');
-
-}
 
 ###############################################################################

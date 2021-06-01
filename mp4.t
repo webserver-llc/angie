@@ -117,15 +117,7 @@ $test_uri = '/no_mdat.mp4', goto again unless $test_uri eq '/no_mdat.mp4';
 
 # corrupted formats
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.9');
-
 like(http_get("/bad.mp4?start=0.5"), qr/500 Internal/, 'co64 chunk beyond EOF');
-
-}
-
-$t->todo_alerts() if $t->read_file('nginx.conf') =~ /sendfile on/
-	and !$t->has_version('1.17.9');
 
 ###############################################################################
 

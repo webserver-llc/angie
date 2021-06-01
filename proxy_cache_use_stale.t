@@ -179,17 +179,11 @@ get('/regexp.html', 'max-age=1, stale-while-revalidate=10');
 
 sleep 2;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 # stale 5xx response is ignored since 1.19.3,
 # "proxy_cache_use_stale updating;" allows to get it still
 
 like(http_get('/t.html?e=1'), qr/ 500 /, 's-i-e - stale 5xx ignore');
 like(http_get('/tt.html?e=1'), qr/ 500 /, 's-i-e - stale 5xx ignore 2');
-
-}
-
 like(http_get('/updating/tt.html'), qr/STALE/, 's-i-e - stale 5xx updating');
 like(http_get('/t.html'), qr/REVALIDATED/, 's-i-e - revalidated');
 
@@ -201,14 +195,8 @@ like(get('/t4.html', 'max-age=1, stale-while-revalidate=2'), qr/STALE/,
 	's-w-r - unconditional revalidate');
 like(http_get('/t4.html'), qr/HIT/, 's-w-r - unconditional revalidated');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 like(http_get('/t5.html?e=1'), qr/ 500 /,
 	's-w-r - foreground revalidate error');
-
-}
-
 like(http_get('/t5.html'), qr/REVALIDATED/, 's-w-r - foreground revalidated');
 
 # proxy_pass to regular expression with named and positional captures

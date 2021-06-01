@@ -92,7 +92,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->try_run('no proxy_protocol')->plan(8);
+$t->run()->plan(8);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 

@@ -42,8 +42,6 @@ http {
         listen       127.0.0.1:8082 http2 sndbuf=128;
         server_name  localhost;
 
-        http2_max_field_size 128k;
-        http2_max_header_size 128k;
         large_client_header_buffers 2 64k;
 
         location / {
@@ -94,7 +92,6 @@ http {
         listen       127.0.0.1:8084 http2;
         server_name  localhost;
 
-        http2_max_field_size 512;
         large_client_header_buffers 4 512;
     }
 
@@ -102,7 +99,6 @@ http {
         listen       127.0.0.1:8085 http2;
         server_name  localhost;
 
-        http2_max_header_size 512;
         large_client_header_buffers 1 512;
     }
 
@@ -126,14 +122,7 @@ http {
 EOF
 
 $t->run_daemon(\&http_daemon);
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run();
-open STDERR, ">&", \*OLDERR;
-
-$t->waitforsocket('127.0.0.1:' . port(8083));
+$t->run()->waitforsocket('127.0.0.1:' . port(8083));
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 

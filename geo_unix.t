@@ -102,11 +102,6 @@ like(http_get('/?ip=192.0.2.1'), qr/^X-Arg: test/m, 'geo unix variable');
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 is(-e $t->testdir() . '/unix.sock', undef, 'unix socket removed');
-
-}
 
 ###############################################################################

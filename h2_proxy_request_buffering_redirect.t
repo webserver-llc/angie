@@ -72,15 +72,6 @@ EOF
 
 # unbuffered request body
 
-SKIP: {
-skip 'leaves coredump', 1 unless $t->has_version('1.17.4')
-	or $ENV{TEST_NGINX_UNSAFE};
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.4');
-
-$t->todo_alerts() unless $t->has_version('1.17.4');
-
 my $s = Test::Nginx::HTTP2->new();
 my $sid = $s->new_stream({ body_more => 1 });
 
@@ -91,9 +82,5 @@ $s->h2_body('THIS');
 my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'discard body rest on redirect');
-
-}
-
-}
 
 ###############################################################################

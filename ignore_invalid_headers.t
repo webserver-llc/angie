@@ -101,15 +101,10 @@ like(get($bad2, 8080), qr/x-bar/, 'off - bad first');
 
 # ignore_invalid_headers off; headers parsing post 8f55cb5c7e79
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.5');
-
 unlike(http('GET /v HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF
 	. 'coo: foo' . CRLF
 	. '</kie>: x-bar' . CRLF . CRLF), qr/x-bar/, 'off - several');
-
-}
 
 # ignore_invalid_headers on;
 

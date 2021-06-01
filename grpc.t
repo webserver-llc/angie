@@ -47,8 +47,6 @@ http {
         listen       127.0.0.1:8080 http2;
         server_name  localhost;
 
-        http2_max_field_size 128k;
-        http2_max_header_size 128k;
         http2_body_preread_size 128k;
         large_client_header_buffers 4 32k;
 
@@ -92,11 +90,7 @@ http {
 
 EOF
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
@@ -284,9 +278,6 @@ ok(!$frame, 'grpc error - no DATA frame');
 
 # malformed response body length not equal to content-length
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 $f->{http_start}('/SayHello');
 $f->{data}('Hello');
 $frames = $f->{http_err2}(cl => 42);
@@ -298,8 +289,6 @@ $f->{data}('Hello');
 $frames = $f->{http_err2}(cl => 8);
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 ok($frame, 'response body more than content-length');
-
-}
 
 # continuation from backend, expect parts assembled
 
@@ -481,10 +470,6 @@ is($frame->{flags}, 0, 'DATA padding - flags');
 
 # DATA padding with Content-Length
 
-TODO: {
-local $TODO = 'not yet'
-	if $t->has_version('1.19.1') and !$t->has_version('1.19.9');
-
 $f->{http_start}('/SayPadding');
 $f->{data}('Hello');
 $frames = $f->{http_end}(body_padding => 42, cl => length('Hello world'));
@@ -492,8 +477,6 @@ $frames = $f->{http_end}(body_padding => 42, cl => length('Hello world'));
 is($frame->{data}, 'Hello world', 'DATA padding cl');
 is($frame->{length}, 11, 'DATA padding cl - length');
 is($frame->{flags}, 0, 'DATA padding cl - flags');
-
-}
 
 # :authority inheritance
 
@@ -548,9 +531,6 @@ is($frame->{headers}{':method'}, 'HEAD', 'method head');
 $f->{data}('Hello');
 $f->{http_end}();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.0');
-
 # receiving END_STREAM followed by WINDOW_UPDATE on incomplete request body
 
 $f->{http_start}('/Discard_WU');
@@ -564,8 +544,6 @@ $f->{http_start}('/Discard_NE');
 $frames = $f->{discard}();
 (undef, $frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{flags}, 5, 'discard NO_ERROR - trailers');
-
-}
 
 # receiving END_STREAM followed by several RST_STREAM NO_ERROR
 
@@ -595,13 +573,7 @@ ok($frame->{headers}{'grpc-status'}, 'keepalive 3 - grpc error, rst');
 
 $frames = $f->{http_start}('/KeepAlive', reuse => 1);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.5');
-
 ok($frame, 'keepalive 3 - connection reused');
-
-}
 
 undef $f;
 $f = grpc();

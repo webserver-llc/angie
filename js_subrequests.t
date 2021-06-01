@@ -508,20 +508,7 @@ is(get_json('/sr_options_method_head'), '{"c":200}', 'sr_options_method_head');
 is(get_json('/sr_body'), '{"a":{"b":1}}', 'sr_body');
 is(get_json('/sr_body_special'), '{"e":"msg"}', 'sr_body_special');
 is(get_json('/sr_in_variable_handler'), '["CB-VAR"]', 'sr_in_variable_handler');
-
-$t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio (on|threads)/
-	and !$t->has_version('1.17.9');
-
-TODO: {
-local $TODO = 'header already sent' if $t->read_file('nginx.conf') =~ /aio on/
-	and !$t->has_version('1.17.9');
-local $TODO = 'open socket left' if $t->read_file('nginx.conf') =~ /aio thread/
-	and !$t->has_version('1.17.9');
-
 is(get_json('/sr_file'), '["SEE-THIS"]', 'sr_file');
-
-}
-
 is(get_json('/sr_cache?c=1'), '["SEE-THIS"]', 'sr_cache');
 is(get_json('/sr_cache?c=1'), '["SEE-THIS"]', 'sr_cached');
 is(get_json('/sr_js_in_subrequest'), '["JS-SUB"]', 'sr_js_in_subrequest');

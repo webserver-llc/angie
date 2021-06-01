@@ -97,7 +97,7 @@ foreach my $name ('localhost') {
 }
 
 $t->run_daemon(\&dns_daemon, port(8982), $t);
-$t->try_run('no grpc_pass variables')->plan(5);
+$t->run()->plan(5);
 
 $t->waitforfile($t->testdir . '/' . port(8982));
 

@@ -296,10 +296,6 @@ $s->read();
 
 # before 1.17.3, read event while in resolving resulted in duplicate resolving
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.17.3');
-
 my %ssl = (
 	SSL => 1,
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
@@ -318,8 +314,6 @@ $s->check(qr/TEMPUNAVAIL/, 'PTR SSL empty');
 
 $s->send('QUIT');
 $s->read();
-
-}
 
 ###############################################################################
 

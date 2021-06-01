@@ -318,12 +318,7 @@ is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
 
 # close_notify is sent before lingering close
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.5');
-
 is(get_ssl_shutdown(8085), 1, 'ssl shutdown on lingering close');
-
-}
 
 $t->stop();
 

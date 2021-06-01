@@ -63,14 +63,7 @@ $s->read(all => [{ type => 'PING' }]);
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.4');
-
 like($t->read_file('access.log'), qr/ (?!504)\d{3} /, 'shutdown timeout');
-
-}
-
-$t->todo_alerts() unless $t->has_version('1.17.4');
 
 ###############################################################################
 

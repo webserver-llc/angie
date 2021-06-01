@@ -70,7 +70,7 @@ EOF
 $t->write_file('index.html', '');
 $t->write_file('lax', '');
 $t->write_file('many', '');
-$t->try_run('no userid_flags')->plan(5);
+$t->run()->plan(5);
 
 ###############################################################################
 

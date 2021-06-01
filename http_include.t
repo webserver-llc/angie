@@ -77,7 +77,7 @@ $t->write_file('lif.conf', 'return 200 LIF;');
 $t->write_file('lmt.conf', 'deny all;');
 $t->write_file('ups.conf', "server 127.0.0.1:$p;");
 
-$t->try_run('no include in any context')->plan(5);
+$t->run()->plan(5);
 
 ###############################################################################
 

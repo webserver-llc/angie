@@ -104,13 +104,8 @@ is(stream('127.0.0.1:' . port(8086))->io('.'), '', 'next down');
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.6');
-
 is($t->read_file('test.log'), '127.0.0.1:' . port(8083) . "\n",
 	'next down log');
-
-}
 
 ###############################################################################
 

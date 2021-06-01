@@ -168,17 +168,12 @@ is($frame->{headers}->{'x-length'}, undef,
 # request body discarded
 # RST_STREAM with zero code received
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.4');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1 });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }], wait => 0.5);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{code}, 0, 'request body discarded - zero RST_STREAM');
-
-}
 
 # malformed request body length not equal to content-length
 
@@ -465,10 +460,6 @@ isnt($frame->{headers}->{'x-body'}, 'xxxx', 'sync buffer');
 
 # request body after 400 errors redirected to a proxied location
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or $t->has_version('1.19.3');
-
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body => "", headers => [
 	{ name => ':method', value => "" }]});
@@ -476,8 +467,6 @@ $sid = $s->new_stream({ body => "", headers => [
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq 'DATA' } @$frames;
 is($frame->{data}, 'SEE-THIS', 'request body after 400 redirect');
-
-}
 
 ###############################################################################
 

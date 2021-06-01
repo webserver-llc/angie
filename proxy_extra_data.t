@@ -74,13 +74,7 @@ $t->run()->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 like(http_get('/'), qr/SEE-THIS(?!-BUT-NOT-THIS)/, 'response with extra data');
-
-}
-
 like(http_get('/short'), qr/SEE-THIS(?!.*:after)/s, 'too short response');
 like(http_get('/empty'), qr/200 OK(?!.*:after)/s, 'empty too short response');
 
@@ -90,14 +84,8 @@ like(http_head('/empty'), qr/200 OK/, 'empty response to HEAD');
 
 # unbuffered responses
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 like(http_get('/unbuf/'), qr/SEE-THIS(?!-BUT-NOT-THIS)/,
 	'unbuffered with extra data');
-
-}
-
 like(http_get('/unbuf/short'), qr/SEE-THIS(?!.*:after)/s,
 	'unbuffered too short response');
 like(http_get('/unbuf/empty'), qr/200 OK(?!.*:after)/s,
@@ -119,37 +107,16 @@ like(http_head('/head/short'), qr/200 OK(?!.*SEE-THIS)/s, 'head too short');
 
 like(http_get('/head/empty'), qr/SEE-THIS/, 'head no body cached');
 like(http_get('/head/matching'), qr/SEE-THIS/, 'head matching cached');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 like(http_get('/head/extra'), qr/SEE-THIS(?!-BUT-NOT-THIS)/s,
 	'head extra cached');
-
-}
-
 like(http_get('/head/short'), qr/SEE-THIS(?!.*:after)/s,
 	'head too short cached');
 
-
 # "zero size buf" alerts (ticket #2117)
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.1');
-
 like(http_get('/zero'), qr/200 OK(?!.*NOT-THIS)/s, 'zero size');
-
-}
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.7');
-
 like(http_get('/unbuf/zero'), qr/200 OK(?!.*NOT-THIS)/s,
 	'unbuffered zero size');
-
-}
-
-$t->todo_alerts() if $t->has_version('1.19.1') and !$t->has_version('1.19.7');
 
 ###############################################################################
 

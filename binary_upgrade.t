@@ -89,11 +89,6 @@ for (1 .. 30) {
 	select undef, undef, undef, 0.2
 }
 
-TODO: {
-$TODO = 'not yet' unless $t->has_version('1.19.1');
-
 ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
-
-}
 
 ###############################################################################

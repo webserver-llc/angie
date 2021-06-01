@@ -229,9 +229,6 @@ is($frame->{code}, 6, 'GOAWAY invalid length - GOAWAY FRAME_SIZE_ERROR');
 #   An endpoint MUST treat a GOAWAY frame with a stream identifier other
 #   than 0x0 as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-
 $s = Test::Nginx::HTTP2->new();
 $s->h2_goaway(1, 0, 5, 'foobar');
 $frames = $s->read(all => [{ type => "GOAWAY" }], wait => 0.5);
@@ -239,8 +236,6 @@ $frames = $s->read(all => [{ type => "GOAWAY" }], wait => 0.5);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY invalid stream - GOAWAY frame');
 is($frame->{code}, 1, 'GOAWAY invalid stream - GOAWAY PROTOCOL_ERROR');
-
-}
 
 # client-initiated PUSH_PROMISE, just to ensure nothing went wrong
 # N.B. other implementation returns zero code, which is not anyhow regulated
@@ -592,14 +587,9 @@ $s = Test::Nginx::HTTP2->new(port(8087));
 $sid = $s->new_stream({ path => '/t2.html', split => [20], split_delay => 2.1 });
 $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.17.9');
-
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 ok($frame, 'client header timeout 2');
 is($frame->{code}, 1, 'client header timeout 2 - protocol error');
-
-}
 
 $s->h2_ping('SEE-THIS');
 $frames = $s->read(all => [{ type => 'PING' }]);

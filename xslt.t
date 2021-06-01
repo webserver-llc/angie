@@ -118,19 +118,9 @@ like(http_get("/x2"), qr!200 OK.*param1=value1.*param2=data.*param3=value3!ms,
 	'params');
 like(http_get("/x3"), qr!200 OK.*data=test entity!ms, 'entities');
 like(http_get("/x4"), qr!200 OK.*data=other data!ms, 'several stylesheets');
-
-TODO: {
-todo_skip 'heap-buffer-overflow', 1 unless $t->has_version('1.17.2')
-	or $ENV{TEST_NGINX_UNSAFE};
-
 like(http_get("/x5"), qr!200 OK.*param1=localhost!ms, 'params variable');
 
-}
-
 # xslt and ranges
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.19.2');
 
 unlike(http_get("/x1"), qr!Accept-Ranges!, 'no Accept-Ranges');
 like(http(<<EOF), qr!200 OK.*test xslt result!ms, 'no ranges');
@@ -140,7 +130,5 @@ Connection: close
 Range: bytes=-10
 
 EOF
-
-}
 
 ###############################################################################

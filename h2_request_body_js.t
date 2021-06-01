@@ -71,9 +71,6 @@ $t->try_run('no njs available')->plan(3);
 
 ###############################################################################
 
-local $TODO = 'not yet' unless $t->has_version('1.19.3');
-$t->todo_alerts() unless $t->has_version('1.19.3');
-
 my $s = Test::Nginx::HTTP2->new();
 my $sid = $s->new_stream({ body => 'TEST' });
 my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
@@ -84,7 +81,5 @@ is($frame->{headers}->{'x-body'}, 'TEST', 'request body');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{data}, 'SEE-THIS', 'response body');
-
-$t->stop();
 
 ###############################################################################

@@ -26,6 +26,9 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
 	->has_daemon('openssl');
 
+$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
+plan(skip_all => 'OpenSSL too old') unless defined $1 and $1 ge '1.0.2';
+
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

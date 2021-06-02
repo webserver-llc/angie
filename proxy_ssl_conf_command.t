@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for http proxy to ssl backend, proxy_ssl_conf_command.
+# Tests for proxy_ssl_conf_command and friends.
 
 ###############################################################################
 
@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl proxy/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl proxy uwsgi http_v2 grpc/)
 	->has_daemon('openssl');
 
 $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
@@ -45,27 +45,44 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        proxy_ssl_certificate localhost.crt;
-        proxy_ssl_certificate_key localhost.key;
-        proxy_ssl_conf_command Certificate override.crt;
-        proxy_ssl_conf_command PrivateKey override.key;
-
         location / {
-            proxy_pass https://127.0.0.1:8081/;
+            proxy_ssl_certificate localhost.crt;
+            proxy_ssl_certificate_key localhost.key;
+            proxy_ssl_conf_command Certificate override.crt;
+            proxy_ssl_conf_command PrivateKey override.key;
+            proxy_pass https://127.0.0.1:8081;
+        }
+
+        location /uwsgi {
+            uwsgi_ssl_certificate localhost.crt;
+            uwsgi_ssl_certificate_key localhost.key;
+            uwsgi_ssl_conf_command Certificate override.crt;
+            uwsgi_ssl_conf_command PrivateKey override.key;
+            uwsgi_ssl_session_reuse off;
+            uwsgi_pass suwsgi://127.0.0.1:8081;
+        }
+
+        location /grpc {
+            grpc_ssl_certificate localhost.crt;
+            grpc_ssl_certificate_key localhost.key;
+            grpc_ssl_conf_command Certificate override.crt;
+            grpc_ssl_conf_command PrivateKey override.key;
+            grpc_pass grpcs://127.0.0.1:8082;
         }
     }
 
     server {
         listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8082 ssl http2;
         server_name  localhost;
 
         ssl_certificate localhost.crt;
         ssl_certificate_key localhost.key;
         ssl_verify_client optional_no_ca;
 
-        location / {
-            add_header X-Cert $ssl_client_s_dn;
-        }
+        # stub to implement SSL logic for tests
+
+        add_header X-Cert $ssl_client_s_dn always;
     }
 }
 
@@ -90,10 +107,12 @@ foreach my $name ('localhost', 'override') {
 }
 
 $t->write_file('index.html', '');
-$t->run()->plan(1);
+$t->run()->plan(3);
 
 ###############################################################################
 
-like(http_get('/'), qr/CN=override/, 'Certificate');
+like(http_get('/'), qr/CN=override/, 'proxy_ssl_conf_command');
+like(http_get('/uwsgi'), qr/CN=override/, 'uwsgi_ssl_conf_command');
+like(http_get('/grpc'), qr/CN=override/, 'grpc_ssl_conf_command');
 
 ###############################################################################

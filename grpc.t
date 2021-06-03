@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(123);
+	->has(qw/upstream_keepalive/)->plan(130);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -153,6 +153,23 @@ $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 cmp_ok($frame->{headers}{'x-connection'}, '>', $c, 'response 2 - connection');
+
+# request body - special last buffer
+
+$f->{http_start}('/SayHello');
+$frames = $f->{data}('Hello', body_more => 1);
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'Hello', 'request body first - DATA');
+is($frame->{length}, 5, 'request body first - DATA length');
+is($frame->{flags}, 0, 'request body first - DATA flags');
+$frames = $f->{data}('');
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, '', 'special buffer last - DATA');
+is($frame->{length}, 0, 'special buffer last - DATA length');
+is($frame->{flags}, 1, 'special buffer last - DATA flags');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, '200', 'special buffer last - response');
 
 # upstream keepalive
 

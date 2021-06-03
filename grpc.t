@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(130);
+	->has(qw/upstream_keepalive/)->plan(138);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -213,6 +213,35 @@ $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-connection'}, $c, 'keepalive 2 - connection reuse');
+
+undef $f;
+$f = grpc();
+
+# upstream keepalive
+# grpc filter setting INITIAL_WINDOW_SIZE is inherited in the next stream
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$f->{settings}(0, 1 => 4096);
+$frames = $f->{http_end}(grpc_filter_settings => { 0x4 => 2 });
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($c = $frame->{headers}{'x-connection'}, 'keepalive 3 - connection');
+
+$f->{http_start}('/KeepAlive', reuse => 1);
+$frames = $f->{data_len}('Hello', 2);
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'He', 'grpc filter setting - DATA');
+is($frame->{length}, 2, 'grpc filter setting - DATA length');
+is($frame->{flags}, 0, 'grpc filter setting - DATA flags');
+$f->{settings}(0, 0x4 => 5);
+$frames = $f->{data_len}(undef, 3);
+($frame) = grep { $_->{type} eq "DATA" } @$frames;
+is($frame->{data}, 'llo', 'setting updated - DATA');
+is($frame->{length}, 3, 'setting updated - DATA length');
+is($frame->{flags}, 1, 'setting updated - DATA flags');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{'x-connection'}, $c, 'keepalive 3 - connection reuse');
 
 undef $f;
 $f = grpc();
@@ -692,6 +721,8 @@ sub grpc {
 		$c->new_stream({ body_more => 1, headers => $h, %extra }, $sid);
 		$c->h2_body('Hello world', { body_more => 1,
 			body_padding => $extra{body_padding} });
+		$c->h2_settings(0, %{$extra{grpc_filter_settings}})
+			if $extra{grpc_filter_settings};
 		$c->new_stream({ headers => [
 			{ name => 'grpc-status', value => '0',
 				mode => 2, huff => 1 },

@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(138);
+	->has(qw/upstream_keepalive/)->plan(146);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -242,6 +242,72 @@ is($frame->{flags}, 1, 'setting updated - DATA flags');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-connection'}, $c, 'keepalive 3 - connection reuse');
+
+undef $f;
+$f = grpc();
+
+# upstream keepalive - GOAWAY, current request aborted
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($c = $frame->{headers}{'x-connection'}, 'keepalive 4 - connection');
+
+$f->{http_start}('/KeepAlive', reuse => 1);
+$f->{goaway}(0, 0, 5);
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'keepalive 4 - GOAWAY aborted request');
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+cmp_ok($frame->{headers}{'x-connection'}, '>', $c, 'keepalive 4 - closed');
+
+undef $f;
+$f = grpc();
+
+# upstream keepalive - disabled with a higher GOAWAY Last-Stream-ID
+
+$f->{http_start}('/KeepAlive');
+$f->{goaway}(0, 3, 5);
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($c = $frame->{headers}{'x-connection'}, 'keepalive 5 - GOAWAY next stream');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+cmp_ok($frame->{headers}{'x-connection'}, '>', $c, 'keepalive 5 - closed');
+
+}
+
+undef $f;
+$f = grpc();
+
+# upstream keepalive - GOAWAY in grpc filter, current stream aborted
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_end}(grpc_filter_goaway => [0, 0, 5]);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+ok($c = $frame->{headers}{'x-connection'}, 'keepalive 6 - connection');
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'keepalive 6 - grpc filter GOAWAY aborted stream');
+
+$f->{http_start}('/KeepAlive');
+$f->{data}('Hello');
+$frames = $f->{http_end}();
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+cmp_ok($frame->{headers}{'x-connection'}, '>', $c, 'keepalive 6 - closed');
 
 undef $f;
 $f = grpc();
@@ -664,6 +730,8 @@ sub grpc {
 			alarm(0);
 			if ($@) {
 				log_in("died: $@");
+				# connection could be unexpectedly reused
+				goto reused if $client;
 				return undef;
 			}
 
@@ -676,6 +744,7 @@ sub grpc {
 				pure => 1, preface => "") or return;
 		}
 
+reused:
 		my $frames = $c->read(all => [{ fin => 4 }]);
 
 		if (!$extra{reuse}) {
@@ -707,6 +776,9 @@ sub grpc {
 	$f->{settings} = sub {
 		$c->h2_settings(@_);
 	};
+	$f->{goaway} = sub {
+		$c->h2_goaway(@_);
+	};
 	$f->{http_end} = sub {
 		my (%extra) = @_;
 		my $h = [
@@ -723,6 +795,8 @@ sub grpc {
 			body_padding => $extra{body_padding} });
 		$c->h2_settings(0, %{$extra{grpc_filter_settings}})
 			if $extra{grpc_filter_settings};
+		$c->h2_goaway(@{$extra{grpc_filter_goaway}})
+			if $extra{grpc_filter_goaway};
 		$c->new_stream({ headers => [
 			{ name => 'grpc-status', value => '0',
 				mode => 2, huff => 1 },
@@ -730,6 +804,8 @@ sub grpc {
 				mode => 2, huff => 1 },
 		]}, $sid);
 
+		return $s->read(all => [{ type => 'RST_STREAM' }])
+			if $extra{grpc_filter_goaway};
 		return $s->read(all => [{ fin => 1 }]);
 	};
 	$f->{http_pres} = sub {

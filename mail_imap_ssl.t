@@ -207,6 +207,7 @@ $s = Test::Nginx::IMAP->new(
 );
 $s->ok('trusted cert');
 $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s5"));
+$s->read();
 undef $s;
 
 # test auth_http request header fields with access_log

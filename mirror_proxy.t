@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use IO::Select;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -59,6 +61,12 @@ http {
             proxy_pass http://127.0.0.1:8082;
             limit_req  zone=slow burst=1;
         }
+
+        location /mirror/off {
+            internal;
+            proxy_pass http://127.0.0.1:8082;
+            proxy_set_header Content-Length "";
+        }
     }
 
     server {
@@ -67,7 +75,6 @@ http {
         server_name  localhost;
 
         location / {
-            client_body_timeout 1s;
             proxy_pass http://127.0.0.1:$server_port/return204;
             access_log %%TESTDIR%%/test.log test;
             add_header X-Body $request_body;
@@ -90,19 +97,10 @@ like(http_post('/off'), qr/X-Body: 1234567890\x0d?$/m, 'mirror_request_body');
 
 # delayed subrequest should not affect main request processing nor stuck itself
 
-SKIP: {
-skip 'hang on win32', 1 if $^O eq 'MSWin32' and !$ENV{TEST_NGINX_UNSAFE};
+my $s = http_post('/delay?1', start => 1);
+like(read_keepalive($s), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
 
-TODO: {
-local $TODO = 'not yet';
-
-like(http_post('/delay?1'), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
-
-}
-
-}
-
-$t->todo_alerts() unless $^O eq 'MSWin32';
+$t->todo_alerts();
 $t->stop();
 
 my $log = $t->read_file('test.log');
@@ -114,15 +112,29 @@ like($log, qr!^/mirror/off:-$!m,, 'log - mirror_request_body off in mirror');
 ###############################################################################
 
 sub http_post {
-	my ($url) = @_;
+	my ($url, %extra) = @_;
 
-	http(<<EOF);
+	http(<<EOF, %extra);
 POST $url HTTP/1.0
 Host: localhost
 Content-Length: 10
 
 1234567890
 EOF
+}
+
+sub read_keepalive {
+	my ($s) = @_;
+	my $data = '';
+
+	while (IO::Select->new($s)->can_read(3)) {
+		sysread($s, my $buffer, 4096) or last;
+		$data .= $buffer;
+		last if $data =~ /^\x0d\x0a/ms;
+	}
+
+	log_in($data);
+	return $data;
 }
 
 ###############################################################################

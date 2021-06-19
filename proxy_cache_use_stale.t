@@ -238,12 +238,12 @@ like(http_get('/updating/t2.html'), qr/STALE/,
 # before 1.13.1, if stale response was not sent in one pass, its remaining
 # part was blocked and not sent until background update has been finished
 
-$t->write_file('t7.html', 'SEE-THAT' x 1024);
+$t->write_file('t7.html', 'SEE-THAT' x 256);
 
 my $r = read_all(get('/t7.html?lim=1', 'max-age=1', start => 1));
 like($r, qr/STALE.*^(SEE-THIS){1024}$/ms, 's-w-r - stale response not blocked');
 
-$t->write_file('t9.html', 'SEE-THAT' x 1024);
+$t->write_file('t9.html', 'SEE-THAT' x 256);
 $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html?lim=1" --> xxx');
 
 $r = read_all(http_get('/ssi.html', start => 1));

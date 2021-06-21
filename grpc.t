@@ -719,17 +719,11 @@ sub grpc {
 			{ name => 'te', value => 'trailers', mode => 2 }]});
 
 		if (!$extra{reuse}) {
-			eval {
-				local $SIG{ALRM} = sub { die "timeout\n" };
-				alarm(5);
+			if (IO::Select->new($server)->can_read(5)) {
+				$client = $server->accept();
 
-				$client = $server->accept() or return;
-
-				alarm(0);
-			};
-			alarm(0);
-			if ($@) {
-				log_in("died: $@");
+			} else {
+				log_in("timeout");
 				# connection could be unexpectedly reused
 				goto reused if $client;
 				return undef;

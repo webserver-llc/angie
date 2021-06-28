@@ -148,10 +148,9 @@ $t->write_file('t7.html', 'SEE-THIS' x 1024);
 $t->write_file('t9.html', 'SEE-THIS' x 1024);
 $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html" --> xxx');
 $t->write_file('escape.html', 'SEE-THIS');
-$t->write_file('escape html', 'SEE-THIS');
 $t->write_file('regexp.html', 'SEE-THIS');
 
-$t->run()->plan(36);
+$t->run()->plan(34);
 
 ###############################################################################
 
@@ -174,7 +173,6 @@ get('/updating/t2.html', 'max-age=1, stale-while-revalidate=2');
 get('/updating/tt.html', 'max-age=1, stale-if-error=5');
 get('/t8.html', 'stale-while-revalidate=10');
 get('/escape.htm%6C', 'max-age=1, stale-while-revalidate=10');
-get('/escape html', 'max-age=1, stale-while-revalidate=10');
 get('/regexp.html', 'max-age=1, stale-while-revalidate=10');
 
 sleep 2;
@@ -263,15 +261,11 @@ like(http_get('/t2.html?if=1'), qr/HIT/, 'background update in if - updated');
 # ticket #1430, uri escaping in cloned subrequests
 
 $t->write_file('escape.html', 'SEE-THAT');
-$t->write_file('escape html', 'SEE-THAT');
 
 get('/escape.htm%6C', 'max-age=1');
-get('/escape html', 'max-age=1');
 
 like(http_get('/escape.htm%6C'), qr/HIT/, 'escaped after escaped');
 like(http_get('/escape.html'), qr/MISS/, 'unescaped after escaped');
-like(http_get('/escape html'), qr/HIT/, 'space after escaped space');
-like(http_get('/escape%20html'), qr/HIT/, 'escaped space after escaped space');
 
 ###############################################################################
 

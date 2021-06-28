@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(146);
+	->has(qw/upstream_keepalive/)->plan(145);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -616,12 +616,6 @@ $f->{http_end}();
 $frames = $f->{http_start}('/SetArgs?c=1');
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{':path'}, '/SetArgs?1', 'set args len');
-$f->{data}('Hello');
-$f->{http_end}();
-
-$frames = $f->{http_start}('/SetArgs esc');
-($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}{':path'}, '/SetArgs%20esc', 'uri escape');
 $f->{data}('Hello');
 $f->{http_end}();
 

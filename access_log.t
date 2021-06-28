@@ -40,9 +40,9 @@ http {
     log_format addr "$remote_addr:$remote_port:$server_addr:$server_port";
     log_format binary $binary_remote_addr;
 
-    log_format default  escape=default  $arg_a$arg_b$arg_c;
-    log_format none     escape=none     $arg_a$arg_b$arg_c;
-    log_format json     escape=json     $arg_a$arg_b$arg_c;
+    log_format default  escape=default  $uri$arg_b$arg_c;
+    log_format none     escape=none     $uri$arg_b$arg_c;
+    log_format json     escape=json     $uri$arg_b$arg_c;
 
     server {
         listen       127.0.0.1:8080;
@@ -169,7 +169,8 @@ my $sport = $s->peerport();
 
 http_get('/binary');
 
-http_get('/escape?a="1 \\ ' . pack("n", 0x1b1c) . ' "&c=2');
+# /escape/"1 %1B%1C "?c=2
+http_get('/escape/%221%20%1B%1C%20%22?c=2');
 
 http_get('/cache?logname=lru');
 http_get('/cache?logname=lru');
@@ -271,11 +272,11 @@ is($t->read_file('binary.log'), "$expected\n", 'binary');
 # characters escaping
 
 is($t->read_file('test.log'),
-	'\x221 \x5C \x1B\x1C \x22-2' . "\n", 'escape - default');
+	'/escape/\x221 \x1B\x1C \x22-2' . "\n", 'escape - default');
 is($t->read_file('none.log'),
-	'"1 \\ ' . pack("n", 0x1b1c) . " \"2\n", 'escape - none');
+	"/escape/\"1 \x1B\x1C \"2\n", 'escape - none');
 is($t->read_file('json.log'),
-	'\"1 \\\\ \u001B\u001C \"2' . "\n", 'escape - json');
+	'/escape/\"1 \u001B\u001C \"2' . "\n", 'escape - json');
 
 SKIP: {
 skip 'win32', 4 if $^O eq 'MSWin32';

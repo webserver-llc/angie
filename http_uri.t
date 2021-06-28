@@ -76,6 +76,11 @@ like(http_get('http://localhost:8080?args'), qr!x / x.*y args y!ms,
 like(http_get('http://localhost:8080?args#frag'), qr!x / x.*y args y!ms,
 	'port args and frag');
 
-like(http_get('/ /'), qr!x / / x!, 'space');
+TODO: {
+local $TODO = 'not yet';
+
+like(http_get('/ /'), qr/400 Bad/, 'space');
+
+}
 
 ###############################################################################

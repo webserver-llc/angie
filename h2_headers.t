@@ -1148,11 +1148,11 @@ is($frame->{code}, 0x9, 'too long literal');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ split => [35], split_delay => 1.1, headers => [
-        { name => ':method', value => 'GET', mode => 3, huff => 0 },
-        { name => ':scheme', value => 'http', mode => 3, huff => 0 },
-        { name => ':path', value => '/', mode => 3, huff => 0 },
-        { name => ':authority', value => 'localhost', mode => 3, huff => 0 },
-        { name => 'referer', value => 'foo', mode => 3, huff => 0 }]});
+	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
+	{ name => ':scheme', value => 'http', mode => 3, huff => 0 },
+	{ name => ':path', value => '/', mode => 3, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 3, huff => 0 },
+	{ name => 'referer', value => 'foo', mode => 3, huff => 0 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -1160,11 +1160,11 @@ is($frame->{headers}->{'x-referer'}, 'foo', 'header split index');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ split => [37], split_delay => 1.1, headers => [
-        { name => ':method', value => 'GET', mode => 3, huff => 0 },
-        { name => ':scheme', value => 'http', mode => 3, huff => 0 },
-        { name => ':path', value => '/', mode => 3, huff => 0 },
-        { name => ':authority', value => 'localhost', mode => 3, huff => 0 },
-        { name => 'referer', value => '1234' x 32, mode => 3, huff => 0 }]});
+	{ name => ':method', value => 'GET', mode => 3, huff => 0 },
+	{ name => ':scheme', value => 'http', mode => 3, huff => 0 },
+	{ name => ':path', value => '/', mode => 3, huff => 0 },
+	{ name => ':authority', value => 'localhost', mode => 3, huff => 0 },
+	{ name => 'referer', value => '1234' x 32, mode => 3, huff => 0 }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

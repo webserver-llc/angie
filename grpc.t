@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(145);
+	->has(qw/upstream_keepalive/)->plan(146);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -503,6 +503,17 @@ $f->{data}('Hello');
 $frames = $f->{field_bad}(n => "n\nn");
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{':status'}, 502, 'invalid header name ctl');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+$f->{http_start}('/');
+$f->{data}('Hello');
+$frames = $f->{field_bad}(n => "n n");
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{':status'}, 502, 'invalid header name space');
+
+}
 
 $f->{http_start}('/');
 $f->{data}('Hello');

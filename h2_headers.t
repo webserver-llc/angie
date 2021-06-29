@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(105)
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(107)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -992,6 +992,35 @@ $frames = $s->read(all => [{ type => 'RST_STREAM' }]);
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{sid}, $sid, 'colon in header name - RST_STREAM sid');
 is($frame->{code}, 1, 'colon in header name - RST_STREAM code');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => 'x foo', value => "bar", mode => 2 }]});
+$frames = $s->read(all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'space in header name - RST_STREAM sid');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ headers => [
+	{ name => ':method', value => 'GET', mode => 0 },
+	{ name => ':scheme', value => 'http', mode => 0 },
+	{ name => ':path', value => '/', mode => 0 },
+	{ name => ':authority', value => 'localhost', mode => 1 },
+	{ name => "foo\x02", value => "bar", mode => 2 }]});
+$frames = $s->read(all => [{ type => 'RST_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
+ok($frame, 'control in header name - RST_STREAM sid');
+
+}
 
 # header name with underscore - underscores_in_headers on
 

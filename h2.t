@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(142);
+	->plan(144);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -297,6 +297,29 @@ is($frame->{headers}->{'x-header'}, 'X-Foo', 'HEAD - HEADERS header');
 
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame, undef, 'HEAD - no body');
+
+# CONNECT
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ method => 'CONNECT' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 405, 'CONNECT - not allowed');
+
+}
+
+# TRACE
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ method => 'TRACE' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 405, 'TRACE - not allowed');
 
 # range filter
 

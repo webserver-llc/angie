@@ -76,6 +76,10 @@ http {
             proxy_pass http://127.0.0.1:8080;
         }
 
+        location '/auto "#%<>?\^`{|}/' {
+            proxy_pass http://127.0.0.1:8080;
+        }
+
         location /return301 {
             return 301 /redirect;
         }
@@ -91,7 +95,7 @@ EOF
 mkdir($t->testdir() . '/dir');
 mkdir($t->testdir() . '/dir sp');
 
-$t->run()->plan(18);
+$t->run()->plan(19);
 
 ###############################################################################
 
@@ -158,6 +162,19 @@ like(get('off', '/auto%20sp?a=b'), qr!Location: /auto%20sp/\?a=b\x0d?$!m,
 }
 
 like(get('off', '/return301'), qr!Location: /redirect\x0d?$!m, 'off return');
+
+# per RFC 3986, these charaters are not allowed unescaped:
+# %00-%1F, %7F-%FF, " ", """, "<", ">", "\", "^", "`", "{", "|", "}"
+# additionally, all characters in ESCAPE_URI: "?", "%", "#"
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+like(get('off', '/auto%20%22%23%25%3C%3E%3F%5C%5E%60%7B%7C%7D'),
+	qr!Location: /auto%20%22%23%25%3C%3E%3F%5C%5E%60%7B%7C%7D/\x0d?$!m,
+	'auto escaped strict');
+
+}
 
 ###############################################################################
 

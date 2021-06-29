@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(16);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(17);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -177,6 +177,14 @@ like(http_transfer_encoding("chunked\nTransfer-Encoding: chunked"),
 
 like(http_transfer_encoding('chunked, identity'), qr/501 Not Implemented/,
 	'transfer encoding list');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+like(http_transfer_encoding("chunked\nContent-Length: 5"), qr/400 Bad/,
+	'transfer encoding with content-length');
+
+}
 
 ###############################################################################
 

@@ -77,7 +77,7 @@ like(http_get('http://localhost:8080?args#frag'), qr!x / x.*y args y!ms,
 	'port args and frag');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
 
 like(http_get('/ /'), qr/400 Bad/, 'space');
 

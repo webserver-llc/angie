@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(17)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(19)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -82,5 +82,14 @@ local $TODO = 'not yet' unless $t->has_version('1.21.1');
 like(http_get('/ /'), qr/400 Bad/, 'space');
 
 }
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.1');
+
+like(http_get("/\x02"), qr/400 Bad/, 'control');
+
+}
+
+like(http_get('/%02'), qr!x /\x02 x!, 'control escaped');
 
 ###############################################################################

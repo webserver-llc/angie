@@ -84,8 +84,7 @@ $t->run();
 # request body (uses proxied response)
 
 my $s = Test::Nginx::HTTP2->new();
-my $sid = $s->new_stream({ path => '/proxy2/t.html', body_more => 1 });
-$s->h2_body('TEST');
+my $sid = $s->new_stream({ path => '/proxy2/t.html', body => 'TEST' });
 my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -95,8 +94,8 @@ is($frame->{headers}->{'x-length'}, 4, 'request body - content length');
 # request body with padding (uses proxied response)
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/proxy2/t.html', body_more => 1 });
-$s->h2_body('TEST', { body_padding => 42 });
+$sid = $s->new_stream(
+	{ path => '/proxy2/t.html', body => 'TEST', body_padding => 42 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -114,8 +113,8 @@ is($frame->{headers}->{':status'}, '200', 'request body with padding - next');
 # request body sent in multiple DATA frames in a single packet
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/proxy2/t.html', body_more => 1 });
-$s->h2_body('TEST', { body_split => [2] });
+$sid = $s->new_stream(
+	{ path => '/proxy2/t.html', body => 'TEST', body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -143,8 +142,7 @@ is($frame->{headers}->{'x-length'}, 12,
 # "zero size buf in output" alerts seen
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ path => '/proxy2/', body_more => 1 });
-$s->h2_body('');
+$sid = $s->new_stream({ path => '/proxy2/', body => '' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -178,25 +176,23 @@ is($frame->{code}, 0, 'request body discarded - zero RST_STREAM');
 # malformed request body length not equal to content-length
 
 $s = Test::Nginx::HTTP2->new();
-$sid = $s->new_stream({ body_more => 1, headers => [
+$sid = $s->new_stream({ body => 'TEST', headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'content-length', value => '5', mode => 1 }]});
-$s->h2_body('TEST');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
 
-$sid = $s->new_stream({ body_more => 1, headers => [
+$sid = $s->new_stream({ body => 'TEST', headers => [
 	{ name => ':method', value => 'GET', mode => 0 },
 	{ name => ':scheme', value => 'http', mode => 0 },
 	{ name => ':path', value => '/client_max_body_size', mode => 1 },
 	{ name => ':authority', value => 'localhost', mode => 1 },
 	{ name => 'content-length', value => '3', mode => 1 }]});
-$s->h2_body('TEST');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -206,8 +202,7 @@ is($frame->{headers}->{':status'}, 400, 'request body more than content-length')
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST12');
+	body => 'TESTTEST12' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -219,8 +214,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST123');
+	body => 'TESTTEST123' });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -230,8 +224,7 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size - limited');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST12', { body_split => [2] });
+	body => 'TESTTEST12', body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -243,8 +236,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST123', { body_split => [2] });
+	body => 'TESTTEST123', body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -254,8 +246,7 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size many - limited');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST12', { body_padding => 42 });
+	body => 'TESTTEST12', body_padding => 42 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -267,8 +258,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST123', { body_padding => 42 });
+	body => 'TESTTEST123', body_padding => 42 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -278,8 +268,7 @@ is($frame->{headers}->{':status'}, 413, 'client_max_body_size pad - limited');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST12', { body_padding => 42, body_split => [2] });
+	body => 'TESTTEST12', body_padding => 42, body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -292,8 +281,7 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/client_max_body_size/t.html',
-	body_more => 1 });
-$s->h2_body('TESTTEST123', { body_padding => 42, body_split => [2] });
+	body => 'TESTTEST123', body_padding => 42, body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(17);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(18);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -186,6 +186,14 @@ like(http_transfer_encoding("chunked\nContent-Length: 5"), qr/400 Bad/,
 
 }
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.2');
+
+like(http_transfer_encoding("chunked", "1.0"), qr/400 Bad/,
+	'transfer encoding in HTTP/1.0 requests');
+
+}
+
 ###############################################################################
 
 sub read_body_file {
@@ -222,9 +230,10 @@ sub http_get_body {
 }
 
 sub http_transfer_encoding {
-	my ($encoding) = @_;
+	my ($encoding, $version) = @_;
+	$version ||= "1.1";
 
-	http("GET / HTTP/1.1" . CRLF
+	http("GET / HTTP/$version" . CRLF
 		. "Host: localhost" . CRLF
 		. "Connection: close" . CRLF
 		. "Transfer-Encoding: $encoding" . CRLF . CRLF

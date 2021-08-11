@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(26);
+	->has_daemon('openssl')->plan(28);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -316,6 +316,10 @@ $req x= 1000;
 my $r = http($req, socket => $s) || "";
 is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
 
+# OpenSSL 3.0 error "unexpected eof while reading" seen as a critical error
+
+ok(get_ssl_socket(8085), 'ssl unexpected eof');
+
 # close_notify is sent before lingering close
 
 is(get_ssl_shutdown(8085), 1, 'ssl shutdown on lingering close');
@@ -330,6 +334,8 @@ like($t->read_file('ssl.log'), qr/^(TLS|SSL)v(\d|\.)+$/m,
 	'log ssl variable on lingering close');
 
 }
+
+like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

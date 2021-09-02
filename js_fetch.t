@@ -190,7 +190,6 @@ $t->write_file('test.js', <<EOF);
             ['http://127.0.0.1:1/loc'],
             ['http://127.0.0.1:80800/loc'],
             [Symbol.toStringTag],
-            ['https://127.0.0.1:$p0/loc'],
         ];
 
         return process_errors(r, tests);
@@ -401,8 +400,7 @@ is(get_json('/broken'),
 	'[' .
 	'"connect failed",' .
 	'"failed to convert url arg",' .
-	'"invalid url",' .
-	'"unsupported URL prefix"]', 'fetch broken');
+	'"invalid url"]', 'fetch broken');
 is(get_json('/broken_response'),
 	'["invalid fetch content length",' .
 	'"invalid fetch header",' .

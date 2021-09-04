@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(45);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(49);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -137,6 +137,33 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTMOREDATA',
 	'request body in multiple frames separately');
 is($frame->{headers}->{'x-length'}, 12,
 	'request body in multiple frames separately - content length');
+
+# if run with body buffering in filters, it's expected to update window
+# after request body populates initial stream window size set for preread
+
+$s = Test::Nginx::HTTP2->new();
+$sid = $s->new_stream({ path => '/proxy2/t.html', body_more => 1 });
+$s->h2_body('01234567' x 2048, { body_more => 1 });
+select undef, undef, undef, 0.1;
+$s->h2_body('01234567' x 2048, { body_more => 1 });
+select undef, undef, undef, 0.1;
+$s->h2_body('01234567' x 2048, { body_more => 1 });
+select undef, undef, undef, 0.1;
+$s->h2_body('01234567' x 2048, { body_more => 1 });
+
+$frames = $s->read(all => [{ type => 'WINDOW_UPDATE' }]);
+($frame) = grep { $_->{type} eq 'WINDOW_UPDATE' } @$frames;
+is($frame->{sid}, $sid, 'big request body - WINDOW_UPDATE sid');
+cmp_ok($frame->{wdelta}, '>=', 65536, 'big request body - WINDOW_UPDATE delta');
+
+$s->h2_body('01234567' x 2048);
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is(read_body_file($frame->{headers}->{'x-body-file'}), '01234567' x 10240,
+	'big request body - content');
+is($frame->{headers}->{'x-length'}, 81920,
+	'big request body - content length');
 
 # request body with an empty DATA frame
 # "zero size buf in output" alerts seen

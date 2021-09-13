@@ -163,7 +163,7 @@ like(get('off', '/auto%20sp?a=b'), qr!Location: /auto%20sp/\?a=b\x0d?$!m,
 
 like(get('off', '/return301'), qr!Location: /redirect\x0d?$!m, 'off return');
 
-# per RFC 3986, these charaters are not allowed unescaped:
+# per RFC 3986, these characters are not allowed unescaped:
 # %00-%1F, %7F-%FF, " ", """, "<", ">", "\", "^", "`", "{", "|", "}"
 # additionally, all characters in ESCAPE_URI: "?", "%", "#"
 

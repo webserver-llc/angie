@@ -42,6 +42,7 @@ http {
         server_name  on;
 
         absolute_redirect on;
+        error_page 400 /return301;
 
         location / { }
 
@@ -55,6 +56,16 @@ http {
 
         location /return301 {
             return 301 /redirect;
+        }
+
+        location /return301/name {
+            return 301 /redirect;
+            server_name_in_redirect on;
+        }
+
+        location /return301/port {
+            return 301 /redirect;
+            port_in_redirect off;
         }
 
         location /i/ {
@@ -95,7 +106,7 @@ EOF
 mkdir($t->testdir() . '/dir');
 mkdir($t->testdir() . '/dir sp');
 
-$t->run()->plan(19);
+$t->run()->plan(23);
 
 ###############################################################################
 
@@ -133,6 +144,16 @@ like(get('on', '/auto%20sp?a=b'),
 
 like(get('on', '/return301'), qr!Location: http://on:$p/redirect\x0d?$!m,
 	'return');
+
+like(get('host', '/return301/name'), qr!Location: http://on:$p/redirect\x0d?!m,
+	'server_name_in_redirect on');
+like(get('host', '/return301'), qr!Location: http://host:$p/redirect\x0d?$!m,
+	'server_name_in_redirect off - using host');
+my $ph = IO::Socket::INET->new("127.0.0.1:$p")->peerhost();
+like(get('.', '/return301'), qr!Location: http://$ph:$p/redirect\x0d?$!m,
+	'invalid host - using local sockaddr');
+like(get('host', '/return301/port'), qr!Location: http://host/redirect\x0d?$!m,
+	'port_in_redirect off');
 
 like(get('off', '/dir'), qr!Location: /dir/\x0d?$!m, 'off directory');
 like(get('off', '/i/dir'), qr!Location: /i/dir/\x0d?$!m, 'off directory alias');

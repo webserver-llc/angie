@@ -438,9 +438,15 @@ sub headers {
 
 sub continuation {
 	my ($ctx, $buf, $len, $flags) = @_;
+	my %payload;
+
 	$ctx->{headers} .= substr($buf, 0, $len);
-	return unless $flags & 0x4;
-	{ headers => hunpack($ctx, $ctx->{headers}, length($ctx->{headers})) };
+	$payload{promised} = $ctx->{promised} if $ctx->{promised};
+	return \%payload unless $flags & 0x4;
+
+	$ctx->{promised} = undef;
+	return { %payload, headers => hunpack($ctx, $ctx->{headers},
+		length($ctx->{headers})) };
 }
 
 sub data {
@@ -464,10 +470,13 @@ sub settings {
 
 sub push_promise {
 	my ($ctx, $buf, $len, $flags) = @_;
+	my %payload;
 	$len -= 4;
 
-	{ promised => unpack("N", $buf),
-	  headers => hunpack($ctx, substr($buf, 4, $len), $len) };
+	$ctx->{promised} = $payload{promised} = unpack("N", $buf);
+	$ctx->{headers} = substr($buf, 4, $len);
+	return \%payload unless $flags & 0x4;
+	return { %payload, headers => hunpack($ctx, $ctx->{headers}, $len) };
 }
 
 sub ping {

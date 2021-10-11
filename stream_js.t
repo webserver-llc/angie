@@ -67,6 +67,7 @@ stream {
     js_set $js_unk       js_unk;
     js_set $js_req_line  js_req_line;
     js_set $js_sess_unk  js_sess_unk;
+    js_set $js_async     js_async;
 
     js_include test.js;
 
@@ -183,6 +184,11 @@ stream {
         listen      127.0.0.1:8099;
         js_filter   js_filter_except;
         proxy_pass  127.0.0.1:8090;
+    }
+
+    server {
+        listen      127.0.0.1:8100;
+        return      $js_async;
     }
 }
 
@@ -356,10 +362,21 @@ $t->write_file('test.js', <<EOF);
         s.on('unknown', function() {});
     }
 
+    function pr(x) {
+        return new Promise(resolve => {resolve(x)}).then(v => v).then(v => v);
+    }
+
+    async function js_async(s) {
+        const a1 = await pr(10);
+        const a2 = await pr(20);
+
+        s.setReturnValue(`retval: \${a1 + a2}`);
+    }
+
 EOF
 
 $t->run_daemon(\&stream_daemon, port(8090));
-$t->try_run('no stream njs available')->plan(22);
+$t->try_run('no stream njs available')->plan(23);
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
@@ -391,6 +408,14 @@ is(stream('127.0.0.1:' . port(8096))->io('x'), 'z', 'js_filter_search');
 stream('127.0.0.1:' . port(8097))->io('x');
 stream('127.0.0.1:' . port(8098))->io('x');
 stream('127.0.0.1:' . port(8099))->io('x');
+
+TODO: {
+local $TODO = 'not yet'
+	unless get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.0';
+
+is(stream('127.0.0.1:' . port(8100))->read(), 'retval: 30', 'js_async');
+
+}
 
 $t->stop();
 

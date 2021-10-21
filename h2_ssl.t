@@ -89,9 +89,16 @@ $t->run();
 open STDERR, ">&", \*OLDERR;
 
 plan(skip_all => 'no ALPN negotiation') unless defined getconn();
-$t->plan(2);
+$t->plan(3);
 
 ###############################################################################
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.21.4');
+
+ok(!get_ssl_socket(['unknown']), 'alpn rejected');
+
+}
 
 like(http_get('/', socket => get_ssl_socket(['http/1.1'])),
 	qr/200 OK/, 'alpn to HTTP/1.1 fallback');

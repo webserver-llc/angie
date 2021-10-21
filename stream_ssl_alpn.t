@@ -86,11 +86,18 @@ is(get_ssl('first'), 'X first X', 'alpn match');
 is(get_ssl('wrong', 'first'), 'X first X', 'alpn many');
 is(get_ssl('wrong', 'second'), 'X second X', 'alpn second');
 is(get_ssl(), 'X  X', 'no alpn');
+
+SKIP: {
+$t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
+skip 'LibreSSL too old', 2 if defined $1 and $1 lt '3.4.0';
+
 ok(!get_ssl('wrong'), 'alpn mismatch');
 
 $t->stop();
 
 like($t->read_file('test.log'), qr/500$/, 'alpn mismatch - log');
+
+}
 
 ###############################################################################
 

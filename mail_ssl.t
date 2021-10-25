@@ -220,6 +220,8 @@ ok(get_ssl_socket(8148, undef, ['imap']), 'alpn');
 SKIP: {
 $t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
 skip 'LibreSSL too old', 1 if defined $1 and $1 lt '3.4.0';
+$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
+skip 'OpenSSL too old', 1 if defined $1 and $1 lt '1.1.0';
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.4');

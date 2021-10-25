@@ -90,6 +90,8 @@ is(get_ssl(), 'X  X', 'no alpn');
 SKIP: {
 $t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
 skip 'LibreSSL too old', 2 if defined $1 and $1 lt '3.4.0';
+$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
+skip 'OpenSSL too old', 2 if defined $1 and $1 lt '1.1.0';
 
 ok(!get_ssl('wrong'), 'alpn mismatch');
 

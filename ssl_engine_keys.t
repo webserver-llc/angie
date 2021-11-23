@@ -28,7 +28,7 @@ plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm')->has_daemon('pkcs11-tool')->plan(2);
+	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool')->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -48,7 +48,7 @@ http {
         server_name  localhost;
 
         ssl_certificate localhost.crt;
-        ssl_certificate_key engine:pkcs11:slot_0-id_00;
+        ssl_certificate_key engine:pkcs11:id_00;
 
         location / {
             # index index.html by default
@@ -70,7 +70,7 @@ http {
         server_name  localhost;
 
         ssl_certificate $ssl_server_name.crt;
-        ssl_certificate_key engine:pkcs11:slot_0-id_00;
+        ssl_certificate_key engine:pkcs11:id_00;
 
         location / {
             # index index.html by default
@@ -101,7 +101,7 @@ pkcs11 = pkcs11_section
 [pkcs11_section]
 engine_id = pkcs11
 dynamic_path = /usr/local/lib/engines/pkcs11.so
-MODULE_PATH = /usr/local/lib/softhsm/libsofthsm.so
+MODULE_PATH = /usr/local/lib/softhsm/libsofthsm2.so
 init = 1
 PIN = 1234
 
@@ -114,25 +114,28 @@ EOF
 
 my $d = $t->testdir();
 
-$t->write_file('softhsm.conf', <<EOF);
-0:$d/slot0.db
+$t->write_file('softhsm2.conf', <<EOF);
+directories.tokendir = $d/tokens/
+objectstore.backend = file
 EOF
 
-$ENV{SOFTHSM_CONF} = "$d/softhsm.conf";
+mkdir($d . '/tokens');
+
+$ENV{SOFTHSM2_CONF} = "$d/softhsm2.conf";
 $ENV{OPENSSL_CONF} = "$d/openssl.conf";
 
 foreach my $name ('localhost') {
-	system('softhsm --init-token --slot 0 --label "NginxZero" '
+	system('softhsm2-util --init-token --slot 0 --label NginxZero '
 		. '--pin 1234 --so-pin 1234 '
 		. ">>$d/openssl.out 2>&1");
 
-	system('pkcs11-tool --module=/usr/local/lib/softhsm/libsofthsm.so '
+	system('pkcs11-tool --module=/usr/local/lib/softhsm/libsofthsm2.so '
 		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
 		. ">>$d/openssl.out 2>&1");
 
-	system('openssl req -x509 -new -engine pkcs11 '
-		. "-config $d/openssl.conf -subj /CN=$name/ "
-		. "-out $d/$name.crt -keyform engine -text -key id_00 "
+	system('openssl req -x509 -new '
+		. "-subj /CN=$name/ -out $d/$name.crt -text "
+		. "-engine pkcs11 -keyform engine -key id_00 "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }

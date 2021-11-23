@@ -200,10 +200,6 @@ $frames = $f->{data_len}(('Hello' x 13000) . ('x' x 550), 65535);
 my $sum = eval join '+', map { $_->{type} eq "DATA" && $_->{length} } @$frames;
 is($sum, 65535, 'flow control - iws length');
 
-TODO: {
-local $TODO = 'not yet' if ($^O eq 'MSWin32' or $^O eq 'solaris')
-	and !$t->has_version('1.21.2');
-
 $f->{update}(10);
 $f->{update_sid}(10);
 
@@ -219,8 +215,6 @@ $frames = $f->{data_len}(undef, 5);
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 is($frame->{length}, 5, 'flow control - rest length');
 is($frame->{flags}, 1, 'flow control - rest flags');
-
-}
 
 $f->{http_end}();
 

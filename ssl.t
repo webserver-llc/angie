@@ -326,14 +326,8 @@ is(get_ssl_shutdown(8085), 1, 'ssl shutdown on lingering close');
 
 $t->stop();
 
-TODO: {
-local $TODO = 'not yet'
-	if $t->has_version('1.19.5') and !$t->has_version('1.21.1');
-
 like($t->read_file('ssl.log'), qr/^(TLS|SSL)v(\d|\.)+$/m,
 	'log ssl variable on lingering close');
-
-}
 
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 

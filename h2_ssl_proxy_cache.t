@@ -118,12 +118,6 @@ select undef, undef, undef, 0.2;
 
 $t->stop();
 
-# "aio_write" is used to produce "open socket ... left in connection" alerts.
-
-$t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio_write on/
-	and $t->read_file('nginx.conf') =~ /aio threads/ and $^O eq 'linux'
-	and !$t->has_version('1.21.4');
-
 ###############################################################################
 
 sub getconn {

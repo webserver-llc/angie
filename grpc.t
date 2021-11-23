@@ -279,16 +279,11 @@ $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 ok($c = $frame->{headers}{'x-connection'}, 'keepalive 5 - GOAWAY next stream');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.1');
-
 $f->{http_start}('/KeepAlive');
 $f->{data}('Hello');
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 cmp_ok($frame->{headers}{'x-connection'}, '>', $c, 'keepalive 5 - closed');
-
-}
 
 undef $f;
 $f = grpc();

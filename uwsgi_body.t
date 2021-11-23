@@ -92,13 +92,8 @@ like(http_get_length('/', ''), qr/cl=0 ''/, 'uwsgi empty body');
 
 # rewrite set is used to cache $content_length early
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.4');
-
 like(http_get_chunked('/', 'foobar'), qr/cl=6 'foobar'/, 'uwsgi chunked');
 like(http_get_chunked('/', ''), qr/cl=0 ''/, 'uwsgi empty chunked');
-
-}
 
 ###############################################################################
 

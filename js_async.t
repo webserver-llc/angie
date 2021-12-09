@@ -35,18 +35,18 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_async      set_timeout;
-    js_set $context_var     context_var;
-    js_set $test_set_rv_var set_rv_var;
+    js_set $test_async      test.set_timeout;
+    js_set $context_var     test.context_var;
+    js_set $test_set_rv_var test.set_rv_var;
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /njs {
-            js_content test_njs;
+            js_content test.njs;
         }
 
         location /async_var {
@@ -55,30 +55,30 @@ http {
 
         location /shared_ctx {
             add_header H $context_var;
-            js_content shared_ctx;
+            js_content test.shared_ctx;
         }
 
         location /set_timeout {
-            js_content set_timeout;
+            js_content test.set_timeout;
         }
 
         location /set_timeout_many {
-            js_content set_timeout_many;
+            js_content test.set_timeout_many;
         }
 
         location /set_timeout_data {
             postpone_output 0;
-            js_content set_timeout_data;
+            js_content test.set_timeout_data;
         }
 
         location /limit_rate {
             postpone_output 0;
             sendfile_max_chunk 5;
-            js_content limit_rate;
+            js_content test.limit_rate;
         }
 
         location /async_content {
-            js_content async_content;
+            js_content test.async_content;
         }
 
         location /set_rv_var {
@@ -193,6 +193,10 @@ $t->write_file('test.js', <<EOF);
 
         r.setReturnValue(`retval: \${a1 + a2}`);
     }
+
+    export default {njs:test_njs, set_timeout, set_timeout_data,
+                    set_timeout_many, context_var, shared_ctx, limit_rate,
+                    async_content, set_rv_var};
 
 EOF
 

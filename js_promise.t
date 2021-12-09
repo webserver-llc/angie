@@ -34,34 +34,34 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /njs {
-            js_content test_njs;
+            js_content test.njs;
         }
 
         location /promise {
-            js_content promise;
+            js_content test.promise;
         }
 
         location /promise_throw {
-            js_content promise_throw;
+            js_content test.promise_throw;
         }
 
         location /promise_pure {
-            js_content promise_pure;
+            js_content test.promise_pure;
         }
 
         location /timeout {
-            js_content timeout;
+            js_content test.timeout;
         }
 
         location /sub_token {
-            js_content sub_token;
+            js_content test.sub_token;
         }
     }
 }
@@ -183,6 +183,9 @@ $t->write_file('test.js', <<EOF);
 
         r.return(parseInt(code), '{"token": "'+ token +'"}');
     }
+
+    export default {njs:test_njs, promise, promise_throw, promise_pure,
+                    timeout, sub_token};
 
 EOF
 

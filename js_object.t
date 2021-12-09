@@ -36,38 +36,38 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /to_string {
-            js_content to_string;
+            js_content test.to_string;
         }
 
         location /define_prop {
-            js_content define_prop;
+            js_content test.define_prop;
         }
 
         location /in_operator {
-            js_content in_operator;
+            js_content test.in_operator;
         }
 
         location /redefine_bind {
-            js_content redefine_bind;
+            js_content test.redefine_bind;
         }
 
         location /redefine_proxy {
-            js_content redefine_proxy;
+            js_content test.redefine_proxy;
         }
 
         location /redefine_proto {
-            js_content redefine_proto;
+            js_content test.redefine_proto;
         }
 
         location /get_own_prop_descs {
-            js_content get_own_prop_descs;
+            js_content test.get_own_prop_descs;
         }
     }
 }
@@ -112,6 +112,9 @@ $t->write_file('test.js', <<EOF);
         r.return(200,
                  Object.getOwnPropertyDescriptors(r)['log'].value === r.log);
     }
+
+    export default {to_string, define_prop, in_operator, redefine_bind,
+                    redefine_proxy, redefine_proto, get_own_prop_descs};
 
 EOF
 

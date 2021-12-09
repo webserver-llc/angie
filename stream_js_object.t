@@ -36,9 +36,9 @@ events {
 stream {
     %%TEST_GLOBALS_STREAM%%
 
-    js_set $test     test;
+    js_set $test     test.test;
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen  127.0.0.1:8081;
@@ -84,6 +84,8 @@ $t->write_file('test.js', <<EOF);
                  get_own_prop_descs,
                ].every(v=>v(s));
     }
+
+    export default {test};
 
 EOF
 

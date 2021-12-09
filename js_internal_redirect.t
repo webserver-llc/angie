@@ -35,14 +35,14 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /test {
-            js_content test_redirect;
+            js_content test.redirect;
         }
 
         location /redirect {
@@ -59,7 +59,7 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_redirect(r) {
+    function redirect(r) {
         if (r.variables.arg_dest == 'named') {
             r.internalRedirect('\@named');
 
@@ -72,6 +72,8 @@ $t->write_file('test.js', <<EOF);
             }
         }
     }
+
+    export default {redirect};
 
 EOF
 

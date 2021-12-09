@@ -35,14 +35,14 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /test {
-            js_content test;
+            js_content test.test;
         }
     }
 }
@@ -55,6 +55,8 @@ $t->write_file('test.js', <<EOF);
     function test(r) {
         r.return(200, m[r.args.fun](r.args.a, r.args.b));
     }
+
+    export default {test};
 
 EOF
 

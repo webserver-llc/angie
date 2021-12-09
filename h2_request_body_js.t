@@ -36,7 +36,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080 http2;
@@ -45,7 +45,7 @@ http {
         lingering_close off;
 
         location / {
-            js_content sr_body;
+            js_content test.sr_body;
             add_header X-Body $request_body;
         }
 
@@ -63,6 +63,8 @@ function body_fwd_cb(r) {
 function sr_body(r) {
     r.subrequest('/sr', body_fwd_cb);
 }
+
+export default {sr_body};
 
 EOF
 

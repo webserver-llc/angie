@@ -36,10 +36,10 @@ events {
 stream {
     %%TEST_GLOBALS_STREAM%%
 
-    js_set $test_var       test_var;
-    js_set $test_not_found test_not_found;
+    js_set $test_var       test.variable;
+    js_set $test_not_found test.not_found;
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen  127.0.0.1:8081;
@@ -55,18 +55,20 @@ stream {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_var(s) {
+    function variable(s) {
         s.variables.status = 400;
         return 'test_var';
     }
 
-    function test_not_found(s) {
+    function not_found(s) {
         try {
             s.variables.unknown = 1;
         } catch (e) {
             return 'not_found';
         }
     }
+
+    export default {variable, not_found};
 
 EOF
 

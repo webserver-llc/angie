@@ -37,26 +37,26 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_method   test_method;
-    js_set $test_version  test_version;
-    js_set $test_addr     test_addr;
-    js_set $test_uri      test_uri;
-    js_set $test_arg      test_arg;
-    js_set $test_iarg     test_iarg;
-    js_set $test_var      test_var;
-    js_set $test_type     test_type;
-    js_set $test_global   test_global;
-    js_set $test_log      test_log;
-    js_set $test_except   test_except;
+    js_set $test_method   test.method;
+    js_set $test_version  test.version;
+    js_set $test_addr     test.addr;
+    js_set $test_uri      test.uri;
+    js_set $test_arg      test.arg;
+    js_set $test_iarg     test.iarg;
+    js_set $test_var      test.variable;
+    js_set $test_type     test.type;
+    js_set $test_global   test.global_obj;
+    js_set $test_log      test.log;
+    js_set $test_except   test.except;
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /njs {
-            js_content test_njs;
+            js_content test.njs;
         }
 
         location /method {
@@ -92,40 +92,40 @@ http {
         }
 
         location /body {
-            js_content request_body;
+            js_content test.request_body;
         }
 
         location /in_file {
             client_body_in_file_only on;
-            js_content request_body;
+            js_content test.request_body;
         }
 
         location /status {
-            js_content status;
+            js_content test.status;
         }
 
         location /request_body {
-            js_content request_body;
+            js_content test.request_body;
         }
 
         location /request_body_cache {
-            js_content request_body_cache;
+            js_content test.request_body_cache;
         }
 
         location /send {
-            js_content send;
+            js_content test.send;
         }
 
         location /return_method {
-            js_content return_method;
+            js_content test.return_method;
         }
 
         location /arg_keys {
-            js_content arg_keys;
+            js_content test.arg_keys;
         }
 
         location /type {
-            js_content test_type;
+            js_content test.type;
         }
 
         location /log {
@@ -137,11 +137,11 @@ http {
         }
 
         location /content_except {
-            js_content content_except;
+            js_content test.content_except;
         }
 
         location /content_empty {
-            js_content content_empty;
+            js_content test.content_empty;
         }
     }
 }
@@ -155,27 +155,27 @@ $t->write_file('test.js', <<EOF);
         r.return(200, njs.version);
     }
 
-    function test_method(r) {
+    function method(r) {
         return 'method=' + r.method;
     }
 
-    function test_version(r) {
+    function version(r) {
         return 'version=' + r.httpVersion;
     }
 
-    function test_addr(r) {
+    function addr(r) {
         return 'addr=' + r.remoteAddress;
     }
 
-    function test_uri(r) {
+    function uri(r) {
         return 'uri=' + r.uri;
     }
 
-    function test_arg(r) {
+    function arg(r) {
         return 'arg=' + r.args.foo;
     }
 
-    function test_iarg(r) {
+    function iarg(r) {
         var s = '', a;
         for (a in r.args) {
             if (a.substr(0, 3) == 'foo') {
@@ -185,11 +185,11 @@ $t->write_file('test.js', <<EOF);
         return s;
     }
 
-    function test_var(r) {
+    function variable(r) {
         return 'variable=' + r.variables.remote_addr;
     }
 
-    function test_global(r) {
+    function global_obj(r) {
         return 'global=' + global;
     }
 
@@ -236,18 +236,18 @@ $t->write_file('test.js', <<EOF);
         r.return(200, Object.keys(r.args).sort());
     }
 
-    function test_type(r) {
+    function type(r) {
         var p = r.args.path.split('.').reduce((a, v) => a[v], r);
 
-        var type = Buffer.isBuffer(p) ? 'buffer' : (typeof p);
-        r.return(200, `type: \${type}`);
+        var typ = Buffer.isBuffer(p) ? 'buffer' : (typeof p);
+        r.return(200, `type: \${typ}`);
     }
 
-    function test_log(r) {
+    function log(r) {
         r.log('SEE-LOG');
     }
 
-    function test_except(r) {
+    function except(r) {
         var fs = require('fs');
         fs.readFileSync();
     }
@@ -259,6 +259,11 @@ $t->write_file('test.js', <<EOF);
 
     function content_empty(r) {
     }
+
+    export default {njs:test_njs, method, version, addr, uri, arg, iarg,
+                    variable, global_obj, status, request_body,
+                    request_body_cache, send, return_method, arg_keys,
+                    type, log, except, content_except, content_empty};
 
 EOF
 

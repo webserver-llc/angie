@@ -37,55 +37,55 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_set $test_foo_in   test_foo_in;
-    js_set $test_ifoo_in  test_ifoo_in;
+    js_set $test_foo_in   test.foo_in;
+    js_set $test_ifoo_in  test.ifoo_in;
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /njs {
-            js_content test_njs;
+            js_content test.njs;
         }
 
         location /content_length {
-            js_content content_length;
+            js_content test.content_length;
         }
 
         location /content_length_arr {
-            js_content content_length_arr;
+            js_content test.content_length_arr;
         }
 
         location /content_length_keys {
-            js_content content_length_keys;
+            js_content test.content_length_keys;
         }
 
         location /content_type {
             charset windows-1251;
 
             default_type text/plain;
-            js_content content_type;
+            js_content test.content_type;
         }
 
         location /content_type_arr {
             charset windows-1251;
 
             default_type text/plain;
-            js_content content_type_arr;
+            js_content test.content_type_arr;
         }
 
         location /content_encoding {
-            js_content content_encoding;
+            js_content test.content_encoding;
         }
 
         location /content_encoding_arr {
-            js_content content_encoding_arr;
+            js_content test.content_encoding_arr;
         }
 
         location /headers_list {
-            js_content headers_list;
+            js_content test.headers_list;
         }
 
         location /foo_in {
@@ -97,39 +97,39 @@ http {
         }
 
         location /hdr_in {
-            js_content hdr_in;
+            js_content test.hdr_in;
         }
 
         location /raw_hdr_in {
-            js_content raw_hdr_in;
+            js_content test.raw_hdr_in;
         }
 
         location /hdr_out {
-            js_content hdr_out;
+            js_content test.hdr_out;
         }
 
         location /raw_hdr_out {
-            js_content raw_hdr_out;
+            js_content test.raw_hdr_out;
         }
 
         location /hdr_out_array {
-            js_content hdr_out_array;
+            js_content test.hdr_out_array;
         }
 
         location /hdr_out_set_cookie {
-            js_content hdr_out_set_cookie;
+            js_content test.hdr_out_set_cookie;
         }
 
         location /hdr_out_single {
-            js_content hdr_out_single;
+            js_content test.hdr_out_single;
         }
 
         location /ihdr_out {
-            js_content ihdr_out;
+            js_content test.ihdr_out;
         }
 
         location /hdr_sorted_keys {
-            js_content hdr_sorted_keys;
+            js_content test.hdr_sorted_keys;
         }
     }
 }
@@ -243,11 +243,11 @@ $t->write_file('test.js', <<EOF);
         r.return(200, Object.keys(hdr).sort());
     }
 
-    function test_foo_in(r) {
+    function foo_in(r) {
         return 'hdr=' + r.headersIn.foo;
     }
 
-    function test_ifoo_in(r) {
+    function ifoo_in(r) {
         var s = '', h;
         for (h in r.headersIn) {
             if (h.substr(0, 3) == 'foo') {
@@ -322,6 +322,13 @@ $t->write_file('test.js', <<EOF);
         r.send(s);
         r.finish();
     }
+
+    export default {njs:test_njs, content_length, content_length_arr,
+                    content_length_keys, content_type, content_type_arr,
+                    content_encoding, content_encoding_arr, headers_list,
+                    hdr_in, raw_hdr_in, hdr_sorted_keys, foo_in, ifoo_in,
+                    hdr_out, raw_hdr_out, hdr_out_array, hdr_out_single,
+                    hdr_out_set_cookie, ihdr_out};
 
 
 EOF

@@ -37,19 +37,19 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    js_include test.js;
+    js_import test.js;
 
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
         location /body {
-            js_content test_body;
+            js_content test.body;
         }
 
         location /in_file {
             client_body_in_file_only on;
-            js_content test_body;
+            js_content test.body;
         }
     }
 }
@@ -57,7 +57,7 @@ http {
 EOF
 
 $t->write_file('test.js', <<EOF);
-    function test_body(r) {
+    function body(r) {
         try {
             var body = r.requestBody;
             r.return(200, body);
@@ -66,6 +66,8 @@ $t->write_file('test.js', <<EOF);
             r.return(500, e.message);
         }
     }
+
+    export default {body};
 
 EOF
 

@@ -554,7 +554,19 @@ sub stop_daemons() {
 	while ($self->{_daemons} && scalar @{$self->{_daemons}}) {
 		my $p = shift @{$self->{_daemons}};
 		kill $^O eq 'MSWin32' ? 9 : 'TERM', $p;
-		waitpid($p, 0);
+
+		my $exited;
+
+		for (1 .. 50) {
+			$exited = waitpid($p, WNOHANG) != 0;
+			last if $exited;
+			select undef, undef, undef, 0.1;
+		}
+
+		if (!$exited) {
+			kill $^O eq 'MSWin32' ? 9 : 'TERM', $p;
+			waitpid($p, 0);
+		}
 	}
 
 	return $self;

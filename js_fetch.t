@@ -74,6 +74,10 @@ http {
             js_content test.header;
         }
 
+        location /header_iter {
+            js_content test.header_iter;
+        }
+
         location /multi {
             js_content test.multi;
         }
@@ -274,6 +278,22 @@ $t->write_file('test.js', <<EOF);
         .catch(e => r.return(501, e.message))
     }
 
+    async function header_iter(r) {
+        let url = `http://127.0.0.1:$p2/\${r.args.loc}`;
+
+        let response = await ngx.fetch(url);
+
+        let headers = response.headers;
+        let out = [];
+        for (let key in response.headers) {
+            if (key != 'Connection') {
+                out.push(`\${key}:\${headers.get(key)}`);
+            }
+        }
+
+        r.return(200, njs.dump(out));
+    }
+
     function multi(r) {
         var results = [];
         var tests = [
@@ -335,18 +355,15 @@ $t->write_file('test.js', <<EOF);
     }
 
      export default {njs: test_njs, body, broken, broken_response,
-                     chain, chunked, header, multi, loc, property};
+                     chain, chunked, header, header_iter, multi, loc, property};
 EOF
 
-$t->try_run('no njs.fetch')->plan(27);
+$t->try_run('no njs.fetch')->plan(28);
 
 $t->run_daemon(\&http_daemon, port(8082));
 $t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
-
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.1';
 
 like(http_get('/body?getter=arrayBuffer&loc=loc'), qr/200 OK.*"aaa:GET:::"$/s,
 	'fetch body arrayBuffer');
@@ -413,6 +430,16 @@ is(get_json('/chunked'),
 	'"prematurely closed connection",' .
 	'"very large fetch chunked response"]', 'fetch chunked');
 like(http_get('/chain'), qr/200 OK.*SUCCESS$/s, 'fetch chain');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.4';
+
+like(http_get('/header_iter?loc=duplicate_header_large'),
+	qr/\['A:a','B:a','C:a','D:a','E:a','F:a','G:a','H:a','Foo:a,b']$/s,
+	'fetch header duplicate large');
+
+}
 
 ###############################################################################
 
@@ -482,6 +509,22 @@ sub http_daemon {
 				"HTTP/1.1 200 OK" . CRLF .
 				"Foo: a" . CRLF .
 				"bar: c" . CRLF .
+				"Foo: b" . CRLF .
+				"Connection: close" . CRLF .
+				CRLF;
+
+		} elsif ($uri eq '/duplicate_header_large') {
+			print $client
+				"HTTP/1.1 200 OK" . CRLF .
+				"A: a" . CRLF .
+				"B: a" . CRLF .
+				"C: a" . CRLF .
+				"D: a" . CRLF .
+				"E: a" . CRLF .
+				"F: a" . CRLF .
+				"G: a" . CRLF .
+				"H: a" . CRLF .
+				"Foo: a" . CRLF .
 				"Foo: b" . CRLF .
 				"Connection: close" . CRLF .
 				CRLF;

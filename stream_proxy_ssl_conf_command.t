@@ -16,14 +16,13 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl http http_ssl/)
 	->has_daemon('openssl');
 
 $t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
@@ -52,14 +51,20 @@ stream {
         proxy_ssl_conf_command Certificate override.crt;
         proxy_ssl_conf_command PrivateKey override.key;
     }
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
 
     server {
         listen       127.0.0.1:8081 ssl;
-        return       $ssl_client_s_dn;
+        server_name  localhost;
 
         ssl_certificate localhost.crt;
         ssl_certificate_key localhost.key;
         ssl_verify_client optional_no_ca;
+
+        add_header X-Cert $ssl_client_s_dn always;
     }
 }
 
@@ -88,7 +93,6 @@ $t->run()->plan(1);
 
 ###############################################################################
 
-like(stream('127.0.0.1:' . port(8080))->read(), qr/CN=override/,
-	'Certificate');
+like(http_get('/'), qr/CN=override/, 'proxy_ssl_conf_command');
 
 ###############################################################################

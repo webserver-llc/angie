@@ -373,7 +373,7 @@ like(http_get('/hdr_out_array?foo=12345'), qr/Foo: bar\r\nFoo: 12345/,
 	'r.headersOut arr');
 like(http_get('/hdr_out_array'), qr/Foo: bar/,
 	'r.headersOut arr last is empty');
-like(http_get('/hdr_out_array?foo=abc'), qr/B:bar,abc/,
+like(http_get('/hdr_out_array?foo=abc'), qr/B:bar,\s?abc/,
 	'r.headersOut get');
 like(http_get('/hdr_out_array'), qr/B:bar/, 'r.headersOut get2');
 like(http_get('/hdr_out_array?hidden=1'), qr/B:undefined/,
@@ -442,7 +442,7 @@ like(http(
 	. 'Foo: bar1' . CRLF
 	. 'Foo: bar2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
-), qr/foo: bar1,bar2/, 'r.headersIn duplicate generic');
+), qr/foo: bar1,\s?bar2/, 'r.headersIn duplicate generic');
 
 like(http(
 	'GET /raw_hdr_in?filter=foo HTTP/1.0' . CRLF

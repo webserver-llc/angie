@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(25)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(27)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -153,6 +153,18 @@ like(http(
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/xfoo: foo/, 'perl header_in unknown');
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.0');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'X-Foo: foo' . CRLF
+	. 'X-Foo: bar' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/xfoo: foo, bar/, 'perl header_in unknown2');
+
+}
+
 like(http(
 	'GET / HTTP/1.0' . CRLF
 	. 'Cookie: foo' . CRLF
@@ -187,6 +199,13 @@ like(http(
 	. 'Connection: close' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/connection: close/, 'perl header_in connection');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Connection: close' . CRLF
+	. 'Connection: foo' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/connection: close, foo/, 'perl header_in connection2');
 
 }
 

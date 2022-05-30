@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http uwsgi/)->has_daemon('uwsgi')->plan(5)
+my $t = Test::Nginx->new()->has(qw/http uwsgi/)->has_daemon('uwsgi')->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -60,7 +60,12 @@ EOF
 $t->write_file('uwsgi_test_app.py', <<END);
 
 def application(env, start_response):
-    start_response('200 OK', [('Content-Type','text/plain')])
+    start_response('200 OK', [
+       ('Content-Type', 'text/plain'),
+       ('X-Forwarded-For', env.get('HTTP_X_FORWARDED_FOR', '')),
+       ('X-Cookie', env.get('HTTP_COOKIE', '')),
+       ('X-Foo', env.get('HTTP_FOO', ''))
+    ])
     return b"SEE-THIS"
 
 END
@@ -96,6 +101,33 @@ like(http_get_headers('/headers'), qr/SEE-THIS/,
 like(http_get('/var?b=127.0.0.1:' . port(8081)), qr/SEE-THIS/,
 	'uwsgi with variables');
 like(http_get('/var?b=u'), qr/SEE-THIS/, 'uwsgi with variables to upstream');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.0');
+
+my $r = http(<<EOF);
+GET / HTTP/1.0
+Host: localhost
+X-Forwarded-For: foo
+X-Forwarded-For: bar
+X-Forwarded-For: bazz
+Cookie: foo
+Cookie: bar
+Cookie: bazz
+Foo: foo
+Foo: bar
+Foo: bazz
+
+EOF
+
+like($r, qr/X-Forwarded-For: foo, bar, bazz/,
+	'uwsgi with multiple X-Forwarded-For headers');
+like($r, qr/X-Cookie: foo; bar; bazz/,
+	'uwsgi with multiple Cookie headers');
+like($r, qr/X-Foo: foo, bar, bazz/,
+	'uwsgi with multiple unknown headers');
+
+}
 
 ###############################################################################
 

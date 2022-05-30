@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(24)
+my $t = Test::Nginx->new()->has(qw/http perl rewrite/)->plan(25)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -62,6 +62,7 @@ http {
                 $r->print("xfoo: ", $r->header_in("X-Foo"), "\n");
                 $r->print("cookie: ", $r->header_in("Cookie"), "\n");
                 $r->print("xff: ", $r->header_in("X-Forwarded-For"), "\n");
+                $r->print("connection: ", $r->header_in("Connection"), "\n");
 
                 return OK;
             }';
@@ -177,6 +178,17 @@ like(http(
 	. 'X-Forwarded-For: foo2' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/xff: foo1, foo2/, 'perl header_in xff2');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.0');
+
+like(http(
+	'GET / HTTP/1.0' . CRLF
+	. 'Connection: close' . CRLF
+	. 'Host: localhost' . CRLF . CRLF
+), qr/connection: close/, 'perl header_in connection');
+
+}
 
 # headers_out content-length tests with range filter
 

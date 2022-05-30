@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)
-	->plan(49)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(52)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -93,6 +93,12 @@ http {
             add_header Vary ",, Accept-encoding , ,";
         }
 
+        location /multi {
+            gzip off;
+            add_header Vary Accept-Encoding;
+            add_header Vary Foo;
+        }
+
         location /cold {
             expires max;
             add_header Vary $arg_vary;
@@ -106,6 +112,7 @@ EOF
 $t->write_file('index.html', 'SEE-THIS');
 $t->write_file('asterisk', 'SEE-THIS');
 $t->write_file('complex', 'SEE-THIS');
+$t->write_file('multi', 'SEE-THIS');
 $t->write_file('cold', 'SEE-THIS');
 
 $t->run();
@@ -252,6 +259,18 @@ TODO: {
 local $TODO = 'not yet';
 
 like(get('/', 'bar,foo'), qr/HIT/ms, 'normalize order');
+
+}
+
+# Multiple Vary headers (ticket #1423).
+
+like(get('/multi', 'foo'), qr/MISS/ms, 'multi first');
+like(get('/multi', 'foo'), qr/HIT/ms, 'multi second');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.0');
+
+like(get('/multi', 'bar'), qr/MISS/ms, 'multi other');
 
 }
 

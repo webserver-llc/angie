@@ -142,6 +142,15 @@ $t->write_file('test.js', <<EOF);
     }
 
     function content_length(r) {
+        if (njs.version_number >= 0x000705) {
+            var clength = r.headersOut['Content-Length'];
+            if (clength !== undefined) {
+                r.return(500, `Content-Length "\${clength}" is not empty`);
+                return;
+            }
+        }
+
+        delete r.headersOut['Content-Length'];
         r.headersOut['Content-Length'] = '';
         r.headersOut['Content-Length'] = 3;
         delete r.headersOut['Content-Length'];
@@ -167,6 +176,15 @@ $t->write_file('test.js', <<EOF);
     }
 
     function content_type(r) {
+        if (njs.version_number >= 0x000705) {
+            var ctype = r.headersOut['Content-Type'];
+            if (ctype !== undefined) {
+                r.return(500, `Content-Type "\${ctype}" is not empty`);
+                return;
+            }
+        }
+
+        delete r.headersOut['Content-Type'];
         r.headersOut['Content-Type'] = 'text/xml';
         r.headersOut['Content-Type'] = '';
         r.headersOut['Content-Type'] = 'text/xml; charset=';
@@ -185,6 +203,15 @@ $t->write_file('test.js', <<EOF);
     }
 
     function content_encoding(r) {
+        if (njs.version_number >= 0x000705) {
+            var ce = r.headersOut['Content-Encoding'];
+            if (ce !== undefined) {
+                r.return(500, `Content-Encoding "\${ce}" is not empty`);
+                return;
+            }
+        }
+
+        delete r.headersOut['Content-Encoding'];
         r.headersOut['Content-Encoding'] = '';
         r.headersOut['Content-Encoding'] = 'test';
         delete r.headersOut['Content-Encoding'];

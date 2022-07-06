@@ -131,6 +131,20 @@ http {
         location /hdr_sorted_keys {
             js_content test.hdr_sorted_keys;
         }
+
+        location /hdr_out_special_set {
+            js_content test.hdr_out_special_set;
+        }
+
+        location /copy_subrequest_hdrs {
+            js_content test.copy_subrequest_hdrs;
+        }
+
+        location = /subrequest {
+            internal;
+
+            js_content test.subrequest;
+        }
     }
 }
 
@@ -350,17 +364,50 @@ $t->write_file('test.js', <<EOF);
         r.finish();
     }
 
+    function hdr_out_special_set(r) {
+        r.headersOut['Foo'] = "xxx";
+        r.headersOut['Content-Encoding'] = 'abc';
+
+        let ce = r.headersOut['Content-Encoding'];
+        r.return(200, `CE: \${ce}`);
+    }
+
+    async function copy_subrequest_hdrs(r) {
+        let resp = await r.subrequest("/subrequest");
+
+        for (const h in resp.headersOut) {
+            r.headersOut[h] = resp.headersOut[h];
+        }
+
+        r.return(200, resp.responseBody);
+    }
+
+    function subrequest(r) {
+        r.headersOut['A'] = 'a';
+        r.headersOut['Content-Encoding'] = 'ce';
+        r.headersOut['B'] = 'b';
+        r.headersOut['C'] = 'c';
+        r.headersOut['D'] = 'd';
+        r.headersOut['Set-Cookie'] = ['A', 'BB'];
+        r.headersOut['Content-Length'] = 3;
+        r.headersOut['Content-Type'] = 'ct';
+        r.sendHeader();
+        r.send('XXX');
+        r.finish();
+    }
+
     export default {njs:test_njs, content_length, content_length_arr,
                     content_length_keys, content_type, content_type_arr,
                     content_encoding, content_encoding_arr, headers_list,
                     hdr_in, raw_hdr_in, hdr_sorted_keys, foo_in, ifoo_in,
                     hdr_out, raw_hdr_out, hdr_out_array, hdr_out_single,
-                    hdr_out_set_cookie, ihdr_out};
+                    hdr_out_set_cookie, ihdr_out, hdr_out_special_set,
+                    copy_subrequest_hdrs, subrequest};
 
 
 EOF
 
-$t->try_run('no njs')->plan(39);
+$t->try_run('no njs')->plan(42);
 
 ###############################################################################
 
@@ -494,5 +541,22 @@ like(http(
 	'GET /hdr_sorted_keys HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/a,b,c/, 'r.headersOut sorted keys');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.6';
+
+like(http_get('/hdr_out_special_set'), qr/CE: abc/,
+	'r.headerOut special set');
+
+like(http_get('/copy_subrequest_hdrs'),
+	qr/A: a.*B: b.*C: c.*D: d.*Set-Cookie: A.*Set-Cookie: BB/s,
+	'subrequest copy');
+
+like(http_get('/copy_subrequest_hdrs'),
+	qr/Content-Type: ct.*Content-Encoding: ce.*Content-Length: 3/s,
+	'subrequest copy special');
+
+}
 
 ###############################################################################

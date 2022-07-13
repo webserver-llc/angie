@@ -116,9 +116,6 @@ $t->waitforfile($t->testdir . '/' . port(8981));
 
 ###############################################################################
 
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.1';
-
 like(http_get('/dns?domain=aaa'), qr/aaa:GET:::$/s, 'fetch dns aaa');
 like(http_get('/dns?domain=many'), qr/many:GET:::$/s, 'fetch dns many');
 like(http_get('/dns?domain=unknown'), qr/"unknown" could not be resolved/s,

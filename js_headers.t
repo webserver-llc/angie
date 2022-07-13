@@ -429,10 +429,6 @@ unlike(http_get('/hdr_out?bar=empty'), qr/Bar:/, 'r.headersOut empty');
 unlike(http_get('/hdr_out?foo='), qr/Foo:/, 'r.headersOut no value');
 unlike(http_get('/hdr_out?foo'), qr/Foo:/, 'r.headersOut no value 2');
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.4.0';
-
 like(http_get('/content_length_keys'), qr/B:true/, 'Content-Length in keys');
 like(http_get('/content_length_arr'), qr/Content-Length: 3/,
 	'set Content-Length arr');
@@ -464,8 +460,6 @@ like(http_get('/hdr_out_set_cookie'), qr/B:\['c','d','f']/,
 	'set_cookie2');
 unlike(http_get('/hdr_out_set_cookie'), qr/Set-Cookie: [abe]/,
 	'set_cookie3');
-
-}
 
 like(http(
 	'GET /hdr_in HTTP/1.0' . CRLF
@@ -507,10 +501,6 @@ like(http(
 	. 'Host: localhost' . CRLF . CRLF
 ), qr/content-type: bar1(?!,\s?bar2)/, 'r.headersIn duplicate single 2');
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.4.1';
-
 like(http(
 	'GET /hdr_in HTTP/1.0' . CRLF
 	. 'Foo: bar1' . CRLF
@@ -526,8 +516,6 @@ like(http(
 ), qr/raw: bar1|bar2/, 'r.rawHeadersIn');
 
 like(http_get('/raw_hdr_out?filter=a'), qr/raw: foo|bar/, 'r.rawHeadersOut');
-
-}
 
 like(http(
 	'GET /hdr_sorted_keys?in=1 HTTP/1.0' . CRLF

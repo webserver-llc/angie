@@ -542,14 +542,8 @@ is(get_json('/sr_unavail_pr'), '[{"status":502,"uri":"/unavail"}]',
 like(http_get('/sr_detached_in_variable_handler'), qr/subrequest_var/,
      'sr_detached_in_variable_handler');
 
-TODO: {
-todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 like(http_get('/sr_error_page'), qr/reply\.status:404/,
      'sr_error_page');
-
-}
 
 http_get('/sr_broken');
 http_get('/sr_in_sr');

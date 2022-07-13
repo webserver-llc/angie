@@ -196,14 +196,6 @@ $t->try_run('no njs available')->plan(4);
 like(http_get('/promise'), qr/{"token": "b"}/, "Promise");
 like(http_get('/promise_throw'), qr/{"token": "x"}/, "Promise throw and catch");
 like(http_get('/timeout'), qr/{"token": "R"}/, "Promise with timeout");
-
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 like(http_get('/promise_pure'), qr/200 OK/, "events handling");
-}
-
-$t->todo_alerts() unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
 
 ###############################################################################

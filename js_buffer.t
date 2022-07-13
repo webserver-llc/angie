@@ -143,10 +143,6 @@ $t->try_run('no njs buffer')->plan(5);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 like(http_get('/return?text=FOO'), qr/200 OK.*body: FOO$/s,
 	'return buffer');
 like(http_post('/req_body'), qr/200 OK.*BAR$/s, 'request buffer');
@@ -154,8 +150,6 @@ is(get_json('/res_body'), '{"c":{"b":1},"type":"buffer"}', 'response buffer');
 is(get_json('/res_text'), '{"a":{"b":1},"type":"string"}', 'response text');
 like(http_get('/binary_var'), qr/200 OK.*true$/s,
 	'binary var');
-
-}
 
 ###############################################################################
 

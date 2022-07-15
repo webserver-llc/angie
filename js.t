@@ -275,7 +275,7 @@ like(http_get('/method'), qr/method=GET/, 'r.method');
 like(http_get('/version'), qr/version=1.0/, 'r.httpVersion');
 like(http_get('/addr'), qr/addr=127.0.0.1/, 'r.remoteAddress');
 like(http_get('/uri'), qr/uri=\/uri/, 'r.uri');
-like(http_get('/arg?foO=12345'), qr/arg=12345/, 'r.args');
+like(http_get('/arg?foo=12345'), qr/arg=12345/, 'r.args');
 like(http_get('/iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'r.args iteration');
 

@@ -300,7 +300,7 @@ $t->write_file('test.js', <<EOF);
 
     function hdr_out(r) {
         r.status = 200;
-        r.headersOut['Foo'] = r.args.fOO;
+        r.headersOut['Foo'] = r.args.foo;
 
         if (r.args.bar) {
             r.headersOut['Bar'] =
@@ -322,9 +322,9 @@ $t->write_file('test.js', <<EOF);
 
     function hdr_out_array(r) {
         if (!r.args.hidden) {
-            r.headersOut['Foo'] = [r.args.fOO];
+            r.headersOut['Foo'] = [r.args.foo];
             r.headersOut['Foo'] = [];
-            r.headersOut['Foo'] = ['bar', r.args.fOO];
+            r.headersOut['Foo'] = ['bar', r.args.foo];
         }
 
         if (r.args.scalar_set) {

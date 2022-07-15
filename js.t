@@ -41,8 +41,6 @@ http {
     js_set $test_version  test.version;
     js_set $test_addr     test.addr;
     js_set $test_uri      test.uri;
-    js_set $test_arg      test.arg;
-    js_set $test_iarg     test.iarg;
     js_set $test_var      test.variable;
     js_set $test_type     test.type;
     js_set $test_global   test.global_obj;
@@ -73,14 +71,6 @@ http {
 
         location /uri {
             return 200 $test_uri;
-        }
-
-        location /arg {
-            return 200 $test_arg;
-        }
-
-        location /iarg {
-            return 200 $test_iarg;
         }
 
         location /var {
@@ -118,10 +108,6 @@ http {
 
         location /return_method {
             js_content test.return_method;
-        }
-
-        location /arg_keys {
-            js_content test.arg_keys;
         }
 
         location /type {
@@ -171,20 +157,6 @@ $t->write_file('test.js', <<EOF);
         return 'uri=' + r.uri;
     }
 
-    function arg(r) {
-        return 'arg=' + r.args.foo;
-    }
-
-    function iarg(r) {
-        var s = '', a;
-        for (a in r.args) {
-            if (a.substr(0, 3) == 'foo') {
-                s += r.args[a];
-            }
-        }
-        return s;
-    }
-
     function variable(r) {
         return 'variable=' + r.variables.remote_addr;
     }
@@ -232,10 +204,6 @@ $t->write_file('test.js', <<EOF);
         r.return(Number(r.args.c), r.args.t);
     }
 
-    function arg_keys(r) {
-        r.return(200, Object.keys(r.args).sort());
-    }
-
     function type(r) {
         var p = r.args.path.split('.').reduce((a, v) => a[v], r);
 
@@ -260,14 +228,14 @@ $t->write_file('test.js', <<EOF);
     function content_empty(r) {
     }
 
-    export default {njs:test_njs, method, version, addr, uri, arg, iarg,
+    export default {njs:test_njs, method, version, addr, uri,
                     variable, global_obj, status, request_body,
-                    request_body_cache, send, return_method, arg_keys,
+                    request_body_cache, send, return_method,
                     type, log, except, content_except, content_empty};
 
 EOF
 
-$t->try_run('no njs available')->plan(33);
+$t->try_run('no njs available')->plan(27);
 
 ###############################################################################
 
@@ -275,14 +243,6 @@ like(http_get('/method'), qr/method=GET/, 'r.method');
 like(http_get('/version'), qr/version=1.0/, 'r.httpVersion');
 like(http_get('/addr'), qr/addr=127.0.0.1/, 'r.remoteAddress');
 like(http_get('/uri'), qr/uri=\/uri/, 'r.uri');
-like(http_get('/arg?foo=12345'), qr/arg=12345/, 'r.args');
-like(http_get('/iarg?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
-	'r.args iteration');
-
-like(http_get('/iarg?foo=123&foo2=&foo3&foo4=456'), qr/123undefined456/,
-	'r.args iteration 2');
-like(http_get('/iarg?foo=123&foo2=&foo3'), qr/123/, 'r.args iteration 3');
-like(http_get('/iarg?foo=123&foo2='), qr/123/, 'r.args iteration 4');
 
 like(http_get('/status'), qr/204 No Content/, 'r.status');
 
@@ -303,8 +263,6 @@ like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
 	'return redirect');
 like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
-
-like(http_get('/arg_keys?b=1&c=2&a=5'), qr/a,b,c/m, 'r.args sorted keys');
 
 TODO: {
 local $TODO = 'not yet'

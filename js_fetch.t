@@ -62,6 +62,10 @@ http {
             js_content test.body;
         }
 
+        location /body_special {
+            js_content test.body_special;
+        }
+
         location /chain {
             js_content test.chain;
         }
@@ -278,6 +282,13 @@ $t->write_file('test.js', <<EOF);
         .catch(e => r.return(501, e.message))
     }
 
+    async function body_special(r) {
+        let reply = await ngx.fetch(`http://127.0.0.1:$p2/\${r.args.loc}`);
+        let body = await reply.text();
+
+        r.return(200, body);
+    }
+
     async function header_iter(r) {
         let url = `http://127.0.0.1:$p2/\${r.args.loc}`;
 
@@ -354,11 +365,11 @@ $t->write_file('test.js', <<EOF);
         r.return(c, `\${v.host}:\${v.request_method}:\${foo}:\${bar}:\${body}`);
     }
 
-     export default {njs: test_njs, body, broken, broken_response,
+     export default {njs: test_njs, body, broken, broken_response, body_special,
                      chain, chunked, header, header_iter, multi, loc, property};
 EOF
 
-$t->try_run('no njs.fetch')->plan(28);
+$t->try_run('no njs.fetch')->plan(31);
 
 $t->run_daemon(\&http_daemon, port(8082));
 $t->waitforsocket('127.0.0.1:' . port(8082));
@@ -373,6 +384,8 @@ like(http_get('/body?getter=json&loc=json&path=b.c'),
 	qr/200 OK.*"FIELD"$/s, 'fetch body json');
 like(http_get('/body?getter=json&loc=loc'), qr/501/s,
 	'fetch body json invalid');
+like(http_get('/body_special?loc=parted'), qr/200 OK.*X{32000}$/s,
+	'fetch body parted');
 like(http_get('/property?pr=bodyUsed'), qr/false$/s,
 	'fetch bodyUsed false');
 like(http_get('/property?pr=bodyUsed&readBody=1'), qr/true$/s,
@@ -438,6 +451,17 @@ todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
 like(http_get('/header_iter?loc=duplicate_header_large'),
 	qr/\['A:a','B:a','C:a','D:a','E:a','F:a','G:a','H:a','Foo:a,b']$/s,
 	'fetch header duplicate large');
+
+}
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.6';
+
+like(http_get('/body_special?loc=no_content_length'),
+	qr/200 OK.*CONTENT-BODY$/s, 'fetch body without content-length');
+like(http_get('/body_special?loc=no_content_length/parted'),
+	qr/200 OK.*X{32000}$/s, 'fetch body without content-length parted');
 
 }
 
@@ -541,6 +565,36 @@ sub http_daemon {
 				"Connection: close" . CRLF .
 				CRLF .
 				"unfinished" . CRLF;
+
+		} elsif ($uri eq '/parted') {
+			print $client
+				"HTTP/1.1 200 OK" . CRLF .
+				"Content-Length: 32000" . CRLF .
+				"Connection: close" . CRLF .
+				CRLF;
+
+			for (1 .. 4) {
+				select undef, undef, undef, 0.01;
+				print $client "X" x 8000;
+			}
+
+		} elsif ($uri eq '/no_content_length') {
+			print $client
+				"HTTP/1.1 200 OK" . CRLF .
+				"Connection: close" . CRLF .
+				CRLF .
+				"CONTENT-BODY";
+
+		} elsif ($uri eq '/no_content_length/parted') {
+			print $client
+				"HTTP/1.1 200 OK" . CRLF .
+				"Connection: close" . CRLF .
+				CRLF;
+
+			for (1 .. 4) {
+				select undef, undef, undef, 0.01;
+				print $client "X" x 8000;
+			}
 
 		} elsif ($uri eq '/big') {
 			print $client

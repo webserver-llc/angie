@@ -173,7 +173,7 @@ $t->write_file('test.js', <<EOF);
 
     function request_body(r) {
         try {
-            var body = r.requestBody;
+            var body = r.requestText;
             r.return(200, body);
 
         } catch (e) {
@@ -235,7 +235,7 @@ $t->write_file('test.js', <<EOF);
 
 EOF
 
-$t->try_run('no njs available')->plan(27);
+$t->try_run('no njs available')->plan(26);
 
 ###############################################################################
 
@@ -273,8 +273,6 @@ like(http_get('/type?path=variables.host'), qr/200 OK.*type: string$/s,
 like(http_get('/type?path=rawVariables.host'), qr/200 OK.*type: buffer$/s,
 	'rawVariables type');
 
-like(http_post('/type?path=requestBody'), qr/200 OK.*type: string$/s,
-	'requestBody type');
 like(http_post('/type?path=requestText'), qr/200 OK.*type: string$/s,
 	'requestText type');
 like(http_post('/type?path=requestBuffer'), qr/200 OK.*type: buffer$/s,

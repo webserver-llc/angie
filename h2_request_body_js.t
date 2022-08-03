@@ -57,7 +57,7 @@ EOF
 
 $t->write_file('test.js', <<EOF);
 function body_fwd_cb(r) {
-    r.parent.return(r.status, r.responseBody);
+    r.parent.return(r.status, r.responseText);
 }
 
 function sr_body(r) {

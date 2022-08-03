@@ -482,7 +482,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     function body_fwd_cb(r) {
-        r.parent.return(200, JSON.stringify(JSON.parse(r.responseBody)));
+        r.parent.return(200, JSON.stringify(JSON.parse(r.responseText)));
     }
 
     function js_sub(r) {

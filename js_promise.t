@@ -78,7 +78,7 @@ $t->write_file('test.js', <<EOF);
     function promise(r) {
         promisified_subrequest(r, '/sub_token', 'code=200&token=a')
         .then(reply => {
-            var data = JSON.parse(reply.responseBody);
+            var data = JSON.parse(reply.responseText);
 
             if (data['token'] !== "a") {
                 throw new Error('token is not "a"');
@@ -89,7 +89,7 @@ $t->write_file('test.js', <<EOF);
         .then(token => {
             promisified_subrequest(r, '/sub_token', 'code=200&token=b')
             .then(reply => {
-                var data = JSON.parse(reply.responseBody);
+                var data = JSON.parse(reply.responseText);
 
                 r.return(200, '{"token": "' + data['token'] + '"}');
             })
@@ -105,7 +105,7 @@ $t->write_file('test.js', <<EOF);
     function promise_throw(r) {
         promisified_subrequest(r, '/sub_token', 'code=200&token=x')
         .then(reply => {
-            var data = JSON.parse(reply.responseBody);
+            var data = JSON.parse(reply.responseText);
 
             if (data['token'] !== "a") {
                 throw data['token'];
@@ -135,7 +135,7 @@ $t->write_file('test.js', <<EOF);
 
     function timeout(r) {
         promisified_subrequest(r, '/sub_token', 'code=200&token=R')
-        .then(reply => JSON.parse(reply.responseBody))
+        .then(reply => JSON.parse(reply.responseText))
         .then(data => {
             setTimeout(timeout_cb, 50, r, '/sub_token', 'code=200&token=T');
             return data;
@@ -153,7 +153,7 @@ $t->write_file('test.js', <<EOF);
         promisified_subrequest(r, url, args)
         .then(reply => {
             if (global_token == '') {
-                var data = JSON.parse(reply.responseBody);
+                var data = JSON.parse(reply.responseText);
 
                 global_token = data['token'];
 

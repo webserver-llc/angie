@@ -379,7 +379,7 @@ $t->write_file('test.js', <<EOF);
             r.headersOut[h] = resp.headersOut[h];
         }
 
-        r.return(200, resp.responseBody);
+        r.return(200, resp.responseText);
     }
 
     function subrequest(r) {

@@ -3,7 +3,7 @@
 # (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Tests for http njs module, r.requestBody method.
+# Tests for http njs module, r.requestText method.
 
 ###############################################################################
 
@@ -59,7 +59,7 @@ EOF
 $t->write_file('test.js', <<EOF);
     function body(r) {
         try {
-            var body = r.requestBody;
+            var body = r.requestText;
             r.return(200, body);
 
         } catch (e) {

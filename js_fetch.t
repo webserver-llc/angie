@@ -456,7 +456,7 @@ like(http_get('/header_iter?loc=duplicate_header_large'),
 
 TODO: {
 local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.6';
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
 
 like(http_get('/body_special?loc=no_content_length'),
 	qr/200 OK.*CONTENT-BODY$/s, 'fetch body without content-length');

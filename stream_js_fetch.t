@@ -85,14 +85,17 @@ $t->write_file('test.js', <<EOF);
     function preread_verify(s) {
         var collect = Buffer.from([]);
 
-        s.on('upstream', function (data, flags) {
+        s.on('upstream', async function (data, flags) {
             collect = Buffer.concat([collect, data]);
 
             if (collect.length >= 4 && collect.readUInt16BE(0) == 0xabcd) {
                 s.off('upstream');
-                ngx.fetch('http://127.0.0.1:$p/validate',
-                          {body: collect.slice(2,4), headers: {Host:'aaa'}})
-                .then(reply => (reply.status == 200) ? s.done(): s.deny())
+
+                let reply = await ngx.fetch('http://127.0.0.1:$p/validate',
+                                            {body: collect.slice(2,4),
+                                             headers: {Host:'aaa'}});
+
+                (reply.status == 200) ? s.done(): s.deny();
 
             } else if (collect.length) {
                 s.deny();

@@ -154,20 +154,18 @@ is(stream('127.0.0.1:' . port(8081))->io("\xAC\xCDQZ##"), '',
 is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQQ##"), '',
 	'preread validation failed');
 
+TODO: {
+todo_skip 'leaves coredump', 3 unless $ENV{TEST_NGINX_UNSAFE}
+	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+
+my $s = stream('127.0.0.1:' . port(8082));
+is($s->io("\xAB\xCDQZ##", read => 1), '##', 'filter validated');
+is($s->io("@@", read => 1), '@@', 'filter off');
+
 is(stream('127.0.0.1:' . port(8082))->io("\xAB\xCDQQ##"), '',
 	'filter validation failed');
 
-my $s = stream('127.0.0.1:' . port(8082));
-
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
-
-is($s->io("\xAB\xCDQZ##", read => 1), '##', 'filter validated');
-
 }
-
-is($s->io("@@", read => 1), '@@', 'filter off');
 
 ###############################################################################
 

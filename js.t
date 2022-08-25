@@ -45,6 +45,7 @@ http {
     js_set $test_type     test.type;
     js_set $test_global   test.global_obj;
     js_set $test_log      test.log;
+    js_set $test_internal test.sub_internal;
     js_set $test_except   test.except;
 
     js_import test.js;
@@ -116,6 +117,15 @@ http {
 
         location /log {
             return 200 $test_log;
+        }
+
+        location /internal {
+            js_content test.internal;
+        }
+
+        location /sub_internal {
+            internal;
+            return 200 $test_internal;
         }
 
         location /except {
@@ -215,6 +225,16 @@ $t->write_file('test.js', <<EOF);
         r.log('SEE-LOG');
     }
 
+    async function internal(r) {
+        let reply = await r.subrequest('/sub_internal');
+
+        r.return(200, `parent: \${r.internal} sub: \${reply.responseText}`);
+    }
+
+    function sub_internal(r) {
+        return r.internal;
+    }
+
     function except(r) {
         var fs = require('fs');
         fs.readFileSync();
@@ -229,13 +249,13 @@ $t->write_file('test.js', <<EOF);
     }
 
     export default {njs:test_njs, method, version, addr, uri,
-                    variable, global_obj, status, request_body,
-                    request_body_cache, send, return_method,
+                    variable, global_obj, status, request_body, internal,
+                    request_body_cache, send, return_method, sub_internal,
                     type, log, except, content_except, content_empty};
 
 EOF
 
-$t->try_run('no njs available')->plan(26);
+$t->try_run('no njs available')->plan(27);
 
 ###############################################################################
 
@@ -285,6 +305,14 @@ like(http_post('/request_body_cache'),
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');
 like(http_get('/log'), qr/200 OK/, 'r.log');
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+
+like(http_get('/internal'), qr/parent: false sub: true/, 'r.internal');
+
+}
 
 http_get('/except');
 http_get('/content_except');

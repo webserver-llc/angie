@@ -44,12 +44,29 @@ sub new {
 
 	$self->{zero} = pack("x5");
 
+	$self->{static_encode} = [ static_table() ];
+	$self->{static_decode} = [ static_table() ];
+	$self->{dynamic_encode} = [];
+	$self->{last_stream} = -4;
 	$self->{buf} = '';
 
 	$self->init();
 	$self->init_key_schedule();
 	$self->initial();
 	$self->handshake() or return;
+
+	# RFC 9204, 4.3.1.  Set Dynamic Table Capacity
+
+	my $buf = pack("B*", '001' . ipack(5, $extra{capacity} || 400));
+	$self->{encoder_offset} = length($buf) + 1;
+	$buf = "\x08\x02\x02" . $buf;
+
+	# RFC 9114, 6.2.1.  Control Streams
+
+	$buf = "\x0a\x06\x03\x00\x04\x00" . $buf;
+	$self->{control_offset} = 3;
+
+	$self->raw_write($buf);
 
 	return $self;
 }
@@ -61,6 +78,7 @@ sub init {
 	$self->{crypto_in} = [[],[],[],[]];
 	$self->{stream_in} = [];
 	$self->{frames_in} = [];
+	$self->{frames_incomplete} = [];
 	$self->{tlsm} = ();
 	$self->{tlsm}{$_} = ''
 		for 'ch', 'sh', 'ee', 'cert', 'cv', 'sf', 'cf', 'nst';
@@ -256,6 +274,1024 @@ sub path_response {
 	my ($self, $data) = @_;
 	my $frame = "\x1b" . $data;
 	$self->{socket}->syswrite($self->encrypt_aead($frame, 3));
+}
+
+###############################################################################
+
+# HTTP/3 routines
+
+# 4.3.2.  Insert with Name Reference
+
+sub insert_reference {
+	my ($self, $name, $value, %extra) = @_;
+	my $table = $extra{dyn}
+		? $self->{dynamic_encode}
+		: $self->{static_encode};
+	my $huff = $extra{huff};
+	my $hbit = $huff ? '1' : '0';
+	my $dbit = $extra{dyn} ? '0' : '1';
+	my ($index, $buf) = 0;
+
+	++$index until $index > $#$table
+		or $table->[$index][0] eq $name;
+	$table = $self->{dynamic_encode};
+	splice @$table, 0, 0, [ $name, $value ];
+
+	$value = $huff ? huff($value) : $value;
+
+	$buf = pack('B*', '1' . $dbit . ipack(6, $index));
+	$buf .= pack('B*', $hbit . ipack(7, length($value))) . $value;
+
+	my $offset = $self->{encoder_offset};
+	my $length = length($buf);
+
+	$self->{encoder_offset} += $length;
+	$self->raw_write("\x0e\x02"
+		. build_int($offset) . build_int($length) . $buf);
+}
+
+# 4.3.3.  Insert with Literal Name
+
+sub insert_literal {
+	my ($self, $name, $value, %extra) = @_;
+	my $table = $self->{dynamic_encode};
+	my $huff = $extra{huff};
+	my $hbit = $huff ? '1' : '0';
+
+	splice @$table, 0, 0, [ $name, $value ];
+
+	$name = $huff ? huff($name) : $name;
+	$value = $huff ? huff($value) : $value;
+
+	my $buf = pack('B*', '01' . $hbit . ipack(5, length($name))) . $name;
+	$buf .= pack('B*', $hbit . ipack(7, length($value))) . $value;
+
+	my $offset = $self->{encoder_offset};
+	my $length = length($buf);
+
+	$self->{encoder_offset} += $length;
+	$self->raw_write("\x0e\x02"
+		. build_int($offset) . build_int($length) . $buf);
+}
+
+# 4.3.4.  Duplicate
+
+sub duplicate {
+	my ($self, $name, $value, %extra) = @_;
+	my $table = $self->{dynamic_encode};
+	my $index = 0;
+
+	++$index until $index > $#$table
+		or $table->[$index][0] eq $name;
+	splice @$table, 0, 0, [ $table->[$index][0], $table->[$index][1] ];
+
+	my $buf = pack('B*', '000' . ipack(5, $index));
+
+	my $offset = $self->{encoder_offset};
+	my $length = length($buf);
+
+	$self->{encoder_offset} += $length;
+	$self->raw_write("\x0e\x02"
+		. build_int($offset) . build_int($length) . $buf);
+}
+
+sub max_push_id {
+	my ($self, $val) = @_;
+	$val = build_int($val);
+	my $buf = "\x0d" . build_int(length($val)) . $val;
+
+	my $offset = $self->{control_offset};
+	my $length = length($buf);
+
+	$self->{control_offset} += $length;
+	$self->raw_write("\x0e\x06"
+		. build_int($offset) . build_int($length) . $buf);
+}
+
+sub cancel_push {
+	my ($self, $val) = @_;
+	$val = build_int($val);
+	my $buf = "\x03" . build_int(length($val)) . $val;
+
+	my $offset = $self->{control_offset};
+	my $length = length($buf);
+
+	$self->{control_offset} += $length;
+	$self->raw_write("\x0e\x06"
+		. build_int($offset) . build_int($length) . $buf);
+}
+
+sub new_stream {
+	my ($self, $uri, $stream) = @_;
+	my ($input, $buf);
+
+	$self->{headers} = '';
+
+	my $host = $uri->{host} || 'localhost';
+	my $method = $uri->{method} || 'GET';
+	my $scheme = $uri->{scheme} || 'http';
+	my $path = $uri->{path} || '/';
+	my $headers = $uri->{headers};
+	my $body = $uri->{body};
+
+	if ($stream) {
+		$self->{last_stream} = $stream;
+	} else {
+		$self->{last_stream} += 4;
+	}
+
+	unless ($headers) {
+		$input = qpack($self, ":method", $method);
+		$input .= qpack($self, ":scheme", $scheme);
+		$input .= qpack($self, ":path", $path);
+		$input .= qpack($self, ":authority", $host);
+		$input .= qpack($self, "content-length", length($body))
+			if $body;
+
+	} else {
+		$input = join '', map {
+			qpack($self, $_->{name}, $_->{value},
+			mode => $_->{mode}, huff => $_->{huff},
+			idx => $_->{idx}, dyn => $_->{dyn})
+		} @$headers if $headers;
+	}
+
+	# encoded field section prefix
+
+	my $table = $self->{dynamic_encode};
+	my $ric = scalar @$table ? scalar @$table + 1 : 0;
+	my $base = $uri->{base} || 0;
+	$base = $base < 0 ? 0x80 + abs($base) - 1 : $base;
+	$input = pack("CC", $ric, $base) . $input;
+
+	# set length, attach headers, body
+
+	$buf = pack("C", 1);
+	$buf .= build_int(length($input));
+	$buf .= $input;
+	$buf .= pack_body($self, $body) if defined $body;
+
+	$self->{streams}{$self->{last_stream}}{sent} = length($buf);
+	$self->raw_write($self->build_stream($buf, start => $uri->{body_more}));
+
+	return $self->{last_stream};
+}
+
+sub h3_body {
+	my ($self, $body, $sid, $extra) = @_;
+
+	my $buf = pack_body($self, $body) if defined $body;
+	my $offset = $self->{streams}{$sid}{sent};
+
+	$self->{streams}{$sid}{sent} += length($body);
+	$self->raw_write($self->build_stream($buf,
+		start => $extra->{body_more}, sid => $sid, offset => $offset));
+}
+
+sub pack_body {
+	my ($self, $body) = @_;
+
+	my $buf .= pack("C", 0);
+	$buf .= build_int(length($body));
+	$buf .= $body;
+}
+
+my %cframe = (
+	0 => { name => 'DATA', value => \&data },
+	1 => { name => 'HEADERS', value => \&headers },
+#	3 => { name => 'CANCEL_PUSH', value => \&cancel_push },
+	4 => { name => 'SETTINGS', value => \&settings },
+	5 => { name => 'PUSH_PROMISE', value => \&push_promise },
+	7 => { name => 'GOAWAY', value => \&goaway },
+);
+
+sub read {
+	my ($self, %extra) = @_;
+	my (@got);
+	my $s = $self->{socket};
+	my $wait = $extra{wait};
+
+	local $Data::Dumper::Terse = 1;
+
+	while (1) {
+		my ($frame, $length, $uni);
+		my ($stream, $buf, $eof) = $self->read_stream_message($wait);
+
+		unless (defined $stream) {
+			return \@got unless scalar @{$self->{frames_in}};
+			goto frames;
+		}
+
+		if (length($self->{frames_incomplete}[$stream]{buf})) {
+			$buf = $self->{frames_incomplete}[$stream]{buf} . $buf;
+		}
+
+again:
+		if (($stream % 4) == 3) {
+			unless (defined $self->{stream_uni}{$stream}{stream}) {
+				(my $len, $uni) = parse_int(substr($buf, 0));
+				$self->{stream_uni}{$stream}{stream} = $uni;
+				$buf = substr($buf, $len);
+
+			} else {
+				$uni = $self->{stream_uni}{$stream}{stream};
+			}
+
+			# push stream
+			if ($uni == 1 && !$self->{stream_uni}{$stream}{push}) {
+				$self->{stream_uni}{$stream}{push} = 1;
+				($frame, $length) = push_stream($buf, $stream);
+				goto push_me;
+			}
+
+			# decoder
+			if ($uni == 3) {
+				($frame, $length) = push_decoder($buf, $stream);
+				goto push_me;
+			}
+		}
+
+		my $offset = 0;
+		my ($len, $type);
+
+		if (!length($self->{frames_incomplete}[$stream]{buf})) {
+			($len, $type) = parse_int(substr($buf, $offset));
+			$offset += $len;
+			($len, $length) = parse_int(substr($buf, $offset));
+			$offset += $len;
+
+			$self->{frames_incomplete}[$stream]{type} = $type;
+			$self->{frames_incomplete}[$stream]{length} = $length;
+			$self->{frames_incomplete}[$stream]{offset} = $offset;
+		}
+
+		if (length($buf) < $self->{frames_incomplete}[$stream]{length}
+			+ $self->{frames_incomplete}[$stream]{offset})
+		{
+			$self->{frames_incomplete}[$stream]{buf} = $buf;
+			next;
+		}
+
+		$type = $self->{frames_incomplete}[$stream]{type};
+		$length = $self->{frames_incomplete}[$stream]{length};
+		$offset = $self->{frames_incomplete}[$stream]{offset};
+
+		$buf = substr($buf, $offset);
+		$self->{frames_incomplete}[$stream]{buf} = "";
+
+		$frame = $cframe{$type}{value}($self, $buf, $length);
+		$frame->{length} = $length;
+		$frame->{type} = $cframe{$type}{name};
+		$frame->{flags} = $eof && length($buf) == $length;
+		$frame->{sid} = $stream;
+		$frame->{uni} = $uni if defined $uni;
+
+push_me:
+		push @got, $frame;
+
+		Test::Nginx::log_core('||', $_) for split "\n", Dumper $frame;
+
+		$buf = substr($buf, $length);
+
+		last unless $extra{all} && test_fin($frame, $extra{all});
+		goto again if length($buf) > 0;
+
+frames:
+		while ($frame = shift @{$self->{frames_in}}) {
+			push @got, $frame;
+			Test::Nginx::log_core('||', $_) for split "\n",
+				Dumper $frame;
+			return \@got unless test_fin($frame, $extra{all});
+		}
+	}
+	return \@got;
+}
+
+sub push_stream {
+	my ($buf, $stream) = @_;
+	my $frame = { sid => $stream, uni => 1, type => 'PUSH header' };
+
+	my ($len, $id) = parse_int($buf);
+	$frame->{push_id} = $id;
+	$frame->{length} = $len;
+
+	return ($frame, $len);
+}
+
+sub push_decoder {
+	my ($buf, $stream) = @_;
+	my ($skip, $val) = 0;
+	my $frame = { sid => $stream, uni => 3 };
+
+	if ($skip < length($buf)) {
+		my $bits = unpack("\@$skip B8", $buf);
+
+		if (substr($bits, 0, 1) eq '1') {
+			($val, $skip) = iunpack(7, $buf, $skip);
+			$frame->{type} = 'DECODER_SA';
+
+		} elsif (substr($bits, 0, 2) eq '01') {
+			($val, $skip) = iunpack(6, $buf, $skip);
+			$frame->{type} = 'DECODER_C';
+
+		} elsif (substr($bits, 0, 2) eq '00') {
+			($val, $skip) = iunpack(6, $buf, $skip);
+			$frame->{type} = 'DECODER_ICI';
+		}
+
+		$frame->{val} = $val;
+	}
+
+	return ($frame, $skip);
+}
+
+sub test_fin {
+	my ($frame, $all) = @_;
+	my @test = @{$all};
+
+	# wait for the specified DATA length
+
+	for (@test) {
+		if ($_->{length} && $frame->{type} eq 'DATA') {
+			# check also for StreamID if needed
+
+			if (!$_->{sid} || $_->{sid} == $frame->{sid}) {
+				$_->{length} -= $frame->{length};
+			}
+		}
+	}
+	@test = grep { !(defined $_->{length} && $_->{length} == 0) } @test;
+
+	# wait for the fin flag
+
+	@test = grep { !(defined $_->{fin}
+		&& (!defined $_->{sid} || $_->{sid} == $frame->{sid})
+		&& $_->{fin} & $frame->{flags})
+	} @test if defined $frame->{flags};
+
+	# wait for the specified frame
+
+	@test = grep { !($_->{type} && $_->{type} eq $frame->{type}) } @test;
+
+	@{$all} = @test;
+}
+
+sub data {
+	my ($self, $buf, $len) = @_;
+	return { data => substr($buf, 0, $len) };
+}
+
+sub headers {
+	my ($self, $buf, $len) = @_;
+	my ($ric, $base);
+	$self->{headers} = substr($buf, 0, $len);
+	my $skip = 0;
+
+	($ric, $skip) = iunpack(8, $buf, $skip);
+	($base, $skip) = iunpack(7, $buf, $skip);
+
+	$buf = substr($buf, $skip);
+	$len -= $skip;
+	{ headers => qunpack($self, $buf, $len) };
+}
+
+sub settings {
+	my ($self, $buf, $length) = @_;
+	my %payload;
+	my ($offset, $len) = 0;
+
+	while ($offset < $length) {
+		my ($id, $val);
+		($len, $id) = parse_int(substr($buf, $offset));
+		$offset += $len;
+		($len, $val) = parse_int(substr($buf, $offset));
+		$offset += $len;
+		$payload{$id} = $val;
+	}
+	return \%payload;
+}
+
+sub push_promise {
+	my ($self, $buf, $length) = @_;
+	my %payload;
+	my ($offset, $len, $id) = 0;
+
+	($len, $id) = parse_int($buf);
+	$offset += $len;
+	$payload{push_id} = $id;
+
+	my ($ric, $base);
+	my $skip = $offset;
+
+	($ric, $skip) = iunpack(8, $buf, $skip);
+	($base, $skip) = iunpack(7, $buf, $skip);
+
+	$buf = substr($buf, $skip);
+	$length -= $skip;
+	$payload{headers} = qunpack($self, $buf, $length);
+	return \%payload;
+}
+
+sub goaway {
+	my ($self, $buf, $length) = @_;
+	my ($len, $stream) = parse_int($buf);
+	{ last_sid => $stream }
+}
+
+# RFC 7541, 5.1.  Integer Representation
+
+sub ipack {
+	my ($base, $d) = @_;
+	return sprintf("%.*b", $base, $d) if $d < 2**$base - 1;
+
+	my $o = sprintf("%${base}b", 2**$base - 1);
+	$d -= 2**$base - 1;
+	while ($d >= 128) {
+		$o .= sprintf("%8b", $d % 128 + 128);
+		$d /= 128;
+	}
+	$o .= sprintf("%08b", $d);
+	return $o;
+}
+
+sub iunpack {
+	my ($base, $b, $s) = @_;
+
+	my $len = unpack("\@$s B8", $b); $s++;
+	my $huff = substr($len, 8 - $base - 1, 1);
+	$len = '0' x (8 - $base) . substr($len, 8 - $base);
+	$len = unpack("C", pack("B8", $len));
+
+	return ($len, $s, $huff) if $len < 2**$base - 1;
+
+	my $m = 0;
+	my $d;
+
+	do {
+		$d = unpack("\@$s C", $b); $s++;
+		$len += ($d & 127) * 2**$m;
+		$m += $base;
+	} while (($d & 128) == 128);
+
+	return ($len, $s, $huff);
+}
+
+sub qpack {
+	my ($ctx, $name, $value, %extra) = @_;
+	my $mode = defined $extra{mode} ? $extra{mode} : 4;
+	my $huff = $extra{huff};
+	my $hbit = $huff ? '1' : '0';
+	my $ibit = $extra{ni} ? '1' : '0';
+	my $dbit = $extra{dyn} ? '0' : '1';
+	my $table = $extra{dyn} ? $ctx->{dynamic_encode} : $ctx->{static_encode};
+	my ($index, $buf) = 0;
+
+	# 4.5.2.  Indexed Field Line
+
+	if ($mode == 0) {
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name
+			and $table->[$index][1] eq $value;
+		$buf = pack('B*', '1' . $dbit . ipack(6, $index));
+	}
+
+	# 4.5.3.  Indexed Field Line with Post-Base Index
+
+	if ($mode == 1) {
+		$table = $ctx->{dynamic_encode};
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name
+			and $table->[$index][1] eq $value;
+		$buf = pack('B*', '0001' . ipack(4, 0));
+	}
+
+	# 4.5.4.  Literal Field Line with Name Reference
+
+	if ($mode == 2) {
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name;
+		$value = $huff ? huff($value) : $value;
+
+		$buf = pack('B*', '01' . $ibit . $dbit . ipack(4, $index));
+		$buf .= pack('B*', $hbit . ipack(7, length($value))) . $value;
+	}
+
+	# 4.5.5.  Literal Field Line with Post-Base Name Reference
+
+	if ($mode == 3) {
+		$table = $ctx->{dynamic_encode};
+		++$index until $index > $#$table
+			or $table->[$index][0] eq $name;
+		$value = $huff ? huff($value) : $value;
+
+		$buf = pack('B*', '0000' . $ibit . ipack(3, $index));
+		$buf .= pack('B*', $hbit . ipack(7, length($value))) . $value;
+	}
+
+	# 4.5.6.  Literal Field Line with Literal Name
+
+	if ($mode == 4) {
+		$name = $huff ? huff($name) : $name;
+		$value = $huff ? huff($value) : $value;
+
+		$buf = pack('B*', '001' . $ibit .
+			$hbit . ipack(3, length($name))) . $name;
+		$buf .= pack('B*', $hbit . ipack(7, length($value))) . $value;
+	}
+
+	return $buf;
+}
+
+sub qunpack {
+	my ($ctx, $data, $length) = @_;
+	my $table = $ctx->{static_decode};
+	my %headers;
+	my $skip = 0;
+	my ($index, $name, $value, $size);
+
+	my $field = sub {
+		my ($base, $b) = @_;
+		my ($len, $s, $huff) = iunpack(@_);
+
+		my $field = substr($b, $s, $len);
+		$field = $huff ? dehuff($field) : $field;
+		$s += $len;
+		return ($field, $s);
+	};
+
+	my $add = sub {
+		my ($h, $n, $v) = @_;
+		return $h->{$n} = $v unless exists $h->{$n};
+		$h->{$n} = [ $h->{$n} ] unless ref $h->{$n};
+		push @{$h->{$n}}, $v;
+	};
+
+	while ($skip < $length) {
+		my $ib = unpack("\@$skip B8", $data);
+
+		# 4.5.2.  Indexed Field Line
+
+		if (substr($ib, 0, 2) eq '11') {
+			($index, $skip) = iunpack(6, $data, $skip);
+
+			$add->(\%headers,
+				$table->[$index][0], $table->[$index][1]);
+			next;
+		}
+
+		# 4.5.4.  Literal Field Line with Name Reference
+
+		if (substr($ib, 0, 4) eq '0101') {
+			($index, $skip) = iunpack(4, $data, $skip);
+			$name = $table->[$index][0];
+			($value, $skip) = $field->(7, $data, $skip);
+
+			$add->(\%headers, $name, $value);
+			next;
+		}
+
+		# 4.5.6.  Literal Field Line with Literal Name
+
+		if (substr($ib, 0, 4) eq '0010') {
+			($name, $skip) = $field->(3, $data, $skip);
+			($value, $skip) = $field->(7, $data, $skip);
+
+			$add->(\%headers, $name, $value);
+			next;
+		}
+
+		last;
+	}
+
+	return \%headers;
+}
+
+sub static_table {
+	[ ':authority',			''				],
+	[ ':path',			'/'				],
+	[ 'age',			'0'				],
+	[ 'content-disposition',	''				],
+	[ 'content-length',		'0'				],
+	[ 'cookie',			''				],
+	[ 'date',			''				],
+	[ 'etag',			''				],
+	[ 'if-modified-since',		''				],
+	[ 'if-none-match',		''				],
+	[ 'last-modified',		''				],
+	[ 'link',			''				],
+	[ 'location',			''				],
+	[ 'referer',			''				],
+	[ 'set-cookie',			''				],
+	[ ':method',			'CONNECT'			],
+	[ ':method',			'DELETE'			],
+	[ ':method',			'GET'				],
+	[ ':method',			'HEAD'				],
+	[ ':method',			'OPTIONS'			],
+	[ ':method',			'POST'				],
+	[ ':method',			'PUT'				],
+	[ ':scheme',			'http'				],
+	[ ':scheme',			'https'				],
+	[ ':status',			'103'				],
+	[ ':status',			'200'				],
+	[ ':status',			'304'				],
+	[ ':status',			'404'				],
+	[ ':status',			'503'				],
+	[ 'accept',			'*/*'				],
+	[ 'accept',			'application/dns-message'	],
+	[ 'accept-encoding',		'gzip, deflate, br'		],
+	[ 'accept-ranges',		'bytes'				],
+	[ 'access-control-allow-headers',	'cache-control'		],
+	[ 'access-control-allow-headers',	'content-type'		],
+	[ 'access-control-allow-origin',	'*'			],
+	[ 'cache-control',		'max-age=0'			],
+	[ 'cache-control',		'max-age=2592000'		],
+	[ 'cache-control',		'max-age=604800'		],
+	[ 'cache-control',		'no-cache'			],
+	[ 'cache-control',		'no-store'			],
+	[ 'cache-control',		'public, max-age=31536000'	],
+	[ 'content-encoding',		'br'				],
+	[ 'content-encoding',		'gzip'				],
+	[ 'content-type',		'application/dns-message'	],
+	[ 'content-type',		'application/javascript'	],
+	[ 'content-type',		'application/json'		],
+	[ 'content-type',	'application/x-www-form-urlencoded'	],
+	[ 'content-type',		'image/gif'			],
+	[ 'content-type',		'image/jpeg'			],
+	[ 'content-type',		'image/png'			],
+	[ 'content-type',		'text/css'			],
+	[ 'content-type',		'text/html; charset=utf-8'	],
+	[ 'content-type',		'text/plain'			],
+	[ 'content-type',		'text/plain;charset=utf-8'	],
+	[ 'range',			'bytes=0-'			],
+	[ 'strict-transport-security',	'max-age=31536000'		],
+	[ 'strict-transport-security',
+				'max-age=31536000; includesubdomains'	],
+	[ 'strict-transport-security',
+			'max-age=31536000; includesubdomains; preload'	],
+	[ 'vary',			'accept-encoding'		],
+	[ 'vary',			'origin'			],
+	[ 'x-content-type-options',	'nosniff'			],
+	[ 'x-xss-protection',		'1; mode=block'			],
+	[ ':status',			'100'				],
+	[ ':status',			'204'				],
+	[ ':status',			'206'				],
+	[ ':status',			'302'				],
+	[ ':status',			'400'				],
+	[ ':status',			'403'				],
+	[ ':status',			'421'				],
+	[ ':status',			'425'				],
+	[ ':status',			'500'				],
+	[ 'accept-language',		''				],
+	[ 'access-control-allow-credentials',	'FALSE'			],
+	[ 'access-control-allow-credentials',	'TRUE'			],
+	[ 'access-control-allow-headers',	'*'			],
+	[ 'access-control-allow-methods',	'get'			],
+	[ 'access-control-allow-methods',	'get, post, options'	],
+	[ 'access-control-allow-methods',	'options'		],
+	[ 'access-control-expose-headers',	'content-length'	],
+	[ 'access-control-request-headers',	'content-type'		],
+	[ 'access-control-request-method',	'get'			],
+	[ 'access-control-request-method',	'post'			],
+	[ 'alt-svc',			'clear'				],
+	[ 'authorization',		''				],
+	[ 'content-security-policy',
+		"script-src 'none'; object-src 'none'; base-uri 'none'"	],
+	[ 'early-data',			'1'				],
+	[ 'expect-ct',			''				],
+	[ 'forwarded',			''				],
+	[ 'if-range',			''				],
+	[ 'origin',			''				],
+	[ 'purpose',			'prefetch'			],
+	[ 'server',			''				],
+	[ 'timing-allow-origin',	'*'				],
+	[ 'upgrade-insecure-requests',	'1'				],
+	[ 'user-agent',			''				],
+	[ 'x-forwarded-for',		''				],
+	[ 'x-frame-options',		'deny'				],
+	[ 'x-frame-options',		'sameorigin'			],
+}
+
+sub huff_code { scalar {
+	pack('C', 0)	=> '1111111111000',
+	pack('C', 1)	=> '11111111111111111011000',
+	pack('C', 2)	=> '1111111111111111111111100010',
+	pack('C', 3)	=> '1111111111111111111111100011',
+	pack('C', 4)	=> '1111111111111111111111100100',
+	pack('C', 5)	=> '1111111111111111111111100101',
+	pack('C', 6)	=> '1111111111111111111111100110',
+	pack('C', 7)	=> '1111111111111111111111100111',
+	pack('C', 8)	=> '1111111111111111111111101000',
+	pack('C', 9)	=> '111111111111111111101010',
+	pack('C', 10)	=> '111111111111111111111111111100',
+	pack('C', 11)	=> '1111111111111111111111101001',
+	pack('C', 12)	=> '1111111111111111111111101010',
+	pack('C', 13)	=> '111111111111111111111111111101',
+	pack('C', 14)	=> '1111111111111111111111101011',
+	pack('C', 15)	=> '1111111111111111111111101100',
+	pack('C', 16)	=> '1111111111111111111111101101',
+	pack('C', 17)	=> '1111111111111111111111101110',
+	pack('C', 18)	=> '1111111111111111111111101111',
+	pack('C', 19)	=> '1111111111111111111111110000',
+	pack('C', 20)	=> '1111111111111111111111110001',
+	pack('C', 21)	=> '1111111111111111111111110010',
+	pack('C', 22)	=> '111111111111111111111111111110',
+	pack('C', 23)	=> '1111111111111111111111110011',
+	pack('C', 24)	=> '1111111111111111111111110100',
+	pack('C', 25)	=> '1111111111111111111111110101',
+	pack('C', 26)	=> '1111111111111111111111110110',
+	pack('C', 27)	=> '1111111111111111111111110111',
+	pack('C', 28)	=> '1111111111111111111111111000',
+	pack('C', 29)	=> '1111111111111111111111111001',
+	pack('C', 30)	=> '1111111111111111111111111010',
+	pack('C', 31)	=> '1111111111111111111111111011',
+	pack('C', 32)	=> '010100',
+	pack('C', 33)	=> '1111111000',
+	pack('C', 34)	=> '1111111001',
+	pack('C', 35)	=> '111111111010',
+	pack('C', 36)	=> '1111111111001',
+	pack('C', 37)	=> '010101',
+	pack('C', 38)	=> '11111000',
+	pack('C', 39)	=> '11111111010',
+	pack('C', 40)	=> '1111111010',
+	pack('C', 41)	=> '1111111011',
+	pack('C', 42)	=> '11111001',
+	pack('C', 43)	=> '11111111011',
+	pack('C', 44)	=> '11111010',
+	pack('C', 45)	=> '010110',
+	pack('C', 46)	=> '010111',
+	pack('C', 47)	=> '011000',
+	pack('C', 48)	=> '00000',
+	pack('C', 49)	=> '00001',
+	pack('C', 50)	=> '00010',
+	pack('C', 51)	=> '011001',
+	pack('C', 52)	=> '011010',
+	pack('C', 53)	=> '011011',
+	pack('C', 54)	=> '011100',
+	pack('C', 55)	=> '011101',
+	pack('C', 56)	=> '011110',
+	pack('C', 57)	=> '011111',
+	pack('C', 58)	=> '1011100',
+	pack('C', 59)	=> '11111011',
+	pack('C', 60)	=> '111111111111100',
+	pack('C', 61)	=> '100000',
+	pack('C', 62)	=> '111111111011',
+	pack('C', 63)	=> '1111111100',
+	pack('C', 64)	=> '1111111111010',
+	pack('C', 65)	=> '100001',
+	pack('C', 66)	=> '1011101',
+	pack('C', 67)	=> '1011110',
+	pack('C', 68)	=> '1011111',
+	pack('C', 69)	=> '1100000',
+	pack('C', 70)	=> '1100001',
+	pack('C', 71)	=> '1100010',
+	pack('C', 72)	=> '1100011',
+	pack('C', 73)	=> '1100100',
+	pack('C', 74)	=> '1100101',
+	pack('C', 75)	=> '1100110',
+	pack('C', 76)	=> '1100111',
+	pack('C', 77)	=> '1101000',
+	pack('C', 78)	=> '1101001',
+	pack('C', 79)	=> '1101010',
+	pack('C', 80)	=> '1101011',
+	pack('C', 81)	=> '1101100',
+	pack('C', 82)	=> '1101101',
+	pack('C', 83)	=> '1101110',
+	pack('C', 84)	=> '1101111',
+	pack('C', 85)	=> '1110000',
+	pack('C', 86)	=> '1110001',
+	pack('C', 87)	=> '1110010',
+	pack('C', 88)	=> '11111100',
+	pack('C', 89)	=> '1110011',
+	pack('C', 90)	=> '11111101',
+	pack('C', 91)	=> '1111111111011',
+	pack('C', 92)	=> '1111111111111110000',
+	pack('C', 93)	=> '1111111111100',
+	pack('C', 94)	=> '11111111111100',
+	pack('C', 95)	=> '100010',
+	pack('C', 96)	=> '111111111111101',
+	pack('C', 97)	=> '00011',
+	pack('C', 98)	=> '100011',
+	pack('C', 99)	=> '00100',
+	pack('C', 100)	=> '100100',
+	pack('C', 101)	=> '00101',
+	pack('C', 102)	=> '100101',
+	pack('C', 103)	=> '100110',
+	pack('C', 104)	=> '100111',
+	pack('C', 105)	=> '00110',
+	pack('C', 106)	=> '1110100',
+	pack('C', 107)	=> '1110101',
+	pack('C', 108)	=> '101000',
+	pack('C', 109)	=> '101001',
+	pack('C', 110)	=> '101010',
+	pack('C', 111)	=> '00111',
+	pack('C', 112)	=> '101011',
+	pack('C', 113)	=> '1110110',
+	pack('C', 114)	=> '101100',
+	pack('C', 115)	=> '01000',
+	pack('C', 116)	=> '01001',
+	pack('C', 117)	=> '101101',
+	pack('C', 118)	=> '1110111',
+	pack('C', 119)	=> '1111000',
+	pack('C', 120)	=> '1111001',
+	pack('C', 121)	=> '1111010',
+	pack('C', 122)	=> '1111011',
+	pack('C', 123)	=> '111111111111110',
+	pack('C', 124)	=> '11111111100',
+	pack('C', 125)	=> '11111111111101',
+	pack('C', 126)	=> '1111111111101',
+	pack('C', 127)	=> '1111111111111111111111111100',
+	pack('C', 128)	=> '11111111111111100110',
+	pack('C', 129)	=> '1111111111111111010010',
+	pack('C', 130)	=> '11111111111111100111',
+	pack('C', 131)	=> '11111111111111101000',
+	pack('C', 132)	=> '1111111111111111010011',
+	pack('C', 133)	=> '1111111111111111010100',
+	pack('C', 134)	=> '1111111111111111010101',
+	pack('C', 135)	=> '11111111111111111011001',
+	pack('C', 136)	=> '1111111111111111010110',
+	pack('C', 137)	=> '11111111111111111011010',
+	pack('C', 138)	=> '11111111111111111011011',
+	pack('C', 139)	=> '11111111111111111011100',
+	pack('C', 140)	=> '11111111111111111011101',
+	pack('C', 141)	=> '11111111111111111011110',
+	pack('C', 142)	=> '111111111111111111101011',
+	pack('C', 143)	=> '11111111111111111011111',
+	pack('C', 144)	=> '111111111111111111101100',
+	pack('C', 145)	=> '111111111111111111101101',
+	pack('C', 146)	=> '1111111111111111010111',
+	pack('C', 147)	=> '11111111111111111100000',
+	pack('C', 148)	=> '111111111111111111101110',
+	pack('C', 149)	=> '11111111111111111100001',
+	pack('C', 150)	=> '11111111111111111100010',
+	pack('C', 151)	=> '11111111111111111100011',
+	pack('C', 152)	=> '11111111111111111100100',
+	pack('C', 153)	=> '111111111111111011100',
+	pack('C', 154)	=> '1111111111111111011000',
+	pack('C', 155)	=> '11111111111111111100101',
+	pack('C', 156)	=> '1111111111111111011001',
+	pack('C', 157)	=> '11111111111111111100110',
+	pack('C', 158)	=> '11111111111111111100111',
+	pack('C', 159)	=> '111111111111111111101111',
+	pack('C', 160)	=> '1111111111111111011010',
+	pack('C', 161)	=> '111111111111111011101',
+	pack('C', 162)	=> '11111111111111101001',
+	pack('C', 163)	=> '1111111111111111011011',
+	pack('C', 164)	=> '1111111111111111011100',
+	pack('C', 165)	=> '11111111111111111101000',
+	pack('C', 166)	=> '11111111111111111101001',
+	pack('C', 167)	=> '111111111111111011110',
+	pack('C', 168)	=> '11111111111111111101010',
+	pack('C', 169)	=> '1111111111111111011101',
+	pack('C', 170)	=> '1111111111111111011110',
+	pack('C', 171)	=> '111111111111111111110000',
+	pack('C', 172)	=> '111111111111111011111',
+	pack('C', 173)	=> '1111111111111111011111',
+	pack('C', 174)	=> '11111111111111111101011',
+	pack('C', 175)	=> '11111111111111111101100',
+	pack('C', 176)	=> '111111111111111100000',
+	pack('C', 177)	=> '111111111111111100001',
+	pack('C', 178)	=> '1111111111111111100000',
+	pack('C', 179)	=> '111111111111111100010',
+	pack('C', 180)	=> '11111111111111111101101',
+	pack('C', 181)	=> '1111111111111111100001',
+	pack('C', 182)	=> '11111111111111111101110',
+	pack('C', 183)	=> '11111111111111111101111',
+	pack('C', 184)	=> '11111111111111101010',
+	pack('C', 185)	=> '1111111111111111100010',
+	pack('C', 186)	=> '1111111111111111100011',
+	pack('C', 187)	=> '1111111111111111100100',
+	pack('C', 188)	=> '11111111111111111110000',
+	pack('C', 189)	=> '1111111111111111100101',
+	pack('C', 190)	=> '1111111111111111100110',
+	pack('C', 191)	=> '11111111111111111110001',
+	pack('C', 192)	=> '11111111111111111111100000',
+	pack('C', 193)	=> '11111111111111111111100001',
+	pack('C', 194)	=> '11111111111111101011',
+	pack('C', 195)	=> '1111111111111110001',
+	pack('C', 196)	=> '1111111111111111100111',
+	pack('C', 197)	=> '11111111111111111110010',
+	pack('C', 198)	=> '1111111111111111101000',
+	pack('C', 199)	=> '1111111111111111111101100',
+	pack('C', 200)	=> '11111111111111111111100010',
+	pack('C', 201)	=> '11111111111111111111100011',
+	pack('C', 202)	=> '11111111111111111111100100',
+	pack('C', 203)	=> '111111111111111111111011110',
+	pack('C', 204)	=> '111111111111111111111011111',
+	pack('C', 205)	=> '11111111111111111111100101',
+	pack('C', 206)	=> '111111111111111111110001',
+	pack('C', 207)	=> '1111111111111111111101101',
+	pack('C', 208)	=> '1111111111111110010',
+	pack('C', 209)	=> '111111111111111100011',
+	pack('C', 210)	=> '11111111111111111111100110',
+	pack('C', 211)	=> '111111111111111111111100000',
+	pack('C', 212)	=> '111111111111111111111100001',
+	pack('C', 213)	=> '11111111111111111111100111',
+	pack('C', 214)	=> '111111111111111111111100010',
+	pack('C', 215)	=> '111111111111111111110010',
+	pack('C', 216)	=> '111111111111111100100',
+	pack('C', 217)	=> '111111111111111100101',
+	pack('C', 218)	=> '11111111111111111111101000',
+	pack('C', 219)	=> '11111111111111111111101001',
+	pack('C', 220)	=> '1111111111111111111111111101',
+	pack('C', 221)	=> '111111111111111111111100011',
+	pack('C', 222)	=> '111111111111111111111100100',
+	pack('C', 223)	=> '111111111111111111111100101',
+	pack('C', 224)	=> '11111111111111101100',
+	pack('C', 225)	=> '111111111111111111110011',
+	pack('C', 226)	=> '11111111111111101101',
+	pack('C', 227)	=> '111111111111111100110',
+	pack('C', 228)	=> '1111111111111111101001',
+	pack('C', 229)	=> '111111111111111100111',
+	pack('C', 230)	=> '111111111111111101000',
+	pack('C', 231)	=> '11111111111111111110011',
+	pack('C', 232)	=> '1111111111111111101010',
+	pack('C', 233)	=> '1111111111111111101011',
+	pack('C', 234)	=> '1111111111111111111101110',
+	pack('C', 235)	=> '1111111111111111111101111',
+	pack('C', 236)	=> '111111111111111111110100',
+	pack('C', 237)	=> '111111111111111111110101',
+	pack('C', 238)	=> '11111111111111111111101010',
+	pack('C', 239)	=> '11111111111111111110100',
+	pack('C', 240)	=> '11111111111111111111101011',
+	pack('C', 241)	=> '111111111111111111111100110',
+	pack('C', 242)	=> '11111111111111111111101100',
+	pack('C', 243)	=> '11111111111111111111101101',
+	pack('C', 244)	=> '111111111111111111111100111',
+	pack('C', 245)	=> '111111111111111111111101000',
+	pack('C', 246)	=> '111111111111111111111101001',
+	pack('C', 247)	=> '111111111111111111111101010',
+	pack('C', 248)	=> '111111111111111111111101011',
+	pack('C', 249)	=> '1111111111111111111111111110',
+	pack('C', 250)	=> '111111111111111111111101100',
+	pack('C', 251)	=> '111111111111111111111101101',
+	pack('C', 252)	=> '111111111111111111111101110',
+	pack('C', 253)	=> '111111111111111111111101111',
+	pack('C', 254)	=> '111111111111111111111110000',
+	pack('C', 255)	=> '11111111111111111111101110',
+	'_eos'		=> '111111111111111111111111111111',
+}};
+
+sub huff {
+	my ($string) = @_;
+	my $code = &huff_code;
+
+	my $ret = join '', map { $code->{$_} } (split //, $string);
+	my $len = length($ret) + (8 - length($ret) % 8);
+	$ret .= $code->{_eos};
+
+	return pack("B$len", $ret);
+}
+
+sub dehuff {
+	my ($string) = @_;
+	my $code = &huff_code;
+	my %decode = reverse %$code;
+
+	my $ret = ''; my $c = '';
+	for (split //, unpack('B*', $string)) {
+		$c .= $_;
+		next unless exists $decode{$c};
+		last if $decode{$c} eq '_eos';
+
+		$ret .= $decode{$c};
+		$c = '';
+	}
+
+	return $ret;
+}
+
+sub raw_write {
+	my ($self, $message) = @_;
+
+	if ($self->{chaining}) {
+		return add_chain($self, $message);
+	}
+
+	$self->{socket}->syswrite($self->encrypt_aead($message, 3));
+}
+
+sub start_chain {
+	my ($self) = @_;
+
+	$self->{chaining} = 1;
+}
+
+sub add_chain {
+	my ($self, $buf) = @_;
+
+	if ($self->{chained_buf}) {
+		$self->{chained_buf} .= $buf;
+	} else {
+		$self->{chained_buf} = $buf;
+	}
+}
+
+sub send_chain {
+	my ($self) = @_;
+
+	undef $self->{chaining};
+	$self->raw_write($self->{chained_buf}) if $self->{chained_buf};
+	undef $self->{chained_buf};
 }
 
 ###############################################################################

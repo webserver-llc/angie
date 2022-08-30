@@ -12,6 +12,8 @@ use strict;
 
 use Test::More;
 
+use Socket qw/ SOL_SOCKET SO_RCVBUF /;
+
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -121,6 +123,8 @@ is($frame->{headers}->{':status'}, 200, 'alpn to HTTP/2');
 # while some unsent data was left in the SSL buffer
 # HEADERS frame may stuck in SSL buffer and won't be sent producing alert
 
+$s = getconn(['http/1.1', 'h2']);
+$s->{socket}->setsockopt(SOL_SOCKET, SO_RCVBUF, 1024*1024) or die $!;
 $sid = $s->new_stream({ path => '/tbig.html' });
 
 select undef, undef, undef, 0.2;

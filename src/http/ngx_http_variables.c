@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <angie.h>
 #include <nginx.h>
 
 
@@ -130,6 +131,8 @@ static ngx_int_t ngx_http_variable_connection_requests(ngx_http_request_t *r,
 static ngx_int_t ngx_http_variable_connection_time(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+static ngx_int_t ngx_http_variable_angie_version(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_variable_nginx_version(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_variable_hostname(ngx_http_request_t *r,
@@ -344,6 +347,9 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
 
     { ngx_string("connection_time"), NULL, ngx_http_variable_connection_time,
       0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("angie_version"), NULL, ngx_http_variable_angie_version,
+      0, 0, 0 },
 
     { ngx_string("nginx_version"), NULL, ngx_http_variable_nginx_version,
       0, 0, 0 },
@@ -2301,6 +2307,20 @@ ngx_http_variable_connection_time(ngx_http_request_t *r,
     v->no_cacheable = 0;
     v->not_found = 0;
     v->data = p;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_variable_angie_version(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    v->len = sizeof(ANGIE_VERSION) - 1;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = (u_char *) ANGIE_VERSION;
 
     return NGX_OK;
 }

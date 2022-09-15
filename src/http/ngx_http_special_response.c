@@ -8,7 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <nginx.h>
+#include <angie.h>
 
 
 static ngx_int_t ngx_http_send_error_page(ngx_http_request_t *r,
@@ -19,21 +19,21 @@ static ngx_int_t ngx_http_send_refresh(ngx_http_request_t *r);
 
 
 static u_char ngx_http_error_full_tail[] =
-"<hr><center>" NGINX_VER "</center>" CRLF
+"<hr><center>" ANGIE_VER "</center>" CRLF
 "</body>" CRLF
 "</html>" CRLF
 ;
 
 
 static u_char ngx_http_error_build_tail[] =
-"<hr><center>" NGINX_VER_BUILD "</center>" CRLF
+"<hr><center>" ANGIE_VER_BUILD "</center>" CRLF
 "</body>" CRLF
 "</html>" CRLF
 ;
 
 
 static u_char ngx_http_error_tail[] =
-"<hr><center>nginx</center>" CRLF
+"<hr><center>Angie</center>" CRLF
 "</body>" CRLF
 "</html>" CRLF
 ;

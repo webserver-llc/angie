@@ -7,7 +7,8 @@ CORE_MODULES="ngx_core_module ngx_errlog_module ngx_conf_module"
 
 CORE_INCS="src/core"
 
-CORE_DEPS="src/core/nginx.h \
+CORE_DEPS="src/core/angie.h \
+           src/core/nginx.h \
            src/core/ngx_config.h \
            src/core/ngx_core.h \
            src/core/ngx_log.h \

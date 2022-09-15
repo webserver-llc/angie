@@ -4332,7 +4332,7 @@ ngx_ssl_session_ticket_keys(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_array_t *paths)
         == 0)
     {
         ngx_log_error(NGX_LOG_WARN, cf->log, 0,
-                      "nginx was built with Session Tickets support, however, "
+                      "Angie was built with Session Tickets support, however, "
                       "now it is linked dynamically to an OpenSSL library "
                       "which has no tlsext support, therefore Session Tickets "
                       "are not available");

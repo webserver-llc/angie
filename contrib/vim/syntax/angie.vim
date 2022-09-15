@@ -1,5 +1,5 @@
 " Vim syntax file
-" Language: nginx.conf
+" Language: angie.conf
 
 if exists("b:current_syntax")
   finish
@@ -2007,4 +2007,4 @@ hi def link ngxListenOptionsDeprecated Error
 let &cpo = s:save_cpo
 unlet s:save_cpo
 
-let b:current_syntax = "nginx"
+let b:current_syntax = "angie"

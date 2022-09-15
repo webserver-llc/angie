@@ -419,12 +419,12 @@ cat << END
   --help                             print this message
 
   --prefix=PATH                      set installation prefix
-  --sbin-path=PATH                   set nginx binary pathname
+  --sbin-path=PATH                   set Angie binary pathname
   --modules-path=PATH                set modules path
-  --conf-path=PATH                   set nginx.conf pathname
+  --conf-path=PATH                   set angie.conf pathname
   --error-log-path=PATH              set error log pathname
-  --pid-path=PATH                    set nginx.pid pathname
-  --lock-path=PATH                   set nginx.lock pathname
+  --pid-path=PATH                    set angie.pid pathname
+  --lock-path=PATH                   set angie.lock pathname
 
   --user=USER                        set non-privileged user for
                                      worker processes
@@ -602,12 +602,12 @@ if [ ".$NGX_PLATFORM" = ".win32" ]; then
 fi
 
 
-NGX_SBIN_PATH=${NGX_SBIN_PATH:-sbin/nginx}
+NGX_SBIN_PATH=${NGX_SBIN_PATH:-sbin/angie}
 NGX_MODULES_PATH=${NGX_MODULES_PATH:-modules}
-NGX_CONF_PATH=${NGX_CONF_PATH:-conf/nginx.conf}
+NGX_CONF_PATH=${NGX_CONF_PATH:-conf/angie.conf}
 NGX_CONF_PREFIX=`dirname $NGX_CONF_PATH`
-NGX_PID_PATH=${NGX_PID_PATH:-logs/nginx.pid}
-NGX_LOCK_PATH=${NGX_LOCK_PATH:-logs/nginx.lock}
+NGX_PID_PATH=${NGX_PID_PATH:-logs/angie.pid}
+NGX_LOCK_PATH=${NGX_LOCK_PATH:-logs/angie.lock}
 
 if [ ".$NGX_ERROR_LOG_PATH" = ".stderr" ]; then
     NGX_ERROR_LOG_PATH=

@@ -12,13 +12,14 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <nginx.h>
+#include <angie.h>
 
 
 #define NGX_MODULE_UNSET_INDEX  (ngx_uint_t) -1
 
 
 #define NGX_MODULE_SIGNATURE_0                                                \
+    "Angie,"                                                                  \
     ngx_value(NGX_PTR_SIZE) ","                                               \
     ngx_value(NGX_SIG_ATOMIC_T_SIZE) ","                                      \
     ngx_value(NGX_TIME_T_SIZE) ","
@@ -214,7 +215,7 @@
 
 #define NGX_MODULE_V1                                                         \
     NGX_MODULE_UNSET_INDEX, NGX_MODULE_UNSET_INDEX,                           \
-    NULL, 0, 0, nginx_version, NGX_MODULE_SIGNATURE
+    NULL, 0, ngx_angie_sign, angie_version, NGX_MODULE_SIGNATURE
 
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
@@ -226,7 +227,7 @@ struct ngx_module_s {
     char                 *name;
 
     ngx_uint_t            spare0;
-    ngx_uint_t            spare1;
+    ngx_uint_t            angie_sign;
 
     ngx_uint_t            version;
     const char           *signature;

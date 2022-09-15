@@ -795,7 +795,7 @@ ngx_regex_pcre_jit(ngx_conf_t *cf, void *post, void *data)
     }
 #else
     ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                       "nginx was built without PCRE JIT support");
+                       "Angie was built without PCRE JIT support");
     *fp = 0;
 #endif
 

@@ -1,4 +1,5 @@
 .\"
+.\" Copyright (C) 2022 Web Server LLC
 .\" Copyright (C) 2010, 2019 Sergey A. Osokin
 .\" Copyright (C) Nginx, Inc.
 .\" All rights reserved.
@@ -25,11 +26,11 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd November 5, 2020
-.Dt NGINX 8
+.Dd September 17, 2022
+.Dt ANGIE 8
 .Os
 .Sh NAME
-.Nm nginx
+.Nm Angie
 .Nd "HTTP and reverse proxy server, mail proxy server"
 .Sh SYNOPSIS
 .Nm
@@ -41,8 +42,6 @@
 .Op Fl s Ar signal
 .Sh DESCRIPTION
 .Nm
-(pronounced
-.Dq engine x )
 is an HTTP and reverse proxy server, a mail proxy server, and a generic
 TCP/UDP proxy server.
 It is known for its high performance, stability, rich feature set, simple
@@ -166,7 +165,7 @@ events {
 .Ed
 .Sh ENVIRONMENT
 The
-.Ev NGINX
+.Ev ANGIE
 environment variable is used internally by
 .Nm
 and should not be set directly by the user.
@@ -185,30 +184,21 @@ Error log file.
 Exit status is 0 on success, or 1 if the command fails.
 .Sh EXAMPLES
 Test configuration file
-.Pa ~/mynginx.conf
+.Pa ~/myangie.conf
 with global directives for PID and quantity of worker processes:
 .Bd -literal -offset indent
-nginx -t -c ~/mynginx.conf \e
-	-g "pid /var/run/mynginx.pid; worker_processes 2;"
+angie -t -c ~/myangie.conf \e
+	-g "pid /var/run/myangie.pid; worker_processes 2;"
 .Ed
 .Sh SEE ALSO
-.\"Xr nginx.conf 5
+.\"Xr angie.conf 5
 .\"Pp
-Documentation at
-.Pa http://nginx.org/en/docs/ .
-.Pp
-For questions and technical support, please refer to
-.Pa http://nginx.org/en/support.html .
+For online documentation, technical support, and bug reports, please refer to
+.Pa https://angie.wbsrv.ru .
 .Sh HISTORY
-Development of
-.Nm
-started in 2002, with the first public release on October 4, 2004.
+On 27 of July 2022 a group of former nginx developers registered LLC
+"Web Server" in order to create and maintain new fork of nginx called
+.Nm .
 .Sh AUTHORS
-.An -nosplit
-.An Igor Sysoev Aq Mt igor@sysoev.ru .
-.Pp
 This manual page was originally written by
 .An Sergey A. Osokin Aq Mt osa@FreeBSD.org.ru
-as a result of compiling many
-.Nm
-documents from all over the world.

@@ -1154,7 +1154,7 @@ process_formats:
 
 #else
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "nginx was built without zlib support");
+                               "Angie was built without zlib support");
             return NGX_CONF_ERROR;
 #endif
         }

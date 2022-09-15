@@ -167,7 +167,7 @@ END
 fi
 
 
-# nginx
+# angie
 
 ngx_all_srcs=`echo $ngx_all_srcs | sed -e "s/\//$ngx_regex_dirsep/g"`
 
@@ -226,10 +226,10 @@ cat << END                                                    >> $NGX_MAKEFILE
 
 build:	binary modules manpage
 
-binary:	$NGX_OBJS${ngx_dirsep}nginx$ngx_binext
+binary:	$NGX_OBJS${ngx_dirsep}angie$ngx_binext
 
-$NGX_OBJS${ngx_dirsep}nginx$ngx_binext:	$ngx_deps$ngx_spacer
-	\$(LINK) $ngx_long_start$ngx_binout$NGX_OBJS${ngx_dirsep}nginx$ngx_binext$ngx_long_cont$ngx_objs$ngx_libs$ngx_link$ngx_main_link
+$NGX_OBJS${ngx_dirsep}angie$ngx_binext:	$ngx_deps$ngx_spacer
+	\$(LINK) $ngx_long_start$ngx_binout$NGX_OBJS${ngx_dirsep}angie$ngx_binext$ngx_long_cont$ngx_objs$ngx_libs$ngx_link$ngx_main_link
 	$ngx_rcc
 $ngx_long_end
 

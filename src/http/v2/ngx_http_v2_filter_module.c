@@ -9,7 +9,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <nginx.h>
+#include <angie.h>
 #include <ngx_http_v2_module.h>
 
 
@@ -148,18 +148,18 @@ ngx_http_v2_header_filter(ngx_http_request_t *r)
     ngx_http_core_srv_conf_t  *cscf;
     u_char                     addr[NGX_SOCKADDR_STRLEN];
 
-    static const u_char nginx[5] = "\x84\xaa\x63\x55\xe7";
+    static const u_char angie[5] = "\x84\x86\xa9\x8c\x5f";
 #if (NGX_HTTP_GZIP)
     static const u_char accept_encoding[12] =
         "\x8b\x84\x84\x2d\x69\x5b\x05\x44\x3c\x86\xaa\x6f";
 #endif
 
-    static size_t nginx_ver_len = ngx_http_v2_literal_size(NGINX_VER);
-    static u_char nginx_ver[ngx_http_v2_literal_size(NGINX_VER)];
+    static size_t angie_ver_len = ngx_http_v2_literal_size(ANGIE_VER);
+    static u_char angie_ver[ngx_http_v2_literal_size(ANGIE_VER)];
 
-    static size_t nginx_ver_build_len =
-                                  ngx_http_v2_literal_size(NGINX_VER_BUILD);
-    static u_char nginx_ver_build[ngx_http_v2_literal_size(NGINX_VER_BUILD)];
+    static size_t angie_ver_build_len =
+                                  ngx_http_v2_literal_size(ANGIE_VER_BUILD);
+    static u_char angie_ver_build[ngx_http_v2_literal_size(ANGIE_VER_BUILD)];
 
     stream = r->stream;
 
@@ -262,13 +262,13 @@ ngx_http_v2_header_filter(ngx_http_request_t *r)
     if (r->headers_out.server == NULL) {
 
         if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
-            len += 1 + nginx_ver_len;
+            len += 1 + angie_ver_len;
 
         } else if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_BUILD) {
-            len += 1 + nginx_ver_build_len;
+            len += 1 + angie_ver_build_len;
 
         } else {
-            len += 1 + sizeof(nginx);
+            len += 1 + sizeof(angie);
         }
     }
 
@@ -468,41 +468,41 @@ ngx_http_v2_header_filter(ngx_http_request_t *r)
         if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, fc->log, 0,
                            "http2 output header: \"server: %s\"",
-                           NGINX_VER);
+                           ANGIE_VER);
 
         } else if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_BUILD) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, fc->log, 0,
                            "http2 output header: \"server: %s\"",
-                           NGINX_VER_BUILD);
+                           ANGIE_VER_BUILD);
 
         } else {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, fc->log, 0,
-                           "http2 output header: \"server: nginx\"");
+                           "http2 output header: \"server: Angie\"");
         }
 
         *pos++ = ngx_http_v2_inc_indexed(NGX_HTTP_V2_SERVER_INDEX);
 
         if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_ON) {
-            if (nginx_ver[0] == '\0') {
-                p = ngx_http_v2_write_value(nginx_ver, (u_char *) NGINX_VER,
-                                            sizeof(NGINX_VER) - 1, tmp);
-                nginx_ver_len = p - nginx_ver;
+            if (angie_ver[0] == '\0') {
+                p = ngx_http_v2_write_value(angie_ver, (u_char *) ANGIE_VER,
+                                            sizeof(ANGIE_VER) - 1, tmp);
+                angie_ver_len = p - angie_ver;
             }
 
-            pos = ngx_cpymem(pos, nginx_ver, nginx_ver_len);
+            pos = ngx_cpymem(pos, angie_ver, angie_ver_len);
 
         } else if (clcf->server_tokens == NGX_HTTP_SERVER_TOKENS_BUILD) {
-            if (nginx_ver_build[0] == '\0') {
-                p = ngx_http_v2_write_value(nginx_ver_build,
-                                            (u_char *) NGINX_VER_BUILD,
-                                            sizeof(NGINX_VER_BUILD) - 1, tmp);
-                nginx_ver_build_len = p - nginx_ver_build;
+            if (angie_ver_build[0] == '\0') {
+                p = ngx_http_v2_write_value(angie_ver_build,
+                                            (u_char *) ANGIE_VER_BUILD,
+                                            sizeof(ANGIE_VER_BUILD) - 1, tmp);
+                angie_ver_build_len = p - angie_ver_build;
             }
 
-            pos = ngx_cpymem(pos, nginx_ver_build, nginx_ver_build_len);
+            pos = ngx_cpymem(pos, angie_ver_build, angie_ver_build_len);
 
         } else {
-            pos = ngx_cpymem(pos, nginx, sizeof(nginx));
+            pos = ngx_cpymem(pos, angie, sizeof(angie));
         }
     }
 

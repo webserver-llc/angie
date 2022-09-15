@@ -1118,7 +1118,7 @@ ngx_http_image_source(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
         img = gdImageCreateFromWebpPtr(ctx->length, ctx->image);
         failed = "gdImageCreateFromWebpPtr() failed";
 #else
-        failed = "nginx was built without GD WebP support";
+        failed = "Angie was built without GD WebP support";
 #endif
         break;
 
@@ -1210,7 +1210,7 @@ ngx_http_image_out(ngx_http_request_t *r, ngx_uint_t type, gdImagePtr img,
         out = gdImageWebpPtrEx(img, size, q);
         failed = "gdImageWebpPtrEx() failed";
 #else
-        failed = "nginx was built without GD WebP support";
+        failed = "Angie was built without GD WebP support";
 #endif
         break;
 

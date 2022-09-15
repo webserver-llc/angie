@@ -167,10 +167,16 @@ ngx_add_module(ngx_conf_t *cf, ngx_str_t *file, ngx_module_t *module,
         return NGX_ERROR;
     }
 
-    if (module->version != nginx_version) {
+    if (module->angie_sign != ngx_angie_sign) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "module \"%V\" is built not for Angie", file);
+        return NGX_ERROR;
+    }
+
+    if (module->version != angie_version) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "module \"%V\" version %ui instead of %ui",
-                           file, module->version, (ngx_uint_t) nginx_version);
+                           file, module->version, (ngx_uint_t) angie_version);
         return NGX_ERROR;
     }
 

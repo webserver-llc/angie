@@ -1,7 +1,7 @@
 
-VER =		$(shell grep 'define NGINX_VERSION' src/core/nginx.h	\
+VER =		$(shell grep 'define ANGIE_VERSION' src/core/angie.h	\
 			| sed -e 's/^.*"\(.*\)".*/\1/')
-NGINX =		nginx-$(VER)
+ANGIE =		angie-$(VER)
 TEMP =		tmp
 
 CC =		cl
@@ -13,28 +13,28 @@ PCRE =		pcre2-10.39
 
 release: export
 
-	mv $(TEMP)/$(NGINX)/auto/configure $(TEMP)/$(NGINX)
+	mv $(TEMP)/$(ANGIE)/auto/configure $(TEMP)/$(ANGIE)
 
-	mv $(TEMP)/$(NGINX)/docs/text/LICENSE $(TEMP)/$(NGINX)
-	mv $(TEMP)/$(NGINX)/docs/text/README $(TEMP)/$(NGINX)
-	mv $(TEMP)/$(NGINX)/docs/html $(TEMP)/$(NGINX)
-	mv $(TEMP)/$(NGINX)/docs/man $(TEMP)/$(NGINX)
+	mv $(TEMP)/$(ANGIE)/docs/text/LICENSE $(TEMP)/$(ANGIE)
+	mv $(TEMP)/$(ANGIE)/docs/text/README $(TEMP)/$(ANGIE)
+	mv $(TEMP)/$(ANGIE)/docs/html $(TEMP)/$(ANGIE)
+	mv $(TEMP)/$(ANGIE)/docs/man $(TEMP)/$(ANGIE)
 
 	$(MAKE) -f docs/GNUmakefile changes
 
-	rm -r $(TEMP)/$(NGINX)/docs
-	rm -r $(TEMP)/$(NGINX)/misc
+	rm -r $(TEMP)/$(ANGIE)/docs
+	rm -r $(TEMP)/$(ANGIE)/misc
 
-	tar -c -z -f $(NGINX).tar.gz --directory $(TEMP) $(NGINX)
+	tar -c -z -f $(ANGIE).tar.gz --directory $(TEMP) $(ANGIE)
 
 
 export:
 	rm -rf $(TEMP)
-	hg archive -X '.hg*' $(TEMP)/$(NGINX)
+	hg archive -X '.hg*' $(TEMP)/$(ANGIE)
 
 
 RELEASE:
-	hg ci -m nginx-$(VER)-RELEASE
+	hg ci -m angie-$(VER)-RELEASE
 	hg tag -m "release-$(VER) tag" release-$(VER)
 
 	$(MAKE) -f misc/GNUmakefile release
@@ -83,44 +83,44 @@ win32:
 
 
 zip: export
-	rm -f $(NGINX).zip
+	rm -f $(ANGIE).zip
 
-	mkdir -p $(TEMP)/$(NGINX)/docs.new
-	mkdir -p $(TEMP)/$(NGINX)/logs
-	mkdir -p $(TEMP)/$(NGINX)/temp
+	mkdir -p $(TEMP)/$(ANGIE)/docs.new
+	mkdir -p $(TEMP)/$(ANGIE)/logs
+	mkdir -p $(TEMP)/$(ANGIE)/temp
 
-	sed -i '' -e "s/$$/`printf '\r'`/" $(TEMP)/$(NGINX)/conf/*
+	sed -i '' -e "s/$$/`printf '\r'`/" $(TEMP)/$(ANGIE)/conf/*
 
-	mv $(TEMP)/$(NGINX)/docs/text/LICENSE $(TEMP)/$(NGINX)/docs.new
-	mv $(TEMP)/$(NGINX)/docs/text/README $(TEMP)/$(NGINX)/docs.new
-	mv $(TEMP)/$(NGINX)/docs/html $(TEMP)/$(NGINX)
+	mv $(TEMP)/$(ANGIE)/docs/text/LICENSE $(TEMP)/$(ANGIE)/docs.new
+	mv $(TEMP)/$(ANGIE)/docs/text/README $(TEMP)/$(ANGIE)/docs.new
+	mv $(TEMP)/$(ANGIE)/docs/html $(TEMP)/$(ANGIE)
 
-	rm -r $(TEMP)/$(NGINX)/docs
-	mv $(TEMP)/$(NGINX)/docs.new $(TEMP)/$(NGINX)/docs
+	rm -r $(TEMP)/$(ANGIE)/docs
+	mv $(TEMP)/$(ANGIE)/docs.new $(TEMP)/$(ANGIE)/docs
 
-	cp -p $(OBJS)/nginx.exe $(TEMP)/$(NGINX)
+	cp -p $(OBJS)/nginx.exe $(TEMP)/$(ANGIE)
 
 	$(MAKE) -f docs/GNUmakefile changes
-	mv $(TEMP)/$(NGINX)/CHANGES* $(TEMP)/$(NGINX)/docs/
+	mv $(TEMP)/$(ANGIE)/CHANGES* $(TEMP)/$(ANGIE)/docs/
 
 	cp -p $(OBJS)/lib/$(OPENSSL)/LICENSE				\
-		$(TEMP)/$(NGINX)/docs/OpenSSL.LICENSE
+		$(TEMP)/$(ANGIE)/docs/OpenSSL.LICENSE
 
 	cp -p $(OBJS)/lib/$(PCRE)/LICENCE				\
-		$(TEMP)/$(NGINX)/docs/PCRE.LICENCE
+		$(TEMP)/$(ANGIE)/docs/PCRE.LICENCE
 
 	sed -ne '/^ (C) 1995-20/,/^  jloup@gzip\.org/p'			\
 		$(OBJS)/lib/$(ZLIB)/README				\
-		> $(TEMP)/$(NGINX)/docs/zlib.LICENSE
+		> $(TEMP)/$(ANGIE)/docs/zlib.LICENSE
 
 	touch -r $(OBJS)/lib/$(ZLIB)/README				\
-		$(TEMP)/$(NGINX)/docs/zlib.LICENSE
+		$(TEMP)/$(ANGIE)/docs/zlib.LICENSE
 
-	rm -r $(TEMP)/$(NGINX)/auto
-	rm -r $(TEMP)/$(NGINX)/misc
-	rm -r $(TEMP)/$(NGINX)/src
+	rm -r $(TEMP)/$(ANGIE)/auto
+	rm -r $(TEMP)/$(ANGIE)/misc
+	rm -r $(TEMP)/$(ANGIE)/src
 
-	cd $(TEMP) && zip -r ../$(NGINX).zip $(NGINX)
+	cd $(TEMP) && zip -r ../$(ANGIE).zip $(ANGIE)
 
 
 icons:	src/os/win32/nginx.ico

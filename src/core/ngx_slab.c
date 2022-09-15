@@ -940,6 +940,10 @@ ngx_api_slabs_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
         part->elts = shm_zone + 1;
         part->nelts--;
 
+        if (shm_zone->noslab) {
+            continue;
+        }
+
         ictx->entry.name = shm_zone->shm.name;
         ictx->ctx = shm_zone->shm.addr;
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -596,6 +597,10 @@ ngx_unlock_mutexes(ngx_pid_t pid)
             shm_zone = part->elts;
             i = 0;
         }
+
+        if (shm_zone[i].noslab) {
+            continue;
+        };
 
         sp = (ngx_slab_pool_t *) shm_zone[i].shm.addr;
 

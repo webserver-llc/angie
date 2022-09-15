@@ -962,6 +962,10 @@ ngx_init_zone_pool(ngx_cycle_t *cycle, ngx_shm_zone_t *zn)
     u_char           *file;
     ngx_slab_pool_t  *sp;
 
+    if (zn->noslab) {
+        return NGX_OK;
+    }
+
     sp = (ngx_slab_pool_t *) zn->shm.addr;
 
     if (zn->shm.exists) {
@@ -1365,6 +1369,7 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
     shm_zone->init = NULL;
     shm_zone->tag = tag;
     shm_zone->noreuse = 0;
+    shm_zone->noslab = 0;
 
     return shm_zone;
 }

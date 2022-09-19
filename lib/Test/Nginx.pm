@@ -48,8 +48,6 @@ sub new {
 	)
 		or die "Can't create temp directory: $!\n";
 	$self->{_testdir} =~ s!\\!/!g if $^O eq 'MSWin32';
-	mkdir "$self->{_testdir}/logs"
-		or die "Can't create logs directory: $!\n";
 
 	Test::More::BAIL_OUT("no $NGINX binary found")
 		unless -x $NGINX;
@@ -291,24 +289,16 @@ sub try_run($$) {
 	my ($self, $message) = @_;
 
 	eval {
-		open OLDERR, ">&", \*STDERR;
-		open NEWERR, ">", $self->{_testdir} . '/stderr'
-			or die "Can't open stderr: $!";
-		close STDERR;
-		open STDERR, ">&", \*NEWERR;
-		close NEWERR;
-
+		open OLDERR, ">&", \*STDERR; close STDERR;
 		$self->run();
-
-		close STDERR;
 		open STDERR, ">&", \*OLDERR;
 	};
 
 	return $self unless $@;
 
 	if ($ENV{TEST_NGINX_VERBOSE}) {
-		open F, '<', $self->{_testdir} . '/stderr'
-			or die "Can't open stderr: $!";
+		open F, '<', $self->{_testdir} . '/error.log'
+			or die "Can't open error.log: $!";
 		log_core($_) while (<F>);
 		close F;
 	}
@@ -350,10 +340,8 @@ sub run(;$) {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		my @error = $self->has_version('1.19.5') ?
-			('-e', 'error.log') : ();
 		exec($NGINX, '-p', "$testdir/", '-c', 'nginx.conf',
-			@error, @globals)
+			'-e', 'error.log', @globals)
 			or die "Unable to exec(): $!\n";
 	}
 
@@ -425,10 +413,8 @@ sub dump_config() {
 	my @globals = $self->{_test_globals} ?
 		() : ('-g', "pid $testdir/nginx.pid; "
 		. "error_log $testdir/error.log debug;");
-	my @error = $self->has_version('1.19.5') ?
-		('-e', 'error.log') : ();
 	my $command = "$NGINX -T -p $testdir/ -c nginx.conf "
-		. join(' ', @error, @globals);
+		. "-e error.log " . join(' ', @globals);
 
 	return qx/$command 2>&1/;
 }
@@ -481,10 +467,8 @@ sub reload() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		my @error = $self->has_version('1.19.5') ?
-			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'reload', @error, @globals) == 0
+			'-s', 'reload', '-e', 'error.log', @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {
@@ -506,10 +490,8 @@ sub stop() {
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
-		my @error = $self->has_version('1.19.5') ?
-			('-e', 'error.log') : ();
 		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'quit', @error, @globals) == 0
+			'-s', 'quit', '-e', 'error.log', @globals) == 0
 			or die "system() failed: $?\n";
 
 	} else {
@@ -530,10 +512,8 @@ sub stop() {
 			my @globals = $self->{_test_globals} ?
 				() : ('-g', "pid $testdir/nginx.pid; "
 				. "error_log $testdir/error.log debug;");
-			my @error = $self->has_version('1.19.5') ?
-				('-e', 'error.log') : ();
 			system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-				'-s', 'stop', @error, @globals) == 0
+				'-s', 'stop', '-e', 'error.log', @globals) == 0
 				or die "system() failed: $?\n";
 
 		} else {

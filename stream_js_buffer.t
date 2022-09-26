@@ -57,6 +57,8 @@ http {
 }
 
 stream {
+    %%TEST_GLOBALS_STREAM%%
+
     js_import test.js;
 
     js_set $type        test.type;

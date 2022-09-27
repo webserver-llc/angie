@@ -283,10 +283,17 @@ $t->write_file('test.js', <<EOF);
     }
 
     async function body_special(r) {
-        let reply = await ngx.fetch(`http://127.0.0.1:$p2/\${r.args.loc}`);
+        let opts = {};
+
+        if (r.args.method) {
+            opts.method = r.args.method;
+        }
+
+        let reply = await ngx.fetch(`http://127.0.0.1:$p2/\${r.args.loc}`,
+                                    opts);
         let body = await reply.text();
 
-        r.return(200, body);
+        r.return(200, body != '' ? body : '<empty>');
     }
 
     async function header_iter(r) {
@@ -369,7 +376,7 @@ $t->write_file('test.js', <<EOF);
                      chain, chunked, header, header_iter, multi, loc, property};
 EOF
 
-$t->try_run('no njs.fetch')->plan(31);
+$t->try_run('no njs.fetch')->plan(33);
 
 $t->run_daemon(\&http_daemon, port(8082));
 $t->waitforsocket('127.0.0.1:' . port(8082));
@@ -462,6 +469,17 @@ like(http_get('/body_special?loc=no_content_length'),
 	qr/200 OK.*CONTENT-BODY$/s, 'fetch body without content-length');
 like(http_get('/body_special?loc=no_content_length/parted'),
 	qr/200 OK.*X{32000}$/s, 'fetch body without content-length parted');
+
+}
+
+TODO: {
+local $TODO = 'not yet'
+	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.8';
+
+like(http_get('/body_special?loc=head&method=HEAD'),
+	qr/200 OK.*<empty>$/s, 'fetch head method');
+like(http_get('/body_special?loc=length&method=head'),
+	qr/200 OK.*<empty>$/s, 'fetch head method lower case');
 
 }
 
@@ -565,6 +583,13 @@ sub http_daemon {
 				"Connection: close" . CRLF .
 				CRLF .
 				"unfinished" . CRLF;
+
+		} elsif ($uri eq '/head') {
+			print $client
+				"HTTP/1.1 200 OK" . CRLF .
+				"Content-Length: 100" . CRLF .
+				"Connection: close" . CRLF .
+				CRLF;
 
 		} elsif ($uri eq '/parted') {
 			print $client

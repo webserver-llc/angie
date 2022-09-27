@@ -87,13 +87,13 @@ my $r;
 $r = pp_get('/t1', $tcp4);
 like($r, qr/SEE-THIS/, 'tcp4 request');
 like($r, qr/X-PP: 192.0.2.1!123\x0d/, 'tcp4 proxy');
-like($r, qr/X-PPS: 192.0.2.2!567\x0d/, 'tcp4 proxy server');
+like($r, qr/X-PPS: 192.0.2.2!5678\x0d/, 'tcp4 proxy server');
 unlike($r, qr/X-IP: (192.0.2.1|[^!]+!123\x0d)/, 'tcp4 client');
 
 $r = pp_get('/t1', $tcp6);
 like($r, qr/SEE-THIS/, 'tcp6 request');
 like($r, qr/X-PP: 2001:DB8::1!123\x0d/i, 'tcp6 proxy');
-like($r, qr/X-PPS: 2001:DB8::2!567\x0d/i, 'tcp6 proxy server');
+like($r, qr/X-PPS: 2001:DB8::2!5678\x0d/i, 'tcp6 proxy server');
 unlike($r, qr/X-IP: (2001:DB8::1|[^!]+!123\x0d)/i, 'tcp6 client');
 
 $r = pp_get('/t1', $unk1);

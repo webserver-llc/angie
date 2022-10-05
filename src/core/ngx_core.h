@@ -79,6 +79,9 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_shmtx.h>
 #include <ngx_data.h>
 #include <ngx_json.h>
+#if (NGX_API)
+#include <ngx_api.h>
+#endif
 #include <ngx_slab.h>
 #include <ngx_inet.h>
 #include <ngx_cycle.h>

@@ -1,4 +1,5 @@
 
+# Copyright (C) Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -74,7 +75,7 @@ HTTP_USERID=YES
 HTTP_SLICE=NO
 HTTP_AUTOINDEX=YES
 HTTP_RANDOM_INDEX=NO
-HTTP_STATUS=NO
+HTTP_API=YES
 HTTP_GEO=YES
 HTTP_GEOIP=NO
 HTTP_MAP=YES
@@ -138,6 +139,8 @@ NGX_ADDONS=
 NGX_ADDON_SRCS=
 NGX_ADDON_DEPS=
 DYNAMIC_ADDONS=
+
+USE_API=NO
 
 NGX_COMPAT=NO
 
@@ -258,7 +261,7 @@ $0: warning: the \"--with-ipv6\" option is deprecated"
         --without-http_auth_basic_module) HTTP_AUTH_BASIC=NO        ;;
         --without-http_mirror_module)    HTTP_MIRROR=NO             ;;
         --without-http_autoindex_module) HTTP_AUTOINDEX=NO          ;;
-        --without-http_status_module)    HTTP_STATUS=NO             ;;
+        --without-http_api_module)       HTTP_API=NO                ;;
         --without-http_geo_module)       HTTP_GEO=NO                ;;
         --without-http_map_module)       HTTP_MAP=NO                ;;
         --without-http_split_clients_module) HTTP_SPLIT_CLIENTS=NO  ;;
@@ -475,6 +478,7 @@ cat << END
   --without-http_auth_basic_module   disable ngx_http_auth_basic_module
   --without-http_mirror_module       disable ngx_http_mirror_module
   --without-http_autoindex_module    disable ngx_http_autoindex_module
+  --without-http_api_module          disable ngx_http_api_module
   --without-http_geo_module          disable ngx_http_geo_module
   --without-http_map_module          disable ngx_http_map_module
   --without-http_split_clients_module disable ngx_http_split_clients_module

@@ -1,4 +1,5 @@
 
+# Copyright (C) Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -589,13 +590,15 @@ if [ $HTTP = YES ]; then
         . auto/module
     fi
 
-    if [ $HTTP_STATUS = YES ]; then
-        ngx_module_name=ngx_http_status_module
+    if [ $HTTP_API = YES ]; then
+        USE_API=YES
+
+        ngx_module_name=ngx_http_api_module
         ngx_module_incs=
         ngx_module_deps=
-        ngx_module_srcs=src/http/modules/ngx_http_status_module.c
+        ngx_module_srcs=src/http/modules/ngx_http_api_module.c
         ngx_module_libs=
-        ngx_module_link=$HTTP_STATUS
+        ngx_module_link=$HTTP_API
 
         . auto/module
     fi
@@ -1278,6 +1281,22 @@ if [ $USE_PCRE = YES ]; then
     ngx_module_incs=
     ngx_module_deps=src/core/ngx_regex.h
     ngx_module_srcs=src/core/ngx_regex.c
+    ngx_module_libs=
+    ngx_module_link=YES
+    ngx_module_order=
+
+    . auto/module
+fi
+
+
+if [ $USE_API = YES ]; then
+    have=NGX_API . auto/have
+
+    ngx_module_type=CORE
+    ngx_module_name=ngx_api_module
+    ngx_module_incs=
+    ngx_module_deps=src/core/ngx_api.h
+    ngx_module_srcs=src/core/ngx_api.c
     ngx_module_libs=
     ngx_module_link=YES
     ngx_module_order=

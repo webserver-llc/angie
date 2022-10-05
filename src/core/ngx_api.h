@@ -35,6 +35,7 @@ typedef union {
     ngx_api_entry_t            *ents;
     ngx_str_t                  *str;
     int64_t                     num;
+    ngx_atomic_t              **atpp;
     ngx_time_t                 *tp;
     size_t                      off;
 } ngx_api_entry_data_t;
@@ -72,6 +73,8 @@ ngx_int_t ngx_api_string_handler(ngx_api_entry_data_t data,
 ngx_int_t ngx_api_number_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_time_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_atomic_pp_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_struct_str_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);

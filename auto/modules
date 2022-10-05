@@ -1291,6 +1291,7 @@ fi
 
 if [ $USE_API = YES ]; then
     have=NGX_API . auto/have
+    have=NGX_STAT_STUB . auto/have
 
     ngx_module_type=CORE
     ngx_module_name=ngx_api_module

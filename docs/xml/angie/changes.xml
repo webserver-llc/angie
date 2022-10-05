@@ -10,11 +10,13 @@
 <change type="feature">
 <para lang="ru">
 директива "api", реализующая HTTP RESTful интерфейс для получения в формате
-JSON базовой информации о веб-сервере.
+JSON базовой информации о веб-сервере, а также статистики по клиентским
+соединениям.
 </para>
 <para lang="en">
 the "api" directive, that provides HTTP RESTful interface for accessing in JSON
-format basic information about a web server instance.
+format basic information about a web server instance, as well as metrics of
+client connections.
 </para>
 </change>
 

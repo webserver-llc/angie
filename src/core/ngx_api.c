@@ -6,6 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
+#include <ngx_event.h>
 
 
 static ngx_int_t ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name);
@@ -31,6 +32,11 @@ static ngx_int_t ngx_api_angie_address_handler(ngx_api_entry_data_t data,
 static ngx_int_t ngx_api_angie_generation_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
+static ngx_int_t ngx_api_connections_dropped_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_connections_active_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 
 
@@ -91,12 +97,46 @@ static ngx_api_entry_t  ngx_api_angie_entries[] = {
 };
 
 
+static ngx_api_entry_t  ngx_api_connections_entries[] = {
+
+    {
+        .name      = ngx_string("accepted"),
+        .handler   = ngx_api_atomic_pp_handler,
+        .data.atpp = &ngx_stat_accepted
+    },
+
+    {
+        .name      = ngx_string("dropped"),
+        .handler   = ngx_api_connections_dropped_handler,
+    },
+
+    {
+        .name      = ngx_string("active"),
+        .handler   = ngx_api_connections_active_handler,
+    },
+
+    {
+        .name      = ngx_string("idle"),
+        .handler   = ngx_api_atomic_pp_handler,
+        .data.atpp = &ngx_stat_waiting
+    },
+
+    ngx_api_null_entry
+};
+
+
 static ngx_api_entry_t  ngx_api_status_entries[] = {
 
     {
         .name      = ngx_string("angie"),
         .handler   = ngx_api_object_handler,
         .data.ents = ngx_api_angie_entries
+    },
+
+    {
+        .name      = ngx_string("connections"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_connections_entries
     },
 
     ngx_api_null_entry
@@ -268,6 +308,16 @@ ngx_api_number_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 
 
 ngx_int_t
+ngx_api_atomic_pp_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    data.num = **data.atpp;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+ngx_int_t
 ngx_api_time_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
 {
     u_char     *p;
@@ -345,6 +395,26 @@ ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
     data.tp = &((ngx_cycle_t *) ngx_cycle)->time;
 
     return ngx_api_time_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_connections_dropped_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    data.num = *ngx_stat_accepted - *ngx_stat_handled;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_connections_active_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    data.num = *ngx_stat_active - *ngx_stat_waiting;
+
+    return ngx_api_number_handler(data, actx, ctx);
 }
 
 

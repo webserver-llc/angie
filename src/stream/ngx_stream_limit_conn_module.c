@@ -52,7 +52,7 @@ typedef struct {
     ngx_array_t                     limits;
     ngx_uint_t                      log_level;
     ngx_flag_t                      dry_run;
-} ngx_stream_limit_conn_conf_t;
+} ngx_stream_limit_conn_srv_conf_t;
 
 
 static ngx_rbtree_node_t *ngx_stream_limit_conn_lookup(ngx_rbtree_t *rbtree,
@@ -62,8 +62,8 @@ static ngx_inline void ngx_stream_limit_conn_cleanup_all(ngx_pool_t *pool);
 
 static ngx_int_t ngx_stream_limit_conn_status_variable(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data);
-static void *ngx_stream_limit_conn_create_conf(ngx_conf_t *cf);
-static char *ngx_stream_limit_conn_merge_conf(ngx_conf_t *cf, void *parent,
+static void *ngx_stream_limit_conn_create_srv_conf(ngx_conf_t *cf);
+static char *ngx_stream_limit_conn_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
 static char *ngx_stream_limit_conn_zone(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -102,14 +102,14 @@ static ngx_command_t  ngx_stream_limit_conn_commands[] = {
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_enum_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
-      offsetof(ngx_stream_limit_conn_conf_t, log_level),
+      offsetof(ngx_stream_limit_conn_srv_conf_t, log_level),
       &ngx_stream_limit_conn_log_levels },
 
     { ngx_string("limit_conn_dry_run"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
-      offsetof(ngx_stream_limit_conn_conf_t, dry_run),
+      offsetof(ngx_stream_limit_conn_srv_conf_t, dry_run),
       NULL },
 
       ngx_null_command
@@ -123,8 +123,8 @@ static ngx_stream_module_t  ngx_stream_limit_conn_module_ctx = {
     NULL,                                  /* create main configuration */
     NULL,                                  /* init main configuration */
 
-    ngx_stream_limit_conn_create_conf,     /* create server configuration */
-    ngx_stream_limit_conn_merge_conf       /* merge server configuration */
+    ngx_stream_limit_conn_create_srv_conf, /* create server configuration */
+    ngx_stream_limit_conn_merge_srv_conf   /* merge server configuration */
 };
 
 
@@ -163,22 +163,22 @@ static ngx_str_t  ngx_stream_limit_conn_status[] = {
 static ngx_int_t
 ngx_stream_limit_conn_handler(ngx_stream_session_t *s)
 {
-    size_t                            n;
-    uint32_t                          hash;
-    ngx_str_t                         key;
-    ngx_uint_t                        i;
-    ngx_rbtree_node_t                *node;
-    ngx_pool_cleanup_t               *cln;
-    ngx_stream_limit_conn_ctx_t      *ctx;
-    ngx_stream_limit_conn_node_t     *lc;
-    ngx_stream_limit_conn_conf_t     *lccf;
-    ngx_stream_limit_conn_limit_t    *limits;
-    ngx_stream_limit_conn_cleanup_t  *lccln;
+    size_t                             n;
+    uint32_t                           hash;
+    ngx_str_t                          key;
+    ngx_uint_t                         i;
+    ngx_rbtree_node_t                 *node;
+    ngx_pool_cleanup_t                *cln;
+    ngx_stream_limit_conn_ctx_t       *ctx;
+    ngx_stream_limit_conn_node_t      *lc;
+    ngx_stream_limit_conn_limit_t     *limits;
+    ngx_stream_limit_conn_cleanup_t   *lccln;
+    ngx_stream_limit_conn_srv_conf_t  *lcscf;
 
-    lccf = ngx_stream_get_module_srv_conf(s, ngx_stream_limit_conn_module);
-    limits = lccf->limits.elts;
+    lcscf = ngx_stream_get_module_srv_conf(s, ngx_stream_limit_conn_module);
+    limits = lcscf->limits.elts;
 
-    for (i = 0; i < lccf->limits.nelts; i++) {
+    for (i = 0; i < lcscf->limits.nelts; i++) {
         ctx = limits[i].shm_zone->data;
 
         if (ngx_stream_complex_value(s, &ctx->key, &key) != NGX_OK) {
@@ -217,7 +217,7 @@ ngx_stream_limit_conn_handler(ngx_stream_session_t *s)
                 ngx_shmtx_unlock(&ctx->shpool->mutex);
                 ngx_stream_limit_conn_cleanup_all(s->connection->pool);
 
-                if (lccf->dry_run) {
+                if (lcscf->dry_run) {
                     s->limit_conn_status =
                                         NGX_STREAM_LIMIT_CONN_REJECTED_DRY_RUN;
                     return NGX_DECLINED;
@@ -245,14 +245,14 @@ ngx_stream_limit_conn_handler(ngx_stream_session_t *s)
 
                 ngx_shmtx_unlock(&ctx->shpool->mutex);
 
-                ngx_log_error(lccf->log_level, s->connection->log, 0,
+                ngx_log_error(lcscf->log_level, s->connection->log, 0,
                               "limiting connections%s by zone \"%V\"",
-                              lccf->dry_run ? ", dry run," : "",
+                              lcscf->dry_run ? ", dry run," : "",
                               &limits[i].shm_zone->shm.name);
 
                 ngx_stream_limit_conn_cleanup_all(s->connection->pool);
 
-                if (lccf->dry_run) {
+                if (lcscf->dry_run) {
                     s->limit_conn_status =
                                         NGX_STREAM_LIMIT_CONN_REJECTED_DRY_RUN;
                     return NGX_DECLINED;
@@ -497,11 +497,11 @@ ngx_stream_limit_conn_status_variable(ngx_stream_session_t *s,
 
 
 static void *
-ngx_stream_limit_conn_create_conf(ngx_conf_t *cf)
+ngx_stream_limit_conn_create_srv_conf(ngx_conf_t *cf)
 {
-    ngx_stream_limit_conn_conf_t  *conf;
+    ngx_stream_limit_conn_srv_conf_t  *conf;
 
-    conf = ngx_pcalloc(cf->pool, sizeof(ngx_stream_limit_conn_conf_t));
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_stream_limit_conn_srv_conf_t));
     if (conf == NULL) {
         return NULL;
     }
@@ -520,10 +520,10 @@ ngx_stream_limit_conn_create_conf(ngx_conf_t *cf)
 
 
 static char *
-ngx_stream_limit_conn_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_stream_limit_conn_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
-    ngx_stream_limit_conn_conf_t *prev = parent;
-    ngx_stream_limit_conn_conf_t *conf = child;
+    ngx_stream_limit_conn_srv_conf_t *prev = parent;
+    ngx_stream_limit_conn_srv_conf_t *conf = child;
 
     if (conf->limits.elts == NULL) {
         conf->limits = prev->limits;
@@ -641,8 +641,9 @@ ngx_stream_limit_conn_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static char *
 ngx_stream_limit_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    ngx_stream_limit_conn_srv_conf_t *lcscf = conf;
+
     ngx_shm_zone_t                 *shm_zone;
-    ngx_stream_limit_conn_conf_t   *lccf = conf;
     ngx_stream_limit_conn_limit_t  *limit, *limits;
 
     ngx_str_t   *value;
@@ -657,10 +658,10 @@ ngx_stream_limit_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    limits = lccf->limits.elts;
+    limits = lcscf->limits.elts;
 
     if (limits == NULL) {
-        if (ngx_array_init(&lccf->limits, cf->pool, 1,
+        if (ngx_array_init(&lcscf->limits, cf->pool, 1,
                            sizeof(ngx_stream_limit_conn_limit_t))
             != NGX_OK)
         {
@@ -668,7 +669,7 @@ ngx_stream_limit_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    for (i = 0; i < lccf->limits.nelts; i++) {
+    for (i = 0; i < lcscf->limits.nelts; i++) {
         if (shm_zone == limits[i].shm_zone) {
             return "is duplicate";
         }
@@ -687,7 +688,7 @@ ngx_stream_limit_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    limit = ngx_array_push(&lccf->limits);
+    limit = ngx_array_push(&lcscf->limits);
     if (limit == NULL) {
         return NGX_CONF_ERROR;
     }

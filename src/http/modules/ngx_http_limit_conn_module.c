@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -29,23 +30,51 @@ typedef struct {
 } ngx_http_limit_conn_cleanup_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t                  passed;
+    ngx_atomic_t                  skipped;
+    ngx_atomic_t                  rejected;
+    ngx_atomic_t                  exhausted;
+} ngx_http_limit_conn_stats_t;
+
+#endif
+
+
 typedef struct {
     ngx_rbtree_t                  rbtree;
     ngx_rbtree_node_t             sentinel;
+#if (NGX_API)
+    ngx_http_limit_conn_stats_t   stats;
+#endif
 } ngx_http_limit_conn_shctx_t;
 
 
-typedef struct {
+typedef struct ngx_http_limit_conn_ctx_s  ngx_http_limit_conn_ctx_t;
+
+struct ngx_http_limit_conn_ctx_s {
+    ngx_shm_zone_t               *shm_zone;
     ngx_http_limit_conn_shctx_t  *sh;
     ngx_slab_pool_t              *shpool;
     ngx_http_complex_value_t      key;
-} ngx_http_limit_conn_ctx_t;
+#if (NGX_API)
+    ngx_uint_t                    passed;  /* unsigned  passed:1; */
+#endif
+    ngx_http_limit_conn_ctx_t    *next;
+};
 
 
 typedef struct {
     ngx_shm_zone_t               *shm_zone;
     ngx_uint_t                    conn;
 } ngx_http_limit_conn_limit_t;
+
+
+typedef struct {
+    ngx_http_limit_conn_ctx_t    *limit_conns;
+    ngx_http_limit_conn_ctx_t   **limit_conns_next_p;
+} ngx_http_limit_conn_main_conf_t;
 
 
 typedef struct {
@@ -63,6 +92,7 @@ static ngx_inline void ngx_http_limit_conn_cleanup_all(ngx_pool_t *pool);
 
 static ngx_int_t ngx_http_limit_conn_status_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static void *ngx_http_limit_conn_create_main_conf(ngx_conf_t *cf);
 static void *ngx_http_limit_conn_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_limit_conn_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
@@ -93,7 +123,7 @@ static ngx_command_t  ngx_http_limit_conn_commands[] = {
     { ngx_string("limit_conn_zone"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE2,
       ngx_http_limit_conn_zone,
-      0,
+      NGX_HTTP_MAIN_CONF_OFFSET,
       0,
       NULL },
 
@@ -133,7 +163,7 @@ static ngx_http_module_t  ngx_http_limit_conn_module_ctx = {
     ngx_http_limit_conn_add_variables,     /* preconfiguration */
     ngx_http_limit_conn_init,              /* postconfiguration */
 
-    NULL,                                  /* create main configuration */
+    ngx_http_limit_conn_create_main_conf,  /* create main configuration */
     NULL,                                  /* init main configuration */
 
     NULL,                                  /* create server configuration */
@@ -176,6 +206,52 @@ static ngx_str_t  ngx_http_limit_conn_status[] = {
 };
 
 
+#if (NGX_API)
+
+static ngx_int_t ngx_api_http_limit_conns_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_limit_conns_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+
+
+static ngx_api_entry_t  ngx_api_http_limit_conn_entries[] = {
+
+    {
+        .name      = ngx_string("passed"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_conn_stats_t, passed)
+    },
+
+    {
+        .name      = ngx_string("skipped"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_conn_stats_t, skipped)
+    },
+
+    {
+        .name      = ngx_string("rejected"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_conn_stats_t, rejected)
+    },
+
+    {
+        .name      = ngx_string("exhausted"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_conn_stats_t, exhausted)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_limit_conns_entry = {
+    .name      = ngx_string("limit_conns"),
+    .handler   = ngx_api_http_limit_conns_handler,
+};
+
+#endif
+
+
 static ngx_int_t
 ngx_http_limit_conn_handler(ngx_http_request_t *r)
 {
@@ -204,6 +280,10 @@ ngx_http_limit_conn_handler(ngx_http_request_t *r)
         if (ngx_http_complex_value(r, &ctx->key, &key) != NGX_OK) {
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
+
+#if (NGX_API)
+        ctx->passed = 0;
+#endif
 
         if (key.len == 0) {
             continue;
@@ -235,17 +315,10 @@ ngx_http_limit_conn_handler(ngx_http_request_t *r)
 
             if (node == NULL) {
                 ngx_shmtx_unlock(&ctx->shpool->mutex);
-                ngx_http_limit_conn_cleanup_all(r->pool);
-
-                if (lclcf->dry_run) {
-                    r->main->limit_conn_status =
-                                          NGX_HTTP_LIMIT_CONN_REJECTED_DRY_RUN;
-                    return NGX_DECLINED;
-                }
-
-                r->main->limit_conn_status = NGX_HTTP_LIMIT_CONN_REJECTED;
-
-                return lclcf->status_code;
+#if (NGX_API)
+                (void) ngx_atomic_fetch_add(&ctx->sh->stats.exhausted, 1);
+#endif
+                goto reject;
             }
 
             lc = (ngx_http_limit_conn_node_t *) &node->color;
@@ -269,18 +342,10 @@ ngx_http_limit_conn_handler(ngx_http_request_t *r)
                               "limiting connections%s by zone \"%V\"",
                               lclcf->dry_run ? ", dry run," : "",
                               &limits[i].shm_zone->shm.name);
-
-                ngx_http_limit_conn_cleanup_all(r->pool);
-
-                if (lclcf->dry_run) {
-                    r->main->limit_conn_status =
-                                          NGX_HTTP_LIMIT_CONN_REJECTED_DRY_RUN;
-                    return NGX_DECLINED;
-                }
-
-                r->main->limit_conn_status = NGX_HTTP_LIMIT_CONN_REJECTED;
-
-                return lclcf->status_code;
+#if (NGX_API)
+                (void) ngx_atomic_fetch_add(&ctx->sh->stats.rejected, 1);
+#endif
+                goto reject;
             }
 
             lc->conn++;
@@ -302,9 +367,38 @@ ngx_http_limit_conn_handler(ngx_http_request_t *r)
 
         lccln->shm_zone = limits[i].shm_zone;
         lccln->node = node;
+
+#if (NGX_API)
+        ctx->passed = 1;
+#endif
     }
 
+#if (NGX_API)
+
+    for (i = 0; i < lclcf->limits.nelts; i++) {
+        ctx = limits[i].shm_zone->data;
+
+        (void) ngx_atomic_fetch_add(ctx->passed ? &ctx->sh->stats.passed
+                                                : &ctx->sh->stats.skipped, 1);
+    }
+
+#endif
+
     return NGX_DECLINED;
+
+reject:
+
+    ngx_http_limit_conn_cleanup_all(r->pool);
+
+    if (lclcf->dry_run) {
+        r->main->limit_conn_status = NGX_HTTP_LIMIT_CONN_REJECTED_DRY_RUN;
+
+        return NGX_DECLINED;
+    }
+
+    r->main->limit_conn_status = NGX_HTTP_LIMIT_CONN_REJECTED;
+
+    return lclcf->status_code;
 }
 
 
@@ -481,6 +575,10 @@ ngx_http_limit_conn_init_zone(ngx_shm_zone_t *shm_zone, void *data)
     ngx_rbtree_init(&ctx->sh->rbtree, &ctx->sh->sentinel,
                     ngx_http_limit_conn_rbtree_insert_value);
 
+#if (NGX_API)
+    ngx_memzero(&ctx->sh->stats, sizeof(ngx_http_limit_conn_stats_t));
+#endif
+
     len = sizeof(" in limit_conn_zone \"\"") + shm_zone->shm.name.len;
 
     ctx->shpool->log_ctx = ngx_slab_alloc(ctx->shpool, len);
@@ -511,6 +609,28 @@ ngx_http_limit_conn_status_variable(ngx_http_request_t *r,
     v->data = ngx_http_limit_conn_status[r->main->limit_conn_status - 1].data;
 
     return NGX_OK;
+}
+
+
+static void *
+ngx_http_limit_conn_create_main_conf(ngx_conf_t *cf)
+{
+    ngx_http_limit_conn_main_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_limit_conn_main_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * set by ngx_pcalloc():
+     *
+     *     conf->limit_conns = NULL;
+     */
+
+    conf->limit_conns_next_p = &conf->limit_conns;
+
+    return conf;
 }
 
 
@@ -561,6 +681,8 @@ ngx_http_limit_conn_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 static char *
 ngx_http_limit_conn_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    ngx_http_limit_conn_main_conf_t *lcmcf = conf;
+
     u_char                            *p;
     ssize_t                            size;
     ngx_str_t                         *value, name, s;
@@ -654,6 +776,11 @@ ngx_http_limit_conn_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     shm_zone->init = ngx_http_limit_conn_init_zone;
     shm_zone->data = ctx;
+
+    ctx->shm_zone = shm_zone;
+
+    *lcmcf->limit_conns_next_p = ctx;
+    lcmcf->limit_conns_next_p = &ctx->next;
 
     return NGX_CONF_OK;
 }
@@ -755,5 +882,54 @@ ngx_http_limit_conn_init(ngx_conf_t *cf)
 
     *h = ngx_http_limit_conn_handler;
 
+#if (NGX_API)
+    if (ngx_api_add(cf->cycle, "/status/http", &ngx_api_http_limit_conns_entry)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+#endif
+
     return NGX_OK;
 }
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_api_http_limit_conns_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_api_iter_ctx_t                ictx;
+    ngx_http_limit_conn_main_conf_t  *lcmcf;
+
+    lcmcf = ngx_http_cycle_get_module_main_conf(ngx_cycle,
+                                                ngx_http_limit_conn_module);
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_http_limit_conn_entries;
+    ictx.elts = lcmcf->limit_conns;
+
+    return ngx_api_object_iterate(ngx_api_http_limit_conns_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_http_limit_conns_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_http_limit_conn_ctx_t  *ctx;
+
+    ctx = ictx->elts;
+
+    if (ctx == NULL) {
+        return NGX_DECLINED;
+    }
+
+    ictx->entry.name = ctx->shm_zone->shm.name;
+    ictx->ctx = &ctx->sh->stats;
+    ictx->elts = ctx->next;
+
+    return NGX_OK;
+}
+
+#endif

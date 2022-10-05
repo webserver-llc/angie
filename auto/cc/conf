@@ -1,4 +1,5 @@
 
+# Copyright (C) Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -236,6 +237,16 @@ if [ "$NGX_PLATFORM" != win32 ]; then
     ngx_feature_path=
     ngx_feature_libs=
     ngx_feature_test="if (__builtin_bswap64(0)) return 1"
+    . auto/feature
+
+
+    ngx_feature="gcc attribute packed"
+    ngx_feature_name=NGX_HAVE_GCC_ATTRIBUTE_PACKED
+    ngx_feature_run=no
+    ngx_feature_incs=
+    ngx_feature_path=
+    ngx_feature_libs=
+    ngx_feature_test="struct s { char c; int i; } __attribute__((__packed__))"
     . auto/feature
 
 

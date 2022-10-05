@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -113,6 +114,13 @@ typedef intptr_t        ngx_flag_t;
 #ifndef ngx_inline
 #define ngx_inline      inline
 #endif
+
+#if (NGX_HAVE_GCC_ATTRIBUTE_PACKED)
+#define ngx_packed      __attribute__((__packed__))
+#else
+#define ngx_packed
+#endif
+
 
 #ifndef INADDR_NONE  /* Solaris */
 #define INADDR_NONE  ((unsigned int) -1)

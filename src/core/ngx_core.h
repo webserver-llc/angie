@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -76,6 +77,7 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_times.h>
 #include <ngx_rwlock.h>
 #include <ngx_shmtx.h>
+#include <ngx_data.h>
 #include <ngx_slab.h>
 #include <ngx_inet.h>
 #include <ngx_cycle.h>

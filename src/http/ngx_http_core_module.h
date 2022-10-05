@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -149,6 +150,54 @@ typedef struct {
 } ngx_http_phase_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t               processing;
+    ngx_atomic_t               requests;
+    ngx_atomic_t               discarded;
+    ngx_atomic_t               received;
+    ngx_atomic_t               sent;
+#if (NGX_HTTP_SSL)
+    ngx_atomic_t               ssl_handshaked;
+    ngx_atomic_t               ssl_reuses;
+    ngx_atomic_t               ssl_timedout;
+    ngx_atomic_t               ssl_failed;
+#endif
+    ngx_atomic_t               responses[501];
+} ngx_http_server_stats_t;
+
+
+typedef struct {
+    ngx_atomic_t               requests;
+    ngx_atomic_t               discarded;
+    ngx_atomic_t               received;
+    ngx_atomic_t               sent;
+    ngx_atomic_t               responses[501];
+} ngx_http_location_stats_t;
+
+
+typedef struct ngx_http_stats_zone_s  ngx_http_stats_zone_t;
+
+struct ngx_http_stats_zone_s {
+    ngx_str_t                  name;
+
+    union {
+        ngx_http_server_stats_t    *server;
+        ngx_http_location_stats_t  *location;
+        void                       *any;
+    } stats;
+
+    ngx_http_stats_zone_t     *next;
+
+#if (NGX_HTTP_SSL)
+    ngx_uint_t                 ssl;  /* unsigned ssl:1 */
+#endif
+};
+
+#endif
+
+
 typedef struct {
     ngx_array_t                servers;         /* ngx_http_core_srv_conf_t */
 
@@ -173,6 +222,11 @@ typedef struct {
     ngx_array_t               *ports;
 
     ngx_http_phase_t           phases[NGX_HTTP_LOG_PHASE + 1];
+
+#if (NGX_API)
+    ngx_http_stats_zone_t     *server_zones;
+    ngx_http_stats_zone_t     *location_zones;
+#endif
 } ngx_http_core_main_conf_t;
 
 
@@ -206,6 +260,10 @@ typedef struct {
 #endif
 
     ngx_http_core_loc_conf_t  **named_locations;
+
+#if (NGX_API)
+    ngx_http_stats_zone_t      *server_zone;
+#endif
 } ngx_http_core_srv_conf_t;
 
 
@@ -440,6 +498,10 @@ struct ngx_http_core_loc_conf_s {
 
 #if 0
     ngx_http_core_loc_conf_t  *prev_location;
+#endif
+
+#if (NGX_API)
+    ngx_http_stats_zone_t  *location_zone;
 #endif
 };
 

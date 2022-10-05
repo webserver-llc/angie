@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -86,6 +87,15 @@ static ngx_int_t ngx_http_get_forwarded_addr_internal(ngx_http_request_t *r,
 #if (NGX_HAVE_OPENAT)
 static char *ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+#endif
+#if (NGX_API)
+static char *ngx_http_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
+ngx_int_t ngx_api_http_server_zones_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_http_location_zones_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
 #endif
 
 static char *ngx_http_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
@@ -778,6 +788,24 @@ static ngx_command_t  ngx_http_core_commands[] = {
 
 #endif
 
+#if (NGX_API)
+
+    { ngx_string("status_zone"),
+      NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_http_core_status_zone,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_core_main_conf_t, server_zones),
+      &ngx_api_http_server_zones_handler },
+
+    { ngx_string("status_zone"),
+      NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF|NGX_CONF_TAKE1,
+      ngx_http_core_status_zone,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_core_main_conf_t, location_zones),
+      &ngx_api_http_location_zones_handler },
+
+#endif
+
       ngx_null_command
 };
 
@@ -814,6 +842,33 @@ ngx_module_t  ngx_http_core_module = {
 
 
 ngx_str_t  ngx_http_core_get_method = { 3, (u_char *) "GET" };
+
+
+#if (NGX_API)
+
+static ngx_api_entry_t  ngx_api_http_entries[] = {
+
+    {
+        .name      = ngx_string("server_zones"),
+        .handler   = ngx_api_http_server_zones_handler,
+    },
+
+    {
+        .name      = ngx_string("location_zones"),
+        .handler   = ngx_api_http_location_zones_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_entry = {
+    .name      = ngx_string("http"),
+    .handler   = ngx_api_object_handler,
+    .data.ents = ngx_api_http_entries
+};
+
+#endif
 
 
 void
@@ -3375,6 +3430,41 @@ ngx_http_core_preconfiguration(ngx_conf_t *cf)
 static ngx_int_t
 ngx_http_core_postconfiguration(ngx_conf_t *cf)
 {
+#if (NGX_API)
+#if (NGX_HTTP_SSL)
+    ngx_uint_t                   a, p, s;
+    ngx_http_conf_addr_t        *addr;
+    ngx_http_conf_port_t        *port;
+    ngx_http_core_srv_conf_t   **cscfp;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+    if (cmcf->ports != NULL) {
+        port = cmcf->ports->elts;
+        for (p = 0; p < cmcf->ports->nelts; p++) {
+
+            addr = port[p].addrs.elts;
+            for (a = 0; a < port[p].addrs.nelts; a++) {
+
+                if (!addr[a].opt.ssl) {
+                    continue;
+                }
+
+                cscfp = addr[a].servers.elts;
+                for (s = 0; s < addr[a].servers.nelts; s++) {
+                    cscfp[s]->server_zone->ssl = 1;
+                }
+            }
+        }
+    }
+#endif /* NGX_HTTP_SSL */
+
+    if (ngx_api_add(cf->cycle, "/status", &ngx_api_http_entry) != NGX_OK) {
+        return NGX_ERROR;
+    }
+#endif
+
     ngx_http_top_request_body_filter = ngx_http_request_body_save_filter;
 
     return NGX_OK;
@@ -3649,6 +3739,10 @@ ngx_http_core_create_loc_conf(ngx_conf_t *cf)
 #if (NGX_HAVE_OPENAT)
     clcf->disable_symlinks = NGX_CONF_UNSET_UINT;
     clcf->disable_symlinks_from = NGX_CONF_UNSET_PTR;
+#endif
+
+#if (NGX_API)
+    clcf->location_zone = NGX_CONF_UNSET_PTR;
 #endif
 
     return clcf;
@@ -3950,6 +4044,10 @@ ngx_http_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                               NGX_DISABLE_SYMLINKS_OFF);
     ngx_conf_merge_ptr_value(conf->disable_symlinks_from,
                              prev->disable_symlinks_from, NULL);
+#endif
+
+#if (NGX_API)
+    ngx_conf_merge_ptr_value(conf->location_zone, prev->location_zone, NULL);
 #endif
 
     return NGX_CONF_OK;
@@ -5214,6 +5312,116 @@ ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                            "\"from=\" cannot be used with \"off\" parameter");
         return NGX_CONF_ERROR;
     }
+
+    return NGX_CONF_OK;
+}
+
+#endif
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_http_stats_init_zone(ngx_shm_zone_t *shm_zone, void *data)
+{
+    ngx_http_stats_zone_t *ozone = data;
+
+    ngx_http_stats_zone_t  *zone;
+
+    zone = shm_zone->data;
+
+    if (ozone) {
+        zone->stats = ozone->stats;
+
+        return NGX_OK;
+    }
+
+    zone->stats.any = shm_zone->shm.addr;
+
+    return NGX_OK;
+}
+
+
+static char *
+ngx_http_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    size_t                       size;
+    ngx_str_t                   *value, type, name;
+    ngx_shm_zone_t              *shm_zone;
+    ngx_http_stats_zone_t      **zonep, **cf_zonep;
+    ngx_http_core_srv_conf_t    *cscf;
+    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    value = cf->args->elts;
+
+    if (cmd->offset == offsetof(ngx_http_core_main_conf_t, server_zones)) {
+        cscf = conf;
+
+        if (cscf->server_zone) {
+            return "is duplicate";
+        }
+
+        ngx_str_set(&type, "server");
+        cf_zonep = &cscf->server_zone;
+        size = sizeof(ngx_http_server_stats_t);
+
+    } else {
+        clcf = conf;
+
+        if (clcf->location_zone != NGX_CONF_UNSET_PTR) {
+            return "is duplicate";
+        }
+
+        if (ngx_strcmp(value[1].data, "off") == 0) {
+            clcf->location_zone = NULL;
+            return NGX_CONF_OK;
+        }
+
+        ngx_str_set(&type, "location");
+        cf_zonep = &clcf->location_zone;
+        size = sizeof(ngx_http_location_stats_t);
+    }
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+    for (zonep = (ngx_http_stats_zone_t **) ((u_char *) cmcf + cmd->offset);
+         *zonep;
+         zonep = &(*zonep)->next)
+    {
+        if ((*zonep)->name.len == value[1].len
+            && ngx_strncmp((*zonep)->name.data, value[1].data, value[1].len)
+               == 0)
+        {
+            *cf_zonep = *zonep;
+            return NGX_CONF_OK;
+        }
+    }
+
+    *zonep = ngx_pcalloc(cf->pool, sizeof(ngx_http_stats_zone_t));
+    if (*zonep == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    (*zonep)->name = value[1];
+    *cf_zonep = *zonep;
+
+    name.len = sizeof("angie_http__status_zone_") - 1 + type.len + value[1].len;
+    name.data = ngx_pnalloc(cf->pool, name.len);
+    if (name.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_sprintf(name.data, "angie_http_%V_status_zone_%V", &type, &value[1]);
+
+    shm_zone = ngx_shared_memory_add(cf, &name, size, cmd->post);
+    if (shm_zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    shm_zone->init = ngx_http_stats_init_zone;
+    shm_zone->data = *zonep;
+    shm_zone->noslab = 1;
 
     return NGX_CONF_OK;
 }

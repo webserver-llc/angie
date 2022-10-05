@@ -407,7 +407,10 @@ ngx_stream_core_postconfiguration(ngx_conf_t *cf)
         }
 
         cscf = ls[i].ctx->srv_conf[ngx_stream_core_module.ctx_index];
-        cscf->server_zone->ssl = 1;
+
+        if (cscf->server_zone != NULL) {
+            cscf->server_zone->ssl = 1;
+        }
     }
 #endif /* NGX_STREAM_SSL */
 

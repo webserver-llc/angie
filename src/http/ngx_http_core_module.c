@@ -3464,7 +3464,10 @@ ngx_http_core_postconfiguration(ngx_conf_t *cf)
 
                 cscfp = addr[a].servers.elts;
                 for (s = 0; s < addr[a].servers.nelts; s++) {
-                    cscfp[s]->server_zone->ssl = 1;
+
+                    if (cscfp[s]->server_zone != NULL) {
+                        cscfp[s]->server_zone->ssl = 1;
+                    }
                 }
             }
         }

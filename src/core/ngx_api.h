@@ -34,6 +34,7 @@ struct ngx_api_ctx_s {
 typedef union {
     ngx_api_entry_t            *ents;
     ngx_str_t                  *str;
+    ngx_uint_t                  flag;
     int64_t                     num;
     ngx_atomic_t              **atpp;
     ngx_time_t                 *tp;
@@ -70,6 +71,8 @@ ngx_int_t ngx_api_object_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_string_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_flag_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_number_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_time_handler(ngx_api_entry_data_t data,
@@ -79,6 +82,8 @@ ngx_int_t ngx_api_atomic_pp_handler(ngx_api_entry_data_t data,
 ngx_int_t ngx_api_struct_str_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_struct_int_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_struct_int64_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_struct_atomic_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);

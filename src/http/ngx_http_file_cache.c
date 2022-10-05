@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -79,6 +80,145 @@ ngx_str_t  ngx_http_cache_status[] = {
 static u_char  ngx_http_file_cache_key[] = { LF, 'K', 'E', 'Y', ':', ' ' };
 
 
+#if (NGX_API)
+
+static ngx_int_t ngx_api_http_caches_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_http_cache_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
+static ngx_int_t ngx_api_http_cache_size_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_cache_max_size_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_cache_cold_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_cache_hit_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_cache_miss_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
+
+static ngx_api_entry_t  ngx_api_http_cache_entries[] = {
+
+    {
+        .name      = ngx_string("size"),
+        .handler   = ngx_api_http_cache_size_handler,
+    },
+
+    {
+        .name      = ngx_string("max_size"),
+        .handler   = ngx_api_http_cache_max_size_handler,
+    },
+
+    {
+        .name      = ngx_string("cold"),
+        .handler   = ngx_api_http_cache_cold_handler,
+    },
+
+    {
+        .name      = ngx_string("hit"),
+        .handler   = ngx_api_http_cache_hit_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_HIT - 1])
+    },
+
+    {
+        .name      = ngx_string("stale"),
+        .handler   = ngx_api_http_cache_hit_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_STALE - 1])
+    },
+
+    {
+        .name      = ngx_string("updating"),
+        .handler   = ngx_api_http_cache_hit_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_UPDATING - 1])
+    },
+
+    {
+        .name      = ngx_string("revalidated"),
+        .handler   = ngx_api_http_cache_hit_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_REVALIDATED - 1])
+    },
+
+    {
+        .name      = ngx_string("miss"),
+        .handler   = ngx_api_http_cache_miss_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_MISS - 1])
+    },
+
+    {
+        .name      = ngx_string("expired"),
+        .handler   = ngx_api_http_cache_miss_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_EXPIRED - 1])
+    },
+
+    {
+        .name      = ngx_string("bypass"),
+        .handler   = ngx_api_http_cache_miss_handler,
+        .data.off  = offsetof(ngx_http_file_cache_sh_t,
+                              stats[NGX_HTTP_CACHE_BYPASS - 1])
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_cache_hit_entries[] = {
+
+    {
+        .name      = ngx_string("responses"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, responses)
+    },
+
+    {
+        .name      = ngx_string("bytes"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, bytes)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_cache_miss_entries[] = {
+
+    {
+        .name      = ngx_string("responses"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, responses)
+    },
+
+    {
+        .name      = ngx_string("bytes"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, bytes)
+    },
+
+    {
+        .name      = ngx_string("responses_written"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, responses_written)
+    },
+
+    {
+        .name      = ngx_string("bytes_written"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_http_cache_stats_t, bytes_written)
+    },
+
+    ngx_api_null_entry
+};
+
+#endif
+
+
 static ngx_int_t
 ngx_http_file_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 {
@@ -151,6 +291,11 @@ ngx_http_file_cache_init(ngx_shm_zone_t *shm_zone, void *data)
     cache->sh->size = 0;
     cache->sh->count = 0;
     cache->sh->watermark = (ngx_uint_t) -1;
+
+#if (NGX_API)
+    ngx_memzero(cache->sh->stats,
+                NGX_HTTP_CACHE_HIT * sizeof(ngx_http_cache_stats_t));
+#endif
 
     cache->bsize = ngx_fs_bsize(cache->path->name.data);
 
@@ -1422,6 +1567,17 @@ ngx_http_file_cache_update(ngx_http_request_t *r, ngx_temp_file_t *tf)
 
     if (rc == NGX_OK) {
         c->node->exists = 1;
+
+#if (NGX_API)
+        {
+        ngx_http_cache_stats_t  *stats;
+
+        stats = &cache->sh->stats[r->upstream->cache_status - 1];
+
+        stats->responses_written++;
+        stats->bytes_written += ngx_file_size(&fi) - c->body_start;
+        }
+#endif
     }
 
     c->node->updating = 0;
@@ -1574,6 +1730,23 @@ ngx_http_cache_send(ngx_http_request_t *r)
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http file cache send: %s", c->file.name.data);
+
+#if (NGX_API)
+    {
+    ngx_http_file_cache_t   *cache;
+    ngx_http_cache_stats_t  *stats;
+
+    cache = c->file_cache;
+    stats = &cache->sh->stats[r->upstream->cache_status - 1];
+
+    ngx_shmtx_lock(&cache->shpool->mutex);
+
+    stats->responses++;
+    stats->bytes += c->length - c->body_start;
+
+    ngx_shmtx_unlock(&cache->shpool->mutex);
+    }
+#endif
 
     if (r != r->main && c->length - c->body_start == 0) {
         return ngx_http_send_header(r);
@@ -2741,3 +2914,132 @@ ngx_http_file_cache_valid_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 
     return NGX_CONF_OK;
 }
+
+
+#if (NGX_API)
+
+ngx_int_t
+ngx_api_http_caches_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_api_iter_ctx_t  ictx;
+
+    ictx.entry.data.ents = ngx_api_http_cache_entries;
+    ictx.entry.handler = ngx_api_http_cache_handler;
+    ictx.elts = ngx_cycle->paths.elts;
+
+    return ngx_api_object_iterate(ngx_api_http_caches_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_http_caches_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_path_t             **pathp, *path, **end;
+    ngx_http_file_cache_t   *cache;
+
+    pathp = ictx->elts;
+    end = (ngx_path_t **) ngx_cycle->paths.elts + ngx_cycle->paths.nelts;
+
+    while (pathp < end) {
+        path = *pathp++;
+
+        if (path->manager == ngx_http_file_cache_manager) {
+            cache = path->data;
+
+            ictx->entry.name = cache->shm_zone->shm.name;
+            ictx->ctx = cache;
+            ictx->elts = pathp;
+
+            return NGX_OK;
+        }
+    }
+
+    return NGX_DECLINED;
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    ngx_uint_t  rc;
+
+    ngx_shmtx_lock(&cache->shpool->mutex);
+
+    rc = ngx_api_object_handler(data, actx, cache);
+
+    ngx_shmtx_unlock(&cache->shpool->mutex);
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_size_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    data.num = (uint64_t) cache->sh->size * cache->bsize;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_max_size_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    if (cache->max_size == NGX_MAX_OFF_T_VALUE / (off_t) cache->bsize) {
+        return NGX_DECLINED;
+    }
+
+    data.num = (uint64_t) cache->max_size * cache->bsize;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_cold_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    data.flag = cache->sh->cold;
+
+    return ngx_api_flag_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_hit_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    ctx = (u_char *) cache->sh + data.off;
+    data.ents = ngx_api_http_cache_hit_entries;
+
+    return ngx_api_object_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_cache_miss_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_http_file_cache_t *cache = ctx;
+
+    ctx = (u_char *) cache->sh + data.off;
+    data.ents = ngx_api_http_cache_miss_entries;
+
+    return ngx_api_object_handler(data, actx, ctx);
+}
+
+#endif

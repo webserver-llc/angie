@@ -96,6 +96,10 @@ ngx_int_t ngx_api_http_server_zones_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_http_location_zones_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
+#if (NGX_HTTP_CACHE)
+ngx_int_t ngx_api_http_caches_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+#endif
 #endif
 
 static char *ngx_http_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
@@ -857,6 +861,13 @@ static ngx_api_entry_t  ngx_api_http_entries[] = {
         .name      = ngx_string("location_zones"),
         .handler   = ngx_api_http_location_zones_handler,
     },
+
+#if (NGX_HTTP_CACHE)
+    {
+        .name      = ngx_string("caches"),
+        .handler   = ngx_api_http_caches_handler,
+    },
+#endif
 
     ngx_api_null_entry
 };

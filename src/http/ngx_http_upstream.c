@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -4578,6 +4579,32 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
         }
 
         ngx_http_file_cache_free(r->cache, u->pipe->temp_file);
+
+#if (NGX_API)
+
+        if (u->cache_status == NGX_HTTP_CACHE_MISS
+            || u->cache_status == NGX_HTTP_CACHE_EXPIRED
+            || u->cache_status == NGX_HTTP_CACHE_BYPASS)
+        {
+            ngx_http_file_cache_t   *cache;
+            ngx_http_cache_stats_t  *stats;
+
+            cache = r->cache->file_cache;
+            stats = &cache->sh->stats[u->cache_status - 1];
+
+            ngx_shmtx_lock(&cache->shpool->mutex);
+
+            stats->responses++;
+
+            if (u->state) {
+                stats->bytes += u->state->response_length;
+            }
+
+            ngx_shmtx_unlock(&cache->shpool->mutex);
+        }
+
+#endif
+
     }
 
 #endif

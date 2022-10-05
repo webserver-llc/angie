@@ -306,6 +306,15 @@ ngx_api_string_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 
 
 ngx_int_t
+ngx_api_flag_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
+{
+    actx->out = ngx_data_new_boolean(data.flag, actx->pool);
+
+    return actx->out ? NGX_OK : NGX_ERROR;
+}
+
+
+ngx_int_t
 ngx_api_number_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {
@@ -369,6 +378,16 @@ ngx_api_struct_int_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {
     data.num = *(ngx_int_t *) ((u_char *) ctx + data.off);
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+ngx_int_t
+ngx_api_struct_int64_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    data.num = *(int64_t *) ((u_char *) ctx + data.off);
 
     return ngx_api_number_handler(data, actx, ctx);
 }

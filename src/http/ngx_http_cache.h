@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -144,6 +145,18 @@ typedef struct {
 } ngx_http_file_cache_header_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    uint64_t                         responses;
+    uint64_t                         bytes;
+    uint64_t                         responses_written;
+    uint64_t                         bytes_written;
+} ngx_http_cache_stats_t;
+
+#endif
+
+
 typedef struct {
     ngx_rbtree_t                     rbtree;
     ngx_rbtree_node_t                sentinel;
@@ -153,6 +166,10 @@ typedef struct {
     off_t                            size;
     ngx_uint_t                       count;
     ngx_uint_t                       watermark;
+
+#if (NGX_API)
+    ngx_http_cache_stats_t           stats[NGX_HTTP_CACHE_HIT];
+#endif
 } ngx_http_file_cache_sh_t;
 
 

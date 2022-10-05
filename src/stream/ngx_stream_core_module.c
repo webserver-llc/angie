@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -11,6 +12,7 @@
 
 
 static ngx_int_t ngx_stream_core_preconfiguration(ngx_conf_t *cf);
+static ngx_int_t ngx_stream_core_postconfiguration(ngx_conf_t *cf);
 static void *ngx_stream_core_create_main_conf(ngx_conf_t *cf);
 static char *ngx_stream_core_init_main_conf(ngx_conf_t *cf, void *conf);
 static void *ngx_stream_core_create_srv_conf(ngx_conf_t *cf);
@@ -24,6 +26,13 @@ static char *ngx_stream_core_listen(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+#if (NGX_API)
+static char *ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
+ngx_int_t ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+#endif
 
 
 static ngx_command_t  ngx_stream_core_commands[] = {
@@ -105,13 +114,24 @@ static ngx_command_t  ngx_stream_core_commands[] = {
       offsetof(ngx_stream_core_srv_conf_t, preread_timeout),
       NULL },
 
+#if (NGX_API)
+
+    { ngx_string("status_zone"),
+      NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_stream_core_status_zone,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      0,
+      NULL },
+
+#endif
+
       ngx_null_command
 };
 
 
 static ngx_stream_module_t  ngx_stream_core_module_ctx = {
     ngx_stream_core_preconfiguration,      /* preconfiguration */
-    NULL,                                  /* postconfiguration */
+    ngx_stream_core_postconfiguration,     /* postconfiguration */
 
     ngx_stream_core_create_main_conf,      /* create main configuration */
     ngx_stream_core_init_main_conf,        /* init main configuration */
@@ -135,6 +155,28 @@ ngx_module_t  ngx_stream_core_module = {
     NULL,                                  /* exit master */
     NGX_MODULE_V1_PADDING
 };
+
+
+#if (NGX_API)
+
+static ngx_api_entry_t  ngx_api_stream_entries[] = {
+
+    {
+        .name      = ngx_string("server_zones"),
+        .handler   = ngx_api_stream_server_zones_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_entry = {
+    .name      = ngx_string("stream"),
+    .handler   = ngx_api_object_handler,
+    .data.ents = ngx_api_stream_entries
+};
+
+#endif
 
 
 void
@@ -342,6 +384,39 @@ static ngx_int_t
 ngx_stream_core_preconfiguration(ngx_conf_t *cf)
 {
     return ngx_stream_variables_add_core_vars(cf);
+}
+
+
+static ngx_int_t
+ngx_stream_core_postconfiguration(ngx_conf_t *cf)
+{
+#if (NGX_API)
+#if (NGX_STREAM_SSL)
+    ngx_uint_t                    i;
+    ngx_stream_listen_t          *ls;
+    ngx_stream_core_srv_conf_t   *cscf;
+    ngx_stream_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
+
+    ls = cmcf->listen.elts;
+    for (i = 0; i < cmcf->listen.nelts; i++) {
+
+        if (!ls[i].ssl) {
+            continue;
+        }
+
+        cscf = ls[i].ctx->srv_conf[ngx_stream_core_module.ctx_index];
+        cscf->server_zone->ssl = 1;
+    }
+#endif /* NGX_STREAM_SSL */
+
+    if (ngx_api_add(cf->cycle, "/status", &ngx_api_stream_entry) != NGX_OK) {
+        return NGX_ERROR;
+    }
+#endif
+
+    return NGX_OK;
 }
 
 
@@ -939,3 +1014,87 @@ ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_stream_stats_init_zone(ngx_shm_zone_t *shm_zone, void *data)
+{
+    ngx_stream_stats_zone_t *ozone = data;
+
+    ngx_stream_stats_zone_t  *zone;
+
+    zone = shm_zone->data;
+
+    if (ozone) {
+        zone->stats = ozone->stats;
+
+        return NGX_OK;
+    }
+
+    zone->stats = (ngx_stream_server_stats_t *) shm_zone->shm.addr;
+
+    return NGX_OK;
+}
+
+
+static char *
+ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_stream_core_srv_conf_t *cscf = conf;
+
+    ngx_str_t                     *value, name;
+    ngx_shm_zone_t                *shm_zone;
+    ngx_stream_stats_zone_t      **zonep;
+    ngx_stream_core_main_conf_t   *cmcf;
+
+    if (cscf->server_zone) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
+
+    for (zonep = &cmcf->server_zones; *zonep; zonep = &(*zonep)->next) {
+        if ((*zonep)->name.len == value[1].len
+            && ngx_strncmp((*zonep)->name.data, value[1].data, value[1].len)
+               == 0)
+        {
+            cscf->server_zone = *zonep;
+            return NGX_CONF_OK;
+        }
+    }
+
+    *zonep = ngx_pcalloc(cf->pool, sizeof(ngx_stream_stats_zone_t));
+    if (*zonep == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    (*zonep)->name = value[1];
+    cscf->server_zone = *zonep;
+
+    name.len = sizeof("angie_stream_status_zone_") - 1 + value[1].len;
+    name.data = ngx_pnalloc(cf->pool, name.len);
+    if (name.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_sprintf(name.data, "angie_stream_status_zone_%V", &value[1]);
+
+    shm_zone = ngx_shared_memory_add(cf, &name,
+                                     sizeof(ngx_stream_server_stats_t),
+                                     &ngx_stream_core_status_zone);
+    if (shm_zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    shm_zone->init = ngx_stream_stats_init_zone;
+    shm_zone->data = *zonep;
+    shm_zone->noslab = 1;
+
+    return NGX_CONF_OK;
+}
+
+#endif

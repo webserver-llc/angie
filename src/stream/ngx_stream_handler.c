@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -15,6 +16,173 @@ static void ngx_stream_log_session(ngx_stream_session_t *s);
 static void ngx_stream_close_connection(ngx_connection_t *c);
 static u_char *ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len);
 static void ngx_stream_proxy_protocol_handler(ngx_event_t *rev);
+
+#if (NGX_API)
+static ngx_int_t ngx_api_stream_server_zones_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_stream_zone_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_session_codes_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+#if (NGX_STREAM_SSL)
+static ngx_int_t ngx_api_stream_ssl_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+#endif
+#endif
+
+
+#if (NGX_API)
+
+#if (NGX_STREAM_SSL)
+
+static ngx_api_entry_t  ngx_api_stream_server_zone_ssl_entries[] = {
+
+    {
+        .name      = ngx_string("handshaked"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_handshaked)
+    },
+
+    {
+        .name      = ngx_string("reuses"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_reuses)
+    },
+
+    {
+        .name      = ngx_string("timedout"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_timedout)
+    },
+
+    {
+        .name      = ngx_string("failed"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_failed)
+    },
+
+    ngx_api_null_entry
+};
+
+#endif
+
+
+static ngx_api_entry_t  ngx_api_stream_server_zone_connections_entries[] = {
+
+    {
+        .name      = ngx_string("total"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, connections)
+    },
+
+    {
+        .name      = ngx_string("processing"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, processing)
+    },
+
+    {
+        .name      = ngx_string("discarded"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, discarded)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_server_zone_data_entries[] = {
+
+    {
+        .name      = ngx_string("received"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, received)
+    },
+
+    {
+        .name      = ngx_string("sent"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, sent)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_server_zone_entries[] = {
+
+#if (NGX_STREAM_SSL)
+    {
+        .name      = ngx_string("ssl"),
+        .handler   = ngx_api_stream_ssl_handler,
+        .data.ents = ngx_api_stream_server_zone_ssl_entries
+    },
+#endif
+
+    {
+        .name      = ngx_string("connections"),
+        .handler   = ngx_api_stream_zone_handler,
+        .data.ents = ngx_api_stream_server_zone_connections_entries
+    },
+
+    {
+        .name      = ngx_string("sessions"),
+        .handler   = ngx_api_stream_session_codes_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, sessions)
+    },
+
+    {
+        .name      = ngx_string("data"),
+        .handler   = ngx_api_stream_zone_handler,
+        .data.ents = ngx_api_stream_server_zone_data_entries
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_session_codes_entries[] = {
+
+    {
+        .name      = ngx_string("success"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 0 * sizeof(ngx_atomic_t)
+    },
+
+    {
+        .name      = ngx_string("invalid"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 1 * sizeof(ngx_atomic_t)
+    },
+
+    {
+        .name      = ngx_string("forbidden"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 2 * sizeof(ngx_atomic_t)
+    },
+
+    {
+        .name      = ngx_string("internal_error"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 3 * sizeof(ngx_atomic_t)
+    },
+
+    {
+        .name      = ngx_string("bad_gateway"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 4 * sizeof(ngx_atomic_t)
+    },
+
+    {
+        .name      = ngx_string("service_unavailable"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = 5 * sizeof(ngx_atomic_t)
+    },
+
+    ngx_api_null_entry
+};
+
+#endif
 
 
 void
@@ -172,6 +340,20 @@ ngx_stream_init_connection(ngx_connection_t *c)
     tp = ngx_timeofday();
     s->start_sec = tp->sec;
     s->start_msec = tp->msec;
+
+#if (NGX_API)
+    {
+    ngx_stream_server_stats_t  *stats;
+
+    if (cscf->server_zone) {
+        stats = cscf->server_zone->stats;
+
+        (void) ngx_atomic_fetch_add(&stats->processing, 1);
+        s->stat_processing = 1;
+        (void) ngx_atomic_fetch_add(&stats->connections, 1);
+    }
+    }
+#endif
 
     rev = c->read;
     rev->handler = ngx_stream_session_handler;
@@ -348,6 +530,67 @@ ngx_stream_close_connection(ngx_connection_t *c)
     (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
 #endif
 
+#if (NGX_API)
+    if (c->data) {
+        ngx_stream_session_t        *s;
+        ngx_stream_server_stats_t   *stats;
+        ngx_stream_core_srv_conf_t  *cscf;
+
+        s = c->data;
+        cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
+
+        if (cscf->server_zone) {
+            stats = cscf->server_zone->stats;
+
+            if (s->stat_processing) {
+                (void) ngx_atomic_fetch_add(&stats->processing, -1);
+            } else {
+                (void) ngx_atomic_fetch_add(&stats->connections, 1);
+            }
+
+            if (s->status > 0) {
+
+                switch (s->status) {
+                case NGX_STREAM_OK:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[0], 1);
+                    break;
+
+                case NGX_STREAM_BAD_REQUEST:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[1], 1);
+                    break;
+
+                case NGX_STREAM_FORBIDDEN:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[2], 1);
+                    break;
+
+                case NGX_STREAM_INTERNAL_SERVER_ERROR:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[3], 1);
+                    break;
+
+                case NGX_STREAM_BAD_GATEWAY:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[4], 1);
+                    break;
+
+                case NGX_STREAM_SERVICE_UNAVAILABLE:
+                    (void) ngx_atomic_fetch_add(&stats->sessions[5], 1);
+                    break;
+                }
+
+            } else {
+                (void) ngx_atomic_fetch_add(&stats->discarded, 1);
+            }
+
+            if (s->received > 0) {
+                (void) ngx_atomic_fetch_add(&stats->received, s->received);
+            }
+
+            if (c->sent > 0) {
+                (void) ngx_atomic_fetch_add(&stats->sent, c->sent);
+            }
+        }
+    }
+#endif
+
     pool = c->pool;
 
     ngx_close_connection(c);
@@ -383,3 +626,86 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     return p;
 }
+
+
+#if (NGX_API)
+
+ngx_int_t
+ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_iter_ctx_t            ictx;
+    ngx_stream_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
+                                                 ngx_stream_core_module);
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_stream_server_zone_entries;
+    ictx.elts = cmcf->server_zones;
+
+    return ngx_api_object_iterate(ngx_api_stream_server_zones_iter,
+                                  &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_server_zones_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_stream_stats_zone_t  *zone;
+
+    zone = ictx->elts;
+
+    if (zone == NULL) {
+        return NGX_DECLINED;
+    }
+
+    ictx->entry.name = zone->name;
+    ictx->ctx = zone;
+    ictx->elts = zone->next;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_stream_zone_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_stream_stats_zone_t *zone = ctx;
+
+    return ngx_api_object_handler(data, actx, zone->stats);
+}
+
+
+static ngx_int_t
+ngx_api_stream_session_codes_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_stats_zone_t *zone = ctx;
+
+    ctx = (u_char *) zone->stats + data.off;
+    data.ents = ngx_api_stream_session_codes_entries;
+
+    return ngx_api_object_handler(data, actx, ctx);
+}
+
+
+#if (NGX_STREAM_SSL)
+
+static ngx_int_t
+ngx_api_stream_ssl_handler(ngx_api_entry_data_t data,ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_stream_stats_zone_t *zone = ctx;
+
+    if (zone->ssl) {
+        return ngx_api_object_handler(data, actx, zone->stats);
+    }
+
+    return NGX_DECLINED;
+}
+
+#endif
+
+#endif /* NGX_API */

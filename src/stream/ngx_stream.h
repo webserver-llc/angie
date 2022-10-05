@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -151,6 +152,39 @@ typedef struct {
 } ngx_stream_phase_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t                   processing;
+    ngx_atomic_t                   connections;
+    ngx_atomic_t                   sessions[6];
+    ngx_atomic_t                   discarded;
+    ngx_atomic_t                   received;
+    ngx_atomic_t                   sent;
+#if (NGX_STREAM_SSL)
+    ngx_atomic_t                   ssl_handshaked;
+    ngx_atomic_t                   ssl_reuses;
+    ngx_atomic_t                   ssl_timedout;
+    ngx_atomic_t                   ssl_failed;
+#endif
+} ngx_stream_server_stats_t;
+
+
+typedef struct ngx_stream_stats_zone_s  ngx_stream_stats_zone_t;
+
+struct ngx_stream_stats_zone_s {
+    ngx_str_t                      name;
+    ngx_stream_server_stats_t     *stats;
+    ngx_stream_stats_zone_t       *next;
+
+#if (NGX_STREAM_SSL)
+    ngx_uint_t                     ssl;  /* unsigned ssl:1 */
+#endif
+};
+
+#endif
+
+
 typedef struct {
     ngx_array_t                    servers;     /* ngx_stream_core_srv_conf_t */
     ngx_array_t                    listen;      /* ngx_stream_listen_t */
@@ -169,6 +203,10 @@ typedef struct {
     ngx_hash_keys_arrays_t        *variables_keys;
 
     ngx_stream_phase_t             phases[NGX_STREAM_LOG_PHASE + 1];
+
+#if (NGX_API)
+    ngx_stream_stats_zone_t       *server_zones;
+#endif
 } ngx_stream_core_main_conf_t;
 
 
@@ -192,6 +230,10 @@ typedef struct {
     ngx_msec_t                     proxy_protocol_timeout;
 
     ngx_uint_t                     listen;  /* unsigned  listen:1; */
+
+#if (NGX_API)
+    ngx_stream_stats_zone_t       *server_zone;
+#endif
 } ngx_stream_core_srv_conf_t;
 
 

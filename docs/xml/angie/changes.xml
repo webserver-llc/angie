@@ -11,12 +11,14 @@
 <para lang="ru">
 директива "api", реализующая HTTP RESTful интерфейс для получения в формате
 JSON базовой информации о веб-сервере, а также статистики по клиентским
-соединениям, зонам разделяемой памяти, DNS-запросам и HTTP-запросам.
+соединениям, зонам разделяемой памяти, DNS-запросам, HTTP-запросам и
+сессиям модуля stream.
 </para>
 <para lang="en">
 the "api" directive, that provides HTTP RESTful interface for accessing in JSON
 format basic information about a web server instance, as well as metrics of
-client connections, shared memory zones, DNS queries, and HTTP requests.
+client connections, shared memory zones, DNS queries, HTTP requests, and
+TCP/UDP sessions of "stream" module.
 </para>
 </change>
 
@@ -28,6 +30,17 @@ client connections, shared memory zones, DNS queries, and HTTP requests.
 <para lang="en">
 the "status_zone" directive in "http" module for specifying zone to collect
 request metrics in "server" and "location" contexts.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+директива "status_zone" в модуле stream для указания зоны сбора статистики по
+TCP/UDP сессиям.
+</para>
+<para lang="en">
+the "status_zone" directive in "stream" module for specifying zone to collect
+TCP/UDP session metrics.
 </para>
 </change>
 

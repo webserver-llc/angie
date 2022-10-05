@@ -436,9 +436,35 @@ ngx_stream_ssl_init_connection(ngx_ssl_t *ssl, ngx_connection_t *c)
 static void
 ngx_stream_ssl_handshake_handler(ngx_connection_t *c)
 {
-    ngx_stream_session_t  *s;
+    ngx_stream_session_t        *s;
+#if (NGX_API)
+    ngx_stream_server_stats_t   *stats;
+    ngx_stream_core_srv_conf_t  *cscf;
+#endif
 
     s = c->data;
+
+#if (NGX_API)
+    cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
+
+    if (cscf->server_zone) {
+        stats = cscf->server_zone->stats;
+
+        if (c->ssl->handshaked) {
+            (void) ngx_atomic_fetch_add(&stats->ssl_handshaked, 1);
+
+            if (SSL_session_reused(c->ssl->connection)) {
+                (void) ngx_atomic_fetch_add(&stats->ssl_reuses, 1);
+            }
+
+        } else if (c->read->timedout) {
+            (void) ngx_atomic_fetch_add(&stats->ssl_timedout, 1);
+
+        } else {
+            (void) ngx_atomic_fetch_add(&stats->ssl_failed, 1);
+        }
+    }
+#endif
 
     if (!c->ssl->handshaked) {
         ngx_stream_finalize_session(s, NGX_STREAM_INTERNAL_SERVER_ERROR);

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -220,6 +221,13 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     }
 
     ngx_strlow(cycle->hostname.data, (u_char *) hostname, cycle->hostname.len);
+
+
+#if (NGX_API)
+    tp = ngx_timeofday();
+    cycle->time = *tp;
+    cycle->generation = old_cycle->generation + 1;
+#endif
 
 
     if (ngx_cycle_modules(cycle) != NGX_OK) {

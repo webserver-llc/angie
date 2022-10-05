@@ -26,6 +26,13 @@ static ngx_core_module_t  ngx_api_module_ctx = {
     NULL
 };
 
+static ngx_int_t ngx_api_angie_address_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_angie_generation_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
 
 ngx_module_t  ngx_api_module = {
     NGX_MODULE_V1,
@@ -43,7 +50,55 @@ ngx_module_t  ngx_api_module = {
 };
 
 
+static ngx_str_t  ngx_api_angie_version = ngx_string(ANGIE_VERSION);
+#ifdef NGX_BUILD
+static ngx_str_t  ngx_api_angie_build = ngx_string(NGX_BUILD);
+#endif
+
+
+static ngx_api_entry_t  ngx_api_angie_entries[] = {
+
+    {
+        .name      = ngx_string("version"),
+        .handler   = ngx_api_string_handler,
+        .data.str  = &ngx_api_angie_version
+    },
+
+#ifdef NGX_BUILD
+    {
+        .name      = ngx_string("build"),
+        .handler   = ngx_api_string_handler,
+        .data.str  = &ngx_api_angie_build
+    },
+#endif
+
+    {
+        .name      = ngx_string("address"),
+        .handler   = ngx_api_angie_address_handler,
+    },
+
+    {
+        .name      = ngx_string("generation"),
+        .handler   = ngx_api_angie_generation_handler,
+    },
+
+    {
+        .name      = ngx_string("load_time"),
+        .handler   = ngx_api_angie_load_time_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
 static ngx_api_entry_t  ngx_api_status_entries[] = {
+
+    {
+        .name      = ngx_string("angie"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_angie_entries
+    },
+
     ngx_api_null_entry
 };
 
@@ -203,12 +258,93 @@ ngx_api_string_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 
 
 ngx_int_t
+ngx_api_number_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    actx->out = ngx_data_new_integer(data.num, actx->pool);
+
+    return actx->out ? NGX_OK : NGX_ERROR;
+}
+
+
+ngx_int_t
+ngx_api_time_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
+{
+    u_char     *p;
+    ngx_tm_t    tm;
+    ngx_str_t   src;
+    u_char      iso8601[sizeof("1970-01-01T00:00:00.000Z") - 1];
+
+    ngx_gmtime(data.tp->sec, &tm);
+
+    p = ngx_sprintf(iso8601, "%4d-%02d-%02dT%02d:%02d:%02d",
+                    tm.ngx_tm_year, tm.ngx_tm_mon, tm.ngx_tm_mday,
+                    tm.ngx_tm_hour, tm.ngx_tm_min, tm.ngx_tm_sec);
+
+    if (data.tp->msec) {
+        p = ngx_sprintf(p, ".%03ui", data.tp->msec);
+    }
+
+    *p++ = 'Z';
+
+    src.data = iso8601;
+    src.len = p - iso8601;
+
+    data.str = &src;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+ngx_int_t
 ngx_api_struct_str_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {
     data.str = (ngx_str_t *) ((u_char *) ctx + data.off);
 
     return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_angie_address_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    u_char     addr[NGX_SOCKADDR_STRLEN];
+    ngx_str_t  address;
+
+    address.len = NGX_SOCKADDR_STRLEN;
+    address.data = addr;
+
+    if (ngx_connection_local_sockaddr(actx->connection, &address, 0)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    data.str = &address;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_angie_generation_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    data.num = ngx_cycle->generation;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    data.tp = &((ngx_cycle_t *) ngx_cycle)->time;
+
+    return ngx_api_time_handler(data, actx, ctx);
 }
 
 

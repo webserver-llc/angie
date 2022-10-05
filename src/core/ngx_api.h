@@ -21,6 +21,7 @@ typedef struct ngx_api_entry_s  ngx_api_entry_t;
 
 struct ngx_api_ctx_s {
     ngx_str_t                   path;
+    ngx_connection_t           *connection;
     ngx_pool_t                 *pool;
     ngx_data_item_t            *out;
     ngx_uint_t                  pretty;
@@ -33,6 +34,8 @@ struct ngx_api_ctx_s {
 typedef union {
     ngx_api_entry_t            *ents;
     ngx_str_t                  *str;
+    int64_t                     num;
+    ngx_time_t                 *tp;
     size_t                      off;
 } ngx_api_entry_data_t;
 
@@ -65,6 +68,10 @@ ngx_int_t ngx_api_object_iterate(ngx_api_iter_pt iter, ngx_api_iter_ctx_t *ictx,
 ngx_int_t ngx_api_object_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_string_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_number_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_time_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_struct_str_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);

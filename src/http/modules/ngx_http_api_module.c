@@ -92,6 +92,7 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     ngx_memzero(&ctx, sizeof(ngx_api_ctx_t));
 
+    ctx.connection = r->connection;
     ctx.pool = r->pool;
     ctx.pretty = 1;
 
@@ -245,7 +246,7 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
         case NGX_HTTP_NOT_ALLOWED:
             ngx_str_set(&ctx->err, "MethodNotAllowed");
             ngx_str_set(&ctx->err_desc, "Particular method not allowed for "
-                        "the requested API path.");
+                                        "the requested API path.");
             break;
 
         case NGX_HTTP_BAD_REQUEST:
@@ -256,8 +257,9 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
         case NGX_HTTP_INTERNAL_SERVER_ERROR:
         default:
             ngx_str_set(&ctx->err, "InternalError");
-            ngx_str_set(&ctx->err_desc, "Something went wrong during the API "
-                        "request processing.  Check error log for additional "
+            ngx_str_set(&ctx->err_desc,
+                        "Something went wrong during the API request "
+                        "processing.  Check error log for additional "
                         "details.");
         }
     }

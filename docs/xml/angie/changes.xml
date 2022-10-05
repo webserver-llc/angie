@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+директива "api", реализующая HTTP RESTful интерфейс для получения в формате
+JSON базовой информации о веб-сервере.
+</para>
+<para lang="en">
+the "api" directive, that provides HTTP RESTful interface for accessing in JSON
+format basic information about a web server instance.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.23.1.
 </para>
 <para lang="en">

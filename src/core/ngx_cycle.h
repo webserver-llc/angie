@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -83,6 +84,11 @@ struct ngx_cycle_s {
     ngx_str_t                 error_log;
     ngx_str_t                 lock_file;
     ngx_str_t                 hostname;
+
+#if (NGX_API)
+    ngx_time_t                time;
+    uint64_t                  generation;
+#endif
 };
 
 

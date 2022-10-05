@@ -69,8 +69,10 @@ ngx_int_t ngx_api_string_handler(ngx_api_entry_data_t data,
 ngx_int_t ngx_api_struct_str_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 
+ngx_api_entry_t *ngx_api_root(ngx_cycle_t *cycle);
 
-extern ngx_api_entry_t  ngx_api_root_entry;
+ngx_int_t ngx_api_add(ngx_cycle_t *cycle, const char *data,
+    ngx_api_entry_t *child);
 
 
 #endif /* _NGX_API_H_INCLUDED_ */

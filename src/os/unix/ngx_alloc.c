@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -43,6 +44,31 @@ ngx_calloc(size_t size, ngx_log_t *log)
     }
 
     return p;
+}
+
+
+void *
+ngx_realloc(void *p, size_t size, ngx_log_t *log)
+{
+    void       *rp;
+    uintptr_t   ptr;
+
+    /*
+     * Workaround for a warning on GCC 12 about using "p" pointer in debug log
+     * after realloc().
+     */
+    ptr = (uintptr_t) p;
+
+    rp = realloc(p, size);
+    if (rp == NULL) {
+        ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
+                      "realloc(%p, %uz) failed", ptr, size);
+    }
+
+    ngx_log_debug3(NGX_LOG_DEBUG_ALLOC, log, 0, "realloc: %p:%uz (prev: %p)",
+                   rp, size, ptr);
+
+    return rp;
 }
 
 

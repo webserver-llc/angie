@@ -148,9 +148,12 @@ ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 {
     ngx_int_t         rc;
     ngx_chain_t       out;
+    ngx_api_entry_t  *entry;
     ngx_table_elt_t  *expires, *cc;
 
-    rc = ngx_api_root_entry.handler(ngx_api_root_entry.data, ctx, NULL);
+    entry = ngx_api_root((ngx_cycle_t *) ngx_cycle);
+
+    rc = entry->handler(entry->data, ctx, NULL);
 
     if (rc == NGX_OK && ctx->path.len > 1) {
         rc = NGX_API_NOT_FOUND;

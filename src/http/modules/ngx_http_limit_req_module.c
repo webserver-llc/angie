@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -30,21 +31,41 @@ typedef struct {
 } ngx_http_limit_req_node_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t                 passed;
+    ngx_atomic_t                 skipped;
+    ngx_atomic_t                 delayed;
+    ngx_atomic_t                 rejected;
+    ngx_atomic_t                 exhausted;
+} ngx_http_limit_req_stats_t;
+
+#endif
+
+
 typedef struct {
     ngx_rbtree_t                  rbtree;
     ngx_rbtree_node_t             sentinel;
     ngx_queue_t                   queue;
+#if (NGX_API)
+    ngx_http_limit_req_stats_t    stats;
+#endif
 } ngx_http_limit_req_shctx_t;
 
 
-typedef struct {
+typedef struct ngx_http_limit_req_ctx_s  ngx_http_limit_req_ctx_t;
+
+struct ngx_http_limit_req_ctx_s {
+    ngx_shm_zone_t              *shm_zone;
     ngx_http_limit_req_shctx_t  *sh;
     ngx_slab_pool_t             *shpool;
     /* integer value, 1 corresponds to 0.001 r/s */
     ngx_uint_t                   rate;
     ngx_http_complex_value_t     key;
     ngx_http_limit_req_node_t   *node;
-} ngx_http_limit_req_ctx_t;
+    ngx_http_limit_req_ctx_t    *next;
+};
 
 
 typedef struct {
@@ -53,6 +74,12 @@ typedef struct {
     ngx_uint_t                   burst;
     ngx_uint_t                   delay;
 } ngx_http_limit_req_limit_t;
+
+
+typedef struct {
+    ngx_http_limit_req_ctx_t    *limit_reqs;
+    ngx_http_limit_req_ctx_t   **limit_reqs_next_p;
+} ngx_http_limit_req_main_conf_t;
 
 
 typedef struct {
@@ -76,6 +103,7 @@ static void ngx_http_limit_req_expire(ngx_http_limit_req_ctx_t *ctx,
 
 static ngx_int_t ngx_http_limit_req_status_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static void *ngx_http_limit_req_create_main_conf(ngx_conf_t *cf);
 static void *ngx_http_limit_req_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_limit_req_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
@@ -106,7 +134,7 @@ static ngx_command_t  ngx_http_limit_req_commands[] = {
     { ngx_string("limit_req_zone"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE3,
       ngx_http_limit_req_zone,
-      0,
+      NGX_HTTP_MAIN_CONF_OFFSET,
       0,
       NULL },
 
@@ -146,7 +174,7 @@ static ngx_http_module_t  ngx_http_limit_req_module_ctx = {
     ngx_http_limit_req_add_variables,      /* preconfiguration */
     ngx_http_limit_req_init,               /* postconfiguration */
 
-    NULL,                                  /* create main configuration */
+    ngx_http_limit_req_create_main_conf,   /* create main configuration */
     NULL,                                  /* init main configuration */
 
     NULL,                                  /* create server configuration */
@@ -191,6 +219,58 @@ static ngx_str_t  ngx_http_limit_req_status[] = {
 };
 
 
+#if (NGX_API)
+
+static ngx_int_t ngx_api_http_limit_reqs_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_limit_reqs_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+
+
+static ngx_api_entry_t  ngx_api_http_limit_req_entries[] = {
+
+    {
+        .name      = ngx_string("passed"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_req_stats_t, passed)
+    },
+
+    {
+        .name      = ngx_string("skipped"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_req_stats_t, skipped)
+    },
+
+    {
+        .name      = ngx_string("delayed"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_req_stats_t, delayed)
+    },
+
+    {
+        .name      = ngx_string("rejected"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_req_stats_t, rejected)
+    },
+
+    {
+        .name      = ngx_string("exhausted"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_http_limit_req_stats_t, exhausted)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_limit_reqs_entry = {
+    .name      = ngx_string("limit_reqs"),
+    .handler   = ngx_api_http_limit_reqs_handler,
+};
+
+#endif
+
+
 static ngx_int_t
 ngx_http_limit_req_handler(ngx_http_request_t *r)
 {
@@ -216,6 +296,7 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
 
 #if (NGX_SUPPRESS_WARN)
     limit = NULL;
+    ctx = NULL;
 #endif
 
     for (n = 0; n < lrlcf->limits.nelts; n++) {
@@ -271,7 +352,16 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
                         lrlcf->dry_run ? ", dry run" : "",
                         excess / 1000, excess % 1000,
                         &limit->shm_zone->shm.name);
+#if (NGX_API)
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.rejected, 1);
+#endif
         }
+
+#if (NGX_API)
+        if (rc == NGX_ERROR) {
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.exhausted, 1);
+        }
+#endif
 
         ngx_http_limit_req_unlock(limits, n);
 
@@ -286,6 +376,20 @@ ngx_http_limit_req_handler(ngx_http_request_t *r)
     }
 
     /* rc == NGX_AGAIN || rc == NGX_OK */
+
+#if (NGX_API)
+
+    if (rc == NGX_OK) {
+
+        if ((ngx_uint_t) excess <= limit->delay) {
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.passed, 1);
+
+        } else {
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.delayed, 1);
+        }
+    }
+
+#endif
 
     if (rc == NGX_AGAIN) {
         excess = 0;
@@ -557,6 +661,9 @@ ngx_http_limit_req_account(ngx_http_limit_req_limit_t *limits, ngx_uint_t n,
         lr = ctx->node;
 
         if (lr == NULL) {
+#if (NGX_API)
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.skipped, 1);
+#endif
             continue;
         }
 
@@ -590,8 +697,15 @@ ngx_http_limit_req_account(ngx_http_limit_req_limit_t *limits, ngx_uint_t n,
         ctx->node = NULL;
 
         if ((ngx_uint_t) excess <= limits[n].delay) {
+#if (NGX_API)
+            (void) ngx_atomic_fetch_add(&ctx->sh->stats.passed, 1);
+#endif
             continue;
         }
+
+#if (NGX_API)
+        (void) ngx_atomic_fetch_add(&ctx->sh->stats.delayed, 1);
+#endif
 
         delay = (excess - limits[n].delay) * 1000 / ctx->rate;
 
@@ -745,6 +859,10 @@ ngx_http_limit_req_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 
     ngx_queue_init(&ctx->sh->queue);
 
+#if (NGX_API)
+    ngx_memzero(&ctx->sh->stats, sizeof(ngx_http_limit_req_stats_t));
+#endif
+
     len = sizeof(" in limit_req zone \"\"") + shm_zone->shm.name.len;
 
     ctx->shpool->log_ctx = ngx_slab_alloc(ctx->shpool, len);
@@ -777,6 +895,28 @@ ngx_http_limit_req_status_variable(ngx_http_request_t *r,
     v->data = ngx_http_limit_req_status[r->main->limit_req_status - 1].data;
 
     return NGX_OK;
+}
+
+
+static void *
+ngx_http_limit_req_create_main_conf(ngx_conf_t *cf)
+{
+    ngx_http_limit_req_main_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_limit_req_main_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * set by ngx_pcalloc():
+     *
+     *     conf->limit_reqs = NULL;
+     */
+
+    conf->limit_reqs_next_p = &conf->limit_reqs;
+
+    return conf;
 }
 
 
@@ -832,6 +972,8 @@ ngx_http_limit_req_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 static char *
 ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    ngx_http_limit_req_main_conf_t *lrmcf = conf;
+
     u_char                            *p;
     size_t                             len;
     ssize_t                            size;
@@ -955,6 +1097,11 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     shm_zone->init = ngx_http_limit_req_init_zone;
     shm_zone->data = ctx;
+
+    ctx->shm_zone = shm_zone;
+
+    *lrmcf->limit_reqs_next_p = ctx;
+    lrmcf->limit_reqs_next_p = &ctx->next;
 
     return NGX_CONF_OK;
 }
@@ -1098,5 +1245,54 @@ ngx_http_limit_req_init(ngx_conf_t *cf)
 
     *h = ngx_http_limit_req_handler;
 
+#if (NGX_API)
+    if (ngx_api_add(cf->cycle, "/status/http", &ngx_api_http_limit_reqs_entry)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+#endif
+
     return NGX_OK;
 }
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_api_http_limit_reqs_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_api_iter_ctx_t               ictx;
+    ngx_http_limit_req_main_conf_t  *lrmcf;
+
+    lrmcf = ngx_http_cycle_get_module_main_conf(ngx_cycle,
+                                                ngx_http_limit_req_module);
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_http_limit_req_entries;
+    ictx.elts = lrmcf->limit_reqs;
+
+    return ngx_api_object_iterate(ngx_api_http_limit_reqs_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_http_limit_reqs_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_http_limit_req_ctx_t  *ctx;
+
+    ctx = ictx->elts;
+
+    if (ctx == NULL) {
+        return NGX_DECLINED;
+    }
+
+    ictx->entry.name = ctx->shm_zone->shm.name;
+    ictx->ctx = &ctx->sh->stats;
+    ictx->elts = ctx->next;
+
+    return NGX_OK;
+}
+
+#endif

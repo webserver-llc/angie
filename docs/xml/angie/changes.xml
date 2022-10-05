@@ -12,14 +12,14 @@
 директива "api", реализующая HTTP RESTful интерфейс для получения в формате
 JSON базовой информации о веб-сервере, а также статистики по клиентским
 соединениям, зонам разделяемой памяти, DNS-запросам, HTTP-запросам, кэшу
-HTTP-ответов, сессиям модуля stream и зонам модулей limit_conn.
+HTTP-ответов, сессиям модуля stream и зонам модулей limit_conn/limit_req.
 </para>
 <para lang="en">
 the "api" directive, that provides HTTP RESTful interface for accessing in JSON
 format basic information about a web server instance, as well as metrics of
 client connections, shared memory zones, DNS queries, HTTP requests,
 HTTP responses cache, TCP/UDP sessions of "stream" module, and zones of
-"limit_conn" modules.
+"limit_conn/limit_req" modules.
 </para>
 </change>
 

@@ -14,6 +14,13 @@
 #include <ngx_core.h>
 #include <angie.h>
 
+/*
+ * This include is needed for compatibility with some 3-rd party nginx modules
+ * as they use defines from it, but don't include "nginx.h" directly and rely
+ * on indirect inclusion via "ngx_module.h".
+ */
+#include <nginx.h>
+
 
 #define NGX_MODULE_UNSET_INDEX  (ngx_uint_t) -1
 

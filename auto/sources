@@ -4,7 +4,8 @@
 # Copyright (C) Nginx, Inc.
 
 
-CORE_MODULES="ngx_core_module ngx_errlog_module ngx_conf_module"
+CORE_MODULES="ngx_core_module ngx_errlog_module ngx_conf_module \
+              ngx_resolver_module"
 
 CORE_INCS="src/core"
 

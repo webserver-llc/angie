@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -49,6 +50,35 @@ typedef struct {
     u_char  len_hi;
     u_char  len_lo;
 } ngx_resolver_an_t;
+
+
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t           name_qrs;
+    ngx_atomic_t           srv_qrs;
+    ngx_atomic_t           addr_qrs;
+
+    ngx_atomic_t           responses[6];
+    ngx_atomic_t           timedout_resps;
+    ngx_atomic_t           other_resps;
+} ngx_resolver_stats_t;
+
+
+struct ngx_resolver_zone_s {
+    ngx_str_t              name;
+    ngx_resolver_stats_t  *stats;
+    ngx_resolver_zone_t   *next;
+};
+
+#endif
+
+
+typedef struct {
+#if (NGX_API)
+    ngx_resolver_zone_t   *resolver_zones;
+#endif
+} ngx_resolver_conf_t;
 
 
 #define ngx_resolver_node(n)  ngx_rbtree_data(n, ngx_resolver_node_t, node)
@@ -127,6 +157,152 @@ static void ngx_resolver_rbtree_insert_addr6_value(ngx_rbtree_node_t *temp,
 static ngx_resolver_node_t *ngx_resolver_lookup_addr6(ngx_resolver_t *r,
     struct in6_addr *addr, uint32_t hash);
 #endif
+
+static void *ngx_resolver_create_conf(ngx_cycle_t *cycle);
+static char *ngx_resolver_init_conf(ngx_cycle_t *cycle, void *conf);
+
+
+#if (NGX_API)
+
+static void ngx_resolver_stats_response(ngx_resolver_stats_t *stats,
+    ngx_int_t state);
+
+static ngx_int_t ngx_resolver_set_status_zone(ngx_conf_t *cf,
+    ngx_resolver_t *r, ngx_str_t *z);
+static ngx_int_t ngx_resolver_stats_init_zone(ngx_shm_zone_t *shm_zone,
+    void *data);
+
+static ngx_int_t ngx_api_resolvers_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_resolvers_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+
+
+static ngx_api_entry_t  ngx_api_resolver_queries_entries[] = {
+
+    {
+        .name      = ngx_string("name"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, name_qrs)
+    },
+
+    {
+        .name      = ngx_string("srv"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, srv_qrs)
+    },
+
+    {
+        .name      = ngx_string("addr"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, addr_qrs)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_resolver_responses_entries[] = {
+
+    {
+        .name      = ngx_string("success"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[0])
+    },
+
+    {
+        .name      = ngx_string("timedout"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, timedout_resps)
+    },
+
+    {
+        .name      = ngx_string("format_error"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[1])
+    },
+
+    {
+        .name      = ngx_string("server_failure"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[2])
+    },
+
+    {
+        .name      = ngx_string("not_found"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[3])
+    },
+
+    {
+        .name      = ngx_string("unimplemented"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[4])
+    },
+
+    {
+        .name      = ngx_string("refused"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, responses[5])
+    },
+
+    {
+        .name      = ngx_string("other"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, other_resps)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_resolver_entries[] = {
+
+    {
+        .name      = ngx_string("queries"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_resolver_queries_entries
+    },
+
+    {
+        .name      = ngx_string("responses"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_resolver_responses_entries
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_resolvers_entry = {
+    .name      = ngx_string("resolvers"),
+    .handler   = ngx_api_resolvers_handler,
+};
+
+#endif
+
+
+static ngx_core_module_t  ngx_resolver_module_ctx = {
+    ngx_string("resolver"),
+    ngx_resolver_create_conf,
+    ngx_resolver_init_conf
+};
+
+
+ngx_module_t  ngx_resolver_module = {
+    NGX_MODULE_V1,
+    &ngx_resolver_module_ctx,              /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
 
 
 ngx_resolver_t *
@@ -255,6 +431,19 @@ ngx_resolver_create(ngx_conf_t *cf, ngx_str_t *names, ngx_uint_t n)
             } else {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "invalid parameter: %V", &names[i]);
+                return NULL;
+            }
+
+            continue;
+        }
+#endif
+
+#if (NGX_API)
+        if (ngx_strncmp(names[i].data, "status_zone=", 12) == 0) {
+            s.len = names[i].len - 12;
+            s.data = names[i].data + 12;
+
+            if (ngx_resolver_set_status_zone(cf, r, &s) != NGX_OK) {
                 return NULL;
             }
 
@@ -451,6 +640,17 @@ ngx_resolve_name(ngx_resolver_ctx_t *ctx)
         return NGX_OK;
     }
 
+#if (NGX_API)
+    if (r->resolver_zone) {
+        ngx_resolver_stats_t  *stats;
+
+        stats = r->resolver_zone->stats;
+
+        (void) ngx_atomic_fetch_add(ctx->service.len ? &stats->srv_qrs
+                                                     : &stats->name_qrs, 1);
+    }
+#endif
+
     if (ctx->service.len) {
         slen = ctx->service.len;
 
@@ -585,6 +785,12 @@ done:
     }
 
     /* unlock name mutex */
+
+#if (NGX_API)
+    if (r->resolver_zone) {
+        ngx_resolver_stats_response(r->resolver_zone->stats, ctx->state);
+    }
+#endif
 
     /* lock alloc mutex */
 
@@ -952,6 +1158,16 @@ ngx_resolve_addr(ngx_resolver_ctx_t *ctx)
 
     r = ctx->resolver;
 
+#if (NGX_API)
+    if (r->resolver_zone) {
+        ngx_resolver_stats_t  *stats;
+
+        stats = r->resolver_zone->stats;
+
+        (void) ngx_atomic_fetch_add(&stats->addr_qrs, 1);
+    }
+#endif
+
     switch (ctx->addr.sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)
@@ -1220,6 +1436,12 @@ done:
     ngx_resolver_expire(r, tree, expire_queue);
 
     /* unlock addr mutex */
+
+#if (NGX_API)
+    if (r->resolver_zone) {
+        ngx_resolver_stats_response(r->resolver_zone->stats, ctx->state);
+    }
+#endif
 
     /* lock alloc mutex */
 
@@ -4739,3 +4961,164 @@ ngx_resolver_cmp_srvs(const void *one, const void *two)
 
     return p1 - p2;
 }
+
+
+static void *
+ngx_resolver_create_conf(ngx_cycle_t *cycle)
+{
+    ngx_resolver_conf_t  *rcf;
+
+    rcf = ngx_pcalloc(cycle->pool, sizeof(ngx_resolver_conf_t));
+    if (rcf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * set by ngx_pcalloc():
+     *
+     *     rcf->resolver_zones = NULL;
+     */
+
+    return rcf;
+}
+
+
+static char *
+ngx_resolver_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+#if (NGX_API)
+    if (ngx_api_add(cycle, "/status", &ngx_api_resolvers_entry) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+#endif
+
+    return NGX_CONF_OK;
+}
+
+
+#if (NGX_API)
+
+static void
+ngx_resolver_stats_response(ngx_resolver_stats_t *stats, ngx_int_t state)
+{
+    if (state >= 0 && state < 6) {
+        (void) ngx_atomic_fetch_add(&stats->responses[state], 1);
+
+    } else if (state == NGX_RESOLVE_TIMEDOUT) {
+        (void) ngx_atomic_fetch_add(&stats->timedout_resps, 1);
+
+    } else {
+        (void) ngx_atomic_fetch_add(&stats->other_resps, 1);
+    }
+}
+
+
+static ngx_int_t
+ngx_resolver_set_status_zone(ngx_conf_t *cf, ngx_resolver_t *r, ngx_str_t *z)
+{
+    ngx_str_t              name;
+    ngx_shm_zone_t        *shm_zone;
+    ngx_resolver_conf_t   *rcf;
+    ngx_resolver_zone_t  **zonep;
+
+    rcf = (ngx_resolver_conf_t *) ngx_get_conf(cf->cycle->conf_ctx,
+                                               ngx_resolver_module);
+
+    for (zonep = &rcf->resolver_zones; *zonep; zonep = &(*zonep)->next) {
+        if ((*zonep)->name.len == z->len
+            && ngx_strncmp((*zonep)->name.data, z->data, z->len) == 0)
+        {
+            r->resolver_zone = *zonep;
+            return NGX_OK;
+        }
+    }
+
+    *zonep = ngx_pcalloc(cf->pool, sizeof(ngx_resolver_zone_t));
+    if (*zonep == NULL) {
+        return NGX_ERROR;
+    }
+
+    (*zonep)->name = *z;
+    r->resolver_zone = *zonep;
+
+    name.len = sizeof("angie_resolver_status_zone_") - 1 + z->len;
+    name.data = ngx_pnalloc(cf->pool, name.len);
+    if (name.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_sprintf(name.data, "angie_resolver_status_zone_%V", z);
+
+    shm_zone = ngx_shared_memory_add(cf, &name,
+                                     sizeof(ngx_resolver_stats_t),
+                                     &ngx_resolver_module);
+    if (shm_zone == NULL) {
+        return NGX_ERROR;
+    }
+
+    shm_zone->init = ngx_resolver_stats_init_zone;
+    shm_zone->data = *zonep;
+    shm_zone->noslab = 1;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_resolver_stats_init_zone(ngx_shm_zone_t *shm_zone, void *data)
+{
+    ngx_resolver_zone_t  *ozone = data;
+
+    ngx_resolver_zone_t  *zone;
+
+    zone = shm_zone->data;
+
+    if (ozone) {
+        zone->stats = ozone->stats;
+
+        return NGX_OK;
+    }
+
+    zone->stats = (ngx_resolver_stats_t *) shm_zone->shm.addr;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_resolvers_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_api_iter_ctx_t    ictx;
+    ngx_resolver_conf_t  *rcf;
+
+    rcf = (ngx_resolver_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx,
+                                               ngx_resolver_module);
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_resolver_entries;
+    ictx.elts = rcf->resolver_zones;
+
+    return ngx_api_object_iterate(ngx_api_resolvers_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_resolvers_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_resolver_zone_t  *zone;
+
+    zone = ictx->elts;
+
+    if (zone == NULL) {
+        return NGX_DECLINED;
+    }
+
+    ictx->entry.name = zone->name;
+    ictx->ctx = zone->stats;
+    ictx->elts = zone->next;
+
+    return NGX_OK;
+}
+
+#endif

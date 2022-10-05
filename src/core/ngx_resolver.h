@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -145,6 +146,11 @@ typedef struct {
 } ngx_resolver_node_t;
 
 
+#if (NGX_API)
+typedef struct ngx_resolver_zone_s  ngx_resolver_zone_t;
+#endif
+
+
 struct ngx_resolver_s {
     /* has to be pointer because of "incomplete type" */
     ngx_event_t              *event;
@@ -191,6 +197,10 @@ struct ngx_resolver_s {
     time_t                    valid;
 
     ngx_uint_t                log_level;
+
+#if (NGX_API)
+    ngx_resolver_zone_t      *resolver_zone;
+#endif
 };
 
 

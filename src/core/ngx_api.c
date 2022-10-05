@@ -374,6 +374,16 @@ ngx_api_struct_int_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 }
 
 
+ngx_int_t
+ngx_api_struct_atomic_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    data.num = *(ngx_atomic_uint_t *) ((u_char *) ctx + data.off);
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
 static ngx_int_t
 ngx_api_angie_address_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)

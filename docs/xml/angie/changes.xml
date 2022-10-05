@@ -11,12 +11,23 @@
 <para lang="ru">
 директива "api", реализующая HTTP RESTful интерфейс для получения в формате
 JSON базовой информации о веб-сервере, а также статистики по клиентским
-соединениям и зонам разделяемой памяти.
+соединениям, зонам разделяемой памяти и DNS-запросам.
 </para>
 <para lang="en">
 the "api" directive, that provides HTTP RESTful interface for accessing in JSON
 format basic information about a web server instance, as well as metrics of
-client connections and shared memory zones.
+client connections, shared memory zones, and DNS queries.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+параметр status_zone директивы resolver для указания зоны сбора статистики по
+DNS-запросам.
+</para>
+<para lang="en">
+the "status_zone" parameter of the "resolver" directive for specifying zone to
+collect metrics on DNS queries.
 </para>
 </change>
 

@@ -39,6 +39,9 @@ static ngx_int_t ngx_api_connections_dropped_handler(ngx_api_entry_data_t data,
 static ngx_int_t ngx_api_connections_active_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 
+ngx_int_t ngx_api_slabs_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
 
 ngx_module_t  ngx_api_module = {
     NGX_MODULE_V1,
@@ -137,6 +140,11 @@ static ngx_api_entry_t  ngx_api_status_entries[] = {
         .name      = ngx_string("connections"),
         .handler   = ngx_api_object_handler,
         .data.ents = ngx_api_connections_entries
+    },
+
+    {
+        .name      = ngx_string("slabs"),
+        .handler   = ngx_api_slabs_handler,
     },
 
     ngx_api_null_entry
@@ -353,6 +361,16 @@ ngx_api_struct_str_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     data.str = (ngx_str_t *) ((u_char *) ctx + data.off);
 
     return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+ngx_int_t
+ngx_api_struct_int_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    data.num = *(ngx_int_t *) ((u_char *) ctx + data.off);
+
+    return ngx_api_number_handler(data, actx, ctx);
 }
 
 

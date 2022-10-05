@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -80,6 +81,88 @@ static void ngx_slab_error(ngx_slab_pool_t *pool, ngx_uint_t level,
 static ngx_uint_t  ngx_slab_max_size;
 static ngx_uint_t  ngx_slab_exact_size;
 static ngx_uint_t  ngx_slab_exact_shift;
+
+
+#if (NGX_API)
+
+static ngx_int_t ngx_api_slabs_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_slab_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
+static ngx_int_t ngx_api_slab_pages_used_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_slab_slots_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_slab_slots_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_slab_slot_free_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+
+
+static ngx_api_entry_t  ngx_api_slab_pages_entries[] = {
+
+    {
+        .name      = ngx_string("used"),
+        .handler   = ngx_api_slab_pages_used_handler,
+    },
+
+    {
+        .name      = ngx_string("free"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_slab_pool_t, pfree)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_slab_slot_entries[] = {
+
+    {
+        .name      = ngx_string("used"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_slab_stat_t, used)
+    },
+
+    {
+        .name      = ngx_string("free"),
+        .handler   = ngx_api_slab_slot_free_handler,
+    },
+
+    {
+        .name      = ngx_string("reqs"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_slab_stat_t, reqs)
+    },
+
+    {
+        .name      = ngx_string("fails"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_slab_stat_t, fails)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_slab_entries[] = {
+
+    {
+        .name      = ngx_string("pages"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_slab_pages_entries
+    },
+
+    {
+        .name      = ngx_string("slots"),
+        .handler   = ngx_api_slab_slots_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+#endif
 
 
 void
@@ -815,3 +898,152 @@ ngx_slab_error(ngx_slab_pool_t *pool, ngx_uint_t level, char *text)
 {
     ngx_log_error(level, ngx_cycle->log, 0, "%s%s", text, pool->log_ctx);
 }
+
+
+#if (NGX_API)
+
+ngx_int_t
+ngx_api_slabs_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_list_part_t     part;
+    ngx_api_iter_ctx_t  ictx;
+
+    part = ngx_cycle->shared_memory.part;
+
+    ictx.entry.handler = ngx_api_slab_handler;
+    ictx.entry.data.ents = ngx_api_slab_entries;
+    ictx.elts = &part;
+
+    return ngx_api_object_iterate(ngx_api_slabs_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_slabs_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_shm_zone_t   *shm_zone;
+    ngx_list_part_t  *part;
+
+    part = ictx->elts;
+
+    for ( ;; ) {
+        if (part->nelts == 0) {
+            if (part->next == NULL) {
+                return NGX_DECLINED;
+            }
+
+            *part = *part->next;
+        }
+
+        shm_zone = part->elts;
+
+        part->elts = shm_zone + 1;
+        part->nelts--;
+
+        ictx->entry.name = shm_zone->shm.name;
+        ictx->ctx = shm_zone->shm.addr;
+
+        return NGX_OK;
+    }
+}
+
+
+static ngx_int_t
+ngx_api_slab_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_slab_pool_t *pool = ctx;
+
+    ngx_int_t  rc;
+
+    ngx_shmtx_lock(&pool->mutex);
+
+    rc = ngx_api_object_handler(data, actx, pool);
+
+    ngx_shmtx_unlock(&pool->mutex);
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_api_slab_pages_used_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_slab_pool_t *pool = ctx;
+
+    data.num = pool->last - pool->pages - pool->pfree;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_slab_slots_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_slab_pool_t *pool = ctx;
+
+    ngx_api_iter_ctx_t  ictx;
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_slab_slot_entries;
+    ictx.ctx = NULL;
+    ictx.elts = pool;
+
+    return ngx_api_object_iterate(ngx_api_slab_slots_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_slab_slots_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    size_t            size, idx;
+    ngx_str_t        *name;
+    ngx_slab_stat_t  *stat;
+    ngx_slab_pool_t  *pool;
+
+    stat = ictx->ctx;
+    pool = ictx->elts;
+    idx = stat ? stat - pool->stats + 1 : 0;
+
+    for ( ;; ) {
+        if (idx >= ngx_pagesize_shift - pool->min_shift) {
+            return NGX_DECLINED;
+        }
+
+        if (pool->stats[idx].reqs) {
+            break;
+        }
+
+        idx++;
+    }
+
+    name = &ictx->entry.name;
+
+    name->data = ngx_pnalloc(actx->pool, NGX_SIZE_T_LEN);
+    if (name->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    size = (size_t) 1 << (idx + pool->min_shift);
+
+    name->len = ngx_sprintf(name->data, "%uz", size) - name->data;
+
+    ictx->ctx = &pool->stats[idx];
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_slab_slot_free_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_slab_stat_t *s = ctx;
+
+    data.num = s->total - s->used;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+#endif

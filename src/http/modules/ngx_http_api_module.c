@@ -90,24 +90,26 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
-    ngx_memzero(&ctx, sizeof(ngx_api_ctx_t));
-
-    ctx.connection = r->connection;
-    ctx.pool = r->pool;
-    ctx.pretty = 1;
-
     len = clcf->name.len;
 
     if (len && clcf->name.data[len - 1] == '/') {
         len--;
     }
 
+    ngx_memzero(&ctx, sizeof(ngx_api_ctx_t));
+
+    ctx.connection = r->connection;
+    ctx.pool = r->pool;
     ctx.path.data = r->uri.data + len;
     ctx.path.len = r->uri.len - len;
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http api request path: \"%V\", method: %ui",
                    &ctx.path, r->method);
+
+    if (ngx_http_api_args(r, &ctx) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     if (ctx.path.len && ctx.path.data[0] != '/') {
         return ngx_http_api_error(r, &ctx, NGX_HTTP_NOT_FOUND);
@@ -123,10 +125,6 @@ ngx_http_api_handler(ngx_http_request_t *r)
         return ngx_http_api_error(r, &ctx, rc);
     }
 
-    if (ngx_http_api_args(r, &ctx) != NGX_OK) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
     return ngx_http_api_response(r, &ctx);
 }
 
@@ -138,6 +136,9 @@ ngx_http_api_args(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 
     if (ngx_http_arg(r, (u_char *) "pretty", 6, &value) == NGX_OK) {
         ctx->pretty = (value.len != 3 || ngx_memcmp(value.data, "off", 3) != 0);
+
+    } else {
+        ctx->pretty = 1;
     }
 
     return NGX_OK;

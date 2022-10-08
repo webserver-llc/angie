@@ -58,6 +58,15 @@ collect metrics on DNS queries.
 
 <change type="feature">
 <para lang="ru">
+переменная $angie_version, содержащая версию Angie.
+</para>
+<para lang="en">
+the $angie_version variable with version of Angie.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.23.1.
 </para>
 <para lang="en">

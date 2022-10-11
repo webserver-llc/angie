@@ -26,6 +26,7 @@ struct ngx_api_ctx_s {
     ngx_data_item_t            *out;
     ngx_uint_t                  pretty;
 
+    ngx_str_t                   orig_path;
     ngx_str_t                   err;
     ngx_str_t                   err_desc;
 };

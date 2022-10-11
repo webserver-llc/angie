@@ -103,6 +103,13 @@ ngx_http_api_handler(ngx_http_request_t *r)
     ctx.path.data = r->uri.data + len;
     ctx.path.len = r->uri.len - len;
 
+    if (ctx.path.len) {
+        ctx.orig_path = ctx.path;
+
+    } else {
+        ngx_str_set(&ctx.orig_path, "/");
+    }
+
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http api request path: \"%V\", method: %ui",
                    &ctx.path, r->method);
@@ -231,23 +238,38 @@ ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 static ngx_int_t
 ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 {
+    size_t                len;
     ngx_int_t             rc;
     ngx_chain_t           out;
     ngx_api_entry_data_t  data;
+    u_char                errstr[NGX_MAX_ERROR_STR];
 
     if (ctx->err.len == 0) {
         switch (status) {
 
         case NGX_HTTP_NOT_FOUND:
             ngx_str_set(&ctx->err, "PathNotFound");
-            ngx_str_set(&ctx->err_desc,
-                        "Requested path points to a non existent API element.");
+
+            len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
+                               "Requested API element \"%V\" doesn't exist.",
+                               &ctx->orig_path)
+                  - errstr;
+
+            ctx->err_desc.len = len;
+            ctx->err_desc.data = errstr;
             break;
 
         case NGX_HTTP_NOT_ALLOWED:
             ngx_str_set(&ctx->err, "MethodNotAllowed");
-            ngx_str_set(&ctx->err_desc, "Particular method not allowed for "
-                                        "the requested API path.");
+
+            len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
+                               "The %V method is not allowed for "
+                               "the requested API element \"%V\".",
+                               &r->method_name, &ctx->orig_path)
+                  - errstr;
+
+            ctx->err_desc.len = len;
+            ctx->err_desc.data = errstr;
             break;
 
         case NGX_HTTP_BAD_REQUEST:

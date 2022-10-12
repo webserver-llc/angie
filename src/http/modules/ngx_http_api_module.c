@@ -9,19 +9,26 @@
 #include <ngx_http.h>
 
 
+typedef struct {
+    ngx_http_complex_value_t  *prefix;
+} ngx_http_api_conf_t;
+
+
 static ngx_int_t ngx_http_api_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_api_args(ngx_http_request_t *r, ngx_api_ctx_t *ctx);
 static ngx_int_t ngx_http_api_response(ngx_http_request_t *r,
     ngx_api_ctx_t *ctx);
 static ngx_int_t ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
     ngx_uint_t status);
+
+static void *ngx_http_api_create_conf(ngx_conf_t *cf);
 static char *ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 static ngx_command_t  ngx_http_api_commands[] = {
 
     { ngx_string("api"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_set_api,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
@@ -41,7 +48,7 @@ static ngx_http_module_t  ngx_http_api_module_ctx = {
     NULL,                                  /* create server configuration */
     NULL,                                  /* merge server configuration */
 
-    NULL,                                  /* create location configuration */
+    ngx_http_api_create_conf,              /* create location configuration */
     NULL                                   /* merge location configuration */
 };
 
@@ -83,48 +90,113 @@ static ngx_api_entry_t  ngx_http_api_error_entries[] = {
 static ngx_int_t
 ngx_http_api_handler(ngx_http_request_t *r)
 {
-    size_t                     len;
+    u_char                    *p;
+    size_t                     skip;
+    ngx_str_t                  prefix;
     ngx_int_t                  rc;
     ngx_api_ctx_t              ctx;
+    ngx_http_api_conf_t       *acf;
     ngx_http_core_loc_conf_t  *clcf;
 
-    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+    acf = ngx_http_get_module_loc_conf(r, ngx_http_api_module);
 
-    if (r->valid_location
-        || (r->uri.len >= clcf->name.len
-            && ngx_memcmp(r->uri.data, clcf->name.data, clcf->name.len) == 0))
-    {
-        len = clcf->name.len;
-
-        if (!clcf->exact_match) {
-            len--;
-        }
-
-    } else {
-        len = 0;
+    if (ngx_http_complex_value(r, acf->prefix, &prefix) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     ngx_memzero(&ctx, sizeof(ngx_api_ctx_t));
 
     ctx.connection = r->connection;
     ctx.pool = r->pool;
-    ctx.path.data = r->uri.data + len;
-    ctx.path.len = r->uri.len - len;
 
-    if (ctx.path.len) {
-        ctx.orig_path = ctx.path;
+    if (ngx_http_api_args(r, &ctx) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
-    } else {
-        ngx_str_set(&ctx.orig_path, "/");
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+#if (NGX_PCRE)
+    if (clcf->regex) {
+        ctx.path = prefix;
+    } else
+#endif
+    {
+        if (r->valid_location
+            || (r->uri.len >= clcf->name.len
+                && ngx_memcmp(r->uri.data, clcf->name.data,
+                                           clcf->name.len) == 0))
+        {
+            skip = clcf->name.len;
+
+        } else {
+            /*
+             * The request URI has been rewritten inside location to something
+             * completely new, so we use the entire URI.
+             */
+            skip = 0;
+        }
+
+        /*
+         * We need to concatenate two paths parts: prefix and a part of URI.
+         * But there is no guarantee that prefix has ending slash or the
+         * URI part has leading slash, because prefix is interpolated from
+         * variables and URI can be rewritten to anything.  Thus we have to
+         * insert a slash in between explicitly: "prefix" + '/' + "URI".
+         *
+         * At the same time we'd like to avoid slash duplication, so before
+         * concatenation, possible additional slashes are removed from the URI
+         * part and prefix.
+         */
+
+        if (r->uri.len > skip && r->uri.data[skip] == '/') {
+            skip++;
+        }
+
+        if (r->uri.len == skip) {
+            /* The URI part is empty; use prefix as API path. */
+            ctx.path = prefix;
+
+        } else {
+            if (prefix.len && prefix.data[prefix.len - 1] == '/') {
+                prefix.len--;
+            }
+
+            if (prefix.len == 0) {
+                /* Prefix is empty; use the URI part as API path. */
+                ctx.path.len = r->uri.len - skip;
+                ctx.path.data = r->uri.data + skip;
+
+            } else {
+                ctx.path.len = prefix.len + 1 + r->uri.len - skip;
+
+                p = ngx_pnalloc(r->pool, ctx.path.len);
+                if (p == NULL) {
+                    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+                }
+
+                ctx.path.data = p;
+
+                p = ngx_cpymem(p, prefix.data, prefix.len);
+                *p++ = '/';
+                ngx_memcpy(p, r->uri.data + skip, r->uri.len - skip);
+            }
+        }
+    }
+
+    /*
+     * This is needed for consistent display of API paths in error messages.
+     * Leading slash is removed if presented, but always added on rendering.
+     */
+    if (ctx.path.len && ctx.path.data[0] == '/') {
+        ctx.path.len--;
+        ctx.path.data++;
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http api request path: \"%V\", method: %ui",
                    &ctx.path, r->method);
 
-    if (ngx_http_api_args(r, &ctx) != NGX_OK) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
+    ctx.orig_path = ctx.path;
 
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
         return ngx_http_api_error(r, &ctx, NGX_HTTP_NOT_ALLOWED);
@@ -255,7 +327,7 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
             ngx_str_set(&ctx->err, "PathNotFound");
 
             len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
-                               "Requested API element \"%V\" doesn't exist.",
+                               "Requested API element \"/%V\" doesn't exist.",
                                &ctx->orig_path)
                   - errstr;
 
@@ -268,7 +340,7 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 
             len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
                                "The %V method is not allowed for "
-                               "the requested API element \"%V\".",
+                               "the requested API element \"/%V\".",
                                &r->method_name, &ctx->orig_path)
                   - errstr;
 
@@ -334,10 +406,25 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 }
 
 
+static void *
+ngx_http_api_create_conf(ngx_conf_t *cf)
+{
+    return ngx_pcalloc(cf->pool, sizeof(ngx_http_api_conf_t));
+}
+
+
 static char *
 ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_http_core_loc_conf_t  *clcf;
+    ngx_http_api_conf_t *acf = conf;
+
+    ngx_str_t                         *value;
+    ngx_http_core_loc_conf_t          *clcf;
+    ngx_http_compile_complex_value_t   ccv;
+
+    if (acf->prefix != NULL) {
+        return "is duplicate";
+    }
 
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 
@@ -345,13 +432,10 @@ ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "cannot be used inside the named location";
     }
 
-#if (NGX_PCRE)
-    if (clcf->regex) {
-        return "cannot be used inside location given by regular expression";
-    }
-#endif
-
     if (!clcf->exact_match
+#if (NGX_PCRE)
+        && !clcf->regex
+#endif
         && (clcf->name.len == 0 || clcf->name.data[clcf->name.len - 1] != '/'))
     {
         return "cannot be used inside prefix location without slash at the end";
@@ -359,6 +443,23 @@ ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     clcf->handler = ngx_http_api_handler;
     clcf->auto_redirect = 1;
+
+    value = cf->args->elts;
+
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[1];
+    ccv.complex_value = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
+    if (ccv.complex_value == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    acf->prefix = ccv.complex_value;
 
     return NGX_CONF_OK;
 }

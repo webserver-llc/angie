@@ -92,7 +92,7 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     len = clcf->name.len;
 
-    if (len && clcf->name.data[len - 1] == '/') {
+    if (!clcf->exact_match) {
         len--;
     }
 
@@ -116,10 +116,6 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     if (ngx_http_api_args(r, &ctx) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    if (ctx.path.len && ctx.path.data[0] != '/') {
-        return ngx_http_api_error(r, &ctx, NGX_HTTP_NOT_FOUND);
     }
 
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
@@ -347,11 +343,14 @@ ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 #endif
 
-    clcf->handler = ngx_http_api_handler;
-
-    if (clcf->name.len && clcf->name.data[clcf->name.len - 1] == '/') {
-        clcf->auto_redirect = 1;
+    if (!clcf->exact_match
+        && (clcf->name.len == 0 || clcf->name.data[clcf->name.len - 1] != '/'))
+    {
+        return "cannot be used inside prefix location without slash at the end";
     }
+
+    clcf->handler = ngx_http_api_handler;
+    clcf->auto_redirect = 1;
 
     return NGX_CONF_OK;
 }

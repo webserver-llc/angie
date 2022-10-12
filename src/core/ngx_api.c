@@ -247,14 +247,21 @@ ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name)
     p = path->data;
     end = p + path->len;
 
-    if (end - p <= 1) {
-        return NGX_DECLINED;
+    for ( ;; ) {
+        if (p == end) {
+            path->len = 0;
+            return NGX_DECLINED;
+        }
+
+        if (*p != '/') {
+            break;
+        }
+
+        p++;
     }
 
-    p++; /* skip '/' */
-
     name->data = p;
-    while (p < end && *p != '/') { p++; }
+    do { p++; } while (p < end && *p != '/');
     name->len = p - name->data;
 
     path->len = end - p;

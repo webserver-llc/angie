@@ -90,10 +90,18 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
-    len = clcf->name.len;
+    if (r->valid_location
+        || (r->uri.len >= clcf->name.len
+            && ngx_memcmp(r->uri.data, clcf->name.data, clcf->name.len) == 0))
+    {
+        len = clcf->name.len;
 
-    if (!clcf->exact_match) {
-        len--;
+        if (!clcf->exact_match) {
+            len--;
+        }
+
+    } else {
+        len = 0;
     }
 
     ngx_memzero(&ctx, sizeof(ngx_api_ctx_t));

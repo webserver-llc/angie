@@ -34,8 +34,7 @@ export:
 
 
 RELEASE:
-	hg ci -m angie-$(VER)-RELEASE
-	hg tag -m "release-$(VER) tag" release-$(VER)
+	hg tag -m "Angie-$(VER) release tag." Angie-$(VER)
 
 	$(MAKE) -f misc/GNUmakefile release
 

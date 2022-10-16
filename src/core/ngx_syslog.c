@@ -63,7 +63,7 @@ ngx_syslog_process_conf(ngx_conf_t *cf, ngx_syslog_peer_t *peer)
     }
 
     if (peer->tag.data == NULL) {
-        ngx_str_set(&peer->tag, "angie");
+        ngx_str_set(&peer->tag, "Angie");
     }
 
     peer->conn.fd = (ngx_socket_t) -1;

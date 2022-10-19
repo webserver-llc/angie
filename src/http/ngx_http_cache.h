@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) Web Server LLC
+ * Copyright (C) 2022 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */

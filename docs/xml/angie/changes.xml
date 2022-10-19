@@ -67,10 +67,10 @@ the $angie_version variable with version of Angie.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.23.1.
+вся функциональность nginx 1.23.2.
 </para>
 <para lang="en">
-all functionality of nginx 1.23.1.
+all functionality of nginx 1.23.2.
 </para>
 </change>
 

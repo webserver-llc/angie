@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'long test') unless $ENV{TEST_NGINX_UNSAFE};
+plan(skip_all => 'long test') unless $ENV{TEST_ANGIE_UNSAFE};
 
 plan(skip_all => 'page size is not appropriate') unless
         POSIX::sysconf(&POSIX::_SC_PAGESIZE) == 4096;

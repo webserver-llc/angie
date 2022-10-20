@@ -173,9 +173,9 @@ like(get_syslog('/at'), qr/SEETHIS:/, 'access_log tag');
 
 
 like(get_syslog('/e'),
-	qr/nginx: \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} \[error\]/,
+	qr/Angie: \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} \[error\]/,
 	'error_log format');
-like(get_syslog('/a_logf'), qr/nginx: \/a_logf:404$/, 'access_log log_format');
+like(get_syslog('/a_logf'), qr/Angie: \/a_logf:404$/, 'access_log log_format');
 
 my @lines = split /<\d+>/, get_syslog('/a2');
 is($lines[1], $lines[2], 'access_log many');

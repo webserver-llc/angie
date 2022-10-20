@@ -362,7 +362,7 @@ $frames = $f->{http_end}(padding => 7, prio => 137, dep => 0x01020304);
 is($frame->{headers}{':status'}, '200', 'padding priority');
 
 SKIP: {
-skip 'long test', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long test', 1 unless $ENV{TEST_ANGIE_UNSAFE};
 
 $f->{http_start}('/SaySplit');
 $f->{data}('Hello');

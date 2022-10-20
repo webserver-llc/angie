@@ -126,7 +126,7 @@ like(http_get('/tries/zero'), qr/x404, 404, 404x/, 'tries zero');
 # two tries fit into 1.9s
 
 SKIP: {
-skip 'long tests', 4 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long tests', 4 unless $ENV{TEST_ANGIE_UNSAFE};
 
 like(http_get('/timeout'), qr/x404, 404x/, 'timeout');
 like(http_get('/timeout/backup'), qr/x404, 404x/, 'timeout backup');

@@ -109,8 +109,8 @@ is(lines($t, 'stderr', '[debug]'), 0, 'stderr debug in info');
 
 # multiple error_log
 
-like($t->read_file('e_glob.log'), qr!nginx/[.0-9]+!, 'error global');
-like($t->read_file('e_glob2.log'), qr!nginx/[.0-9]+!, 'error global 2');
+like($t->read_file('e_glob.log'), qr!Angie/[.0-9]+!, 'error global');
+like($t->read_file('e_glob2.log'), qr!Angie/[.0-9]+!, 'error global 2');
 is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 	'multiple error global');
 
@@ -127,7 +127,7 @@ is_deeply(levels($t, 's_stream.log'), levels($t, 'e_stream.log'),
 # error_log context
 
 SKIP: {
-skip "relies on error log contents", 5 unless $ENV{TEST_NGINX_UNSAFE};
+skip "relies on error log contents", 5 unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $msg = 'no live upstreams while connecting to upstream, '
 	. 'client: 127.0.0.1, server: 127.0.0.1:' . port(8080)

@@ -190,7 +190,7 @@ my ($p) = http_end($s) =~ /X-Port: (\d+)/;
 like($r, qr/X-Port: (?!$p)/, 'random wait');
 
 SKIP: {
-skip 'long test', 3 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long test', 3 unless $ENV{TEST_ANGIE_UNSAFE};
 
 is(parallel(8084, '/w', 3), "$port1: 1, $port2: 2", 'random weight');
 

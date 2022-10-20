@@ -452,7 +452,7 @@ is(get_json('/chunked'),
 like(http_get('/chain'), qr/200 OK.*SUCCESS$/s, 'fetch chain');
 
 TODO: {
-todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
+todo_skip 'leaves coredump', 1 unless $ENV{TEST_ANGIE_UNSAFE}
 	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.4';
 
 like(http_get('/header_iter?loc=duplicate_header_large'),

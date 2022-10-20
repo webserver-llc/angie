@@ -80,7 +80,7 @@ is(many('/', 30), "$p1: 15, $p2: 15", 'balanced');
 is(many('/close', 30), "$p1: 6, $p2: 24", 'failures');
 
 SKIP: {
-skip 'long test', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long test', 1 unless $ENV{TEST_ANGIE_UNSAFE};
 
 # bug: failures counter is reset if first request in a second succeeds
 #

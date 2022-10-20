@@ -823,7 +823,7 @@ unlike($lengths, qr/16384 0 16384/, 'SETTINGS ack after queued DATA');
 # ask write handler in sending large response
 
 SKIP: {
-skip 'unsafe socket tests', 4 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'unsafe socket tests', 4 unless $ENV{TEST_ANGIE_UNSAFE};
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/tbig.html' });

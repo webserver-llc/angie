@@ -91,15 +91,15 @@ $t->run()->plan(12);
 
 ###############################################################################
 
-my $re = qr/nginx\/\d+\.\d+\.\d+/;
+my $re = qr/Angie\/\d+\.\d+\.\d+/;
 
 like(http_get_server('/200'), $re, 'tokens default 200');
 like(http_get_server('/404'), $re, 'tokens default 404');
 like(http_body('/404'), $re, 'tokens default 404 body');
 
-is(http_get_server('/off/200'), 'nginx', 'tokens off 200');
-is(http_get_server('/off/404'), 'nginx', 'tokens off 404');
-like(http_body('/off/404'), qr/nginx(?!\/)/, 'tokens off 404 body');
+is(http_get_server('/off/200'), 'Angie', 'tokens off 200');
+is(http_get_server('/off/404'), 'Angie', 'tokens off 404');
+like(http_body('/off/404'), qr/Angie(?!\/)/, 'tokens off 404 body');
 
 like(http_get_server('/on/200'), $re, 'tokens on 200');
 like(http_get_server('/on/404'), $re, 'tokens on 404');

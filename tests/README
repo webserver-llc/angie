@@ -1,54 +1,54 @@
-Test suite for nginx.
+Test suite for Angie.
 
 Use prove to run tests as one usually do for perl tests.  Individual tests
 may be run as well.
 
-Note: tests run nginx (and backend daemons if needed) listening on localhost
+Note: tests run Angie (and backend daemons if needed) listening on localhost
 and may use various ports in 8000 .. 8999 range.
 
 Usage:
 
-    $ TEST_NGINX_BINARY=/path/to/nginx prove .
+    $ TEST_ANGIE_BINARY=/path/to/angie prove .
 
-By default tests expect nginx binary to be at ../nginx/objs/nginx.
+By default tests expect Angie binary to be at ../objs/angie.
 
 Environment variables:
 
-TEST_NGINX_BINARY
+TEST_ANGIE_BINARY
 
-    Sets path to nginx binary to be tested, defaults to "../nginx/objs/nginx".
+    Sets path to Angie binary to be tested, defaults to "../objs/angie".
 
-TEST_NGINX_MODULES
+TEST_ANGIE_MODULES
 
-    Sets path to modules directory, defaults to dirname of TEST_NGINX_BINARY.
+    Sets path to modules directory, defaults to dirname of TEST_ANGIE_BINARY.
 
-TEST_NGINX_VERBOSE
+TEST_ANGIE_VERBOSE
 
     Be a bit more verbose (in particular, print requests sent and responses
-    got from nginx).  Note that this requires prove -v (or HARNESS_VERBOSE).
+    got from Angie).  Note that this requires prove -v (or HARNESS_VERBOSE).
 
-TEST_NGINX_LEAVE
+TEST_ANGIE_LEAVE
 
     If set, temporary directory with configs and logs won't be deleted on test
     completion.  Useful for debugging.
 
-TEST_NGINX_CATLOG
+TEST_ANGIE_CATLOG
 
     Cat error log to stdout after test completion.  Useful for debugging.
 
-TEST_NGINX_UNSAFE
+TEST_ANGIE_UNSAFE
 
     Run unsafe tests.
 
-TEST_NGINX_GLOBALS
+TEST_ANGIE_GLOBALS
 
     Sets additional directives in main context.
 
-TEST_NGINX_GLOBALS_HTTP
+TEST_ANGIE_GLOBALS_HTTP
 
     Sets additional directives in http context.
 
-TEST_NGINX_GLOBALS_STREAM
+TEST_ANGIE_GLOBALS_STREAM
 
     Sets additional directives in stream context.
 

@@ -155,7 +155,7 @@ is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQQ##"), '',
 	'preread validation failed');
 
 TODO: {
-todo_skip 'leaves coredump', 3 unless $ENV{TEST_NGINX_UNSAFE}
+todo_skip 'leaves coredump', 3 unless $ENV{TEST_ANGIE_UNSAFE}
 	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
 
 my $s = stream('127.0.0.1:' . port(8082));

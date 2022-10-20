@@ -163,7 +163,7 @@ $s->write('1') for 1 .. 5;
 $b = join ' ', map { $s->read() } (1 .. 10);
 
 SKIP: {
-skip 'session could early terminate', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'session could early terminate', 1 unless $ENV{TEST_ANGIE_UNSAFE};
 
 like($b, qr/^(\d+ 1) \1 (?!\1)(\d+ 1) \2 (?!\2)\d+ 1$/, 'requests - responses');
 

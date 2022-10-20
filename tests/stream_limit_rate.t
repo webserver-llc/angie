@@ -104,7 +104,7 @@ is($r{'data'}, $str, 'exact limit');
 is($r{'data'}, $str . 'extra', 'unlimited');
 
 SKIP: {
-skip 'unsafe on VM', 3 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'unsafe on VM', 3 unless $ENV{TEST_ANGIE_UNSAFE};
 
 # if interaction between backend and client is slow then proxy can add extra
 # bytes to upload/download data

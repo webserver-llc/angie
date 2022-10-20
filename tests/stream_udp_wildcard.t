@@ -27,7 +27,7 @@ plan(skip_all => '127.0.0.2 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
 
 plan(skip_all => 'listen on wildcard address')
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/stream stream_return udp/)->plan(1)
 	->write_file_expand('nginx.conf', <<'EOF');

@@ -213,7 +213,7 @@ is($im->transparent, 0, 'gif transparent white');
 
 SKIP: {
 skip 'broken/unknown libgd', 1
-	unless has_gdversion('2.1.0') or $ENV{TEST_NGINX_UNSAFE};
+	unless has_gdversion('2.1.0') or $ENV{TEST_ANGIE_UNSAFE};
 
 $im = GD::Image->newFromGifData(http_get_body('/interlaced/gif'));
 is($im->interlaced, 1, 'gif interlaced on');
@@ -231,7 +231,7 @@ is($im->transparent, 0, 'png transparent white');
 # "Interlace handling should be turned on when using png_read_image"
 
 SKIP: {
-skip 'can wedge nginx with SIGPIPE', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'can wedge nginx with SIGPIPE', 1 unless $ENV{TEST_ANGIE_UNSAFE};
 
 $im = GD::Image->newFromPngData(http_get_body('/interlaced/png'));
 is($im->interlaced, 1, 'png interlaced on');

@@ -71,7 +71,7 @@ my $p1 = port(8081); my $p4 = port(8084); my $p7 = port(8087);
 my $p2 = port(8082); my $p5 = port(8085);
 
 plan(skip_all => 'listen on wildcard address')
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 plan(skip_all => 'no requested ranges')
 	if "$p0$p1$p2$p3$p4$p5$p6$p7" ne "80808081808280838084808580868087";

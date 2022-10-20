@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 plan(skip_all => 'may not work, leaves coredump')
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
 	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool')->plan(2);

@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 plan(skip_all => 'can leave orphaned process group')
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new(qr/http unix/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');

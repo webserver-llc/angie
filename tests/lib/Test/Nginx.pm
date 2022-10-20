@@ -1,8 +1,9 @@
 package Test::Nginx;
 
+# (C) 2022 Web Server LLC
 # (C) Maxim Dounin
 
-# Generic module for nginx tests.
+# Generic module for Angie tests.
 
 ###############################################################################
 
@@ -31,8 +32,8 @@ use Test::More qw//;
 
 ###############################################################################
 
-our $NGINX = defined $ENV{TEST_NGINX_BINARY} ? $ENV{TEST_NGINX_BINARY}
-	: '../nginx/objs/nginx';
+our $NGINX = defined $ENV{TEST_ANGIE_BINARY} ? $ENV{TEST_ANGIE_BINARY}
+	: '../objs/angie';
 our %ports = ();
 
 sub new {
@@ -43,7 +44,7 @@ sub new {
 	$self->{_alerts} = 1;
 
 	$self->{_testdir} = tempdir(
-		'nginx-test-XXXXXXXXXX',
+		'angie-test-XXXXXXXXXX',
 		TMPDIR => 1
 	)
 		or die "Can't create temp directory: $!\n";
@@ -89,10 +90,10 @@ sub DESTROY {
 		Test::More::is($errors, '', 'no sanitizer errors');
 	}
 
-	if ($ENV{TEST_NGINX_CATLOG}) {
+	if ($ENV{TEST_ANGIE_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
 	}
-	if (not $ENV{TEST_NGINX_LEAVE}) {
+	if (not $ENV{TEST_ANGIE_LEAVE}) {
 		eval { rmtree($self->{_testdir}); };
 	}
 }
@@ -218,9 +219,9 @@ sub has_module($) {
 	);
 
 	my $module = $modules{$feature};
-	if (defined $module && defined $ENV{TEST_NGINX_GLOBALS}) {
+	if (defined $module && defined $ENV{TEST_ANGIE_GLOBALS}) {
 		$re = qr/load_module\s+[^;]*\Q$module\E[-\w]*\.so\s*;/;
-		return 1 if $ENV{TEST_NGINX_GLOBALS} =~ $re;
+		return 1 if $ENV{TEST_ANGIE_GLOBALS} =~ $re;
 	}
 
 	return 0;
@@ -245,22 +246,7 @@ sub has_feature($) {
 }
 
 sub has_version($) {
-	my ($self, $need) = @_;
-
-	$self->{_configure_args} = `$NGINX -V 2>&1`
-		if !defined $self->{_configure_args};
-
-	$self->{_configure_args} =~ m!nginx version: nginx/([0-9.]+)!;
-
-	my @v = split(/\./, $1);
-	my ($n, $v);
-
-	for $n (split(/\./, $need)) {
-		$v = shift @v || 0;
-		return 0 if $n > $v;
-		return 1 if $v > $n;
-	}
-
+	# compatibility with tests merged from nginx
 	return 1;
 }
 
@@ -296,7 +282,7 @@ sub try_run($$) {
 
 	return $self unless $@;
 
-	if ($ENV{TEST_NGINX_VERBOSE}) {
+	if ($ENV{TEST_ANGIE_VERBOSE}) {
 		open F, '<', $self->{_testdir} . '/error.log'
 			or die "Can't open error.log: $!";
 		log_core($_) while (<F>);
@@ -630,8 +616,8 @@ sub test_globals() {
 	$s .= "pid $self->{_testdir}/nginx.pid;\n";
 	$s .= "error_log $self->{_testdir}/error.log debug;\n";
 
-	$s .= $ENV{TEST_NGINX_GLOBALS}
-		if $ENV{TEST_NGINX_GLOBALS};
+	$s .= $ENV{TEST_ANGIE_GLOBALS}
+		if $ENV{TEST_ANGIE_GLOBALS};
 
 	$s .= $self->test_globals_modules();
 	$s .= $self->test_globals_perl5lib() if $s !~ /env PERL5LIB/;
@@ -642,7 +628,7 @@ sub test_globals() {
 sub test_globals_modules() {
 	my ($self) = @_;
 
-	my $modules = $ENV{TEST_NGINX_MODULES};
+	my $modules = $ENV{TEST_ANGIE_MODULES};
 
 	if (!defined $modules) {
 		my ($volume, $dir) = File::Spec->splitpath($NGINX);
@@ -717,8 +703,8 @@ sub test_globals_http() {
 	$s .= "scgi_temp_path $self->{_testdir}/scgi_temp;\n"
 		if $self->has_module('scgi');
 
-	$s .= $ENV{TEST_NGINX_GLOBALS_HTTP}
-		if $ENV{TEST_NGINX_GLOBALS_HTTP};
+	$s .= $ENV{TEST_ANGIE_GLOBALS_HTTP}
+		if $ENV{TEST_ANGIE_GLOBALS_HTTP};
 
 	$self->{_test_globals_http} = $s;
 }
@@ -731,8 +717,8 @@ sub test_globals_stream() {
 
 	my $s = '';
 
-	$s .= $ENV{TEST_NGINX_GLOBALS_STREAM}
-		if $ENV{TEST_NGINX_GLOBALS_STREAM};
+	$s .= $ENV{TEST_ANGIE_GLOBALS_STREAM}
+		if $ENV{TEST_ANGIE_GLOBALS_STREAM};
 
 	$self->{_test_globals_stream} = $s;
 }
@@ -740,7 +726,7 @@ sub test_globals_stream() {
 ###############################################################################
 
 sub log_core {
-	return unless $ENV{TEST_NGINX_VERBOSE};
+	return unless $ENV{TEST_ANGIE_VERBOSE};
 	my ($prefix, $msg) = @_;
 	($prefix, $msg) = ('', $prefix) unless defined $msg;
 	$prefix .= ' ' if length($prefix) > 0;

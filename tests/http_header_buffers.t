@@ -86,7 +86,7 @@ $t->run();
 ###############################################################################
 
 TODO: {
-todo_skip 'overflow', 2 unless $ENV{TEST_NGINX_UNSAFE};
+todo_skip 'overflow', 2 unless $ENV{TEST_ANGIE_UNSAFE};
 
 # if hc->busy is allocated before the virtual server is selected,
 # and then additional buffers are allocated in a virtual server with larger

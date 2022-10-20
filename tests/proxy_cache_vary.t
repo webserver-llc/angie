@@ -128,7 +128,7 @@ like(get('/', 'foo'), qr/HIT/ms, 'vary mismatch 2 cached');
 like(get('/', 'gzip'), qr/HIT/ms, 'multiple representations cached');
 
 SKIP: {
-skip 'long tests', 6 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long tests', 6 unless $ENV{TEST_ANGIE_UNSAFE};
 
 # make sure all variants are properly expire
 # and removed after inactive timeout
@@ -149,7 +149,7 @@ like(get('/', 'deflate'), qr/MISS/ms, 'second variant removed');
 }
 
 SKIP: {
-skip 'long tests', 6 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long tests', 6 unless $ENV{TEST_ANGIE_UNSAFE};
 
 # check if the variant which was loaded first will be properly
 # removed if it's not requested (but another variant is requested

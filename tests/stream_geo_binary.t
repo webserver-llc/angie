@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'long configuration parsing') unless $ENV{TEST_NGINX_UNSAFE};
+plan(skip_all => 'long configuration parsing') unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/stream stream_return stream_geo/);
 

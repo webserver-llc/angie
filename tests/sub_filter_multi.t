@@ -357,7 +357,7 @@ like(http_get('/crossbuf/superlong/match4/huge11.html'), qr/(-A\*Z\+){1000}/,
 	'crossbuf superlong match 4 (1 byte search pattern)');
 
 SKIP: {
-skip 'long tests', 8 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long tests', 8 unless $ENV{TEST_ANGIE_UNSAFE};
 
 like(http_get('/shortbuf/match1?a=' . 'abpatternyzA' x 3),
 	qr/(\+A){3}/, 'shortbuf match 1.1');

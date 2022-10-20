@@ -122,8 +122,8 @@ is(lines($t, 'stderr', '[debug]'), 0, 'stderr debug in info');
 
 # multiple error_log
 
-like($t->read_file('e_glob.log'), qr!nginx/[.0-9]+!, 'error global');
-like($t->read_file('e_glob2.log'), qr!nginx/[.0-9]+!, 'error global 2');
+like($t->read_file('e_glob.log'), qr!Angie/[.0-9]+!, 'error global');
+like($t->read_file('e_glob2.log'), qr!Angie/[.0-9]+!, 'error global 2');
 is_deeply(levels($t, 'e_glob.log'), levels($t, 'e_glob2.log'),
 	'multiple error global');
 

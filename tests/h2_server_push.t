@@ -277,7 +277,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is(grep({ $_->{type} eq "PUSH_PROMISE" } @$frames), 0, 'max pushes disabled');
 
 TODO: {
-todo_skip 'long tests with aio', 6 unless $ENV{TEST_NGINX_UNSAFE}
+todo_skip 'long tests with aio', 6 unless $ENV{TEST_ANGIE_UNSAFE}
 	or $t->read_file('nginx.conf') !~ /aio (on|threads)/;
 local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio (on|threads)/;
 
@@ -323,7 +323,7 @@ is($frame->{flags}, 1, 'pushed response END_STREAM');
 ok(!$frame, 'rst pushed stream');
 
 TODO: {
-todo_skip 'long tests with aio', 2 unless $ENV{TEST_NGINX_UNSAFE}
+todo_skip 'long tests with aio', 2 unless $ENV{TEST_ANGIE_UNSAFE}
 	or $t->read_file('nginx.conf') !~ /aio (on|threads)/;
 local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio (on|threads)/;
 

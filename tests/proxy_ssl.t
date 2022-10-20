@@ -113,7 +113,7 @@ like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused');
 like(http_get('/ssl_reuse'), qr/200 OK.*X-Session: r/s, 'ssl session reused 2');
 
 SKIP: {
-skip 'long test', 1 unless $ENV{TEST_NGINX_UNSAFE};
+skip 'long test', 1 unless $ENV{TEST_ANGIE_UNSAFE};
 
 like(http_get('/timeout'), qr/200 OK/, 'proxy connect timeout');
 

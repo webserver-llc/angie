@@ -69,7 +69,7 @@ unlike(http_head('/'), qr/SEE-THIS/, 'no data in cached HEAD');
 
 SKIP: {
 skip 'broken with header crossing buffer boundary', 2
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 like(http_get('/stderr'), qr/SEE-THIS.*^2$/ms, 'large stderr handled');
 like(http_get('/stderr'), qr/SEE-THIS.*^2$/ms, 'large stderr cached');

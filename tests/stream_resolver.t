@@ -105,7 +105,7 @@ ok(stream('127.0.0.1:' . port(8086))->read(), 'resolved tries zero');
 $t->stop();
 
 SKIP: {
-skip "relies on error log contents", 2 unless $ENV{TEST_NGINX_UNSAFE};
+skip "relies on error log contents", 2 unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $log = `grep -F '[error]' ${\($t->testdir())}/error.log`;
 like($log, qr/no port in upstream "a.example.com"/, 'log - no port');

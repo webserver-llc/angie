@@ -37,7 +37,7 @@ static u_char *ngx_json_string_encode(u_char *p, u_char *start, size_t length);
     ((p)[0] = '\r', (p)[1] = '\n', (p) + 2)
 
 
-ngx_inline u_char *
+static ngx_inline u_char *
 ngx_json_indentation(u_char *p, uint32_t level)
 {
     while (level) {

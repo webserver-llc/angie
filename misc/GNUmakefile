@@ -13,15 +13,6 @@ PCRE =		pcre2-10.39
 
 release: export
 
-	mv $(TEMP)/$(ANGIE)/auto/configure $(TEMP)/$(ANGIE)
-
-	mv $(TEMP)/$(ANGIE)/docs/text/LICENSE $(TEMP)/$(ANGIE)
-	mv $(TEMP)/$(ANGIE)/docs/text/README $(TEMP)/$(ANGIE)
-	mv $(TEMP)/$(ANGIE)/docs/html $(TEMP)/$(ANGIE)
-	mv $(TEMP)/$(ANGIE)/docs/man $(TEMP)/$(ANGIE)
-
-	$(MAKE) -f docs/GNUmakefile changes
-
 	rm -r $(TEMP)/$(ANGIE)/docs
 	rm -r $(TEMP)/$(ANGIE)/misc
 

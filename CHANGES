@@ -1,0 +1,23 @@
+
+Changes with Angie 1.0.0                                         27 Oct 2022
+
+    *) Feature: the "api" directive, that provides HTTP RESTful interface
+       for accessing in JSON format basic information about a web server
+       instance, as well as metrics of client connections, shared memory
+       zones, DNS queries, HTTP requests, HTTP responses cache, TCP/UDP
+       sessions of "stream" module, and zones of "limit_conn/limit_req"
+       modules.
+
+    *) Feature: the "status_zone" directive in "http" module for specifying
+       zone to collect request metrics in "server" and "location" contexts.
+
+    *) Feature: the "status_zone" directive in "stream" module for
+       specifying zone to collect TCP/UDP session metrics.
+
+    *) Feature: the "status_zone" parameter of the "resolver" directive for
+       specifying zone to collect metrics on DNS queries.
+
+    *) Feature: the $angie_version variable with version of Angie.
+
+    *) Feature: all functionality of nginx 1.23.2.
+

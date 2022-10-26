@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http access rewrite/)->plan(15)
+my $t = Test::Nginx->new()->has(qw/http access rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -79,6 +79,9 @@ http {
 
 EOF
 
+plan(skip_all => 'not yet') unless $t->has_version('1.23.2');
+$t->plan(15);
+
 $t->run();
 
 ###############################################################################
@@ -113,9 +116,6 @@ my $tlv = $p . pack("CnN2n2N21nN2nN2nN4", 0x11, 134, 0xc0000201, 0xc0000202,
 	0xae000531, 0x32333435);
 my $r;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.2');
-
 $r = pp_get('/t1', $tlv);
 like($r, qr/X-ALPN: ALPN1-ALPN1\x0d/, 'ALPN - tlv named variable');
 like($r, qr/X-AUTHORITY: localhost-localhost\x0d/,
@@ -138,8 +138,6 @@ like($r, qr/X-TLV-CRC32C: 43210\x0d/, 'CRC32C - tlv numeric variable');
 like($r, qr/X-TLV-CUSTOM: 12345\x0d/,
 	'custom - tlv numeric variable');
 like($r, qr/X-TLV-X: -\x0d/, 'non-existent - tlv numeric variable');
-
-}
 
 ###############################################################################
 

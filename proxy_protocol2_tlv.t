@@ -80,11 +80,7 @@ http {
 EOF
 
 $t->write_file('t1', 'SEE-THIS');
-
-plan(skip_all => 'not yet') unless $t->has_version('1.23.2');
-$t->plan(15);
-
-$t->run();
+$t->try_run('no proxy_protocol tlv')->plan(15);
 
 ###############################################################################
 

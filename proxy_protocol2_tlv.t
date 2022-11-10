@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http map rewrite/)
+my $t = Test::Nginx->new()->has(qw/http map/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -73,11 +73,13 @@ http {
         listen       127.0.0.1:8080 proxy_protocol;
         server_name  localhost;
 
-        location / { return 200; }
+        location / { }
     }
 }
 
 EOF
+
+$t->write_file('t1', 'SEE-THIS');
 
 plan(skip_all => 'not yet') unless $t->has_version('1.23.2');
 $t->plan(15);

@@ -23,6 +23,11 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+eval { require IO::Socket::SSL; };
+plan(skip_all => 'IO::Socket::SSL not installed') if $@;
+eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
+plan(skip_all => 'IO::Socket::SSL too old') if $@;
+
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite stream stream_return/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -57,6 +62,18 @@ http {
         location /loc {
             return 200 "You are at default.example.com.";
         }
+
+        location /success {
+            return 200;
+        }
+
+        location /fail {
+            return 403;
+        }
+
+        location /backend {
+            return 200 "BACKEND OK";
+        }
     }
 
     server {
@@ -76,7 +93,6 @@ stream {
     %%TEST_GLOBALS_STREAM%%
 
     js_import   test.js;
-    js_preread  test.preread;
     js_var      $message;
 
     resolver  127.0.0.1:%%PORT_8981_UDP%%;
@@ -84,11 +100,13 @@ stream {
 
     server {
         listen  127.0.0.1:8082;
+        js_preread  test.preread;
         return  "default CA $message";
     }
 
     server {
         listen  127.0.0.1:8083;
+        js_preread  test.preread;
         return  "my CA $message";
 
         js_fetch_ciphers HIGH:!aNull:!MD5;
@@ -98,10 +116,37 @@ stream {
 
     server {
         listen  127.0.0.1:8084;
+        js_preread  test.preread;
         return  "my CA with verify_depth=0 $message";
 
         js_fetch_verify_depth 0;
         js_fetch_trusted_certificate myca.crt;
+    }
+
+    server {
+        listen  127.0.0.1:8085;
+
+        js_access test.access_ok;
+        ssl_preread on;
+
+        js_fetch_ciphers HIGH:!aNull:!MD5;
+        js_fetch_protocols TLSv1.1 TLSv1.2;
+        js_fetch_trusted_certificate myca.crt;
+
+        proxy_pass 127.0.0.1:8081;
+    }
+
+    server {
+        listen  127.0.0.1:8086;
+
+        js_access test.access_nok;
+        ssl_preread on;
+
+        js_fetch_ciphers HIGH:!aNull:!MD5;
+        js_fetch_protocols TLSv1.1 TLSv1.2;
+        js_fetch_trusted_certificate myca.crt;
+
+        proxy_pass 127.0.0.1:8081;
     }
 }
 
@@ -137,7 +182,21 @@ $t->write_file('test.js', <<EOF);
         });
     }
 
-    export default {njs: test_njs, preread};
+    async function access_ok(s) {
+        let r = await ngx.fetch('https://default.example.com:$p1/success',
+                                {body: s.remoteAddress});
+
+        (r.status == 200) ? s.allow(): s.deny();
+    }
+
+    async function access_nok(s) {
+        let r = await ngx.fetch('https://default.example.com:$p1/fail',
+                                {body: s.remoteAddress});
+
+        (r.status == 200) ? s.allow(): s.deny();
+    }
+
+    export default {njs: test_njs, preread, access_ok, access_nok};
 EOF
 
 my $d = $t->testdir();
@@ -204,7 +263,7 @@ foreach my $name ('default.example.com', '1.example.com') {
 		. $t->read_file('intermediate.crt'));
 }
 
-$t->try_run('no njs.fetch')->plan(4);
+$t->try_run('no njs.fetch')->plan(6);
 
 $t->run_daemon(\&dns_daemon, port(8981), $t);
 $t->waitforfile($t->testdir . '/' . port(8981));
@@ -222,6 +281,56 @@ like(stream("127.0.0.1:$p3")->io('GOlocalhost'),
 	qr/connect failed/s, 'stream wrong CN');
 like(stream("127.0.0.1:$p4")->io('GOdefaul.example.com'),
 	qr/connect failed/s, 'stream verify_depth too small');
+
+like(https_get('default.example.com', port(8085), '/backend'),
+	qr!BACKEND OK!, 'access https fetch');
+is(https_get('default.example.com', port(8086), '/backend'), '<conn failed>',
+	'access https fetch not');
+
+###############################################################################
+
+sub get_ssl_socket {
+	my ($host, $port) = @_;
+	my $s;
+
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(8);
+		$s = IO::Socket::SSL->new(
+			Proto => 'tcp',
+			PeerAddr => '127.0.0.1:' . $port,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+			SSL_error_trap => sub { die $_[1] }
+		);
+
+		alarm(0);
+	};
+
+	alarm(0);
+
+	if ($@) {
+		log_in("died: $@");
+		return undef;
+	}
+
+	return $s;
+}
+
+sub https_get {
+	my ($host, $port, $url) = @_;
+	my $s = get_ssl_socket($host, $port);
+
+	if (!$s) {
+		return '<conn failed>';
+	}
+
+	return http(<<EOF, socket => $s);
+GET $url HTTP/1.0
+Host: $host
+
+EOF
+}
 
 ###############################################################################
 

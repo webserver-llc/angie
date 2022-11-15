@@ -54,6 +54,14 @@ http {
         location /validate {
             js_content test.validate;
         }
+
+        location /success {
+            return 200;
+        }
+
+        location /fail {
+            return 403;
+        }
     }
 }
 
@@ -72,6 +80,18 @@ stream {
         listen      127.0.0.1:8082;
         js_filter   test.filter_verify;
         proxy_pass  127.0.0.1:8091;
+    }
+
+    server {
+        listen      127.0.0.1:8083;
+        js_access   test.access_ok;
+        proxy_pass  127.0.0.1:8090;
+    }
+
+    server {
+        listen      127.0.0.1:8084;
+        js_access   test.access_nok;
+        proxy_pass  127.0.0.1:8090;
     }
 }
 
@@ -132,10 +152,25 @@ $t->write_file('test.js', <<EOF);
         });
     }
 
-    export default {njs: test_njs, validate, preread_verify, filter_verify};
+    async function access_ok(s) {
+        let reply = await ngx.fetch('http://127.0.0.1:$p/success',
+                                    {headers: {Host:'aaa'}});
+
+        (reply.status == 200) ? s.allow(): s.deny();
+    }
+
+    async function access_nok(s) {
+        let reply = await ngx.fetch('http://127.0.0.1:$p/fail',
+                                    {headers: {Host:'aaa'}});
+
+        (reply.status == 200) ? s.allow(): s.deny();
+    }
+
+    export default {njs: test_njs, validate, preread_verify, filter_verify,
+                    access_ok, access_nok};
 EOF
 
-$t->try_run('no stream njs available')->plan(7);
+$t->try_run('no stream njs available')->plan(9);
 
 $t->run_daemon(\&stream_daemon, port(8090), port(8091));
 $t->waitforsocket('127.0.0.1:' . port(8090));
@@ -166,6 +201,9 @@ is(stream('127.0.0.1:' . port(8082))->io("\xAB\xCDQQ##"), '',
 	'filter validation failed');
 
 }
+
+is(stream('127.0.0.1:' . port(8083))->io('ABC'), 'ABC', 'access fetch ok');
+is(stream('127.0.0.1:' . port(8084))->io('ABC'), '', 'access fetch nok');
 
 ###############################################################################
 

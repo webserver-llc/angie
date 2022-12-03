@@ -178,9 +178,6 @@ $t->waitforsocket('127.0.0.1:' . port(8091));
 
 ###############################################################################
 
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.1';
-
 is(stream('127.0.0.1:' . port(8081))->io('###'), '', 'preread not enough');
 is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQZ##"), "\xAB\xCDQZ##",
 	'preread validated');

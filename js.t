@@ -284,10 +284,6 @@ like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
 like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 like(http_get('/type?path=variables.host'), qr/200 OK.*type: string$/s,
 	'variables type');
 like(http_get('/type?path=rawVariables.host'), qr/200 OK.*type: buffer$/s,
@@ -299,8 +295,6 @@ like(http_post('/type?path=requestBuffer'), qr/200 OK.*type: buffer$/s,
 	'requestBuffer type');
 like(http_post('/request_body_cache'),
 	qr/requestText:string requestBuffer:buffer$/s, 'request body cache');
-
-}
 
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');

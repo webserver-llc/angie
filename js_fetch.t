@@ -453,7 +453,7 @@ like(http_get('/chain'), qr/200 OK.*SUCCESS$/s, 'fetch chain');
 
 TODO: {
 todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
-	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.4';
+	or has_version('0.7.4');
 
 like(http_get('/header_iter?loc=duplicate_header_large'),
 	qr/\['A:a','B:a','C:a','D:a','E:a','F:a','G:a','H:a','Foo:a,b']$/s,
@@ -462,8 +462,7 @@ like(http_get('/header_iter?loc=duplicate_header_large'),
 }
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+local $TODO = 'not yet' unless has_version('0.7.7');
 
 like(http_get('/body_special?loc=no_content_length'),
 	qr/200 OK.*CONTENT-BODY$/s, 'fetch body without content-length');
@@ -473,14 +472,32 @@ like(http_get('/body_special?loc=no_content_length/parted'),
 }
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.8';
+local $TODO = 'not yet' unless has_version('0.7.8');
 
 like(http_get('/body_special?loc=head&method=HEAD'),
 	qr/200 OK.*<empty>$/s, 'fetch head method');
 like(http_get('/body_special?loc=length&method=head'),
 	qr/200 OK.*<empty>$/s, 'fetch head method lower case');
 
+}
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

@@ -301,8 +301,7 @@ like(http_get('/global'), qr/global=njs/, 'global code');
 like(http_get('/log'), qr/200 OK/, 'r.log');
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+local $TODO = 'not yet' unless has_version('0.7.7');
 
 like(http_get('/internal'), qr/parent: false sub: true/, 'r.internal');
 
@@ -321,6 +320,25 @@ ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
 	'js_set backtrace');
 ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,
 	'js_content backtrace');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

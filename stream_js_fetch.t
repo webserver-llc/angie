@@ -188,7 +188,7 @@ is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQQ##"), '',
 
 TODO: {
 todo_skip 'leaves coredump', 3 unless $ENV{TEST_NGINX_UNSAFE}
-	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+	or has_version('0.7.7');
 
 my $s = stream('127.0.0.1:' . port(8082));
 is($s->io("\xAB\xCDQZ##", read => 1), '##', 'filter validated');
@@ -201,6 +201,25 @@ is(stream('127.0.0.1:' . port(8082))->io("\xAB\xCDQQ##"), '',
 
 is(stream('127.0.0.1:' . port(8083))->io('ABC'), 'ABC', 'access fetch ok');
 is(stream('127.0.0.1:' . port(8084))->io('ABC'), '', 'access fetch nok');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

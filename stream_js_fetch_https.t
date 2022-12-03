@@ -270,8 +270,7 @@ $t->waitforfile($t->testdir . '/' . port(8981));
 
 ###############################################################################
 
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.0';
+local $TODO = 'not yet' unless has_version('0.7.0');
 
 like(stream("127.0.0.1:$p2")->io('GOdefault.example.com'),
 	qr/connect failed/s, 'stream non trusted CA');
@@ -286,6 +285,25 @@ like(https_get('default.example.com', port(8085), '/backend'),
 	qr!BACKEND OK!, 'access https fetch');
 is(https_get('default.example.com', port(8086), '/backend'), '<conn failed>',
 	'access https fetch not');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

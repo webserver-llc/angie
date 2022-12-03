@@ -95,10 +95,28 @@ $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
 
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.9';
+local $TODO = 'not yet' unless has_version('0.7.9');
 
 is(stream('127.0.0.1:' . port(8081))->io('ABC'), 'ABC', 'access fetch ok');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

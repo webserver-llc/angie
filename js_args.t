@@ -116,9 +116,7 @@ sub get_json {
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-    unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.6';
+local $TODO = 'not yet' unless has_version('0.7.6');
 
 like(http_get('/iter?foo=12345&foo2=bar&nn=22&foo-3=z'), qr/12345barz/,
 	'r.args iteration');
@@ -146,6 +144,24 @@ is(get_json('/object?a=%62%63&b=%63%64'), '{"a":"bc","b":"cd"}',
 is(get_json('/object?a=%6&b=%&c=%%&d=%zz'),
 	'{"a":"%6","b":"%","c":"%%","d":"%zz"}',
 	'values percent-encoded broken object');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

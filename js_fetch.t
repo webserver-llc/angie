@@ -89,11 +89,6 @@ http {
         location /property {
             js_content test.property;
         }
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  aaa;
 
         location /loc {
             js_content test.loc;
@@ -103,17 +98,8 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080;
-        server_name  bbb;
-
-        location /loc {
-            js_content test.loc;
-        }
-    }
-
-    server {
         listen       127.0.0.1:8081;
-        server_name  ccc;
+        server_name  localhost;
 
         location /loc {
             js_content test.loc;
@@ -150,14 +136,14 @@ $t->write_file('test.js', <<EOF);
             return JSON.stringify(retval);
         }
 
-        ngx.fetch(`http://127.0.0.1:$p0/\${loc}`, {headers: {Host: 'aaa'}})
+        ngx.fetch(`http://127.0.0.1:$p0/\${loc}`)
         .then(reply => reply[getter]())
         .then(data => r.return(200, query(data)))
         .catch(e => r.return(501, e.message))
     }
 
     function property(r) {
-        var opts = {headers:{Host: 'aaa'}};
+        var opts = {headers:{}};
 
         if (r.args.code) {
             opts.headers.code = r.args.code;
@@ -218,8 +204,8 @@ $t->write_file('test.js', <<EOF);
     function chain(r) {
         var results = [];
         var reqs = [
-             ['http://127.0.0.1:$p0/loc', {headers: {Host:'aaa'}}],
-             ['http://127.0.0.1:$p0/loc', {headers: {Host:'bbb'}}],
+             ['http://127.0.0.1:$p0/loc'],
+             ['http://127.0.0.1:$p1/loc'],
            ];
 
            function next(reply) {
@@ -317,16 +303,16 @@ $t->write_file('test.js', <<EOF);
         var tests = [
              [
               'http://127.0.0.1:$p0/loc',
-               { headers: {Code: 201, Host: 'aaa'}},
+               { headers: {Code: 201}},
              ],
              [
               'http://127.0.0.1:$p0/loc',
-               { method:'POST', headers: {Code: 401, Host: 'bbb'}, body: 'OK'},
+               { method:'POST', headers: {Code: 401}, body: 'OK'},
              ],
              [
               'http://127.0.0.1:$p1/loc',
                { method:'PATCH',
-                 headers: {foo:undefined, bar:'xxx', Host: 'ccc'}},
+                 headers: {bar:'xxx'}},
              ],
            ];
 
@@ -366,10 +352,9 @@ $t->write_file('test.js', <<EOF);
     function loc(r) {
         var v = r.variables;
         var body = str(r.requestText);
-        var foo = str(r.headersIn.foo);
         var bar = str(r.headersIn.bar);
         var c = r.headersIn.code ? Number(r.headersIn.code) : 200;
-        r.return(c, `\${v.host}:\${v.request_method}:\${foo}:\${bar}:\${body}`);
+        r.return(c, `\${v.request_method}:\${bar}:\${body}`);
     }
 
      export default {njs: test_njs, body, broken, broken_response, body_special,
@@ -383,9 +368,9 @@ $t->waitforsocket('127.0.0.1:' . port(8082));
 
 ###############################################################################
 
-like(http_get('/body?getter=arrayBuffer&loc=loc'), qr/200 OK.*"aaa:GET:::"$/s,
+like(http_get('/body?getter=arrayBuffer&loc=loc'), qr/200 OK.*"GET::"$/s,
 	'fetch body arrayBuffer');
-like(http_get('/body?getter=text&loc=loc'), qr/200 OK.*"aaa:GET:::"$/s,
+like(http_get('/body?getter=text&loc=loc'), qr/200 OK.*"GET::"$/s,
 	'fetch body text');
 like(http_get('/body?getter=json&loc=json&path=b.c'),
 	qr/200 OK.*"FIELD"$/s, 'fetch body json');
@@ -428,9 +413,9 @@ like(http_get('/header?loc=duplicate_header&h=buz&method=has'),
 like(http_get('/header?loc=chunked/big&h=BAR&readBody=1'), qr/200 OK.*xxx$/s,
 	'fetch chunked header');
 is(get_json('/multi'),
-	'[{"b":"aaa:GET:::","c":201,"u":"http://127.0.0.1:'.$p0.'/loc"},' .
-	'{"b":"bbb:POST:::OK","c":401,"u":"http://127.0.0.1:'.$p0.'/loc"},' .
-	'{"b":"ccc:PATCH::xxx:","c":200,"u":"http://127.0.0.1:'.$p1.'/loc"}]',
+	'[{"b":"GET::","c":201,"u":"http://127.0.0.1:'.$p0.'/loc"},' .
+	'{"b":"PATCH:xxx:","c":200,"u":"http://127.0.0.1:'.$p1.'/loc"},' .
+	'{"b":"POST::OK","c":401,"u":"http://127.0.0.1:'.$p0.'/loc"}]',
 	'fetch multi');
 like(http_get('/multi?throw=1'), qr/500/s, 'fetch destructor');
 is(get_json('/broken'),

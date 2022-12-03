@@ -45,11 +45,6 @@ http {
         location /njs {
             js_content test.njs;
         }
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  aaa;
 
         location /validate {
             js_content test.validate;
@@ -118,8 +113,7 @@ $t->write_file('test.js', <<EOF);
                 s.off('upstream');
 
                 let reply = await ngx.fetch('http://127.0.0.1:$p/validate',
-                                            {body: collect.slice(2,4),
-                                             headers: {Host:'aaa'}});
+                                            {body: collect.slice(2,4)});
 
                 (reply.status == 200) ? s.done(): s.deny();
 
@@ -139,8 +133,7 @@ $t->write_file('test.js', <<EOF);
                 s.off('upstream');
 
                 let reply = await ngx.fetch('http://127.0.0.1:$p/validate',
-                                            {body: collect.slice(2,4),
-                                             headers: {Host:'aaa'}});
+                                            {body: collect.slice(2,4)});
 
                 if (reply.status == 200) {
                     s.send(collect.slice(4), flags);
@@ -153,15 +146,13 @@ $t->write_file('test.js', <<EOF);
     }
 
     async function access_ok(s) {
-        let reply = await ngx.fetch('http://127.0.0.1:$p/success',
-                                    {headers: {Host:'aaa'}});
+        let reply = await ngx.fetch('http://127.0.0.1:$p/success');
 
         (reply.status == 200) ? s.allow(): s.deny();
     }
 
     async function access_nok(s) {
-        let reply = await ngx.fetch('http://127.0.0.1:$p/fail',
-                                    {headers: {Host:'aaa'}});
+        let reply = await ngx.fetch('http://127.0.0.1:$p/fail');
 
         (reply.status == 200) ? s.allow(): s.deny();
     }

@@ -57,11 +57,6 @@ http {
         location /njs {
             js_content test.njs;
         }
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  aaa;
 
         location /success {
             return 200;
@@ -79,8 +74,7 @@ $t->write_file('test.js', <<EOF);
     }
 
     async function access_ok(s) {
-        let reply = await ngx.fetch('http://127.0.0.1:$p/success',
-                                    {headers: {Host:'aaa'}});
+        let reply = await ngx.fetch('http://127.0.0.1:$p/success');
 
         (reply.status == 200) ? s.allow(): s.deny();
     }

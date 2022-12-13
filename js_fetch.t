@@ -421,7 +421,7 @@ like(http_get('/header?loc=duplicate_header&h=BAR'), qr/200 OK.*c$/s,
 	'fetch header');
 like(http_get('/header?loc=duplicate_header&h=BARR'), qr/200 OK.*null$/s,
 	'fetch no header');
-like(http_get('/header?loc=duplicate_header&h=foo'), qr/200 OK.*a,b$/s,
+like(http_get('/header?loc=duplicate_header&h=foo'), qr/200 OK.*a, ?b$/s,
 	'fetch header duplicate');
 like(http_get('/header?loc=duplicate_header&h=BAR&method=getAll'),
 	qr/200 OK.*\['c']$/s, 'fetch getAll header');
@@ -452,7 +452,7 @@ todo_skip 'leaves coredump', 1 unless $ENV{TEST_NGINX_UNSAFE}
 	or has_version('0.7.4');
 
 like(http_get('/header_iter?loc=duplicate_header_large'),
-	qr/\['A:a','B:a','C:a','D:a','E:a','F:a','G:a','H:a','Foo:a,b']$/s,
+	qr/\['A:a','B:a','C:a','D:a','E:a','F:a','G:a','H:a','Moo:a, ?b']$/s,
 	'fetch header duplicate large');
 
 }
@@ -579,8 +579,8 @@ sub http_daemon {
 				"F: a" . CRLF .
 				"G: a" . CRLF .
 				"H: a" . CRLF .
-				"Foo: a" . CRLF .
-				"Foo: b" . CRLF .
+				"Moo: a" . CRLF .
+				"Moo: b" . CRLF .
 				"Connection: close" . CRLF .
 				CRLF;
 

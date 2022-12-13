@@ -70,8 +70,12 @@ http {
             js_content test.chain;
         }
 
-        location /chunked {
-            js_content test.chunked;
+        location /chunked_ok {
+            js_content test.chunked_ok;
+        }
+
+        location /chunked_fail {
+            js_content test.chunked_fail;
         }
 
         location /header {
@@ -222,14 +226,11 @@ $t->write_file('test.js', <<EOF);
            next();
     }
 
-    function chunked(r) {
+    function chunked_ok(r) {
         var results = [];
         var tests = [
-            ['http://127.0.0.1:$p2/big', {max_response_body_size:128000}],
             ['http://127.0.0.1:$p2/big/ok', {max_response_body_size:128000}],
-            ['http://127.0.0.1:$p2/chunked'],
             ['http://127.0.0.1:$p2/chunked/ok'],
-            ['http://127.0.0.1:$p2/chunked/big', {max_response_body_size:128}],
             ['http://127.0.0.1:$p2/chunked/big'],
         ];
 
@@ -237,8 +238,7 @@ $t->write_file('test.js', <<EOF);
             results.push(v);
 
             if (results.length == tests.length) {
-                results.sort();
-                r.return(200, JSON.stringify(results));
+                r.return(200);
             }
         }
 
@@ -246,6 +246,28 @@ $t->write_file('test.js', <<EOF);
             ngx.fetch.apply(r, args)
             .then(reply => reply.text())
             .then(body => collect(body.length))
+        })
+    }
+
+    function chunked_fail(r) {
+        var results = [];
+        var tests = [
+            ['http://127.0.0.1:$p2/big', {max_response_body_size:128000}],
+            ['http://127.0.0.1:$p2/chunked'],
+            ['http://127.0.0.1:$p2/chunked/big', {max_response_body_size:128}],
+        ];
+
+        function collect(v) {
+            results.push(v);
+
+            if (results.length == tests.length) {
+                r.return(200);
+            }
+        }
+
+        tests.forEach(args => {
+            ngx.fetch.apply(r, args)
+            .then(reply => reply.text())
             .catch(e => collect(e.message))
         })
     }
@@ -358,10 +380,11 @@ $t->write_file('test.js', <<EOF);
     }
 
      export default {njs: test_njs, body, broken, broken_response, body_special,
-                     chain, chunked, header, header_iter, multi, loc, property};
+                     chain, chunked_ok, chunked_fail, header, header_iter,
+                     multi, loc, property};
 EOF
 
-$t->try_run('no njs.fetch')->plan(33);
+$t->try_run('no njs.fetch')->plan(34);
 
 $t->run_daemon(\&http_daemon, port(8082));
 $t->waitforsocket('127.0.0.1:' . port(8082));
@@ -418,22 +441,10 @@ is(get_json('/multi'),
 	'{"b":"POST::OK","c":401,"u":"http://127.0.0.1:'.$p0.'/loc"}]',
 	'fetch multi');
 like(http_get('/multi?throw=1'), qr/500/s, 'fetch destructor');
-is(get_json('/broken'),
-	'[' .
-	'"connect failed",' .
-	'"failed to convert url arg",' .
-	'"invalid url"]', 'fetch broken');
-is(get_json('/broken_response'),
-	'["invalid fetch content length",' .
-	'"invalid fetch header",' .
-	'"invalid fetch status line",' .
-	'"prematurely closed connection",' .
-	'"prematurely closed connection"]', 'fetch broken response');
-is(get_json('/chunked'),
-	'[10,100010,25500,' .
-	'"invalid fetch chunked response",' .
-	'"prematurely closed connection",' .
-	'"very large fetch chunked response"]', 'fetch chunked');
+like(http_get('/broken'), qr/200/s, 'fetch broken');
+like(http_get('/broken_response'), qr/200/s, 'fetch broken response');
+like(http_get('/chunked_ok'), qr/200/s, 'fetch chunked ok');
+like(http_get('/chunked_fail'), qr/200/s, 'fetch chunked fail');
 like(http_get('/chain'), qr/200 OK.*SUCCESS$/s, 'fetch chain');
 
 TODO: {

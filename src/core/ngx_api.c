@@ -249,6 +249,7 @@ ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name)
 
     for ( ;; ) {
         if (p == end) {
+            ngx_str_null(name);
             path->len = 0;
             return NGX_DECLINED;
         }

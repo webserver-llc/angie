@@ -8,8 +8,8 @@
 #define _ANGIE_H_INCLUDED_
 
 
-#define angie_version      1000000
-#define ANGIE_VERSION      "1.0.0"
+#define angie_version      1001000
+#define ANGIE_VERSION      "1.1.0"
 #define ANGIE_VER          "Angie/" ANGIE_VERSION
 
 #ifdef NGX_BUILD

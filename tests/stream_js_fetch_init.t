@@ -3,7 +3,7 @@
 # (C) Dmitry Volyntsev
 # (C) Nginx, Inc.
 
-# Tests for stream njs module, exit hook.
+# Tests for stream njs module, Response prototype reinitialization.
 
 ###############################################################################
 
@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http stream/)
+my $t = Test::Nginx->new()->has(qw/http rewrite stream/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -31,6 +31,18 @@ my $t = Test::Nginx->new()->has(qw/http stream/)
 daemon off;
 
 events {
+}
+
+stream {
+    %%TEST_GLOBALS_STREAM%%
+
+    js_import test.js;
+
+    server {
+        listen      127.0.0.1:8081;
+        js_access   test.access_ok;
+        proxy_pass  127.0.0.1:8090;
+    }
 }
 
 http {
@@ -45,73 +57,60 @@ http {
         location /njs {
             js_content test.njs;
         }
-    }
-}
 
-stream {
-    %%TEST_GLOBALS_STREAM%%
-
-    js_import test.js;
-
-    server {
-        listen      127.0.0.1:8081;
-        js_access   test.access;
-        js_filter   test.filter;
-        proxy_pass  127.0.0.1:8090;
-    }
-
-    server {
-        listen      127.0.0.1:8082;
-        js_access   test.access;
-        proxy_pass  127.0.0.1:1;
+        location /success {
+            return 200;
+        }
     }
 }
 
 EOF
+
+my $p = port(8080);
 
 $t->write_file('test.js', <<EOF);
     function test_njs(r) {
         r.return(200, njs.version);
     }
 
-    function access(s) {
-        njs.on('exit', () => {
-            var v = s.variables;
-            var c = `\${v.bytes_received}/\${v.bytes_sent}`;
-            var u = `\${v.upstream_bytes_received}/\${v.upstream_bytes_sent}`;
-            s.error(`s:\${s.status} C: \${c} U: \${u}`);
-        });
+    async function access_ok(s) {
+        let reply = await ngx.fetch('http://127.0.0.1:$p/success');
 
-        s.allow();
+        (reply.status == 200) ? s.allow(): s.deny();
     }
 
-    function filter(s) {
-        s.on('upload', (data, flags) => {
-            s.send(`@\${data}`, flags);
-        });
-
-        s.on('download', (data, flags) => {
-            s.send(data.slice(2), flags);
-        });
-    }
-
-    export default {njs: test_njs, access, filter};
+    export default {njs: test_njs, access_ok};
 EOF
 
-$t->try_run('no stream njs available')->plan(2);
+$t->try_run('no stream njs available')->plan(1);
 
 $t->run_daemon(\&stream_daemon, port(8090));
 $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
 
-stream('127.0.0.1:' . port(8081))->io('###');
-stream('127.0.0.1:' . port(8082))->io('###');
+local $TODO = 'not yet' unless has_version('0.7.9');
 
-$t->stop();
+is(stream('127.0.0.1:' . port(8081))->io('ABC'), 'ABC', 'access fetch ok');
 
-ok(index($t->read_file('error.log'), 's:200 C: 3/6 U: 8/4') > 0, 'normal');
-ok(index($t->read_file('error.log'), 's:502 C: 0/0 U: 0/0') > 0, 'failed conn');
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 
@@ -134,8 +133,6 @@ sub stream_daemon {
 		$client->sysread(my $buffer, 65536) or next;
 
 		log2i("$client $buffer");
-
-		$buffer = $buffer . $buffer;
 
 		log2o("$client $buffer");
 

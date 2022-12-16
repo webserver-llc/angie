@@ -284,10 +284,6 @@ like(http_get('/return_method?c=301&t=path'), qr/ 301 .*Location: path/s,
 like(http_get('/return_method?c=404'), qr/404 Not.*html/s, 'return error page');
 like(http_get('/return_method?c=inv'), qr/ 500 /, 'return invalid');
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 like(http_get('/type?path=variables.host'), qr/200 OK.*type: string$/s,
 	'variables type');
 like(http_get('/type?path=rawVariables.host'), qr/200 OK.*type: buffer$/s,
@@ -300,15 +296,12 @@ like(http_post('/type?path=requestBuffer'), qr/200 OK.*type: buffer$/s,
 like(http_post('/request_body_cache'),
 	qr/requestText:string requestBuffer:buffer$/s, 'request body cache');
 
-}
-
 like(http_get('/var'), qr/variable=127.0.0.1/, 'r.variables');
 like(http_get('/global'), qr/global=njs/, 'global code');
 like(http_get('/log'), qr/200 OK/, 'r.log');
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+local $TODO = 'not yet' unless has_version('0.7.7');
 
 like(http_get('/internal'), qr/parent: false sub: true/, 'r.internal');
 
@@ -327,6 +320,25 @@ ok(index($t->read_file('error.log'), 'at fs.readFileSync') > 0,
 	'js_set backtrace');
 ok(index($t->read_file('error.log'), 'at JSON.parse') > 0,
 	'js_content backtrace');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

@@ -83,10 +83,6 @@ $t->try_run('no njs ngx')->plan(4);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 is(stream('127.0.0.1:' . port(8081))->read(), 'OK', 'log var');
 
 $t->stop();
@@ -94,7 +90,5 @@ $t->stop();
 like($t->read_file('error.log'), qr/\[info\].*ngx.log:FOO/, 'ngx.log info');
 like($t->read_file('error.log'), qr/\[warn\].*ngx.log:BAR/, 'ngx.log warn');
 like($t->read_file('error.log'), qr/\[error\].*ngx.log:BAZ/, 'ngx.log err');
-
-}
 
 ###############################################################################

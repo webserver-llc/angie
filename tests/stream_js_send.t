@@ -128,18 +128,31 @@ $t->waitforsocket('127.0.0.1:' . port(8090));
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.8';
-
 is(stream('127.0.0.1:' . port(8081))->io('abc'), 'ABC',
 	'async filter');;
 is(stream('127.0.0.1:' . port(8082))->io('abc'), 'xxxABC',
 	'async filter direct');
 
-}
-
 $t->stop();
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

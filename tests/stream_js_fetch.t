@@ -45,14 +45,17 @@ http {
         location /njs {
             js_content test.njs;
         }
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  aaa;
 
         location /validate {
             js_content test.validate;
+        }
+
+        location /success {
+            return 200;
+        }
+
+        location /fail {
+            return 403;
         }
     }
 }
@@ -72,6 +75,18 @@ stream {
         listen      127.0.0.1:8082;
         js_filter   test.filter_verify;
         proxy_pass  127.0.0.1:8091;
+    }
+
+    server {
+        listen      127.0.0.1:8083;
+        js_access   test.access_ok;
+        proxy_pass  127.0.0.1:8090;
+    }
+
+    server {
+        listen      127.0.0.1:8084;
+        js_access   test.access_nok;
+        proxy_pass  127.0.0.1:8090;
     }
 }
 
@@ -98,8 +113,7 @@ $t->write_file('test.js', <<EOF);
                 s.off('upstream');
 
                 let reply = await ngx.fetch('http://127.0.0.1:$p/validate',
-                                            {body: collect.slice(2,4),
-                                             headers: {Host:'aaa'}});
+                                            {body: collect.slice(2,4)});
 
                 (reply.status == 200) ? s.done(): s.deny();
 
@@ -119,8 +133,7 @@ $t->write_file('test.js', <<EOF);
                 s.off('upstream');
 
                 let reply = await ngx.fetch('http://127.0.0.1:$p/validate',
-                                            {body: collect.slice(2,4),
-                                             headers: {Host:'aaa'}});
+                                            {body: collect.slice(2,4)});
 
                 if (reply.status == 200) {
                     s.send(collect.slice(4), flags);
@@ -132,19 +145,29 @@ $t->write_file('test.js', <<EOF);
         });
     }
 
-    export default {njs: test_njs, validate, preread_verify, filter_verify};
+    async function access_ok(s) {
+        let reply = await ngx.fetch('http://127.0.0.1:$p/success');
+
+        (reply.status == 200) ? s.allow(): s.deny();
+    }
+
+    async function access_nok(s) {
+        let reply = await ngx.fetch('http://127.0.0.1:$p/fail');
+
+        (reply.status == 200) ? s.allow(): s.deny();
+    }
+
+    export default {njs: test_njs, validate, preread_verify, filter_verify,
+                    access_ok, access_nok};
 EOF
 
-$t->try_run('no stream njs available')->plan(7);
+$t->try_run('no stream njs available')->plan(9);
 
 $t->run_daemon(\&stream_daemon, port(8090), port(8091));
 $t->waitforsocket('127.0.0.1:' . port(8090));
 $t->waitforsocket('127.0.0.1:' . port(8091));
 
 ###############################################################################
-
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.1';
 
 is(stream('127.0.0.1:' . port(8081))->io('###'), '', 'preread not enough');
 is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQZ##"), "\xAB\xCDQZ##",
@@ -156,7 +179,7 @@ is(stream('127.0.0.1:' . port(8081))->io("\xAB\xCDQQ##"), '',
 
 TODO: {
 todo_skip 'leaves coredump', 3 unless $ENV{TEST_ANGIE_UNSAFE}
-	or http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.7';
+	or has_version('0.7.7');
 
 my $s = stream('127.0.0.1:' . port(8082));
 is($s->io("\xAB\xCDQZ##", read => 1), '##', 'filter validated');
@@ -165,6 +188,28 @@ is($s->io("@@", read => 1), '@@', 'filter off');
 is(stream('127.0.0.1:' . port(8082))->io("\xAB\xCDQQ##"), '',
 	'filter validation failed');
 
+}
+
+is(stream('127.0.0.1:' . port(8083))->io('ABC'), 'ABC', 'access fetch ok');
+is(stream('127.0.0.1:' . port(8084))->io('ABC'), '', 'access fetch nok');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

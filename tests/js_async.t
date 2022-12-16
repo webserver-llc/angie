@@ -211,8 +211,7 @@ like(http_get('/shared_ctx?a=xxx'), qr/H: xxx/, 'shared context');
 like(http_get('/limit_rate'), qr/A{50}/, 'limit_rate');
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.0';
+local $TODO = 'not yet' unless has_version('0.7.0');
 
 like(http_get('/async_content'), qr/retval: AB/, 'async content');
 like(http_get('/set_rv_var'), qr/retval: 30/, 'set return value variable');
@@ -227,5 +226,24 @@ ok(index($t->read_file('error.log'), 'pending events') > 0,
    'pending js events');
 ok(index($t->read_file('error.log'), 'async operation inside') > 0,
    'async op in var handler');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################

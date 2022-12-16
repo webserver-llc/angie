@@ -190,8 +190,7 @@ $t->waitforfile($t->testdir . '/' . port(8981));
 
 ###############################################################################
 
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.0';
+local $TODO = 'not yet' unless has_version('0.7.0');
 
 like(http_get('/https?domain=default.example.com&verify=false'),
 	qr/You are at default.example.com.$/s, 'fetch https');
@@ -207,6 +206,25 @@ like(http_get('/https?domain=default.example.com'),
 	qr/connect failed/s, 'fetch https non trusted CA');
 like(http_get('/https.myca.short?domain=default.example.com'),
 	qr/connect failed/s, 'fetch https CA too far');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

@@ -159,10 +159,6 @@ $t->try_run('no njs ngx')->plan(5);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.5.0';
-
 is(stream('127.0.0.1:' . port(8081))->read(), 'buffer', 'var type');
 is(stream('127.0.0.1:' . port(8082))->read(), 'true', 'binary var');
 
@@ -177,6 +173,5 @@ ok(index($t->read_file('error.log'), 'cb_mismatch:mixing string and buffer')
    > 0, 'cb mismatch');
 ok(index($t->read_file('error.log'), 'cb_mismatch2:mixing string and buffer')
    > 0, 'cb mismatch');
-}
 
 ###############################################################################

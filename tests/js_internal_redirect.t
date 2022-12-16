@@ -100,13 +100,31 @@ like(http_get('/test?a=A'), qr/redirectA/s, 'redirect with args');
 like(http_get('/test?dest=named'), qr/named/s, 'redirect to named location');
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.4';
+local $TODO = 'not yet' unless has_version('0.7.4');
 
 like(http_get('/test?unsafe=1'), qr/500 Internal Server/s,
 	'unsafe redirect');
 like(http_get('/test?quoted=1'), qr/200 .*redirect/s,
 	'quoted redirect');
+}
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

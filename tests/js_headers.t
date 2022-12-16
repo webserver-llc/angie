@@ -531,8 +531,7 @@ like(http(
 ), qr/a,b,c/, 'r.headersOut sorted keys');
 
 TODO: {
-local $TODO = 'not yet'
-	unless http_get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.6';
+local $TODO = 'not yet' unless has_version('0.7.6');
 
 like(http_get('/hdr_out_special_set'), qr/CE: abc/,
 	'r.headerOut special set');
@@ -545,6 +544,25 @@ like(http_get('/copy_subrequest_hdrs'),
 	qr/Content-Type: ct.*Content-Encoding: ce.*Content-Length: 3/s,
 	'subrequest copy special');
 
+}
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	http_get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
 }
 
 ###############################################################################

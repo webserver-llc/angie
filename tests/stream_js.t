@@ -416,8 +416,7 @@ stream('127.0.0.1:' . port(8098))->io('x');
 stream('127.0.0.1:' . port(8099))->io('x');
 
 TODO: {
-local $TODO = 'not yet'
-	unless get('/njs') =~ /^([.0-9]+)$/m && $1 ge '0.7.0';
+local $TODO = 'not yet' unless has_version('0.7.0');
 
 is(stream('127.0.0.1:' . port(8100))->read(), 'retval: 30', 'asyncf');
 
@@ -435,6 +434,25 @@ my @p = (port(8087), port(8088), port(8089));
 like($t->read_file('status.log'), qr/$p[0]:200/, 'status undecided');
 like($t->read_file('status.log'), qr/$p[1]:200/, 'status allow');
 like($t->read_file('status.log'), qr/$p[2]:403/, 'status deny');
+
+###############################################################################
+
+sub has_version {
+	my $need = shift;
+
+	get('/njs') =~ /^([.0-9]+)$/m;
+
+	my @v = split(/\./, $1);
+	my ($n, $v);
+
+	for $n (split(/\./, $need)) {
+		$v = shift @v || 0;
+		return 0 if $n > $v;
+		return 1 if $v > $n;
+	}
+
+	return 1;
+}
 
 ###############################################################################
 

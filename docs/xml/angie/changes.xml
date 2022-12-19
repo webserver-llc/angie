@@ -9,6 +9,15 @@
 
 <change type="feature">
 <para lang="ru">
+autoindex выводит листинги директорий в естественном порядке.
+</para>
+<para lang="en">
+autoindex uses natural sorting order for directory listings.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.23.3.
 </para>
 <para lang="en">

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2022 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -954,6 +955,9 @@ ngx_http_autoindex_cmp_entries(const void *one, const void *two)
     ngx_http_autoindex_entry_t *first = (ngx_http_autoindex_entry_t *) one;
     ngx_http_autoindex_entry_t *second = (ngx_http_autoindex_entry_t *) two;
 
+    u_char      c1, c2, *p1, *p2;
+    ngx_uint_t  nums, frac, bias;
+
     if (first->dir && !second->dir) {
         /* move the directories to the start */
         return -1;
@@ -964,7 +968,89 @@ ngx_http_autoindex_cmp_entries(const void *one, const void *two)
         return 1;
     }
 
-    return (int) ngx_strcmp(first->name.data, second->name.data);
+    /*
+     * Here is a variation of "natural sorting" algorithm.  It splits strings
+     * comparison on numeric and nonnumeric segments.  The nonnumeric segments
+     * compared like normal strings, while the numeric segments are divided
+     * into two types:
+     *
+     * 1) If any number starts with 0, then it considered as a fraction and
+     * comparison continues the usual way, till the first mismatching character.
+     *
+     *   1.01 < 1.011 < 1.02 < 1.1
+     *
+     * 2) If numeric segments don't start with 0, then the longest number
+     * considered as a bigger one and in order to find which one is longer
+     * it checks till the first nonnumeric character (or string end: '\0').
+     * In case both numbers have equal lengths, it preserves which one has
+     * bigger value (if any).
+     *
+     *   1 < 3 < 11 < 21
+     */
+
+    p1 = first->name.data;
+    p2 = second->name.data;
+
+    for ( ;; ) {
+        c1 = *p1 - '0';
+        c2 = *p2 - '0';
+
+        /* values below '0' become >= 208 */
+        if (c1 <= 9 && c2 <= 9) {
+            frac = (c1 == 0 || c2 == 0);
+            bias = 0;
+
+            for ( ;; ) {
+                if (!bias) {
+                    bias = c1 - c2;
+
+                    if (bias && frac) {
+                        return bias;
+                    }
+                }
+
+                p1++;
+                p2++;
+
+                c1 = *p1 - '0';
+                c2 = *p2 - '0';
+
+                nums = (c1 <= 9) + (c2 <= 9);
+
+                if (nums < 2) {
+                    if (nums == 0) {
+                        break;
+                    }
+
+                    /* shortest number pops up */
+                    return c2 - c1;
+                }
+            }
+
+            if (bias) {
+                return bias;
+            }
+        }
+
+        c1 = *p1;
+        c2 = *p2;
+
+#if (NGX_HAVE_CASELESS_FILESYSTEM)
+        c1 = tolower(c1);
+        c2 = tolower(c2);
+#endif
+
+        if (c1 != c2) {
+            return c1 - c2;
+        }
+
+        if (c1 == '\0') {
+            return 0;
+        }
+
+        p1++;
+        p2++;
+    }
 }
 
 

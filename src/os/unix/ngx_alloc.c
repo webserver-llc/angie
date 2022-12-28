@@ -62,10 +62,10 @@ ngx_realloc(void *p, size_t size, ngx_log_t *log)
     rp = realloc(p, size);
     if (rp == NULL) {
         ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
-                      "realloc(%p, %uz) failed", ptr, size);
+                      "realloc(%0uXi, %uz) failed", ptr, size);
     }
 
-    ngx_log_debug3(NGX_LOG_DEBUG_ALLOC, log, 0, "realloc: %p:%uz (prev: %p)",
+    ngx_log_debug3(NGX_LOG_DEBUG_ALLOC, log, 0, "realloc: %p:%uz (prev: %0uXi)",
                    rp, size, ptr);
 
     return rp;

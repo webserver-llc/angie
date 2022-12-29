@@ -16,3 +16,14 @@ configuration without major changes.
 -----------------------------------------------
 `Changes <CHANGES>`_
 --------------------
+
+Compiling Angie from source
+===========================
+
+.. sourcecode:: shell
+
+    git clone https://github.com/webserver-llc/angie.git
+    cd angie
+    ./configure
+    make
+    make install

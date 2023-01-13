@@ -27,7 +27,7 @@ eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
 plan(skip_all => 'CryptX version >= 0.067 required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 proxy rewrite/)
-	->has_daemon('openssl')->plan(66)
+	->has_daemon('openssl')->plan(68)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -109,6 +109,13 @@ http {
 
         ignore_invalid_headers off;
         add_header X-Sent-Foo $http_x_foo always;
+    }
+
+    server {
+        listen       127.0.0.1:%%PORT_8988_UDP%% quic;
+        server_name  localhost;
+
+        client_header_timeout 1s;
     }
 }
 
@@ -853,6 +860,25 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'invalid path control');
+
+# stream blocked on insert count
+
+$s = Test::Nginx::HTTP3->new();
+$sid = $s->new_stream({ ric => 3 });
+select undef, undef, undef, 0.2;
+
+$s->reset_stream($sid, 0x010c);
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, '400', 'blocked insert reset - bad request');
+
+$s = Test::Nginx::HTTP3->new(8988);
+$sid = $s->new_stream({ ric => 3 });
+$frames = $s->read(all => [{ type => 'RESET_STREAM' }]);
+
+($frame) = grep { $_->{type} eq "RESET_STREAM" } @$frames;
+is($frame->{sid}, $sid, 'blocked insert timeout - RESET_STREAM');
 
 ###############################################################################
 

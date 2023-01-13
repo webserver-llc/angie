@@ -419,7 +419,7 @@ sub new_stream {
 	# encoded field section prefix
 
 	my $table = $self->{dynamic_encode};
-	my $ric = scalar @$table ? scalar @$table + 1 : 0;
+	my $ric = $uri->{ric} ? $uri->{ric} : @$table ? @$table + 1 : 0;
 	my $base = $uri->{base} || 0;
 	$base = $base < 0 ? 0x80 + abs($base) - 1 : $base;
 	$input = pack("CC", $ric, $base) . $input;

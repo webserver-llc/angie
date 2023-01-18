@@ -165,6 +165,11 @@ sub handshake {
 
 	# tls13_advance_key_schedule
 
+	my $psk = pre_shared_key($extens);
+	$self->{psk} = (defined $psk && $self->{psk_list}[$psk]) || undef;
+	$self->{es_prk} = Crypt::KeyDerivation::hkdf_extract(
+		$self->{psk}->{secret} || pack("x32"), pack("x32"), 'SHA256');
+
 	$self->{hs_prk} = hkdf_advance($shared_secret, $self->{es_prk});
 	Test::Nginx::log_core('||', "hs = " . unpack("H*", $self->{hs_prk}));
 
@@ -1802,6 +1807,21 @@ sub early_data {
 		}
 		$offset += 4 + $len;
 	}
+}
+
+sub pre_shared_key {
+	my ($extens) = @_;
+	my $offset = 0;
+	while ($offset < length($extens)) {
+		my $ext = substr($extens, $offset, 2);
+		my $len = unpack("C", substr($extens, $offset + 2, 1)) * 8 +
+			unpack("C", substr($extens, $offset + 3, 1));
+		if ($ext eq "\x00\x29") {
+			return unpack("n", substr($extens, $offset + 4, $len));
+		}
+		$offset += 4 + $len;
+	}
+	return;
 }
 
 ###############################################################################

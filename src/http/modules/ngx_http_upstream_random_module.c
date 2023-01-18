@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -285,6 +286,11 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
+#if (NGX_API)
+    peer->stats.requests++;
+    peer->stats.selected = now;
+#endif
+
     ngx_http_upstream_rr_peer_unlock(peers, peer);
     ngx_http_upstream_rr_peers_unlock(peers);
 
@@ -395,6 +401,11 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
+#if (NGX_API)
+    peer->stats.requests++;
+    peer->stats.selected = now;
+#endif
+
     ngx_http_upstream_rr_peers_unlock(peers);
 
     rrp->tried[n] |= m;
@@ -467,6 +478,7 @@ ngx_http_upstream_random(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     uscf->peer.init_upstream = ngx_http_upstream_init_random;
 
     uscf->flags = NGX_HTTP_UPSTREAM_CREATE
+                  |NGX_HTTP_UPSTREAM_CONF
                   |NGX_HTTP_UPSTREAM_WEIGHT
                   |NGX_HTTP_UPSTREAM_MAX_CONNS
                   |NGX_HTTP_UPSTREAM_MAX_FAILS

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -272,6 +273,11 @@ ngx_http_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
     if (now - peer->checked > peer->fail_timeout) {
         peer->checked = now;
     }
+
+#if (NGX_API)
+    peer->stats.requests++;
+    peer->stats.selected = now;
+#endif
 
     ngx_http_upstream_rr_peer_unlock(hp->rrp.peers, peer);
     ngx_http_upstream_rr_peers_unlock(hp->rrp.peers);
@@ -608,6 +614,11 @@ found:
         best->checked = now;
     }
 
+#if (NGX_API)
+    best->stats.requests++;
+    best->stats.selected = now;
+#endif
+
     ngx_http_upstream_rr_peers_unlock(hp->rrp.peers);
 
     n = best_i / (8 * sizeof(uintptr_t));
@@ -664,6 +675,7 @@ ngx_http_upstream_hash(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     uscf->flags = NGX_HTTP_UPSTREAM_CREATE
+                  |NGX_HTTP_UPSTREAM_CONF
                   |NGX_HTTP_UPSTREAM_WEIGHT
                   |NGX_HTTP_UPSTREAM_MAX_CONNS
                   |NGX_HTTP_UPSTREAM_MAX_FAILS

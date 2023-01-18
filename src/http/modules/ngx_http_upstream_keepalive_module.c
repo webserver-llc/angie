@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Maxim Dounin
  * Copyright (C) Nginx, Inc.
  */
@@ -33,6 +34,10 @@ typedef struct {
 
     socklen_t                          socklen;
     ngx_sockaddr_t                     sockaddr;
+
+#if (NGX_API)
+    ngx_http_upstream_rr_peers_t      *rr_peers;
+#endif
 
 } ngx_http_upstream_keepalive_cache_t;
 
@@ -271,6 +276,13 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
             ngx_queue_remove(q);
             ngx_queue_insert_head(&kp->conf->free, q);
 
+#if (NGX_API)
+            if (item->rr_peers) {
+                (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive,
+                                            -1);
+            }
+#endif
+
             goto found;
         }
     }
@@ -367,6 +379,12 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
         ngx_http_upstream_keepalive_close(item->connection);
 
+#if (NGX_API)
+        if (item->rr_peers) {
+            (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, -1);
+        }
+#endif
+
     } else {
         q = ngx_queue_head(&kp->conf->free);
         ngx_queue_remove(q);
@@ -376,7 +394,16 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     ngx_queue_insert_head(&kp->conf->cache, q);
 
+#if (NGX_API)
+    if (u->upstream && (u->upstream->flags & NGX_HTTP_UPSTREAM_CONF)) {
+        item->rr_peers = u->upstream->peer.data;
+        (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, 1);
+    }
+#endif
+
     item->connection = c;
+
+    kp->original_free_peer(pc, kp->data, state);
 
     pc->connection = NULL;
 
@@ -403,6 +430,8 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     if (c->read->ready) {
         ngx_http_upstream_keepalive_close_handler(c->read);
     }
+
+    return;
 
 invalid:
 
@@ -458,6 +487,12 @@ close:
 
     ngx_queue_remove(&item->queue);
     ngx_queue_insert_head(&conf->free, &item->queue);
+
+#if (NGX_API)
+    if (item->rr_peers) {
+        (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, -1);
+    }
+#endif
 }
 
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -14,7 +15,32 @@
 #include <ngx_http.h>
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_uint_t  keepalive;
+} ngx_http_upstream_stats_t;
+
+
+typedef struct {
+    uint64_t                        requests;
+    uint64_t                        fails;
+    uint64_t                        unavailable;
+    uint64_t                        responses[501];
+    uint64_t                        sent;
+    uint64_t                        received;
+    time_t                          selected;
+
+    uint64_t                        downtime;
+    uint64_t                        downstart;
+} ngx_http_upstream_peer_stats_t;
+
+#endif
+
+
 typedef struct ngx_http_upstream_rr_peer_s   ngx_http_upstream_rr_peer_t;
+typedef struct ngx_http_upstream_rr_peers_s  ngx_http_upstream_rr_peers_t;
+
 
 struct ngx_http_upstream_rr_peer_s {
     struct sockaddr                *sockaddr;
@@ -51,12 +77,14 @@ struct ngx_http_upstream_rr_peer_s {
 
     ngx_http_upstream_rr_peer_t    *next;
 
+#if (NGX_API)
+    ngx_http_upstream_peer_stats_t  stats;
+#endif
+
     NGX_COMPAT_BEGIN(32)
     NGX_COMPAT_END
 };
 
-
-typedef struct ngx_http_upstream_rr_peers_s  ngx_http_upstream_rr_peers_t;
 
 struct ngx_http_upstream_rr_peers_s {
     ngx_uint_t                      number;
@@ -78,6 +106,10 @@ struct ngx_http_upstream_rr_peers_s {
     ngx_http_upstream_rr_peers_t   *next;
 
     ngx_http_upstream_rr_peer_t    *peer;
+
+#if (NGX_API)
+    ngx_http_upstream_stats_t       stats;
+#endif
 };
 
 

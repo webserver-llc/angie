@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+детальная информация и метрики по группам проксируемых HTTP-серверов в
+интерфейсе статистики, предоставляемом директивой "api".
+</para>
+<para lang="en">
+detailed information and metrics for the groups of HTTP upstream servers
+in the statistics interface provided by the "api" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 autoindex выводит листинги директорий в естественном порядке.
 </para>
 <para lang="en">

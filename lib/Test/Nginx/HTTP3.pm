@@ -1940,6 +1940,7 @@ sub read_stream_message {
 		return @data if $#data;
 		return if scalar @{$self->{frames_in}};
 
+again:
 		my $txt;
 
 		if (!length($self->{buf})) {
@@ -1955,7 +1956,10 @@ sub read_stream_message {
 		while ($self->{buf}) {
 			($level, $plaintext, $self->{buf}, $self->{token})
 				= $self->decrypt_aead($self->{buf});
-			return if !defined $plaintext;
+			if (!defined $plaintext) {
+				$self->{buf} = '';
+				goto again;
+			}
 			goto retry if $self->{token};
 			$self->handle_frames(parse_frames($plaintext), $level);
 			@data = $self->parse_stream();

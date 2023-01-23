@@ -20,6 +20,8 @@ static ngx_int_t ngx_http_api_response(ngx_http_request_t *r,
     ngx_api_ctx_t *ctx);
 static ngx_int_t ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
     ngx_uint_t status);
+static ngx_int_t ngx_http_api_output(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
+    ngx_uint_t status);
 
 static void *ngx_http_api_create_conf(ngx_conf_t *cf);
 static char *ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -232,7 +234,6 @@ static ngx_int_t
 ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 {
     ngx_int_t         rc;
-    ngx_chain_t       out;
     ngx_api_entry_t  *entry;
     ngx_table_elt_t  *expires, *cc;
 
@@ -259,11 +260,6 @@ ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 
     /* NGX_OK */
 
-    ngx_str_set(&r->headers_out.content_type, "application/json");
-
-    r->headers_out.content_type_len = r->headers_out.content_type.len;
-    r->headers_out.content_type_lowcase = NULL;
-
     expires = ngx_list_push(&r->headers_out.headers);
     if (expires == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -288,26 +284,7 @@ ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
     r->headers_out.cache_control = cc;
     cc->next = NULL;
 
-    out.buf = ngx_json_render(r->pool, ctx->out, ctx->pretty);
-    if (out.buf == NULL) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = out.buf->last - out.buf->pos;
-
-    rc = ngx_http_send_header(r);
-
-    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
-        return rc;
-    }
-
-    out.buf->last_buf = (r == r->main) ? 1 : 0;
-    out.buf->last_in_chain = 1;
-
-    out.next = NULL;
-
-    return ngx_http_output_filter(r, &out);
+    return ngx_http_api_output(r, ctx, NGX_HTTP_OK);
 }
 
 
@@ -316,7 +293,6 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 {
     size_t                len;
     ngx_int_t             rc;
-    ngx_chain_t           out;
     ngx_api_entry_data_t  data;
     u_char                errstr[NGX_MAX_ERROR_STR];
 
@@ -372,6 +348,23 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
         return status;
     }
 
+    r->expect_tested = 1;
+
+    if (ngx_http_discard_request_body(r) != NGX_OK) {
+        r->keepalive = 0;
+    }
+
+    return ngx_http_api_output(r, ctx, status);
+}
+
+
+static ngx_int_t
+ngx_http_api_output(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
+    ngx_uint_t status)
+{
+    ngx_int_t    rc;
+    ngx_chain_t  out;
+
     ngx_str_set(&r->headers_out.content_type, "application/json");
 
     r->headers_out.content_type_len = r->headers_out.content_type.len;
@@ -380,12 +373,6 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
     out.buf = ngx_json_render(r->pool, ctx->out, ctx->pretty);
     if (out.buf == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    r->expect_tested = 1;
-
-    if (ngx_http_discard_request_body(r) != NGX_OK) {
-        r->keepalive = 0;
     }
 
     r->headers_out.status = status;

@@ -1,4 +1,27 @@
 
+Changes with Angie 1.1.0                                         24 Jan 2023
+
+    *) Feature: the "resolve" option of the "server" directive in the HTTP
+       module "upstream" block, that allows to monitor changes to the list
+       of IP addresses corresponding to a domain name, and automatically
+       update it without the need of reloading configuration.
+
+    *) Feature: the "service" option of the "server" directive in the HTTP
+       module "upstream" block, that allows to retrieve lists of addresses
+       from DNS SRV records, with basic priority support.
+
+    *) Feature: detailed information and metrics for the groups of HTTP
+       upstream servers in the statistics interface provided by the "api"
+       directive.
+
+    *) Feature: autoindex uses natural sorting order for directory listings.
+
+    *) Feature: all functionality of nginx 1.23.3.
+
+    *) Bugfix: compilation failed due to false warning when using GCC 9 or
+       older with the -O2 or higher optimization.
+
+
 Changes with Angie 1.0.0                                         27 Oct 2022
 
     *) Feature: the "api" directive, that provides HTTP RESTful interface

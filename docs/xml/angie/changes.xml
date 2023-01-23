@@ -9,6 +9,21 @@
 
 <change type="feature">
 <para lang="ru">
+опция "resolve" директивы "server" в блоке "upstream" HTTP-модуля,
+позволяющая отслеживать изменения списка IP-адресов,
+соответствующего доменному имени,
+и автоматически обновлять его без перезагрузки конфигурации.
+</para>
+<para lang="en">
+the "resolve" option of the "server" directive in the HTTP module
+"upstream" block, that allows to monitor changes to the list of IP addresses
+corresponding to a domain name,
+and automatically update it without the need of reloading configuration.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 детальная информация и метрики по группам проксируемых HTTP-серверов в
 интерфейсе статистики, предоставляемом директивой "api".
 </para>

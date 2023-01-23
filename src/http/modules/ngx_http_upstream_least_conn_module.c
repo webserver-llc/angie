@@ -125,6 +125,12 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_http_upstream_rr_peers_wlock(peers);
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    if (peers->generation && rrp->generation != *peers->generation) {
+        goto busy;
+    }
+#endif
+
     best = NULL;
     total = 0;
 
@@ -245,6 +251,7 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
     best->conns++;
 
     rrp->current = best;
+    ngx_http_upstream_rr_peer_ref(peers, best);
 
     n = p / (8 * sizeof(uintptr_t));
     m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
@@ -284,7 +291,17 @@ failed:
         }
 
         ngx_http_upstream_rr_peers_wlock(peers);
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        if (peers->generation && rrp->generation != *peers->generation) {
+            goto busy;
+        }
+#endif
     }
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+busy:
+#endif
 
     ngx_http_upstream_rr_peers_unlock(peers);
 

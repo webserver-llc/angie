@@ -13,12 +13,20 @@
 
 static char *ngx_http_upstream_zone(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-static ngx_int_t ngx_http_upstream_init_zone(ngx_shm_zone_t *shm_zone,
-    void *data);
+static ngx_int_t ngx_http_upstream_init_zone(ngx_shm_zone_t *zone, void *data);
 static ngx_http_upstream_rr_peers_t *ngx_http_upstream_zone_copy_peers(
-    ngx_slab_pool_t *shpool, ngx_http_upstream_srv_conf_t *uscf);
+    ngx_slab_pool_t *shpool, ngx_http_upstream_srv_conf_t *uscf,
+    ngx_http_upstream_srv_conf_t *ouscf);
 static ngx_http_upstream_rr_peer_t *ngx_http_upstream_zone_copy_peer(
     ngx_http_upstream_rr_peers_t *peers, ngx_http_upstream_rr_peer_t *src);
+static ngx_int_t ngx_http_upstream_zone_preresolve(
+    ngx_http_upstream_rr_peer_t *resolve,
+    ngx_http_upstream_rr_peers_t *peers,
+    ngx_http_upstream_rr_peer_t *oresolve,
+    ngx_http_upstream_rr_peers_t *opeers);
+static ngx_http_upstream_rr_peer_t *ngx_http_upstream_zone_new_peer(
+    ngx_http_upstream_rr_peers_t *peers, ngx_resolver_addr_t *addr,
+    ngx_http_upstream_rr_peer_t *template);
 
 #if (NGX_API)
 
@@ -33,6 +41,8 @@ static ngx_int_t ngx_api_http_upstream_peers_iter(ngx_api_iter_ctx_t *ictx,
 static ngx_int_t ngx_api_http_upstream_keepalive_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 #if (NGX_DEBUG)
+static ngx_int_t ngx_api_http_upstream_zombies_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_http_upstream_zone_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 #endif
@@ -74,6 +84,11 @@ static ngx_api_entry_t  ngx_api_http_upstream_entries[] = {
     },
 
 #if (NGX_DEBUG)
+    {
+        .name      = ngx_string("zombies"),
+        .handler   = ngx_api_http_upstream_zombies_handler,
+    },
+
     {
         .name      = ngx_string("zone"),
         .handler   = ngx_api_http_upstream_zone_handler,
@@ -208,6 +223,14 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_entries[] = {
         .data.ents = ngx_api_http_upstream_peer_health_entries
     },
 
+#if (NGX_DEBUG)
+    {
+        .name      = ngx_string("refs"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_http_upstream_rr_peer_t, refs)
+    },
+#endif
+
     ngx_api_null_entry
 };
 
@@ -233,7 +256,10 @@ static ngx_command_t  ngx_http_upstream_zone_commands[] = {
 };
 
 
+static ngx_int_t ngx_http_upstream_zone_init_worker(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_upstream_zone_init(ngx_conf_t *cf);
+static void ngx_http_upstream_zone_resolve_timer(ngx_event_t *event);
+static void ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx);
 
 
 static ngx_http_module_t  ngx_http_upstream_zone_module_ctx = {
@@ -258,7 +284,7 @@ ngx_module_t  ngx_http_upstream_zone_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    NULL,                                  /* init process */
+    ngx_http_upstream_zone_init_worker,    /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -321,26 +347,26 @@ ngx_http_upstream_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 
 static ngx_int_t
-ngx_http_upstream_init_zone(ngx_shm_zone_t *shm_zone, void *data)
+ngx_http_upstream_init_zone(ngx_shm_zone_t *zone, void *data)
 {
     size_t                          len;
-    ngx_uint_t                      i;
+    ngx_uint_t                      i, j;
     ngx_slab_pool_t                *shpool;
     ngx_http_upstream_rr_peers_t   *peers, **peersp;
-    ngx_http_upstream_srv_conf_t   *uscf, **uscfp;
-    ngx_http_upstream_main_conf_t  *umcf;
+    ngx_http_upstream_srv_conf_t   *uscf, *ouscf, **uscfp, **ouscfp;
+    ngx_http_upstream_main_conf_t  *umcf, *oumcf;
 
-    shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
-    umcf = shm_zone->data;
+    umcf = zone->data;
     uscfp = umcf->upstreams.elts;
+    shpool = (ngx_slab_pool_t *) zone->shm.addr;
 
-    if (shm_zone->shm.exists) {
+    if (zone->shm.exists) {
         peers = shpool->data;
 
         for (i = 0; i < umcf->upstreams.nelts; i++) {
             uscf = uscfp[i];
 
-            if (uscf->shm_zone != shm_zone) {
+            if (uscf->shm_zone != zone) {
                 continue;
             }
 
@@ -351,7 +377,7 @@ ngx_http_upstream_init_zone(ngx_shm_zone_t *shm_zone, void *data)
         return NGX_OK;
     }
 
-    len = sizeof(" in upstream zone \"\"") + shm_zone->shm.name.len;
+    len = sizeof(" in upstream zone \"\"") + zone->shm.name.len;
 
     shpool->log_ctx = ngx_slab_alloc(shpool, len);
     if (shpool->log_ctx == NULL) {
@@ -359,21 +385,48 @@ ngx_http_upstream_init_zone(ngx_shm_zone_t *shm_zone, void *data)
     }
 
     ngx_sprintf(shpool->log_ctx, " in upstream zone \"%V\"%Z",
-                &shm_zone->shm.name);
-
+                &zone->shm.name);
 
     /* copy peers to shared memory */
 
     peersp = (ngx_http_upstream_rr_peers_t **) (void *) &shpool->data;
+    oumcf = data;
 
     for (i = 0; i < umcf->upstreams.nelts; i++) {
         uscf = uscfp[i];
 
-        if (uscf->shm_zone != shm_zone) {
+        if (uscf->shm_zone != zone) {
             continue;
         }
 
-        peers = ngx_http_upstream_zone_copy_peers(shpool, uscf);
+        ouscf = NULL;
+
+        if (oumcf) {
+            ouscfp = oumcf->upstreams.elts;
+
+            for (j = 0; j < oumcf->upstreams.nelts; j++) {
+
+                if (ouscfp[j]->shm_zone == NULL
+                    || ouscfp[j]->shm_zone->shm.name.len != zone->shm.name.len
+                    || ngx_memcmp(ouscfp[j]->shm_zone->shm.name.data,
+                                  zone->shm.name.data, zone->shm.name.len)
+                       != 0)
+                {
+                    continue;
+                }
+
+                if (ouscfp[j]->host.len == uscf->host.len
+                    && ngx_memcmp(ouscfp[j]->host.data, uscf->host.data,
+                                  uscf->host.len)
+                       == 0)
+                {
+                    ouscf = ouscfp[j];
+                    break;
+                }
+            }
+        }
+
+        peers = ngx_http_upstream_zone_copy_peers(shpool, uscf, ouscf);
         if (peers == NULL) {
             return NGX_ERROR;
         }
@@ -388,11 +441,19 @@ ngx_http_upstream_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 
 static ngx_http_upstream_rr_peers_t *
 ngx_http_upstream_zone_copy_peers(ngx_slab_pool_t *shpool,
-    ngx_http_upstream_srv_conf_t *uscf)
+    ngx_http_upstream_srv_conf_t *uscf, ngx_http_upstream_srv_conf_t *ouscf)
 {
     ngx_str_t                     *name;
+    ngx_uint_t                    *generation;
     ngx_http_upstream_rr_peer_t   *peer, **peerp;
-    ngx_http_upstream_rr_peers_t  *peers, *backup;
+    ngx_http_upstream_rr_peers_t  *peers, *opeers, *backup;
+
+    opeers = (ouscf ? ouscf->peer.data : NULL);
+
+    generation = ngx_slab_calloc(shpool, sizeof(ngx_uint_t));
+    if (generation == NULL) {
+        return NULL;
+    }
 
     peers = ngx_slab_alloc(shpool, sizeof(ngx_http_upstream_rr_peers_t));
     if (peers == NULL) {
@@ -417,6 +478,7 @@ ngx_http_upstream_zone_copy_peers(ngx_slab_pool_t *shpool,
     peers->name = name;
 
     peers->shpool = shpool;
+    peers->generation = generation;
 
     for (peerp = &peers->peer; *peerp; peerp = &peer->next) {
         /* pool is unlocked */
@@ -426,6 +488,24 @@ ngx_http_upstream_zone_copy_peers(ngx_slab_pool_t *shpool,
         }
 
         *peerp = peer;
+    }
+
+    for (peerp = &peers->resolve; *peerp; peerp = &peer->next) {
+        peer = ngx_http_upstream_zone_copy_peer(peers, *peerp);
+        if (peer == NULL) {
+            return NULL;
+        }
+
+        *peerp = peer;
+    }
+
+    if (opeers) {
+        if (ngx_http_upstream_zone_preresolve(peers->resolve, peers,
+                                              opeers->resolve, opeers)
+            != NGX_OK)
+        {
+            return NULL;
+        }
     }
 
     if (peers->next == NULL) {
@@ -442,6 +522,7 @@ ngx_http_upstream_zone_copy_peers(ngx_slab_pool_t *shpool,
     backup->name = name;
 
     backup->shpool = shpool;
+    backup->generation = generation;
 
     for (peerp = &backup->peer; *peerp; peerp = &peer->next) {
         /* pool is unlocked */
@@ -453,11 +534,40 @@ ngx_http_upstream_zone_copy_peers(ngx_slab_pool_t *shpool,
         *peerp = peer;
     }
 
+    for (peerp = &backup->resolve; *peerp; peerp = &peer->next) {
+        peer = ngx_http_upstream_zone_copy_peer(backup, *peerp);
+        if (peer == NULL) {
+            return NULL;
+        }
+
+        *peerp = peer;
+    }
+
     peers->next = backup;
+
+    if (opeers && opeers->next) {
+
+        if (ngx_http_upstream_zone_preresolve(peers->resolve, backup,
+                                              opeers->resolve, opeers->next)
+            != NGX_OK)
+        {
+            return NULL;
+        }
+
+        if (ngx_http_upstream_zone_preresolve(backup->resolve, backup,
+                                              opeers->next->resolve,
+                                              opeers->next)
+            != NGX_OK)
+        {
+            return NULL;
+        }
+    }
 
 done:
 
     uscf->peer.data = peers;
+
+    ngx_http_upstream_set_round_robin_single(uscf);
 
     return peers;
 }
@@ -482,6 +592,7 @@ ngx_http_upstream_zone_copy_peer(ngx_http_upstream_rr_peers_t *peers,
         dst->sockaddr = NULL;
         dst->name.data = NULL;
         dst->server.data = NULL;
+        dst->host = NULL;
     }
 
     dst->sockaddr = ngx_slab_calloc_locked(pool, sizeof(ngx_sockaddr_t));
@@ -504,11 +615,40 @@ ngx_http_upstream_zone_copy_peer(ngx_http_upstream_rr_peers_t *peers,
         }
 
         ngx_memcpy(dst->server.data, src->server.data, src->server.len);
+
+        if (src->host) {
+            dst->host = ngx_slab_calloc_locked(pool,
+                                             sizeof(ngx_http_upstream_host_t));
+            if (dst->host == NULL) {
+                goto failed;
+            }
+
+            dst->host->name.data = ngx_slab_alloc_locked(pool,
+                                                         src->host->name.len);
+            if (dst->host->name.data == NULL) {
+                goto failed;
+            }
+
+            dst->host->peers = peers;
+            dst->host->peer = dst;
+
+            dst->host->name.len = src->host->name.len;
+            ngx_memcpy(dst->host->name.data, src->host->name.data,
+                       src->host->name.len);
+        }
     }
 
     return dst;
 
 failed:
+
+    if (dst->host) {
+        if (dst->host->name.data) {
+            ngx_slab_free_locked(pool, dst->host->name.data);
+        }
+
+        ngx_slab_free_locked(pool, dst->host);
+    }
 
     if (dst->server.data) {
         ngx_slab_free_locked(pool, dst->server.data);
@@ -525,6 +665,121 @@ failed:
     ngx_slab_free_locked(pool, dst);
 
     return NULL;
+}
+
+
+static ngx_int_t
+ngx_http_upstream_zone_preresolve(ngx_http_upstream_rr_peer_t *resolve,
+    ngx_http_upstream_rr_peers_t *peers,
+    ngx_http_upstream_rr_peer_t *oresolve,
+    ngx_http_upstream_rr_peers_t *opeers)
+{
+    ngx_resolver_addr_t            addr;
+    ngx_http_upstream_host_t      *host;
+    ngx_http_upstream_rr_peer_t  **peerp, *template, *opeer, *peer;
+
+    if (resolve == NULL || oresolve == NULL) {
+        return NGX_OK;
+    }
+
+    for (peerp = &peers->peer; *peerp; peerp = &(*peerp)->next) {
+        /* void */
+    }
+
+    ngx_http_upstream_rr_peers_rlock(opeers);
+
+    for (template = resolve; template; template = template->next) {
+        for (opeer = oresolve; opeer; opeer = opeer->next) {
+
+            if (opeer->host->name.len != template->host->name.len
+                || ngx_memcmp(opeer->host->name.data,
+                              template->host->name.data,
+                              template->host->name.len)
+                   != 0)
+            {
+                continue;
+            }
+
+            host = opeer->host;
+
+            for (opeer = opeers->peer; opeer; opeer = opeer->next) {
+
+                if (opeer->host != host) {
+                    continue;
+                }
+
+                addr.sockaddr = opeer->sockaddr;
+                addr.socklen = opeer->socklen;
+
+                peer = ngx_http_upstream_zone_new_peer(peers, &addr, template);
+                if (peer == NULL) {
+                    ngx_http_upstream_rr_peers_unlock(opeers);
+                    return NGX_ERROR;
+                }
+
+                *peerp = peer;
+                peerp = &peer->next;
+
+                peers->number++;
+                peers->total_weight += peer->weight;
+            }
+
+            peers->weighted = (peers->total_weight != peers->number);
+
+            break;
+        }
+    }
+
+    ngx_http_upstream_rr_peers_unlock(opeers);
+    return NGX_OK;
+}
+
+
+static ngx_http_upstream_rr_peer_t *
+ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
+    ngx_resolver_addr_t *addr, ngx_http_upstream_rr_peer_t *template)
+{
+    ngx_str_t                    *server;
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    ngx_shmtx_lock(&peers->shpool->mutex);
+    peer = ngx_http_upstream_zone_copy_peer(peers, NULL);
+    ngx_shmtx_unlock(&peers->shpool->mutex);
+
+    if (peer == NULL) {
+        return NULL;
+    }
+
+    ngx_memcpy(peer->sockaddr, addr->sockaddr, addr->socklen);
+
+    ngx_inet_set_port(peer->sockaddr, ngx_inet_get_port(template->sockaddr));
+
+    peer->socklen = addr->socklen;
+
+    peer->name.len = ngx_sock_ntop(peer->sockaddr, peer->socklen,
+                                   peer->name.data, NGX_SOCKADDR_STRLEN, 1);
+
+    peer->host = template->host;
+
+    server = &template->server;
+
+    peer->server.data = ngx_slab_alloc(peers->shpool, server->len);
+    if (peer->server.data == NULL) {
+        ngx_http_upstream_rr_peer_free(peers, peer);
+        return NULL;
+    }
+
+    peer->server.len = server->len;
+    ngx_memcpy(peer->server.data, server->data, server->len);
+
+    peer->weight = template->weight;
+    peer->effective_weight = peer->weight;
+    peer->max_conns = template->max_conns;
+    peer->max_fails = template->max_fails;
+    peer->fail_timeout = template->fail_timeout;
+    peer->down = template->down;
+
+    return peer;
 }
 
 
@@ -671,6 +926,22 @@ ngx_api_http_upstream_keepalive_handler(ngx_api_entry_data_t data,
 
 
 #if (NGX_DEBUG)
+
+static ngx_int_t
+ngx_api_http_upstream_zombies_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_http_upstream_srv_conf_t *uscf = ctx;
+
+    ngx_http_upstream_rr_peers_t  *peers;
+
+    peers = uscf->peer.data;
+
+    data.num = peers->zombies;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
 
 static ngx_int_t
 ngx_api_http_upstream_zone_handler(ngx_api_entry_data_t data,
@@ -889,6 +1160,72 @@ ngx_api_http_upstream_peer_selected_last_handler(ngx_api_entry_data_t data,
 
 
 static ngx_int_t
+ngx_http_upstream_zone_init_worker(ngx_cycle_t *cycle)
+{
+    ngx_uint_t                      i;
+    ngx_event_t                    *event;
+    ngx_http_upstream_rr_peer_t    *peer;
+    ngx_http_upstream_rr_peers_t   *peers;
+    ngx_http_upstream_srv_conf_t   *uscf, **uscfp;
+    ngx_http_upstream_main_conf_t  *umcf;
+
+    if (ngx_process != NGX_PROCESS_WORKER
+        && ngx_process != NGX_PROCESS_SINGLE)
+    {
+        return NGX_OK;
+    }
+
+    umcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_upstream_module);
+
+    if (umcf == NULL) {
+        return NGX_OK;
+    }
+
+    uscfp = umcf->upstreams.elts;
+
+    for (i = 0; i < umcf->upstreams.nelts; i++) {
+
+        uscf = uscfp[i];
+
+        if (uscf->shm_zone == NULL) {
+            continue;
+        }
+
+        peers = uscf->peer.data;
+
+        do {
+            ngx_http_upstream_rr_peers_wlock(peers);
+
+            for (peer = peers->resolve; peer; peer = peer->next) {
+
+                if (peer->host->worker != ngx_worker) {
+                    continue;
+                }
+
+                event = &peer->host->event;
+                ngx_memzero(event, sizeof(ngx_event_t));
+
+                event->data = uscf;
+                event->handler = ngx_http_upstream_zone_resolve_timer;
+                event->log = cycle->log;
+                event->cancelable = 1;
+
+                ngx_http_upstream_rr_peer_ref(peers, peer);
+                ngx_add_timer(event, 1);
+            }
+
+            ngx_http_upstream_rr_peers_unlock(peers);
+
+            peers = peers->next;
+
+        } while (peers);
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_upstream_zone_init(ngx_conf_t *cf)
 {
 #if (NGX_API)
@@ -900,4 +1237,233 @@ ngx_http_upstream_zone_init(ngx_conf_t *cf)
 #endif
 
     return NGX_OK;
+}
+
+
+static void
+ngx_http_upstream_zone_resolve_timer(ngx_event_t *event)
+{
+    ngx_resolver_ctx_t            *ctx;
+    ngx_http_upstream_host_t      *host;
+    ngx_http_upstream_rr_peer_t   *template;
+    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_http_upstream_srv_conf_t  *uscf;
+
+    host = (ngx_http_upstream_host_t *) event;
+    uscf = event->data;
+    peers = host->peers;
+    template = host->peer;
+
+    if (template->zombie) {
+        (void) ngx_http_upstream_rr_peer_unref(peers, template);
+
+        ngx_shmtx_lock(&peers->shpool->mutex);
+        ngx_slab_free_locked(peers->shpool, host->name.data);
+        ngx_slab_free_locked(peers->shpool, host);
+        ngx_shmtx_unlock(&peers->shpool->mutex);
+
+        return;
+    }
+
+    ctx = ngx_resolve_start(uscf->resolver, NULL);
+    if (ctx == NULL) {
+        goto retry;
+    }
+
+    if (ctx == NGX_NO_RESOLVER) {
+        ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                      "no resolver defined to resolve %V", &host->name);
+        return;
+    }
+
+    ctx->name = host->name;
+    ctx->handler = ngx_http_upstream_zone_resolve_handler;
+    ctx->data = host;
+    ctx->timeout = uscf->resolver_timeout;
+    ctx->cancelable = 1;
+
+    if (ngx_resolve_name(ctx) == NGX_OK) {
+        return;
+    }
+
+retry:
+
+    ngx_add_timer(event, ngx_max(uscf->resolver_timeout, 1000));
+}
+
+
+#define ngx_http_upstream_zone_addr_marked(addr)                              \
+    ((uintptr_t) (addr)->sockaddr & 1)
+
+#define ngx_http_upstream_zone_mark_addr(addr)                                \
+    (addr)->sockaddr = (struct sockaddr *) ((uintptr_t) (addr)->sockaddr | 1)
+
+#define ngx_http_upstream_zone_unmark_addr(addr)                              \
+    (addr)->sockaddr =                                                        \
+        (struct sockaddr *) ((uintptr_t) (addr)->sockaddr & ~((uintptr_t) 1))
+
+static void
+ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
+{
+    time_t                         now;
+    ngx_msec_t                     timer;
+    ngx_uint_t                     i, j;
+    ngx_event_t                   *event;
+    ngx_resolver_addr_t           *addr;
+    ngx_http_upstream_host_t      *host;
+    ngx_http_upstream_rr_peer_t   *template, **peerp, *peer;
+    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_http_upstream_srv_conf_t  *uscf;
+
+    host = ctx->data;
+    peers = host->peers;
+    template = host->peer;
+
+    ngx_http_upstream_rr_peers_wlock(peers);
+
+    if (template->zombie) {
+        (void) ngx_http_upstream_rr_peer_unref(peers, template);
+
+        ngx_http_upstream_rr_peers_unlock(peers);
+
+        ngx_shmtx_lock(&peers->shpool->mutex);
+        ngx_slab_free_locked(peers->shpool, host->name.data);
+        ngx_slab_free_locked(peers->shpool, host);
+        ngx_shmtx_unlock(&peers->shpool->mutex);
+
+        ngx_resolve_name_done(ctx);
+
+        return;
+    }
+
+    event = &host->event;
+    uscf = event->data;
+
+    if (ctx->state) {
+        ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                      "%V could not be resolved (%i: %s)",
+                      &ctx->name, ctx->state,
+                      ngx_resolver_strerror(ctx->state));
+
+        if (ctx->state != NGX_RESOLVE_NXDOMAIN) {
+            ngx_http_upstream_rr_peers_unlock(peers);
+
+            ngx_resolve_name_done(ctx);
+
+            ngx_add_timer(event, ngx_max(uscf->resolver_timeout, 1000));
+            return;
+        }
+
+        /* NGX_RESOLVE_NXDOMAIN */
+
+        ctx->naddrs = 0;
+    }
+
+#if (NGX_DEBUG)
+    {
+    u_char  text[NGX_SOCKADDR_STRLEN];
+    size_t  len;
+
+    for (i = 0; i < ctx->naddrs; i++) {
+        len = ngx_sock_ntop(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen,
+                            text, NGX_SOCKADDR_STRLEN, 1);
+
+        ngx_log_debug5(NGX_LOG_DEBUG_HTTP, event->log, 0,
+                       "name %V was resolved to %*s "
+                       "n:\"%V\" w:%d",
+                       &host->name, len, text,
+                       &ctx->addrs[i].name, ctx->addrs[i].weight);
+    }
+    }
+#endif
+
+    for (peerp = &peers->peer; *peerp; /* void */ ) {
+        peer = *peerp;
+
+        if (peer->host != host) {
+            goto next;
+        }
+
+        for (j = 0; j < ctx->naddrs; j++) {
+
+            addr = &ctx->addrs[j];
+
+            if (ngx_http_upstream_zone_addr_marked(addr)) {
+                continue;
+            }
+
+            if (ngx_cmp_sockaddr(peer->sockaddr, peer->socklen,
+                                 addr->sockaddr, addr->socklen, 0)
+                != NGX_OK)
+            {
+                continue;
+            }
+
+            ngx_http_upstream_zone_mark_addr(addr);
+
+            goto next;
+        }
+
+        *peerp = peer->next;
+
+        peers->number--;
+        peers->total_weight -= peer->weight;
+
+        peers->weighted = (peers->total_weight != peers->number);
+        (*peers->generation)++;
+
+        ngx_http_upstream_rr_peer_free(peers, peer);
+
+        continue;
+
+    next:
+
+        peerp = &peer->next;
+    }
+
+    for (i = 0; i < ctx->naddrs; i++) {
+
+        addr = &ctx->addrs[i];
+
+        if (ngx_http_upstream_zone_addr_marked(addr)) {
+            ngx_http_upstream_zone_unmark_addr(addr);
+            continue;
+        }
+
+        peer = ngx_http_upstream_zone_new_peer(peers, addr, template);
+        if (peer == NULL) {
+            ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                          "cannot add new server to upstream \"%V\", "
+                          "memory exhausted", peers->name);
+            goto done;
+        }
+
+        *peerp = peer;
+        peerp = &peer->next;
+
+        peers->number++;
+        peers->total_weight += peer->weight;
+
+        peers->weighted = (peers->total_weight != peers->number);
+        (*peers->generation)++;
+    }
+
+done:
+
+    ngx_http_upstream_set_round_robin_single(uscf);
+
+    ngx_http_upstream_rr_peers_unlock(peers);
+
+    while (++i < ctx->naddrs) {
+        ngx_http_upstream_zone_unmark_addr(&ctx->addrs[i]);
+    }
+
+    now = ngx_time();
+
+    timer = (ngx_msec_t) 1000 * (ctx->valid > now ? ctx->valid - now + 1 : 1);
+    timer = ngx_min(timer, uscf->resolver_timeout);
+
+    ngx_resolve_name_done(ctx);
+
+    ngx_add_timer(event, timer);
 }

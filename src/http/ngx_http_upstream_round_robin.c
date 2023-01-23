@@ -52,6 +52,59 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
 
     if (us->servers) {
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        ngx_http_core_loc_conf_t    *clcf;
+        ngx_http_upstream_server_t  *server;
+
+        server = us->servers->elts;
+
+        for (i = 0; i < us->servers->nelts; i++) {
+
+            if (!server[i].host.len) {
+                continue;
+            }
+
+            if (us->shm_zone == NULL) {
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "resolving names at run time requires "
+                              "shared memory zone configured for "
+                              "upstream \"%V\" in %s:%ui",
+                              &us->host, us->file_name, us->line);
+                return NGX_ERROR;
+            }
+
+            if (!(us->flags & NGX_HTTP_UPSTREAM_CONF)) {
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "resolving names at run time isn't "
+                              "supported by load balancing method "
+                              "configured for upstream \"%V\" in %s:%ui",
+                              &us->host, us->file_name, us->line);
+                return NGX_ERROR;
+            }
+
+            clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+
+            if (us->resolver == NULL) {
+                us->resolver = clcf->resolver;
+            }
+
+            if (us->resolver == NULL
+                || us->resolver->connections.nelts == 0)
+            {
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "no resolver configured for resolving names "
+                              "at run time in upstream \"%V\" in %s:%ui",
+                              &us->host, us->file_name, us->line);
+                return NGX_ERROR;
+            }
+
+            ngx_conf_merge_msec_value(us->resolver_timeout,
+                                      clcf->resolver_timeout, 30000);
+
+            break;
+        }
+#endif
+
         if (ngx_http_upstream_init_round_robin_peers(cf, us, 0, &peers)
             != NGX_OK)
         {
@@ -67,9 +120,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
         peers->next = backup;
         us->peer.data = peers;
 
-        if (backup == NULL) {
-            peers->single = (peers->number == 1);
-        }
+        ngx_http_upstream_set_round_robin_single(us);
 
         return NGX_OK;
     }
@@ -149,32 +200,48 @@ ngx_http_upstream_init_round_robin_peers(ngx_conf_t *cf,
     ngx_http_upstream_srv_conf_t *us, ngx_uint_t backup,
     ngx_http_upstream_rr_peers_t **peersp)
 {
-    ngx_uint_t                     i, j, n, w, t;
+    ngx_uint_t                     i, j, n, r, w, t;
     ngx_http_upstream_server_t    *server;
     ngx_http_upstream_rr_peer_t   *peer, **peerp;
     ngx_http_upstream_rr_peers_t  *peers;
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    ngx_http_upstream_rr_peer_t  **rpeerp;
+#endif
 
     server = us->servers->elts;
 
     n = 0;
+    r = 0;
     w = 0;
     t = 0;
 
     for (i = 0; i < us->servers->nelts; i++) {
+
         if (server[i].backup != backup) {
             continue;
         }
 
-        n += server[i].naddrs;
-        w += server[i].naddrs * server[i].weight;
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        if (server[i].host.len) {
+            r++;
+
+        } else
+#endif
+        {
+            n += server[i].naddrs;
+            w += server[i].naddrs * server[i].weight;
+        }
 
         if (!server[i].down) {
             t += server[i].naddrs;
         }
     }
 
-    if (n == 0) {
-
+    if (n == 0
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        && us->shm_zone == NULL
+#endif
+    ) {
         if (backup) {
             *peersp = NULL;
             return NGX_OK;
@@ -192,7 +259,8 @@ ngx_http_upstream_init_round_robin_peers(ngx_conf_t *cf,
         return NGX_ERROR;
     }
 
-    peer = ngx_pcalloc(cf->pool, sizeof(ngx_http_upstream_rr_peer_t) * n);
+    peer = ngx_pcalloc(cf->pool, sizeof(ngx_http_upstream_rr_peer_t)
+                                 * (n + r));
     if (peer == NULL) {
         return NGX_ERROR;
     }
@@ -205,11 +273,41 @@ ngx_http_upstream_init_round_robin_peers(ngx_conf_t *cf,
 
     n = 0;
     peerp = &peers->peer;
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    rpeerp = &peers->resolve;
+#endif
 
     for (i = 0; i < us->servers->nelts; i++) {
         if (server[i].backup != backup) {
             continue;
         }
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        if (server[i].host.len) {
+
+            peer[n].host = ngx_pcalloc(cf->pool,
+                                       sizeof(ngx_http_upstream_host_t));
+            if (peer[n].host == NULL) {
+                return NGX_ERROR;
+            }
+
+            peer[n].host->name = server[i].host;
+
+            if (ngx_http_upstream_set_round_robin_peer(cf->pool, &peer[n],
+                                                       &server[i].addrs[0],
+                                                       &server[i])
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
+
+            *rpeerp = &peer[n];
+            rpeerp = &peer[n].next;
+            n++;
+
+            continue;
+        }
+#endif
 
         for (j = 0; j < server[i].naddrs; j++) {
 
@@ -269,6 +367,24 @@ ngx_http_upstream_set_round_robin_peer(ngx_pool_t *pool,
 }
 
 
+void
+ngx_http_upstream_set_round_robin_single(ngx_http_upstream_srv_conf_t *us)
+{
+    ngx_http_upstream_rr_peers_t  *peers;
+
+    peers = us->peer.data;
+
+    if (peers->number == 1
+        && (peers->next == NULL || peers->next->number == 0))
+    {
+        peers->single = 1;
+
+    } else {
+        peers->single = 0;
+    }
+}
+
+
 ngx_int_t
 ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
@@ -289,13 +405,20 @@ ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
 
     rrp->peers = us->peer.data;
     rrp->current = NULL;
-    rrp->config = 0;
+
+    ngx_http_upstream_rr_peers_rlock(rrp->peers);
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    rrp->generation = rrp->peers->generation ? *rrp->peers->generation : 0;
+#endif
 
     n = rrp->peers->number;
 
     if (rrp->peers->next && rrp->peers->next->number > n) {
         n = rrp->peers->next->number;
     }
+
+    ngx_http_upstream_rr_peers_unlock(rrp->peers);
 
     if (n <= 8 * sizeof(uintptr_t)) {
         rrp->tried = &rrp->data;
@@ -413,7 +536,7 @@ ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
 
     rrp->peers = peers;
     rrp->current = NULL;
-    rrp->config = 0;
+    rrp->generation = 0;
 
     if (rrp->peers->number <= 8 * sizeof(uintptr_t)) {
         rrp->tried = &rrp->data;
@@ -460,6 +583,12 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     peers = rrp->peers;
     ngx_http_upstream_rr_peers_wlock(peers);
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    if (peers->generation && rrp->generation != *peers->generation) {
+        goto busy;
+    }
+#endif
+
     if (peers->single) {
         peer = peers->peer;
 
@@ -472,6 +601,7 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
         }
 
         rrp->current = peer;
+        ngx_http_upstream_rr_peer_ref(peers, peer);
 
     } else {
 
@@ -527,7 +657,17 @@ failed:
         }
 
         ngx_http_upstream_rr_peers_wlock(peers);
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+        if (peers->generation && rrp->generation != *peers->generation) {
+            goto busy;
+        }
+#endif
     }
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+busy:
+#endif
 
     ngx_http_upstream_rr_peers_unlock(peers);
 
@@ -599,6 +739,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
     }
 
     rrp->current = best;
+    ngx_http_upstream_rr_peer_ref(rrp->peers, best);
 
     n = p / (8 * sizeof(uintptr_t));
     m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
@@ -673,7 +814,10 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     ngx_http_upstream_stat(pc, peer, state);
 #endif
 
-    ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
+    if (ngx_http_upstream_rr_peer_unref(rrp->peers, peer) == NGX_OK) {
+        ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
+    }
+
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
 
     if (pc->tries) {

@@ -109,6 +109,7 @@ typedef struct {
 
 #if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_str_t                        host;
+    ngx_str_t                        service;
 #endif
 
     NGX_COMPAT_END

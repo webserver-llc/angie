@@ -24,6 +24,19 @@ and automatically update it without the need of reloading configuration.
 
 <change type="feature">
 <para lang="ru">
+опция "service" директивы "server" в блоке "upstream" HTTP-модуля,
+позволяющая получать списки адресов из DNS SRV записей,
+с базовой поддержкой приоритета.
+</para>
+<para lang="en">
+the "service" option of the "server" directive in the HTTP module
+"upstream" block, that allows to retrieve lists of addresses
+from DNS SRV records, with basic priority support.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 детальная информация и метрики по группам проксируемых HTTP-серверов в
 интерфейсе статистики, предоставляемом директивой "api".
 </para>

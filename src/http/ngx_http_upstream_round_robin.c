@@ -292,6 +292,7 @@ ngx_http_upstream_init_round_robin_peers(ngx_conf_t *cf,
             }
 
             peer[n].host->name = server[i].host;
+            peer[n].host->service = server[i].service;
 
             if (ngx_http_upstream_set_round_robin_peer(cf->pool, &peer[n],
                                                        &server[i].addrs[0],

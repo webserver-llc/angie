@@ -49,6 +49,8 @@ static ngx_int_t ngx_api_http_upstream_zone_handler(ngx_api_entry_data_t data,
 
 static ngx_int_t ngx_api_http_upstream_peer_server_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_upstream_peer_service_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_http_upstream_peer_backup_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_http_upstream_peer_state_handler(
@@ -176,6 +178,11 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_entries[] = {
     {
         .name      = ngx_string("server"),
         .handler   = ngx_api_http_upstream_peer_server_handler,
+    },
+
+    {
+        .name      = ngx_string("service"),
+        .handler   = ngx_api_http_upstream_peer_service_handler,
     },
 
     {
@@ -635,6 +642,18 @@ ngx_http_upstream_zone_copy_peer(ngx_http_upstream_rr_peers_t *peers,
             dst->host->name.len = src->host->name.len;
             ngx_memcpy(dst->host->name.data, src->host->name.data,
                        src->host->name.len);
+
+            if (src->host->service.len) {
+                dst->host->service.data = ngx_slab_alloc_locked(pool,
+                                                        src->host->service.len);
+                if (dst->host->service.data == NULL) {
+                    goto failed;
+                }
+
+                dst->host->service.len = src->host->service.len;
+                ngx_memcpy(dst->host->service.data, src->host->service.data,
+                           src->host->service.len);
+            }
         }
     }
 
@@ -700,6 +719,15 @@ ngx_http_upstream_zone_preresolve(ngx_http_upstream_rr_peer_t *resolve,
                 continue;
             }
 
+            if (opeer->host->service.len != template->host->service.len
+                || ngx_memcmp(opeer->host->service.data,
+                              template->host->service.data,
+                              template->host->service.len)
+                   != 0)
+            {
+                continue;
+            }
+
             host = opeer->host;
 
             for (opeer = opeers->peer; opeer; opeer = opeer->next) {
@@ -710,6 +738,8 @@ ngx_http_upstream_zone_preresolve(ngx_http_upstream_rr_peer_t *resolve,
 
                 addr.sockaddr = opeer->sockaddr;
                 addr.socklen = opeer->socklen;
+                addr.name = opeer->server;
+                addr.weight = opeer->weight;
 
                 peer = ngx_http_upstream_zone_new_peer(peers, &addr, template);
                 if (peer == NULL) {
@@ -739,6 +769,7 @@ static ngx_http_upstream_rr_peer_t *
 ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
     ngx_resolver_addr_t *addr, ngx_http_upstream_rr_peer_t *template)
 {
+    in_port_t                     port;
     ngx_str_t                    *server;
     ngx_http_upstream_rr_peer_t  *peer;
 
@@ -752,7 +783,10 @@ ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
 
     ngx_memcpy(peer->sockaddr, addr->sockaddr, addr->socklen);
 
-    ngx_inet_set_port(peer->sockaddr, ngx_inet_get_port(template->sockaddr));
+    if (template->host->service.len == 0) {
+        port = ngx_inet_get_port(template->sockaddr);
+        ngx_inet_set_port(peer->sockaddr, port);
+    }
 
     peer->socklen = addr->socklen;
 
@@ -761,7 +795,7 @@ ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
 
     peer->host = template->host;
 
-    server = &template->server;
+    server = template->host->service.len ? &addr->name : &template->server;
 
     peer->server.data = ngx_slab_alloc(peers->shpool, server->len);
     if (peer->server.data == NULL) {
@@ -772,7 +806,14 @@ ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
     peer->server.len = server->len;
     ngx_memcpy(peer->server.data, server->data, server->len);
 
-    peer->weight = template->weight;
+    if (template->host->service.len == 0) {
+        peer->weight = template->weight;
+
+    } else {
+        peer->weight = (template->weight != 1 ? template->weight
+                                              : addr->weight);
+    }
+
     peer->effective_weight = peer->weight;
     peer->max_conns = template->max_conns;
     peer->max_fails = template->max_fails;
@@ -963,9 +1004,30 @@ ngx_api_http_upstream_peer_server_handler(ngx_api_entry_data_t data,
 {
     ngx_http_upstream_rr_peer_t *peer = ctx;
 
-    data.str = &peer->server;
+    if (peer->host && peer->host->service.len) {
+        data.str = &peer->host->peer->server;
+
+    } else {
+        data.str = &peer->server;
+    }
 
     return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_upstream_peer_service_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_http_upstream_rr_peer_t *peer = ctx;
+
+    if (peer->host && peer->host->service.len) {
+        data.str = &peer->host->service;
+
+        return ngx_api_string_handler(data, actx, ctx);
+    }
+
+    return NGX_DECLINED;
 }
 
 
@@ -1258,6 +1320,11 @@ ngx_http_upstream_zone_resolve_timer(ngx_event_t *event)
         (void) ngx_http_upstream_rr_peer_unref(peers, template);
 
         ngx_shmtx_lock(&peers->shpool->mutex);
+
+        if (host->service.len) {
+            ngx_slab_free_locked(peers->shpool, host->service.data);
+        }
+
         ngx_slab_free_locked(peers->shpool, host->name.data);
         ngx_slab_free_locked(peers->shpool, host);
         ngx_shmtx_unlock(&peers->shpool->mutex);
@@ -1280,6 +1347,7 @@ ngx_http_upstream_zone_resolve_timer(ngx_event_t *event)
     ctx->handler = ngx_http_upstream_zone_resolve_handler;
     ctx->data = host;
     ctx->timeout = uscf->resolver_timeout;
+    ctx->service = host->service;
     ctx->cancelable = 1;
 
     if (ngx_resolve_name(ctx) == NGX_OK) {
@@ -1306,10 +1374,12 @@ static void
 ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
 {
     time_t                         now;
+    u_short                        min_priority;
     ngx_msec_t                     timer;
-    ngx_uint_t                     i, j;
+    ngx_uint_t                     i, j, backup, addr_backup;
     ngx_event_t                   *event;
     ngx_resolver_addr_t           *addr;
+    ngx_resolver_srv_name_t       *srv;
     ngx_http_upstream_host_t      *host;
     ngx_http_upstream_rr_peer_t   *template, **peerp, *peer;
     ngx_http_upstream_rr_peers_t  *peers;
@@ -1327,6 +1397,11 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
         ngx_http_upstream_rr_peers_unlock(peers);
 
         ngx_shmtx_lock(&peers->shpool->mutex);
+
+        if (host->service.len) {
+            ngx_slab_free_locked(peers->shpool, host->service.data);
+        }
+
         ngx_slab_free_locked(peers->shpool, host->name.data);
         ngx_slab_free_locked(peers->shpool, host);
         ngx_shmtx_unlock(&peers->shpool->mutex);
@@ -1339,11 +1414,32 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
     event = &host->event;
     uscf = event->data;
 
+    for (i = 0; i < ctx->nsrvs; i++) {
+        srv = &ctx->srvs[i];
+
+        if (srv->state) {
+            ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                          "%V could not be resolved (%i: %s) "
+                          "while resolving service %V of %V",
+                          &srv->name, srv->state,
+                          ngx_resolver_strerror(srv->state), &ctx->service,
+                          &ctx->name);
+        }
+    }
+
     if (ctx->state) {
-        ngx_log_error(NGX_LOG_ERR, event->log, 0,
-                      "%V could not be resolved (%i: %s)",
-                      &ctx->name, ctx->state,
-                      ngx_resolver_strerror(ctx->state));
+        if (ctx->service.len) {
+            ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                          "service %V of %V could not be resolved (%i: %s)",
+                          &ctx->service, &ctx->name, ctx->state,
+                          ngx_resolver_strerror(ctx->state));
+
+        } else {
+            ngx_log_error(NGX_LOG_ERR, event->log, 0,
+                          "%V could not be resolved (%i: %s)",
+                          &ctx->name, ctx->state,
+                          ngx_resolver_strerror(ctx->state));
+        }
 
         if (ctx->state != NGX_RESOLVE_NXDOMAIN) {
             ngx_http_upstream_rr_peers_unlock(peers);
@@ -1359,6 +1455,13 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
         ctx->naddrs = 0;
     }
 
+    backup = 0;
+    min_priority = 65535;
+
+    for (i = 0; i < ctx->naddrs; i++) {
+        min_priority = ngx_min(ctx->addrs[i].priority, min_priority);
+    }
+
 #if (NGX_DEBUG)
     {
     u_char  text[NGX_SOCKADDR_STRLEN];
@@ -1368,14 +1471,17 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
         len = ngx_sock_ntop(ctx->addrs[i].sockaddr, ctx->addrs[i].socklen,
                             text, NGX_SOCKADDR_STRLEN, 1);
 
-        ngx_log_debug5(NGX_LOG_DEBUG_HTTP, event->log, 0,
+        ngx_log_debug7(NGX_LOG_DEBUG_HTTP, event->log, 0,
                        "name %V was resolved to %*s "
-                       "n:\"%V\" w:%d",
-                       &host->name, len, text,
-                       &ctx->addrs[i].name, ctx->addrs[i].weight);
+                       "s:\"%V\" n:\"%V\" w:%d %s",
+                       &host->name, len, text, &host->service,
+                       &ctx->addrs[i].name, ctx->addrs[i].weight,
+                       ctx->addrs[i].priority != min_priority ? "backup" : "");
     }
     }
 #endif
+
+again:
 
     for (peerp = &peers->peer; *peerp; /* void */ ) {
         peer = *peerp;
@@ -1388,15 +1494,34 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
 
             addr = &ctx->addrs[j];
 
+            addr_backup = (addr->priority != min_priority);
+            if (addr_backup != backup) {
+                continue;
+            }
+
             if (ngx_http_upstream_zone_addr_marked(addr)) {
                 continue;
             }
 
             if (ngx_cmp_sockaddr(peer->sockaddr, peer->socklen,
-                                 addr->sockaddr, addr->socklen, 0)
+                                 addr->sockaddr, addr->socklen,
+                                 host->service.len != 0)
                 != NGX_OK)
             {
                 continue;
+            }
+
+            if (host->service.len) {
+                if (addr->name.len != peer->server.len
+                    || ngx_strncmp(addr->name.data, peer->server.data,
+                                   addr->name.len))
+                {
+                    continue;
+                }
+
+                if (template->weight == 1 && addr->weight != peer->weight) {
+                    continue;
+                }
             }
 
             ngx_http_upstream_zone_mark_addr(addr);
@@ -1425,6 +1550,11 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
 
         addr = &ctx->addrs[i];
 
+        addr_backup = (addr->priority != min_priority);
+        if (addr_backup != backup) {
+            continue;
+        }
+
         if (ngx_http_upstream_zone_addr_marked(addr)) {
             ngx_http_upstream_zone_unmark_addr(addr);
             continue;
@@ -1446,6 +1576,17 @@ ngx_http_upstream_zone_resolve_handler(ngx_resolver_ctx_t *ctx)
 
         peers->weighted = (peers->total_weight != peers->number);
         (*peers->generation)++;
+    }
+
+    if (host->service.len && peers->next) {
+        ngx_http_upstream_rr_peers_unlock(peers);
+
+        peers = peers->next;
+        backup = 1;
+
+        ngx_http_upstream_rr_peers_wlock(peers);
+
+        goto again;
     }
 
 done:

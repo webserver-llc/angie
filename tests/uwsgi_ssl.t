@@ -2,6 +2,7 @@
 
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
+# (C) 2023 Web Server LLC
 
 # Test for uwsgi backend with SSL.
 
@@ -24,8 +25,12 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http uwsgi http_ssl/)
-	->has_daemon('uwsgi')->has_daemon('openssl')->plan(7)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->has_daemon('uwsgi')->has_daemon('openssl');
+
+my $uwsgihelp = `uwsgi -h`;
+plan(skip_all => 'no ssl support in uwsgi') if ($uwsgihelp !~ /--ssl-socket/);
+
+$t->plan(7)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -89,7 +94,6 @@ def application(env, start_response):
 
 END
 
-my $uwsgihelp = `uwsgi -h`;
 my @uwsgiopts = ();
 
 if ($uwsgihelp !~ /--wsgi-file/) {

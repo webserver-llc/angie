@@ -117,7 +117,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
+        listen       127.0.0.1:8081 ssl;
         server_name  no.context;
 
         ssl_verify_client on;

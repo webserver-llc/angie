@@ -25,7 +25,8 @@ select STDOUT; $| = 1;
 eval { require JSON::PP; };
 plan(skip_all => "JSON::PP not installed") if $@;
 
-my $t = Test::Nginx->new()->has(qw/http proxy upstream_zone upstream_hash/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_api proxy upstream_zone upstream_hash/)
 	->plan(50)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

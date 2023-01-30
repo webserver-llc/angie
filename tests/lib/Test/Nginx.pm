@@ -118,6 +118,8 @@ sub has_module($) {
 		mail	=> '--with-mail((?!\S)|=dynamic)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',
+		http_api
+			=> '(?s)^(?!.*--without-http_api_module)',
 		auth_request
 			=> '--with-http_auth_request_module',
 		realip	=> '--with-http_realip_module',

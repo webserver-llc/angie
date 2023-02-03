@@ -314,6 +314,7 @@ EOF
 $req x= 1000;
 
 my $r = http($req, socket => $s) || "";
+$s = undef;
 is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
 
 # OpenSSL 3.0 error "unexpected eof while reading" seen as a critical error

@@ -35,7 +35,7 @@ my $t = Test::Nginx->new()
 # see https://trac.nginx.org/nginx/ticket/1831
 plan(skip_all => "perl >= 5.32 required") if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(13)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(14)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -64,6 +64,7 @@ http {
         server baz.example.com:%%PORT_8081%% resolve;
 
         resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver_timeout 1s;
     }
 
     server {
@@ -139,6 +140,8 @@ $t->write_file_expand('dns3.conf', <<'EOF');
 port=5353
 # no need for dhcp
 no-dhcp-interface=
+# return NXDOMAIN instead of REFUSED when name is not found
+server=/example.com/
 # do not read /etc/hosts
 no-hosts
 # do not read /etc/resolv.conf
@@ -248,47 +251,65 @@ $j = get_json("/api/status/http/upstreams/u/peers/");
 is($j->{"127.0.0.3:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is new');
 is($j->{"127.0.0.4:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.com is new');
 
-# TODO: actually trigger zombies; currently test verifies refcount with debug
-trigger_zombies();
-
-sub trigger_zombies {
-
-    $j = get_json("/api/status/http/upstreams/u2/peers/");
-    is($j->{"127.0.0.5:$port1"}->{'server'}, 'baz.example.com:'.$port1, 'baz in u2 is ok');
 
 
-    my $s = IO::Socket::INET->new(Proto => 'tcp',
-                                  PeerAddr => '127.0.0.1',
-                                  PeerPort => port(8080))
-    or die "cannot create socket: $!\n";
+# Trigger zombies paths and test for debug refcount
 
-    http_start(<<EOF, socket => $s);
+# 1) start 2 long requests  (backend is baz.example.com)
+
+$j = get_json("/api/status/http/upstreams/u2/peers/");
+is($j->{"127.0.0.5:$port1"}->{'server'}, 'baz.example.com:'.$port1, 'baz in u2 is ok');
+
+
+my $s = IO::Socket::INET->new(Proto => 'tcp',
+                              PeerAddr => '127.0.0.1',
+                              PeerPort => port(8080))
+or die "cannot create socket: $!\n";
+
+http_start(<<EOF, socket => $s);
 GET /u2/slow HTTP/1.0
 Host: localhost
 
 EOF
-    my $s2 = IO::Socket::INET->new(Proto => 'tcp',
+my $s2 = IO::Socket::INET->new(Proto => 'tcp',
                                   PeerAddr => '127.0.0.1',
                                   PeerPort => port(8080))
-    or die "cannot create socket: $!\n";
+or die "cannot create socket: $!\n";
 
-    http_start(<<EOF, socket => $s2);
+http_start(<<EOF, socket => $s2);
 GET /u2/slow HTTP/1.0
 Host: localhost
 
 EOF
 
-    select undef, undef, undef, 1;
+# 2) wait for angie to connect to backends
+select undef, undef, undef, 1;
 
-    $j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
-    is($j->{'refs'}, 2, "2 long requests to backend started, ref");
+$j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
+is($j->{'refs'}, 2, "2 long requests to backend started, ref");
 
-    my $res = http_end($s);
-    my $res2 = http_end($s2);
+# 3) now delete corresponding DNS records:
+#     - stop the DNS server
+#     - restart it with new config without baz.example.com
 
-    $j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
-    is($j->{'refs'}, 0, "2 long requests to backend completed, unref");
-}
+$t->stop_daemons();
+# start DNS server with new config, addresses changed
+$t->run_daemon('dnsmasq', '-C', $tdir."/dns3.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
+
+# 4) wait for resolve timer to occure (resolver_timeout is 1s for u2)
+select undef, undef, undef, 2;
+
+$j = get_json("/api/status/http/upstreams/u2/zombies");
+is($j, 1, "zombie found after name resolver dropped used peer");
+
+my $res = http_end($s);
+my $res2 = http_end($s2);
+
+$j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
+is($j->{'error'}, 'PathNotFound', "peer is deleted after resolve");
+
+
 
 ###############################################################################
 

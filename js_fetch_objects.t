@@ -482,15 +482,15 @@ $t->write_file('test.js', <<EOF);
             ['method', async () => {
                 var req = new Request("http://127.0.0.1:$p0/method",
                                       {method: 'PUT'});
-				var r = await ngx.fetch(req);
-				var body = await r.text();
+                var r = await ngx.fetch(req);
+                var body = await r.text();
                 return `\${r.url}: \${r.status} \${body} \${r.headers.get('a')}`;
              }, 'http://127.0.0.1:$p0/method: 200 PUT null'],
             ['request body', async () => {
                 var req = new Request("http://127.0.0.1:$p0/body",
                                       {body: 'foo'});
-				var r = await ngx.fetch(req);
-				var body = await r.text();
+                var r = await ngx.fetch(req);
+                var body = await r.text();
                 return `\${r.url}: \${r.status} \${body}`;
              }, 'http://127.0.0.1:$p0/body: 201 foo'],
         ];

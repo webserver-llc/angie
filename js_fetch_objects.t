@@ -61,6 +61,10 @@ http {
             js_content test.fetch;
         }
 
+        location /fetch_multi_header {
+            js_content test.fetch_multi_header;
+        }
+
         location /method {
             return 200 $request_method;
         }
@@ -489,13 +493,20 @@ $t->write_file('test.js', <<EOF);
 				var body = await r.text();
                 return `\${r.url}: \${r.status} \${body}`;
              }, 'http://127.0.0.1:$p0/body: 201 foo'],
-            ['request body', async () => {
+        ];
+
+        run(r, tests);
+    }
+
+    async function fetch_multi_header(r) {
+        const tests = [
+            ['request multi header', async () => {
                 var h = new Headers({a: 'X'});
                 h.append('a', 'Z');
                 var req = new Request("http://127.0.0.1:$p0/header",
                                       {headers: h});
-				var r = await ngx.fetch(req);
-				var body = await r.text();
+                var r = await ngx.fetch(req);
+                var body = await r.text();
                 return `\${r.url}: \${r.status} \${body}`;
              }, 'http://127.0.0.1:$p0/header: 200 X, Z'],
         ];
@@ -503,10 +514,11 @@ $t->write_file('test.js', <<EOF);
         run(r, tests);
     }
 
-     export default {njs: test_njs, body, headers, request, response, fetch};
+     export default {njs: test_njs, body, headers, request, response, fetch,
+                     fetch_multi_header};
 EOF
 
-$t->try_run('no njs')->plan(4);
+$t->try_run('no njs')->plan(5);
 
 ###############################################################################
 
@@ -516,6 +528,14 @@ like(http_get('/headers'), qr/200 OK/s, 'headers tests');
 like(http_get('/request'), qr/200 OK/s, 'request tests');
 like(http_get('/response'), qr/200 OK/s, 'response tests');
 like(http_get('/fetch'), qr/200 OK/s, 'fetch tests');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.0');
+
+like(http_get('/fetch_multi_header'), qr/200 OK/s,
+	'fetch multi header tests');
+
+}
 
 ###############################################################################
 

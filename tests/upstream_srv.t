@@ -15,7 +15,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/http_start http_get http_end port/;
 
 ###############################################################################
 
@@ -29,7 +29,7 @@ plan(skip_all => "JSON::PP not installed") if $@;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()->has(qw/http http_api proxy upstream_zone/)
-	->has_daemon("dnsmasq")->plan(2)
+	->has_daemon("dnsmasq")->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -59,6 +59,10 @@ http {
             proxy_pass http://u;
         }
 
+        location /u {
+            proxy_pass http://u/;
+        }
+
         location /api/ {
             api /;
         }
@@ -69,11 +73,20 @@ http {
         error_log backend1.log debug;
         listen 127.0.0.1:%%PORT_8081%%;
         location / { return 200 "B1"; }
+        location /slow {
+            limit_rate 40;
+            return 200 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        }
+
     }
     server {
         error_log backend2.log debug;
         listen 127.0.0.2:%%PORT_8082%%;
         location / { return 200 "B2"; }
+        location /slow {
+            limit_rate 40;
+            return 200 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        }
     }
 }
 
@@ -107,6 +120,47 @@ $t->write_file_expand('test_hosts', <<'EOF');
 ::1 b2.example.com
 EOF
 
+$t->write_file_expand('dns2.conf', <<'EOF');
+# listen on this port
+port=5454
+# no need for dhcp
+no-dhcp-interface=
+# do not read /etc/hosts
+no-hosts
+# do not read /etc/resolv.conf
+no-resolv
+# take records from this fil
+addn-hosts=%%TESTDIR%%/test_hosts2
+
+# return NXDOMAIN for this
+address=/b2.example.com/
+
+# SRV records
+srv-host=_http._tcp.backends.example.com,b1.example.com,%%PORT_8081%%
+srv-host=_http._tcp.backends.example.com,b2.example.com,%%PORT_8082%%
+EOF
+
+$t->write_file_expand('test_hosts2', <<'EOF');
+127.0.0.1  b1.example.com
+::1 b1.example.com
+EOF
+
+$t->write_file_expand('dns3.conf', <<'EOF');
+# listen on this port
+port=5454
+# no need for dhcp
+no-dhcp-interface=
+# do not read /etc/hosts
+no-hosts
+# do not read /etc/resolv.conf
+no-resolv
+# take records from this fil
+addn-hosts=%%TESTDIR%%/test_hosts2
+
+# return NXDOMAIN for this
+address=/backends.example.com/
+
+EOF
 
 my $dconf = $t->testdir()."/dns.conf";
 
@@ -135,6 +189,36 @@ is($j->{'server'}, 'backends.example.com', 'b1 address resolved from srv');
 $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.2:$port2");
 is($j->{'server'}, 'backends.example.com', 'b2 address resolved from srv');
 
+my $s = http_start_uri('/u/slow'); # connects to b1
+my $s2 = http_start_uri('/u/slow'); # connects to b2
+
+$t->stop_daemons();
+# start DNS server with new config, b2 disappears from backends.example.com
+$t->run_daemon('dnsmasq', '-C', $tdir."/dns2.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
+
+# let various resolve timers run
+select undef, undef, undef, 2;
+
+$j = get_json("/api/status/http/upstreams/u/127.0.0.2:$port2");
+is($j->{'error'}, 'PathNotFound', 'b2.example.com disappeared');
+
+my $res = http_end($s);
+my $res2 = http_end($s2);
+
+
+# whole backends.example.com disappears
+$t->stop_daemons();
+# start DNS server with new config,
+$t->run_daemon('dnsmasq', '-C', $tdir."/dns3.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
+
+# let various resolve timers run
+select undef, undef, undef, 2;
+
+$j = get_json("/api/status/http/upstreams/u/peers");
+is(%$j, 0, "example.com disappeared");
+
 
 ###############################################################################
 
@@ -150,5 +234,22 @@ sub get_json {
     }
 
     return $json;
+}
+
+sub http_start_uri {
+    my ($uri) = @_;
+
+    my $s = IO::Socket::INET->new(Proto => 'tcp',
+                              PeerAddr => '127.0.0.1',
+                              PeerPort => port(8080))
+    or die "cannot create socket: $!\n";
+
+    http_start(<<EOF, socket => $s);
+GET $uri HTTP/1.0
+Host: localhost
+
+EOF
+
+    return $s;
 }
 

@@ -53,6 +53,7 @@ sub new {
 	$self->init();
 	$self->init_key_schedule();
 	$self->initial();
+	return $self if $extra{probe};
 	$self->handshake() or return;
 
 	# RFC 9204, 4.3.1.  Set Dynamic Table Capacity
@@ -2171,6 +2172,7 @@ sub build_tls_client_hello {
 
 sub build_tlsext_server_name {
 	my ($name) = @_;
+	return '' if !defined $name;
 	my $sname = pack('xn', length($name)) . $name;
 	my $snamelist = pack('n', length($sname)) . $sname;
 	pack('n2', 0, length($snamelist)) . $snamelist;

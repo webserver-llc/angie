@@ -29,7 +29,7 @@ plan(skip_all => "JSON::PP not installed") if $@;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()->has(qw/http http_api proxy upstream_zone/)
-	->has_daemon("dnsmasq")->plan(3)
+	->has_daemon("dnsmasq")->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -48,7 +48,7 @@ http {
         zone z 1m;
         server backends.example.com service=http resolve;
 
-        resolver 127.0.0.1:5454 valid=1s;
+        resolver 127.0.0.1:5454 valid=1s ipv6=off;
     }
 
     server {
@@ -111,11 +111,9 @@ EOF
 my $dconf = $t->testdir()."/dns.conf";
 
 $t->run_daemon('dnsmasq', '-C', $tdir."/dns.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
-$t->run();
+$t->wait_for_resolver('127.0.0.1', 5464, 'b1.example.com', '127.0.0.1');
 
-# let the dnsmasq execute;
-# TODO: waitport() for UDP sockets; avoid delay
-select undef, undef, undef, 3;
+$t->run();
 
 ###############################################################################
 
@@ -123,31 +121,19 @@ my @ports = my ($port1, $port2) = (port(8081), port(8082));
 
 my ($j, $v);
 
-# give 1 request for each backend
-http_get('/'); http_get('/');
-# TODO: no idea what 1st backend is going to be; maybe IPv6, which is not listened
+# wait for nginx resolver to complete query
+for (1 .. 50) {
+    last if http_get('/') =~ qr /200 OK/;
+    select undef, undef, undef, 0.1;
+}
 
 # expect that upstream contains addresses from 'test_hosts' file
 
-$j = get_json("/api/status/http/upstreams/u/peers/");
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.1:$port1");
+is($j->{'server'}, 'backends.example.com', 'b1 address resolved from srv');
 
-my $n4 = 0;
-
-foreach my $addr ( keys %$j ) {
-
-    #print(Dumper($j->{$addr}));
-
-    if ($addr eq "127.0.0.1:$port1") {
-        $n4 = $n4 + 1;
-        is($j->{$addr}->{'server'}, 'backends.example.com', 'b1 address resolved');
-    }
-    if ($addr eq "127.0.0.2:$port2") {
-        $n4 = $n4 + 1;
-        is($j->{$addr}->{'server'}, 'backends.example.com', 'b2 address resolved');
-    }
-}
-
-is($n4, 2, 'backends.example.com resolved into 2 ipv4 addresses');
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.2:$port2");
+is($j->{'server'}, 'backends.example.com', 'b2 address resolved from srv');
 
 
 ###############################################################################

@@ -35,7 +35,7 @@ my $t = Test::Nginx->new()
 # see https://trac.nginx.org/nginx/ticket/1831
 plan(skip_all => "perl >= 5.32 required") if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(14)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(13)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -56,7 +56,7 @@ http {
         server backup.example.com:%%PORT_8081%% resolve backup;
         server nonexist.example.com:%%PORT_8081%% resolve backup;
 
-        resolver 127.0.0.1:5353 valid=1s;
+        resolver 127.0.0.1:5353 valid=1s ipv6=off;
     }
 
     upstream u2 {
@@ -182,8 +182,7 @@ EOF
 my $dconf = $t->testdir()."/dns.conf";
 
 $t->run_daemon('dnsmasq', '-C', $tdir."/dns.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
-
-# let the dnsmasq execute;
+$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.1');
 
 $t->run();
 
@@ -193,44 +192,31 @@ my @ports = my ($port1, $port2) = (port(8081), port(8082));
 
 my ($j, $v);
 
-# give 1 request for each backend (note: due to IPv6 there may be 4 peers)
-http_get('/'); http_get('/');
+# wait for nginx resolver to complete query
+for (1 .. 50) {
+    last if http_get('/') =~ qr /200 OK/;
+    select undef, undef, undef, 0.1;
+}
 
 # expect that upstream contains addresses from 'test_hosts' file
 
-$j = get_json("/api/status/http/upstreams/u/peers/");
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.1:$port1");
+is($j->{'server'}, 'foo.example.com:'.$port1, 'foo.example.com is resolved');
 
-my $n4 = 0;
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.2:$port2");
+is($j->{'server'}, 'bar.example.com:'.$port2, 'bar.example.com resolved');
 
-foreach my $addr ( keys %$j ) {
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.3:$port1");
+is($j->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 1 resolved');
 
-    #print(Dumper($j->{$addr}));
-
-    if ($addr eq "127.0.0.1:$port1") {
-        $n4 = $n4 + 1;
-        is($j->{$addr}->{'server'}, 'foo.example.com:'.$port1, 'foo.example.com is resolved');
-    }
-
-    if ($addr eq "127.0.0.2:$port2") {
-        $n4 = $n4 + 1;
-        is($j->{$addr}->{'server'}, 'bar.example.com:'.$port2, 'bar.example.com resolved');
-    }
-
-    if ($addr eq "127.0.0.3:$port1") {
-        is($j->{$addr}->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 1 resolved');
-    }
-
-    if ($addr eq "127.0.0.4:$port1") {
-        is($j->{$addr}->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 2 resolved');
-    }
-}
-
-is($n4, 2, 'foo and bar.example.com resolved into 2 ipv4 addresses');
+$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.4:$port1");
+is($j->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 2 resolved');
 
 
 # perform reload to trigger the codepath for pre-resolve
-$t->reload();
-small_delay();
+$t->reload('/api/status/angie/generation');
+
+# no need to wait for resolver, we expect cached result
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
 is($j->{"127.0.0.1:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is found after reload');
@@ -241,8 +227,7 @@ is($j->{"127.0.0.2:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.
 # and verify upstreams are still accessible
 
 $t->stop_daemons();
-$t->reload();
-small_delay();
+$t->reload('/api/status/angie/generation');
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
 is($j->{"127.0.0.1:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is saved');
@@ -251,8 +236,10 @@ is($j->{"127.0.0.2:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.
 
 # start DNS server with new config, addresses changed
 $t->run_daemon('dnsmasq', '-C', $tdir."/dns2.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
+
 # reload nginx to force resolve
-$t->reload();
+$t->reload('/api/status/angie/generation');
 # wait 3 seconds to ensure re-resolve (valid=1s)
 select undef, undef, undef, 3;
 
@@ -291,7 +278,7 @@ Host: localhost
 
 EOF
 
-    small_delay();
+    select undef, undef, undef, 1;
 
     $j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
     is($j->{'refs'}, 2, "2 long requests to backend started, ref");
@@ -317,13 +304,4 @@ sub get_json {
     }
 
     return $json;
-}
-
-sub wait_for_dns {
-    # TODO: waitport() for UDP sockets; avoid delay
-    select undef, undef, undef, 2;
-}
-
-sub small_delay {
-    select undef, undef, undef, 1;
 }

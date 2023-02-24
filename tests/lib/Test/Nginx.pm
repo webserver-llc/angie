@@ -443,10 +443,37 @@ sub waitforsocket($) {
 	return undef;
 }
 
+sub wait_for_resolver {
+	my ($self, $server, $port, $name, $expected) = @_;
+
+	my $dig = `which dig`;
+
+	if (not $dig) {
+		print("# warn: dig not found, falling back to timeout\n");
+		select undef, undef, undef, 5;
+		return 2;
+	}
+
+	my $reply;
+
+	for (1 .. 50) {
+		$reply = `dig \@$server -p $port +short +timeout=1 $name`;
+		return 1 if index($reply, $expected) != -1;
+		select undef, undef, undef, 0.1;
+	}
+	return undef;
+}
+
 sub reload() {
-	my ($self) = @_;
+	my ($self, $api_gen_url) = @_;
 
 	return $self unless $self->{_started};
+
+	my $generation;
+
+	if ($api_gen_url) {
+		$generation = http_get_value($api_gen_url);
+	}
 
 	my $pid = $self->read_file('nginx.pid');
 
@@ -461,6 +488,16 @@ sub reload() {
 
 	} else {
 		kill 'HUP', $pid;
+	}
+
+	if ($api_gen_url) {
+		my $new_generation;
+		for (1 .. 50) {
+			$new_generation = http_get_value($api_gen_url);
+			return if $new_generation == $generation + 1;
+
+			select undef, undef, undef, 0.1;
+		}
 	}
 
 	return $self;
@@ -902,6 +939,14 @@ sub http_gzip_like {
 
 		Test::More->builder->like($out, $re, $name);
 	}
+}
+
+sub http_get_value {
+    my ($uri) = @_;
+    my $response = http_get($uri);
+    my ($headers, $body) = split /\n\r/, $response, 2;
+    $body =~ s/^\s+|\s+$//g;
+    return $body;
 }
 
 ###############################################################################

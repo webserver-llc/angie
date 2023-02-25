@@ -434,6 +434,7 @@ ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
         }
     }
 
+    r->upstream->peer.ctx = r;
     r->upstream->peer.get = ngx_http_upstream_get_round_robin_peer;
     r->upstream->peer.free = ngx_http_upstream_free_round_robin_peer;
     r->upstream->peer.tries = ngx_http_upstream_tries(rrp->peers);
@@ -553,6 +554,7 @@ ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
         }
     }
 
+    r->upstream->peer.ctx = r;
     r->upstream->peer.get = ngx_http_upstream_get_round_robin_peer;
     r->upstream->peer.free = ngx_http_upstream_free_round_robin_peer;
     r->upstream->peer.tries = ngx_http_upstream_tries(rrp->peers);

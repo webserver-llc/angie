@@ -43,20 +43,8 @@ typedef struct {
 
 
 typedef struct {
-    ngx_http_upstream_keepalive_srv_conf_t  *conf;
-
-    ngx_http_upstream_t               *upstream;
-
-    void                              *data;
-
     ngx_event_get_peer_pt              original_get_peer;
     ngx_event_free_peer_pt             original_free_peer;
-
-#if (NGX_HTTP_SSL)
-    ngx_event_set_peer_session_pt      original_set_session;
-    ngx_event_save_peer_session_pt     original_save_session;
-#endif
-
 } ngx_http_upstream_keepalive_peer_data_t;
 
 
@@ -70,13 +58,6 @@ static void ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc,
 static void ngx_http_upstream_keepalive_dummy_handler(ngx_event_t *ev);
 static void ngx_http_upstream_keepalive_close_handler(ngx_event_t *ev);
 static void ngx_http_upstream_keepalive_close(ngx_connection_t *c);
-
-#if (NGX_HTTP_SSL)
-static ngx_int_t ngx_http_upstream_keepalive_set_session(
-    ngx_peer_connection_t *pc, void *data);
-static void ngx_http_upstream_keepalive_save_session(ngx_peer_connection_t *pc,
-    void *data);
-#endif
 
 static void *ngx_http_upstream_keepalive_create_conf(ngx_conf_t *cf);
 static char *ngx_http_upstream_keepalive(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -216,22 +197,13 @@ ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
         return NGX_ERROR;
     }
 
-    kp->conf = kcf;
-    kp->upstream = r->upstream;
-    kp->data = r->upstream->peer.data;
     kp->original_get_peer = r->upstream->peer.get;
     kp->original_free_peer = r->upstream->peer.free;
 
-    r->upstream->peer.data = kp;
+    ngx_http_set_ctx(r, kp, ngx_http_upstream_keepalive_module);
+
     r->upstream->peer.get = ngx_http_upstream_get_keepalive_peer;
     r->upstream->peer.free = ngx_http_upstream_free_keepalive_peer;
-
-#if (NGX_HTTP_SSL)
-    kp->original_set_session = r->upstream->peer.set_session;
-    kp->original_save_session = r->upstream->peer.save_session;
-    r->upstream->peer.set_session = ngx_http_upstream_keepalive_set_session;
-    r->upstream->peer.save_session = ngx_http_upstream_keepalive_save_session;
-#endif
 
     return NGX_OK;
 }
@@ -240,8 +212,10 @@ ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
 static ngx_int_t
 ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
 {
-    ngx_http_upstream_keepalive_peer_data_t  *kp = data;
+    ngx_http_request_t                       *r;
     ngx_http_upstream_keepalive_cache_t      *item;
+    ngx_http_upstream_keepalive_srv_conf_t   *kcf;
+    ngx_http_upstream_keepalive_peer_data_t  *kp;
 
     ngx_int_t          rc;
     ngx_queue_t       *q, *cache;
@@ -252,15 +226,22 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
 
     /* ask balancer */
 
-    rc = kp->original_get_peer(pc, kp->data);
+    r = pc->ctx;
+
+    kp = ngx_http_get_module_ctx(r, ngx_http_upstream_keepalive_module);
+
+    rc = kp->original_get_peer(pc, data);
 
     if (rc != NGX_OK) {
         return rc;
     }
 
+    kcf = ngx_http_conf_upstream_srv_conf(r->upstream->upstream,
+                                          ngx_http_upstream_keepalive_module);
+
     /* search cache for suitable connection */
 
-    cache = &kp->conf->cache;
+    cache = &kcf->cache;
 
     for (q = ngx_queue_head(cache);
          q != ngx_queue_sentinel(cache);
@@ -274,7 +255,7 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
             == 0)
         {
             ngx_queue_remove(q);
-            ngx_queue_insert_head(&kp->conf->free, q);
+            ngx_queue_insert_head(&kcf->free, q);
 
 #if (NGX_API)
             if (item->rr_peers) {
@@ -317,8 +298,10 @@ static void
 ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_uint_t state)
 {
-    ngx_http_upstream_keepalive_peer_data_t  *kp = data;
+    ngx_http_request_t                       *r;
     ngx_http_upstream_keepalive_cache_t      *item;
+    ngx_http_upstream_keepalive_srv_conf_t   *kcf;
+    ngx_http_upstream_keepalive_peer_data_t  *kp;
 
     ngx_queue_t          *q;
     ngx_connection_t     *c;
@@ -329,7 +312,14 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     /* cache valid connections */
 
-    u = kp->upstream;
+    r = pc->ctx;
+
+    u = r->upstream;
+
+    kp = ngx_http_get_module_ctx(r, ngx_http_upstream_keepalive_module);
+
+    kcf = ngx_http_conf_upstream_srv_conf(u->upstream,
+                                          ngx_http_upstream_keepalive_module);
     c = pc->connection;
 
     if (state & NGX_PEER_FAILED
@@ -343,11 +333,11 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
         goto invalid;
     }
 
-    if (c->requests >= kp->conf->requests) {
+    if (c->requests >= kcf->requests) {
         goto invalid;
     }
 
-    if (ngx_current_msec - c->start_time > kp->conf->time) {
+    if (ngx_current_msec - c->start_time > kcf->time) {
         goto invalid;
     }
 
@@ -370,9 +360,9 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "free keepalive peer: saving connection %p", c);
 
-    if (ngx_queue_empty(&kp->conf->free)) {
+    if (ngx_queue_empty(&kcf->free)) {
 
-        q = ngx_queue_last(&kp->conf->cache);
+        q = ngx_queue_last(&kcf->cache);
         ngx_queue_remove(q);
 
         item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t, queue);
@@ -386,13 +376,13 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 #endif
 
     } else {
-        q = ngx_queue_head(&kp->conf->free);
+        q = ngx_queue_head(&kcf->free);
         ngx_queue_remove(q);
 
         item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t, queue);
     }
 
-    ngx_queue_insert_head(&kp->conf->cache, q);
+    ngx_queue_insert_head(&kcf->cache, q);
 
 #if (NGX_API)
     if (u->upstream && (u->upstream->flags & NGX_HTTP_UPSTREAM_CONF)) {
@@ -403,12 +393,12 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     item->connection = c;
 
-    kp->original_free_peer(pc, kp->data, state);
+    kp->original_free_peer(pc, data, state);
 
     pc->connection = NULL;
 
     c->read->delayed = 0;
-    ngx_add_timer(c->read, kp->conf->timeout);
+    ngx_add_timer(c->read, kcf->timeout);
 
     if (c->write->timer_set) {
         ngx_del_timer(c->write);
@@ -435,7 +425,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
 invalid:
 
-    kp->original_free_peer(pc, kp->data, state);
+    kp->original_free_peer(pc, data, state);
 }
 
 
@@ -517,29 +507,6 @@ ngx_http_upstream_keepalive_close(ngx_connection_t *c)
     ngx_destroy_pool(c->pool);
     ngx_close_connection(c);
 }
-
-
-#if (NGX_HTTP_SSL)
-
-static ngx_int_t
-ngx_http_upstream_keepalive_set_session(ngx_peer_connection_t *pc, void *data)
-{
-    ngx_http_upstream_keepalive_peer_data_t  *kp = data;
-
-    return kp->original_set_session(pc, kp->data);
-}
-
-
-static void
-ngx_http_upstream_keepalive_save_session(ngx_peer_connection_t *pc, void *data)
-{
-    ngx_http_upstream_keepalive_peer_data_t  *kp = data;
-
-    kp->original_save_session(pc, kp->data);
-    return;
-}
-
-#endif
 
 
 static void *

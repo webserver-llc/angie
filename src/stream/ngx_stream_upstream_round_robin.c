@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -301,6 +302,7 @@ ngx_stream_upstream_init_round_robin_peer(ngx_stream_session_t *s,
         }
     }
 
+    s->upstream->peer.ctx = s;
     s->upstream->peer.get = ngx_stream_upstream_get_round_robin_peer;
     s->upstream->peer.free = ngx_stream_upstream_free_round_robin_peer;
     s->upstream->peer.notify = ngx_stream_upstream_notify_round_robin_peer;
@@ -425,6 +427,7 @@ ngx_stream_upstream_create_round_robin_peer(ngx_stream_session_t *s,
         }
     }
 
+    s->upstream->peer.ctx = s;
     s->upstream->peer.get = ngx_stream_upstream_get_round_robin_peer;
     s->upstream->peer.free = ngx_stream_upstream_free_round_robin_peer;
     s->upstream->peer.tries = ngx_stream_upstream_tries(rrp->peers);

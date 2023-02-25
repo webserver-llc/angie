@@ -26,10 +26,6 @@ typedef struct {
 
 
 typedef struct {
-    /* the round robin data must be first */
-    ngx_http_upstream_rr_peer_data_t      rrp;
-
-    ngx_http_upstream_random_srv_conf_t  *conf;
     u_char                                tries;
 } ngx_http_upstream_random_peer_data_t;
 
@@ -47,7 +43,7 @@ static ngx_int_t ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc,
     void *data);
 static ngx_uint_t ngx_http_upstream_peek_random_peer(
     ngx_http_upstream_rr_peers_t *peers,
-    ngx_http_upstream_random_peer_data_t *rp);
+    ngx_http_upstream_random_srv_conf_t *rcf);
 static void *ngx_http_upstream_random_create_conf(ngx_conf_t *cf);
 static char *ngx_http_upstream_random(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -163,6 +159,7 @@ static ngx_int_t
 ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
+    ngx_http_upstream_rr_peer_data_t      *rrp;
     ngx_http_upstream_random_srv_conf_t   *rcf;
     ngx_http_upstream_random_peer_data_t  *rp;
 
@@ -176,7 +173,7 @@ ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
         return NGX_ERROR;
     }
 
-    r->upstream->peer.data = &rp->rrp;
+    ngx_http_set_ctx(r, rp, ngx_http_upstream_random_module);
 
     if (ngx_http_upstream_init_round_robin_peer(r, us) != NGX_OK) {
         return NGX_ERROR;
@@ -189,26 +186,27 @@ ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
         r->upstream->peer.get = ngx_http_upstream_get_random_peer;
     }
 
-    rp->conf = rcf;
     rp->tries = 0;
 
-    ngx_http_upstream_rr_peers_rlock(rp->rrp.peers);
+    rrp = r->upstream->peer.data;
+
+    ngx_http_upstream_rr_peers_rlock(rrp->peers);
 
 #if (NGX_HTTP_UPSTREAM_ZONE)
-    if (rp->rrp.peers->generation
+    if (rrp->peers->generation
         && (rcf->ranges == NULL
-            || rcf->generation != *rp->rrp.peers->generation))
+            || rcf->generation != *rrp->peers->generation))
     {
         if (ngx_http_upstream_update_random(NULL, us) != NGX_OK) {
-            ngx_http_upstream_rr_peers_unlock(rp->rrp.peers);
+            ngx_http_upstream_rr_peers_unlock(rrp->peers);
             return NGX_ERROR;
         }
 
-        rcf->generation = *rp->rrp.peers->generation;
+        rcf->generation = *rrp->peers->generation;
     }
 #endif
 
-    ngx_http_upstream_rr_peers_unlock(rp->rrp.peers);
+    ngx_http_upstream_rr_peers_unlock(rrp->peers);
 
     return NGX_OK;
 }
@@ -217,19 +215,26 @@ ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
 static ngx_int_t
 ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 {
-    ngx_http_upstream_random_peer_data_t  *rp = data;
+    ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                             now;
-    uintptr_t                          m;
-    ngx_uint_t                         i, n;
-    ngx_http_upstream_rr_peer_t       *peer;
-    ngx_http_upstream_rr_peers_t      *peers;
-    ngx_http_upstream_rr_peer_data_t  *rrp;
+    time_t                                 now;
+    uintptr_t                              m;
+    ngx_uint_t                             i, n;
+    ngx_http_request_t                    *r;
+    ngx_http_upstream_rr_peer_t           *peer;
+    ngx_http_upstream_rr_peers_t          *peers;
+    ngx_http_upstream_random_srv_conf_t   *rcf;
+    ngx_http_upstream_random_peer_data_t  *rp;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get random peer, try: %ui", pc->tries);
 
-    rrp = &rp->rrp;
+    r = pc->ctx;
+
+    rp = ngx_http_get_module_ctx(r, ngx_http_upstream_random_module);
+
+    rcf = ngx_http_conf_upstream_srv_conf(r->upstream->upstream,
+                                          ngx_http_upstream_random_module);
     peers = rrp->peers;
 
     ngx_http_upstream_rr_peers_rlock(peers);
@@ -253,9 +258,9 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
     for ( ;; ) {
 
-        i = ngx_http_upstream_peek_random_peer(peers, rp);
+        i = ngx_http_upstream_peek_random_peer(peers, rcf);
 
-        peer = rp->conf->ranges[i].peer;
+        peer = rcf->ranges[i].peer;
 
         n = i / (8 * sizeof(uintptr_t));
         m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
@@ -324,19 +329,26 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 static ngx_int_t
 ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 {
-    ngx_http_upstream_random_peer_data_t  *rp = data;
+    ngx_http_upstream_rr_peer_data_t *rrp = data;
 
-    time_t                             now;
-    uintptr_t                          m;
-    ngx_uint_t                         i, n, p;
-    ngx_http_upstream_rr_peer_t       *peer, *prev;
-    ngx_http_upstream_rr_peers_t      *peers;
-    ngx_http_upstream_rr_peer_data_t  *rrp;
+    time_t                                 now;
+    uintptr_t                              m;
+    ngx_uint_t                             i, n, p;
+    ngx_http_request_t                    *r;
+    ngx_http_upstream_rr_peer_t           *peer, *prev;
+    ngx_http_upstream_rr_peers_t          *peers;
+    ngx_http_upstream_random_srv_conf_t   *rcf;
+    ngx_http_upstream_random_peer_data_t  *rp;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get random2 peer, try: %ui", pc->tries);
 
-    rrp = &rp->rrp;
+    r = pc->ctx;
+
+    rp = ngx_http_get_module_ctx(r, ngx_http_upstream_random_module);
+
+    rcf = ngx_http_conf_upstream_srv_conf(r->upstream->upstream,
+                                          ngx_http_upstream_random_module);
     peers = rrp->peers;
 
     ngx_http_upstream_rr_peers_wlock(peers);
@@ -366,9 +378,9 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
     for ( ;; ) {
 
-        i = ngx_http_upstream_peek_random_peer(peers, rp);
+        i = ngx_http_upstream_peek_random_peer(peers, rcf);
 
-        peer = rp->conf->ranges[i].peer;
+        peer = rcf->ranges[i].peer;
 
         if (peer == prev) {
             goto next;
@@ -445,7 +457,7 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
 static ngx_uint_t
 ngx_http_upstream_peek_random_peer(ngx_http_upstream_rr_peers_t *peers,
-    ngx_http_upstream_random_peer_data_t *rp)
+    ngx_http_upstream_random_srv_conf_t *rcf)
 {
     ngx_uint_t  i, j, k, x;
 
@@ -457,7 +469,7 @@ ngx_http_upstream_peek_random_peer(ngx_http_upstream_rr_peers_t *peers,
     while (j - i > 1) {
         k = (i + j) / 2;
 
-        if (x < rp->conf->ranges[k].range) {
+        if (x < rcf->ranges[k].range) {
             j = k;
 
         } else {

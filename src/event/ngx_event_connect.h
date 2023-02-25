@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -47,6 +48,7 @@ struct ngx_peer_connection_s {
     ngx_event_free_peer_pt           free;
     ngx_event_notify_peer_pt         notify;
     void                            *data;
+    void                            *ctx;
 
 #if (NGX_SSL || NGX_COMPAT)
     ngx_event_set_peer_session_pt    set_session;

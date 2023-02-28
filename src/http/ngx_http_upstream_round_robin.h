@@ -15,6 +15,9 @@
 #include <ngx_http.h>
 
 
+#define NGX_HTTP_UPSTREAM_SID_LEN   32
+
+
 #if (NGX_API)
 
 typedef struct {
@@ -79,6 +82,10 @@ struct ngx_http_upstream_rr_peer_s {
     ngx_msec_t                      start_time;
 
     ngx_uint_t                      down;
+
+#if (NGX_HTTP_UPSTREAM_SID)
+    ngx_str_t                       sid;
+#endif
 
 #if (NGX_HTTP_SSL || NGX_COMPAT)
     void                           *ssl_session;
@@ -197,6 +204,16 @@ ngx_http_upstream_rr_peer_free_locked(ngx_http_upstream_rr_peers_t *peers,
         ngx_slab_free_locked(peers->shpool, peer->server.data);
     }
 
+#if (NGX_HTTP_UPSTREAM_SID)
+    if (peer->sid.data
+        && (peer->host == NULL
+            || peer->host->peer == peer
+            || peer->host->peer->sid.len == 0))
+    {
+        ngx_slab_free_locked(peers->shpool, peer->sid.data);
+    }
+#endif
+
     ngx_slab_free_locked(peers->shpool, peer);
 }
 
@@ -273,5 +290,9 @@ void ngx_http_upstream_save_round_robin_peer_session(ngx_peer_connection_t *pc,
     void *data);
 #endif
 
+
+#if (NGX_HTTP_UPSTREAM_SID)
+void ngx_http_upstream_rr_peer_init_sid(ngx_http_upstream_rr_peer_t *peer);
+#endif
 
 #endif /* _NGX_HTTP_UPSTREAM_ROUND_ROBIN_H_INCLUDED_ */

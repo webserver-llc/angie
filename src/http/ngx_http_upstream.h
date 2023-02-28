@@ -94,6 +94,9 @@ typedef struct {
 
 typedef struct {
     ngx_str_t                        name;
+#if (NGX_HTTP_UPSTREAM_SID)
+    ngx_str_t                        sid;
+#endif
     ngx_addr_t                      *addrs;
     ngx_uint_t                       naddrs;
     ngx_uint_t                       weight;

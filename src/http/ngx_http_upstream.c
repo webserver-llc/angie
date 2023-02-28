@@ -6225,6 +6225,9 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     time_t                       fail_timeout;
     ngx_str_t                   *value, s;
+#if (NGX_HTTP_UPSTREAM_SID)
+    ngx_str_t                    sid;
+#endif
     ngx_url_t                    u;
     ngx_int_t                    weight, max_conns, max_fails;
     ngx_uint_t                   i;
@@ -6248,6 +6251,9 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     fail_timeout = 10;
 #if (NGX_HTTP_UPSTREAM_ZONE)
     resolve = 0;
+#endif
+#if (NGX_HTTP_UPSTREAM_SID)
+    sid.len = 0;
 #endif
 
     for (i = 2; i < cf->args->nelts; i++) {
@@ -6357,6 +6363,36 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 #endif
 
+#if (NGX_HTTP_UPSTREAM_SID)
+
+        if (ngx_strncmp(value[i].data, "sid=", 4) == 0) {
+
+            value[i].len -= 4;
+            value[i].data += 4;
+
+            if (value[i].len == 0) {
+                goto invalid;
+            }
+
+            sid.len = value[i].len;
+
+            if (sid.len > NGX_HTTP_UPSTREAM_SID_LEN) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "sid is too long");
+                return NGX_CONF_ERROR;
+            }
+
+            sid.data = ngx_pnalloc(cf->pool, sid.len);
+            if (sid.data == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ngx_memcpy(sid.data, value[i].data, sid.len);
+
+            continue;
+        }
+
+#endif
+
         goto invalid;
     }
 
@@ -6449,6 +6485,9 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     us->max_conns = max_conns;
     us->max_fails = max_fails;
     us->fail_timeout = fail_timeout;
+#if (NGX_HTTP_UPSTREAM_SID)
+    us->sid = sid;
+#endif
 
     return NGX_CONF_OK;
 

@@ -11,6 +11,12 @@
 #include <ngx_http.h>
 
 
+#if (NGX_HTTP_UPSTREAM_STICKY)
+static ngx_int_t ngx_http_upstream_sticky_status_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+#endif
+
+
 #if (NGX_HTTP_CACHE)
 static ngx_int_t ngx_http_upstream_cache(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
@@ -444,6 +450,14 @@ static ngx_http_variable_t  ngx_http_upstream_vars[] = {
     { ngx_string("upstream_cache_etag"), NULL,
       ngx_http_upstream_cache_etag, 0,
       NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_NOHASH, 0 },
+
+#endif
+
+#if (NGX_HTTP_UPSTREAM_STICKY)
+
+    { ngx_string("upstream_sticky_status"), NULL,
+      ngx_http_upstream_sticky_status_variable, 0,
+      NGX_HTTP_VAR_NOCACHEABLE, 0 },
 
 #endif
 
@@ -6096,6 +6110,84 @@ ngx_http_upstream_cache_etag(ngx_http_request_t *r,
     v->not_found = 0;
     v->len = r->cache->etag.len;
     v->data = r->cache->etag.data;
+
+    return NGX_OK;
+}
+
+#endif
+
+
+#if (NGX_HTTP_UPSTREAM_STICKY)
+
+static ngx_str_t  ngx_http_upstream_sticky_status[4] = {
+    ngx_string(""),
+    ngx_string("new"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW */
+    ngx_string("hit"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_HIT */
+    ngx_string("miss")    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_MISS */
+};
+
+
+static ngx_int_t
+ngx_http_upstream_sticky_status_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    u_char                     *p;
+    size_t                      len;
+    ngx_uint_t                  i;
+    ngx_http_upstream_state_t  *state;
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    if (r->upstream_states == NULL || r->upstream_states->nelts == 0) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    len = r->upstream_states->nelts * (sizeof("miss") - 1 + 2);
+
+    p = ngx_pnalloc(r->pool, len);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->data = p;
+
+    i = 0;
+    state = r->upstream_states->elts;
+
+    for ( ;; ) {
+        if (state[i].status) {
+            p = ngx_sprintf(p, "%V",
+                     &ngx_http_upstream_sticky_status[state[i].sticky_status]);
+
+        } else {
+            *p++ = '-';
+        }
+
+        if (++i == r->upstream_states->nelts) {
+            break;
+        }
+
+        if (state[i].peer) {
+            *p++ = ',';
+            *p++ = ' ';
+
+        } else {
+            *p++ = ' ';
+            *p++ = ':';
+            *p++ = ' ';
+
+            if (++i == r->upstream_states->nelts) {
+                break;
+            }
+
+            continue;
+        }
+    }
+
+    v->len = p - v->data;
 
     return NGX_OK;
 }

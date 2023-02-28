@@ -126,6 +126,7 @@ ngx_http_upstream_sticky_select_peer(ngx_http_upstream_rr_peer_data_t *rrp,
     ngx_uint_t   i, n;
 
     ngx_http_request_t                   *r;
+    ngx_http_upstream_state_t            *us;
     ngx_http_upstream_rr_peer_t          *peer;
     ngx_http_upstream_rr_peers_t         *peers;
     ngx_http_upstream_sticky_srv_conf_t  *scf;
@@ -133,8 +134,11 @@ ngx_http_upstream_sticky_select_peer(ngx_http_upstream_rr_peer_data_t *rrp,
     r = pc->ctx;
 
     hint = &sp->hint;
+    us = r->upstream->state;
 
     if (hint->len == 0) {
+        us->sticky_status = NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW;
+
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "sticky: no hint provided");
         return NGX_OK;
@@ -200,6 +204,8 @@ again:
             continue;
         }
 
+        us->sticky_status = NGX_HTTP_UPSTREAM_STICKY_STATUS_HIT;
+
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "sticky: found matching peer %ui", i);
 
@@ -235,6 +241,8 @@ again:
         peers = peers->next;
         goto again;
     }
+
+    us->sticky_status = NGX_HTTP_UPSTREAM_STICKY_STATUS_MISS;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "sticky: no match");
 

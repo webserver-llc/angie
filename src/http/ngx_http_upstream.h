@@ -45,6 +45,11 @@
 
 #define NGX_HTTP_UPSTREAM_INVALID_HEADER     40
 
+/* zero indicates no sticky */
+#define NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW  1
+#define NGX_HTTP_UPSTREAM_STICKY_STATUS_HIT  2
+#define NGX_HTTP_UPSTREAM_STICKY_STATUS_MISS 3
+
 
 #define NGX_HTTP_UPSTREAM_IGN_XA_REDIRECT    0x00000002
 #define NGX_HTTP_UPSTREAM_IGN_XA_EXPIRES     0x00000004
@@ -66,6 +71,9 @@ typedef struct {
     off_t                            response_length;
     off_t                            bytes_received;
     off_t                            bytes_sent;
+#if (NGX_HTTP_UPSTREAM_STICKY)
+    ngx_uint_t                       sticky_status;
+#endif
 
     ngx_str_t                       *peer;
 } ngx_http_upstream_state_t;

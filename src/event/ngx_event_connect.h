@@ -40,6 +40,7 @@ struct ngx_peer_connection_s {
     struct sockaddr                 *sockaddr;
     socklen_t                        socklen;
     ngx_str_t                       *name;
+    ngx_str_t                        sid;
 
     ngx_uint_t                       tries;
     ngx_msec_t                       start_time;

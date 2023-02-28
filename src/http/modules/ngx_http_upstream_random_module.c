@@ -226,6 +226,14 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_random_srv_conf_t   *rcf;
     ngx_http_upstream_random_peer_data_t  *rp;
 
+#if (NGX_HTTP_UPSTREAM_STICKY)
+    if (pc->sockaddr) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                       "get random peer skipped");
+        return NGX_OK;
+    }
+#endif
+
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get random peer, try: %ui", pc->tries);
 
@@ -309,6 +317,9 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
     pc->sockaddr = peer->sockaddr;
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
+#if (NGX_HTTP_UPSTREAM_SID)
+    pc->sid = peer->sid;
+#endif
 
     peer->conns++;
 
@@ -339,6 +350,14 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_rr_peers_t          *peers;
     ngx_http_upstream_random_srv_conf_t   *rcf;
     ngx_http_upstream_random_peer_data_t  *rp;
+
+#if (NGX_HTTP_UPSTREAM_STICKY)
+    if (pc->sockaddr) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                       "get random2 peer skipped");
+        return NGX_OK;
+    }
+#endif
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get random2 peer, try: %ui", pc->tries);
@@ -439,6 +458,9 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
     pc->sockaddr = peer->sockaddr;
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
+#if (NGX_HTTP_UPSTREAM_SID)
+    pc->sid = peer->sid;
+#endif
 
     peer->conns++;
 

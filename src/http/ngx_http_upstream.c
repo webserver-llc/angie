@@ -4386,6 +4386,9 @@ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
 
         u->peer.free(&u->peer, u->peer.data, state);
         u->peer.sockaddr = NULL;
+#if (NGX_HTTP_UPSTREAM_SID)
+        u->peer.sid.len = 0;
+#endif
     }
 
     if (ft_type == NGX_HTTP_UPSTREAM_FT_TIMEOUT) {
@@ -4569,6 +4572,9 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
     if (u->peer.free && u->peer.sockaddr) {
         u->peer.free(&u->peer, u->peer.data, 0);
         u->peer.sockaddr = NULL;
+#if (NGX_HTTP_UPSTREAM_SID)
+        u->peer.sid.len = 0;
+#endif
     }
 
     if (u->peer.connection) {

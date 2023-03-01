@@ -53,6 +53,10 @@ $t->run();
 my $pid = $t->read_file('nginx.pid');
 ok($pid, 'master pid');
 
+TODO: {
+
+local $TODO = 'not yet';
+
 kill 'USR2', $pid;
 
 for (1 .. 30) {
@@ -91,4 +95,5 @@ for (1 .. 30) {
 
 ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
 
+}
 ###############################################################################

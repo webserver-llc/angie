@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+возможность сжатия модулем gzip ответов со статусом "207 Multi-Status".
+Спасибо DBotThePony.
+</para>
+<para lang="en">
+ability to compress of "207 Multi-Status" responses by the gzip module.
+Thanks to DBotThePony.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.23.4.
 </para>
 <para lang="en">

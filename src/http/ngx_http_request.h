@@ -79,6 +79,7 @@
 #define NGX_HTTP_ACCEPTED                  202
 #define NGX_HTTP_NO_CONTENT                204
 #define NGX_HTTP_PARTIAL_CONTENT           206
+#define NGX_HTTP_MULTI_STATUS              207
 
 #define NGX_HTTP_SPECIAL_RESPONSE          300
 #define NGX_HTTP_MOVED_PERMANENTLY         301

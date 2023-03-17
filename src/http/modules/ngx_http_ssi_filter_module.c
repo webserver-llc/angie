@@ -98,6 +98,8 @@ static ngx_int_t ngx_http_ssi_fsize(ngx_http_request_t *r,
     ngx_http_ssi_ctx_t *ctx, ngx_str_t **params);
 static ngx_int_t ngx_http_ssi_fsize_output(ngx_http_request_t *r, void *data,
     ngx_int_t rc);
+static ngx_int_t ngx_http_ssi_flastmod_output(ngx_http_request_t *r,
+    void *data, ngx_int_t rc);
 static ngx_int_t ngx_http_ssi_echo(ngx_http_request_t *r,
     ngx_http_ssi_ctx_t *ctx, ngx_str_t **params);
 static ngx_int_t ngx_http_ssi_config(ngx_http_request_t *r,
@@ -312,6 +314,8 @@ static ngx_http_ssi_command_t  ngx_http_ssi_commands[] = {
     { ngx_string("include"), ngx_http_ssi_include,
                        ngx_http_ssi_include_params, 0, 0, 1 },
     { ngx_string("fsize"), ngx_http_ssi_fsize,
+                       ngx_http_ssi_fsize_params, 0, 0, 1 },
+    { ngx_string("flastmod"), ngx_http_ssi_fsize,
                        ngx_http_ssi_fsize_params, 0, 0, 1 },
     { ngx_string("echo"), ngx_http_ssi_echo,
                        ngx_http_ssi_echo_params, 0, 0, 0 },
@@ -2340,14 +2344,14 @@ ngx_http_ssi_fsize(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
 
     if (uri && file) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "fsize may be either virtual=\"%V\" or file=\"%V\"",
-                      uri, file);
+                      "%V may be either virtual=\"%V\" or file=\"%V\"",
+                      ctx->command, uri, file);
         return NGX_HTTP_SSI_ERROR;
     }
 
     if (uri == NULL && file == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "no parameter in \"fsize\" SSI command");
+                      "no parameter in \"%V\" SSI command", ctx->command);
         return NGX_HTTP_SSI_ERROR;
     }
 
@@ -2378,6 +2382,13 @@ ngx_http_ssi_fsize(ngx_http_request_t *r, ngx_http_ssi_ctx_t *ctx,
 
     psr->handler = ngx_http_ssi_fsize_output;
     psr->data = ngx_http_ssi_ctx_conf_ro_snapshot(ctx);
+
+    if (ctx->command.len == sizeof("fsize") - 1) {
+        psr->handler = ngx_http_ssi_fsize_output;
+
+    } else if (ctx->command.len == sizeof("flastmod") - 1) {
+        psr->handler = ngx_http_ssi_flastmod_output;
+    }
 
     if (ngx_http_subrequest(r, uri, &args, &sr, psr, flags) != NGX_OK) {
         return NGX_HTTP_SSI_ERROR;
@@ -2459,6 +2470,77 @@ ngx_http_ssi_fsize_output(ngx_http_request_t *r, void *data, ngx_int_t rc)
 
         } else {
             b->last = ngx_sprintf(b->last, "%i", size);
+        }
+    }
+
+    out = ngx_alloc_chain_link(r->pool);
+    if (out == NULL) {
+        return NGX_ERROR;
+    }
+
+    out->buf = b;
+    out->next = NULL;
+
+    return ngx_http_output_filter(r, out);
+}
+
+
+static ngx_int_t
+ngx_http_ssi_flastmod_output(ngx_http_request_t *r, void *data, ngx_int_t rc)
+{
+    size_t                    len;
+    ngx_buf_t                *b;
+    ngx_str_t                *timefmt;
+    struct tm                 tm;
+    ngx_chain_t              *out;
+    ngx_http_ssi_ctx_conf_t  *conf;
+
+    conf = data;
+    timefmt = &conf->timefmt;
+
+    if (rc == NGX_ERROR || r->connection->error || r->request_output) {
+        return rc;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "ssi flastmod output: \"%V?%V\"", &r->uri, &r->args);
+
+    if (r->headers_out.status != NGX_HTTP_OK || r->headers_out.last_modified_time == -1) {
+        b = ngx_calloc_buf(r->pool);
+        if (b == NULL) {
+            return NGX_ERROR;
+        }
+
+        b->memory = 1;
+        b->pos = conf->errmsg.data;
+        b->last = conf->errmsg.data + conf->errmsg.len;
+
+    } else if (timefmt->len == sizeof("%s") - 1
+        && timefmt->data[0] == '%' && timefmt->data[1] == 's')
+    {
+        b = ngx_create_temp_buf(r->pool, NGX_TIME_T_LEN);
+        if (b == NULL) {
+            return NGX_ERROR;
+        }
+
+        b->last = ngx_sprintf(b->last, "%T", r->headers_out.last_modified_time);
+
+    } else {
+        b = ngx_create_temp_buf(r->pool, NGX_HTTP_SSI_DATE_LEN);
+        if (b == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_libc_localtime(r->headers_out.last_modified_time, &tm);
+
+        len = strftime((char *)b->last, NGX_HTTP_SSI_DATE_LEN,
+                  (char *) timefmt->data, &tm);
+        if (len == 0) {
+            b->pos = conf->errmsg.data;
+            b->last = conf->errmsg.data + conf->errmsg.len;
+
+        } else {
+            b->last = b->last + len;
         }
     }
 

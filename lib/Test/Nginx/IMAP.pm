@@ -66,9 +66,9 @@ sub getline {
 	}
 
 	while (IO::Select->new($socket)->can_read(8)) {
-	        $socket->blocking(0);
+		$socket->blocking(0);
 		my $n = $socket->sysread(my $buf, 1024);
-	        $socket->blocking(1);
+		$socket->blocking(1);
 		last unless $n;
 
 		$self->{_read_buffer} .= $buf;

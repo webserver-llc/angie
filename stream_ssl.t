@@ -147,24 +147,32 @@ like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl');
 # ssl_session_cache
 
 ($s, $ssl) = get_ssl_socket(port(8080));
+Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(port(8080), $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin session reused');
 
 ($s, $ssl) = get_ssl_socket(port(8082));
+Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(port(8082), $ses);
 isnt(Net::SSLeay::session_reused($ssl), 1, 'session not reused');
 
 ($s, $ssl) = get_ssl_socket(port(8083));
+Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(port(8083), $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin size session reused');
 
 ($s, $ssl) = get_ssl_socket(port(8084));
+Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(port(8084), $ses);

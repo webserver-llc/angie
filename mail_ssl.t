@@ -182,24 +182,28 @@ $s->check(qr/\+ VXNlcm5hbWU6/, 'login');
 my ($ssl, $ses);
 
 ($s, $ssl) = get_ssl_socket(8145);
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8145, $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin session reused');
 
 ($s, $ssl) = get_ssl_socket(8146);
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8146, $ses);
 is(Net::SSLeay::session_reused($ssl), 0, 'session not reused');
 
 ($s, $ssl) = get_ssl_socket(8147);
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8147, $ses);
 is(Net::SSLeay::session_reused($ssl), 1, 'builtin size session reused');
 
 ($s, $ssl) = get_ssl_socket(8148);
+Net::SSLeay::read($ssl);
 $ses = Net::SSLeay::get_session($ssl);
 
 ($s, $ssl) = get_ssl_socket(8148, $ses);

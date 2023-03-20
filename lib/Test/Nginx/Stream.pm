@@ -84,8 +84,10 @@ sub read {
 	$s = $self->{_socket};
 
 	$s->blocking(0);
-	if (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
-		$s->sysread($buf, 1024);
+	while (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
+		my $n = $s->sysread($buf, 1024);
+		next if !defined $n && $!{EWOULDBLOCK};
+		last;
 	}
 
 	log_in($buf);

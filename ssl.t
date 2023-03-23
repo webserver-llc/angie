@@ -31,7 +31,7 @@ eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy/)
-	->has_daemon('openssl')->plan(28);
+	->has_daemon('openssl')->plan(21);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -47,7 +47,6 @@ http {
 
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-    ssl_session_tickets off;
 
     log_format ssl $ssl_protocol;
 
@@ -59,6 +58,7 @@ http {
         ssl_certificate_key inner.key;
         ssl_certificate inner.crt;
         ssl_session_cache shared:SSL:1m;
+        ssl_session_tickets on;
         ssl_verify_client optional_no_ca;
 
         keepalive_requests 1000;
@@ -100,57 +100,11 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
-        server_name  localhost;
-
-        # Special case for enabled "ssl" directive.
-
-        ssl on;
-        ssl_session_cache builtin;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
-    }
-
-    server {
-        listen       127.0.0.1:8082 ssl;
-        server_name  localhost;
-
-        ssl_session_cache builtin:1000;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
-    }
-
-    server {
-        listen       127.0.0.1:8083 ssl;
-        server_name  localhost;
-
-        ssl_session_cache none;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
-    }
-
-    server {
-        listen       127.0.0.1:8084 ssl;
-        server_name  localhost;
-
-        ssl_session_cache off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
-    }
-
-    server {
         listen       127.0.0.1:8086 ssl;
         server_name  localhost;
 
         ssl_session_cache shared:SSL:1m;
+        ssl_session_tickets on;
         ssl_session_timeout 1;
 
         location / {
@@ -216,58 +170,33 @@ foreach my $name ('localhost', 'inner') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
-my $ctx;
+# ssl session reuse
 
-SKIP: {
-skip 'no TLS 1.3 sessions', 6 if get('/protocol', 8085) =~ /TLSv1.3/
-	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
+my $ctx = get_ssl_context();
 
-$ctx = get_ssl_context();
+like(get('/', 8085, $ctx), qr/^body \.$/m, 'session');
 
-like(get('/', 8085, $ctx), qr/^body \.$/m, 'cache shared');
-like(get('/', 8085, $ctx), qr/^body r$/m, 'cache shared reused');
+TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 
-$ctx = get_ssl_context();
-
-like(get('/', 8081, $ctx), qr/^body \.$/m, 'cache builtin');
-like(get('/', 8081, $ctx), qr/^body r$/m, 'cache builtin reused');
-
-$ctx = get_ssl_context();
-
-like(get('/', 8082, $ctx), qr/^body \.$/m, 'cache builtin size');
-like(get('/', 8082, $ctx), qr/^body r$/m, 'cache builtin size reused');
+like(get('/', 8085, $ctx), qr/^body r$/m, 'session reused');
 
 }
 
-$ctx = get_ssl_context();
-
-like(get('/', 8083, $ctx), qr/^body \.$/m, 'cache none');
-like(get('/', 8083, $ctx), qr/^body \.$/m, 'cache none not reused');
-
-$ctx = get_ssl_context();
-
-like(get('/', 8084, $ctx), qr/^body \.$/m, 'cache off');
-like(get('/', 8084, $ctx), qr/^body \.$/m, 'cache off not reused');
-
 # ssl certificate inheritance
 
-my $s = get_ssl_socket(8081);
+my $s = get_ssl_socket(8086);
 like($s->dump_peer_certificate(), qr/CN=localhost/, 'CN');
-
-$s->close();
 
 $s = get_ssl_socket(8085);
 like($s->dump_peer_certificate(), qr/CN=inner/, 'CN inner');
-
-$s->close();
 
 # session timeout
 
@@ -280,8 +209,12 @@ like(get('/', 8086, $ctx), qr/^body \.$/m, 'session timeout');
 
 # embedded variables
 
-like(get('/id', 8085), qr/^body \w{64}$/m, 'session id');
+$ctx = get_ssl_context();
+like(get('/id', 8085, $ctx), qr/^body (\w{64})?$/m, 'session id');
+like(get('/id', 8085, $ctx), qr/^body \w{64}$/m, 'session id reused');
+
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
+
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
 
 SKIP: {
@@ -333,6 +266,10 @@ like($t->read_file('ssl.log'), qr/^(TLS|SSL)v(\d|\.)+$/m,
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
+
+sub test_tls13 {
+	return get('/protocol', 8085) =~ /TLSv1.3/;
+}
 
 sub get {
 	my ($uri, $port, $ctx) = @_;

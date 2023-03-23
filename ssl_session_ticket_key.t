@@ -96,6 +96,10 @@ select undef, undef, undef, 0.5;
 is(get_ticket_key_name(), $key, 'ticket key match');
 
 select undef, undef, undef, 2.5;
+
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 cmp_ok(get_ticket_key_name(), 'ne', $key, 'ticket key next');
 
 ###############################################################################
@@ -107,7 +111,7 @@ sub get_ticket_key_name {
 next:
 	# tag(10) | len{2} | OCTETSTRING(4) | len{2} | ticket(key_name|..)
 	$asn =~ /\xaa\x81($any)\x04\x81($any)($any{16})/g;
-	return if !defined $3;
+	return '' if !defined $3;
 	goto next if unpack("C", $1) - unpack("C", $2) != 3;
 	my $key = unpack "H*", $3;
 	Test::Nginx::log_core('||', "ticket key: $key");
@@ -124,6 +128,11 @@ Host: localhost
 EOF
 	Net::SSLeay::read($ssl);
 	Net::SSLeay::get_session($ssl);
+}
+
+sub test_tls13 {
+	my ($s, $ssl) = get_ssl_socket();
+	return (Net::SSLeay::version($ssl) > 0x303);
 }
 
 sub get_ssl_socket {

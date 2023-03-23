@@ -68,7 +68,7 @@ stream {
     }
 
     ssl_session_cache shared:SSL:1m;
-    ssl_session_tickets off;
+    ssl_session_tickets on;
 
     server {
         listen       127.0.0.1:8080 ssl;

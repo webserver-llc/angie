@@ -139,15 +139,33 @@ $t->run();
 # - only cache none
 # - only cache off
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 is(test_reuse(8993), 1, 'tickets reused');
 is(test_reuse(8994), 1, 'tickets and cache reused');
+
+TODO: {
+local $TODO = 'no TLSv1.3 session cache in BoringSSL'
+	if $t->has_module('BoringSSL') && test_tls13();
+
 is(test_reuse(8995), 1, 'cache shared reused');
 is(test_reuse(8996), 1, 'cache builtin reused');
 is(test_reuse(8997), 1, 'cache builtin size reused');
+
+}
+}
+
 is(test_reuse(8998), 0, 'cache none not reused');
 is(test_reuse(8999), 0, 'cache off not reused');
 
 ###############################################################################
+
+sub test_tls13 {
+	my ($s, $ssl) = get_ssl_socket(8993);
+	return (Net::SSLeay::version($ssl) > 0x303);
+}
 
 sub test_reuse {
 	my ($port) = @_;

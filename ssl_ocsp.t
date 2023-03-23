@@ -63,11 +63,6 @@ http {
     ssl_verify_depth 2;
     ssl_client_certificate trusted.crt;
 
-    ssl_ciphers DEFAULT:ECCdraft;
-
-    ssl_certificate_key ec.key;
-    ssl_certificate ec.crt;
-
     ssl_certificate_key rsa.key;
     ssl_certificate rsa.crt;
 
@@ -273,13 +268,8 @@ $t->write_file('trusted.crt',
 
 # server cert/key
 
-system("openssl ecparam -genkey -out $d/ec.key -name prime256v1 "
-	. ">>$d/openssl.out 2>&1") == 0 or die "Can't create EC pem: $!\n";
-system("openssl genrsa -out $d/rsa.key 2048 >>$d/openssl.out 2>&1") == 0
-	or die "Can't create RSA pem: $!\n";
-
-foreach my $name ('ec', 'rsa') {
-	system("openssl req -x509 -new -key $d/$name.key "
+foreach my $name ('rsa') {
+	system('openssl req -x509 -new '
 		. "-config $d/openssl.conf -subj /CN=$name/ "
 		. "-out $d/$name.crt -keyout $d/$name.key "
 		. ">>$d/openssl.out 2>&1") == 0
@@ -288,7 +278,7 @@ foreach my $name ('ec', 'rsa') {
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
-$t->run()->plan(14);
+$t->run()->plan(15);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
@@ -297,17 +287,17 @@ my $version = get_version();
 
 ###############################################################################
 
-like(get('RSA', 'end'), qr/200 OK.*SUCCESS/s, 'ocsp leaf');
+like(get('end'), qr/200 OK.*SUCCESS/s, 'ocsp leaf');
 
 # demonstrate that ocsp int request is failed due to missing resolver
 
-like(get('RSA', 'end', sni => 'resolver'),
+like(get('end', sni => 'resolver'),
 	qr/400 Bad.*FAILED:certificate status request failed/s,
 	'ocsp many failed request');
 
 # demonstrate that ocsp int request is actually made by failing ocsp response
 
-like(get('RSA', 'end', port => 8444),
+like(get('end', port => 8444),
 	qr/400 Bad.*FAILED:certificate status request failed/s,
 	'ocsp many failed');
 
@@ -323,11 +313,11 @@ system("openssl ocsp -index $d/certindex -CA $d/root.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create OCSP response: $!\n";
 
-like(get('RSA', 'end', port => 8444), qr/200 OK.*SUCCESS/s, 'ocsp many');
+like(get('end', port => 8444), qr/200 OK.*SUCCESS/s, 'ocsp many');
 
 # store into ssl_ocsp_cache
 
-like(get('RSA', 'end', port => 8446), qr/200 OK.*SUCCESS/s, 'cache store');
+like(get('end', port => 8446), qr/200 OK.*SUCCESS/s, 'cache store');
 
 # revoke
 
@@ -346,23 +336,23 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create OCSP response: $!\n";
 
-like(get('RSA', 'end'), qr/400 Bad.*FAILED:certificate revoked/s, 'revoked');
+like(get('end'), qr/400 Bad.*FAILED:certificate revoked/s, 'revoked');
 
 # with different responder where it's still valid
 
-like(get('RSA', 'end', port => 8445), qr/200 OK.*SUCCESS/s, 'ocsp responder');
+like(get('end', port => 8445), qr/200 OK.*SUCCESS/s, 'ocsp responder');
 
 # with different context to responder where it's still valid
 
-like(get('RSA', 'end', sni => 'sni'), qr/200 OK.*SUCCESS/s, 'ocsp context');
+like(get('end', sni => 'sni'), qr/200 OK.*SUCCESS/s, 'ocsp context');
 
 # with cached ocsp response it's still valid
 
-like(get('RSA', 'end', port => 8446), qr/200 OK.*SUCCESS/s, 'cache lookup');
+like(get('end', port => 8446), qr/200 OK.*SUCCESS/s, 'cache lookup');
 
 # ocsp end response signed with invalid (root) cert, expect HTTP 400
 
-like(get('ECDSA', 'ec-end'),
+like(get('ec-end'),
 	qr/400 Bad.*FAILED:certificate status request failed/s,
 	'root ca not trusted');
 
@@ -374,12 +364,12 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create EC OCSP response: $!\n";
 
-like(get('ECDSA', 'ec-end'), qr/200 OK.*SUCCESS/s, 'ocsp ecdsa');
+like(get('ec-end'), qr/200 OK.*SUCCESS/s, 'ocsp ecdsa');
 
-my ($s, $ssl) = get('ECDSA', 'ec-end');
+my ($s, $ssl) = get('ec-end');
 my $ses = Net::SSLeay::get_session($ssl);
 
-like(get('ECDSA', 'ec-end', ses => $ses),
+like(get('ec-end', ses => $ses),
 	qr/200 OK.*SUCCESS:r/s, 'session reused');
 
 # revoke with saved session
@@ -401,19 +391,22 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 
 # reusing session with revoked certificate
 
-like(get('ECDSA', 'ec-end', ses => $ses),
+like(get('ec-end', ses => $ses),
 	qr/400 Bad.*FAILED:certificate revoked:r/s, 'session reused - revoked');
 
 # regression test for self-signed
 
-like(get('RSA', 'root', port => 8447), qr/200 OK.*SUCCESS/s, 'ocsp one');
+like(get('root', port => 8447), qr/200 OK.*SUCCESS/s, 'ocsp one');
+
+# check for errors
+
+like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 
 sub get {
-	my ($type, $cert, %extra) = @_;
-	$type = 'PSS' if $type eq 'RSA' && $version > 0x0303;
-	my ($s, $ssl) = get_ssl_socket($type, $cert, %extra);
+	my ($cert, %extra) = @_;
+	my ($s, $ssl) = get_ssl_socket($cert, %extra);
 	my $cipher = Net::SSLeay::get_cipher($ssl);
 	Test::Nginx::log_core('||', "cipher: $cipher");
 	my $host = $extra{sni} ? $extra{sni} : 'localhost';
@@ -428,7 +421,7 @@ sub get {
 }
 
 sub get_ssl_socket {
-	my ($type, $cert, %extra) = @_;
+	my ($cert, %extra) = @_;
 	my $ses = $extra{ses};
 	my $sni = $extra{sni};
 	my $port = $extra{port} || 8443;
@@ -449,18 +442,6 @@ sub get_ssl_socket {
 	}
 
 	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
-	if (defined $type) {
-		my $ssleay = Net::SSLeay::SSLeay();
-		if ($ssleay < 0x1000200f || $ssleay == 0x20000000) {
-			Net::SSLeay::CTX_set_cipher_list($ctx, $type)
-				or die("Failed to set cipher list");
-		} else {
-			# SSL_CTRL_SET_SIGALGS_LIST
-			Net::SSLeay::CTX_ctrl($ctx, 98, 0, $type . '+SHA256')
-				or die("Failed to set sigalgs");
-		}
-	}
 
 	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
 		or die if $cert;

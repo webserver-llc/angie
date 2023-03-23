@@ -1,9 +1,10 @@
 #!/usr/bin/perl
 
 # (C) Sergey Kandaurov
+# (C) Maxim Dounin
 # (C) Nginx, Inc.
 
-# Tests for stream ssl module.
+# Tests for stream ssl module, session reuse.
 
 ###############################################################################
 
@@ -12,7 +13,6 @@ use strict;
 
 use Test::More;
 
-use POSIX qw/ mkfifo /;
 use Socket qw/ $CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -33,11 +33,9 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay not installed') if $@;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
 
-$t->plan(5)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(7)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -49,39 +47,60 @@ events {
 stream {
     %%TEST_GLOBALS_STREAM%%
 
-    ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-
-    # inherited by server "inherits"
-    ssl_password_file password_stream;
+    ssl_certificate_key localhost.key;
 
     server {
         listen      127.0.0.1:8443 ssl;
         proxy_pass  127.0.0.1:8081;
-
-        ssl_password_file password;
     }
 
     server {
         listen      127.0.0.1:8444 ssl;
         proxy_pass  127.0.0.1:8081;
 
-        ssl_password_file password_many;
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_tickets on;
     }
 
     server {
         listen      127.0.0.1:8445 ssl;
         proxy_pass  127.0.0.1:8081;
 
-        ssl_password_file password_fifo;
+        ssl_session_cache shared:SSL:1m;
+        ssl_session_tickets off;
     }
 
     server {
         listen      127.0.0.1:8446 ssl;
         proxy_pass  127.0.0.1:8081;
 
-        ssl_certificate_key inherits.key;
-        ssl_certificate inherits.crt;
+        ssl_session_cache builtin;
+        ssl_session_tickets off;
+    }
+
+    server {
+        listen      127.0.0.1:8447 ssl;
+        proxy_pass  127.0.0.1:8081;
+
+        ssl_session_cache builtin:1000;
+        ssl_session_tickets off;
+    }
+
+    server {
+        listen      127.0.0.1:8448 ssl;
+        proxy_pass  127.0.0.1:8081;
+
+        ssl_session_cache none;
+        ssl_session_tickets off;
+    }
+
+    server {
+        listen      127.0.0.1:8449 ssl;
+        proxy_pass  127.0.0.1:8081;
+
+        ssl_session_cache off;
+        ssl_session_tickets off;
     }
 }
 
@@ -96,71 +115,61 @@ distinguished_name = req_distinguished_name
 EOF
 
 my $d = $t->testdir();
-mkfifo("$d/password_fifo", 0700);
 
-foreach my $name ('localhost', 'inherits') {
-	system("openssl genrsa -out $d/$name.key -passout pass:$name "
-		. "-aes128 2048 >>$d/openssl.out 2>&1") == 0
-		or die "Can't create private key: $!\n";
+foreach my $name ('localhost') {
 	system('openssl req -x509 -new '
 		. "-config $d/openssl.conf -subj /CN=$name/ "
-		. "-out $d/$name.crt "
-		. "-key $d/$name.key -passin pass:$name"
+		. "-out $d/$name.crt -keyout $d/$name.key "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
 
 my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 
-$t->write_file('password', 'localhost');
-$t->write_file('password_many', "wrong$CRLF" . "localhost$CRLF");
-$t->write_file('password_stream', 'inherits');
-
-my $p = fork();
-exec("echo localhost > $d/password_fifo") if $p == 0;
-
 $t->run_daemon(\&http_daemon);
 
-eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
-	$t->run();
-	open STDERR, ">&", \*OLDERR;
-};
-kill 'INT', $p if $@;
+$t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 
-my ($s, $ssl);
+# session reuse:
+#
+# - only tickets, the default
+# - tickets and shared cache, should work always
+# - only shared cache
+# - only builtin cache
+# - only builtin cache with explicitly configured size
+# - only cache none
+# - only cache off
 
-($s, $ssl) = get_ssl_socket(8443);
-Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
-like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl');
-
-($s, $ssl) = get_ssl_socket(8444);
-Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
-like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl password many');
-
-($s, $ssl) = get_ssl_socket(8445);
-Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
-like(Net::SSLeay::read($ssl), qr/200 OK/, 'ssl password fifo');
-
-# ssl_certificate inheritance
-
-($s, $ssl) = get_ssl_socket(8443);
-like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=localhost/, 'CN');
-
-($s, $ssl) = get_ssl_socket(8446);
-like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=inherits/, 'CN inner');
+is(test_reuse(8443), 1, 'tickets reused');
+is(test_reuse(8444), 1, 'tickets and cache reused');
+is(test_reuse(8445), 1, 'cache shared reused');
+is(test_reuse(8446), 1, 'cache builtin reused');
+is(test_reuse(8447), 1, 'cache builtin size reused');
+is(test_reuse(8448), 0, 'cache none not reused');
+is(test_reuse(8449), 0, 'cache off not reused');
 
 ###############################################################################
 
-sub get_ssl_socket {
+sub test_reuse {
 	my ($port) = @_;
+	my ($s, $ssl) = get_ssl_socket($port);
+	Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
+	Net::SSLeay::read($ssl);
+	my $ses = Net::SSLeay::get_session($ssl);
+	($s, $ssl) = get_ssl_socket($port, $ses);
+	return Net::SSLeay::session_reused($ssl);
+}
+
+sub get_ssl_socket {
+	my ($port, $ses) = @_;
 
 	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
+	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
 	Net::SSLeay::set_fd($ssl, fileno($s));
 	Net::SSLeay::connect($ssl) or die("ssl connect");
 	return ($s, $ssl);

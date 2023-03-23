@@ -37,7 +37,7 @@ eval { exists &Net::SSLeay::P_alpn_selected or die; };
 plan(skip_all => 'Net::SSLeay with OpenSSL ALPN support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3 smtp/)
-	->has_daemon('openssl')->plan(22);
+	->has_daemon('openssl')->plan(18);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -51,44 +51,25 @@ events {
 mail {
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-    ssl_session_tickets off;
 
     ssl_password_file password;
 
     auth_http  http://127.0.0.1:8080;	# unused
 
-    ssl_session_cache none;
-
     server {
         listen             127.0.0.1:8143;
         listen             127.0.0.1:8145 ssl;
         protocol           imap;
-
-        ssl_session_cache  builtin;
     }
 
     server {
-        listen             127.0.0.1:8146 ssl;
-        protocol           imap;
-
-        ssl_session_cache  off;
-    }
-
-    server {
-        listen             127.0.0.1:8147;
+        listen             127.0.0.1:8148;
         protocol           imap;
 
         # Special case for enabled "ssl" directive.
 
         ssl on;
-        ssl_session_cache  builtin:1000;
-    }
 
-    server {
-        listen             127.0.0.1:8148 ssl;
-        protocol           imap;
-
-        ssl_session_cache shared:SSL:1m;
         ssl_certificate_key inherits.key;
         ssl_certificate inherits.crt;
     }
@@ -169,45 +150,15 @@ open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
+my ($s, $ssl);
+
 # simple tests to ensure that nothing broke with ssl_password_file directive
 
-my $s = Test::Nginx::IMAP->new();
+$s = Test::Nginx::IMAP->new();
 $s->ok('greeting');
 
 $s->send('1 AUTHENTICATE LOGIN');
 $s->check(qr/\+ VXNlcm5hbWU6/, 'login');
-
-# ssl_session_cache
-
-my ($ssl, $ses);
-
-($s, $ssl) = get_ssl_socket(8145);
-Net::SSLeay::read($ssl);
-$ses = Net::SSLeay::get_session($ssl);
-
-($s, $ssl) = get_ssl_socket(8145, $ses);
-is(Net::SSLeay::session_reused($ssl), 1, 'builtin session reused');
-
-($s, $ssl) = get_ssl_socket(8146);
-Net::SSLeay::read($ssl);
-$ses = Net::SSLeay::get_session($ssl);
-
-($s, $ssl) = get_ssl_socket(8146, $ses);
-is(Net::SSLeay::session_reused($ssl), 0, 'session not reused');
-
-($s, $ssl) = get_ssl_socket(8147);
-Net::SSLeay::read($ssl);
-$ses = Net::SSLeay::get_session($ssl);
-
-($s, $ssl) = get_ssl_socket(8147, $ses);
-is(Net::SSLeay::session_reused($ssl), 1, 'builtin size session reused');
-
-($s, $ssl) = get_ssl_socket(8148);
-Net::SSLeay::read($ssl);
-$ses = Net::SSLeay::get_session($ssl);
-
-($s, $ssl) = get_ssl_socket(8148, $ses);
-is(Net::SSLeay::session_reused($ssl), 1, 'shared session reused');
 
 # ssl_certificate inheritance
 
@@ -219,7 +170,7 @@ like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=inherits/, 'CN inner');
 
 # alpn
 
-ok(get_ssl_socket(8148, undef, ['imap']), 'alpn');
+ok(get_ssl_socket(8148, ['imap']), 'alpn');
 
 SKIP: {
 $t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
@@ -230,7 +181,7 @@ skip 'OpenSSL too old', 1 if defined $1 and $1 lt '1.1.0';
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.4');
 
-ok(!get_ssl_socket(8148, undef, ['unknown']), 'alpn rejected');
+ok(!get_ssl_socket(8148, ['unknown']), 'alpn rejected');
 
 }
 
@@ -317,11 +268,10 @@ $s->ok('smtp starttls only');
 ###############################################################################
 
 sub get_ssl_socket {
-	my ($port, $ses, $alpn) = @_;
+	my ($port, $alpn) = @_;
 
 	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
 	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
 	Net::SSLeay::set_alpn_protos($ssl, $alpn) if defined $alpn;
 	Net::SSLeay::set_fd($ssl, fileno($s));
 	Net::SSLeay::connect($ssl) == 1 or return;

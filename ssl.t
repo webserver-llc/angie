@@ -185,6 +185,8 @@ local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
 	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
 	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
 
 like(get('/', 8085, $ctx), qr/^body r$/m, 'session reused');
 
@@ -211,7 +213,16 @@ like(get('/', 8086, $ctx), qr/^body \.$/m, 'session timeout');
 
 $ctx = get_ssl_context();
 like(get('/id', 8085, $ctx), qr/^body (\w{64})?$/m, 'session id');
+
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+local $TODO = 'no TLSv1.3 sessions ids in BoringSSL'
+	if $t->has_module('BoringSSL') && test_tls13();
+
 like(get('/id', 8085, $ctx), qr/^body \w{64}$/m, 'session id reused');
+
+}
 
 unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 

@@ -170,13 +170,21 @@ local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
 	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
 	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
 
 is(test_reuse(8443), 1, 'tickets reused');
 is(test_reuse(8444), 1, 'tickets and cache reused');
+
+TODO: {
+local $TODO = 'no TLSv1.3 session cache in BoringSSL'
+	if $t->has_module('BoringSSL') && test_tls13();
+
 is(test_reuse(8445), 1, 'cache shared reused');
 is(test_reuse(8446), 1, 'cache builtin reused');
 is(test_reuse(8447), 1, 'cache builtin size reused');
 
+}
 }
 
 is(test_reuse(8448), 0, 'cache none not reused');

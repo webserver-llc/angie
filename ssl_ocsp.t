@@ -43,7 +43,8 @@ plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)->has_daemon('openssl');
 
-plan(skip_all => 'no OCSP stapling') if $t->has_module('BoringSSL');
+plan(skip_all => 'no OCSP support in BoringSSL')
+	if $t->has_module('BoringSSL');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -416,9 +417,11 @@ sub get {
 	my $cipher = Net::SSLeay::get_cipher($ssl);
 	Test::Nginx::log_core('||', "cipher: $cipher");
 	my $host = $extra{sni} ? $extra{sni} : 'localhost';
+	local $SIG{PIPE} = 'IGNORE';
+	log_out("GET /serial HTTP/1.0\nHost: $host\n\n");
 	Net::SSLeay::write($ssl, "GET /serial HTTP/1.0\nHost: $host\n\n");
 	my $r = Net::SSLeay::read($ssl);
-	Test::Nginx::log_core($r);
+	log_in($r);
 	$s->close();
 	return $r unless wantarray();
 	return ($s, $ssl);
@@ -496,6 +499,7 @@ sub http_daemon {
 		my $resp;
 
 		while (<$client>) {
+			Test::Nginx::log_core('||', $_);
 			$headers .= $_;
 			last if (/^\x0d?\x0a?$/);
 		}

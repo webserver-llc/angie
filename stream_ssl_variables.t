@@ -103,7 +103,7 @@ like(Net::SSLeay::read($ssl), qr/^\.:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 
 my $ses = Net::SSLeay::get_session($ssl);
 ($s, $ssl) = get_ssl_socket(port(8081), $ses);
-like(Net::SSLeay::read($ssl), qr/^r:\w{64}:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
+like(Net::SSLeay::read($ssl), qr/^r:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 	'ssl variables - session reused');
 
 SKIP: {

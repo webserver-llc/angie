@@ -369,8 +369,14 @@ like(get('ec-end'), qr/200 OK.*SUCCESS/s, 'ocsp ecdsa');
 my ($s, $ssl) = get('ec-end');
 my $ses = Net::SSLeay::get_session($ssl);
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') and $version > 0x303;
+
 like(get('ec-end', ses => $ses),
 	qr/200 OK.*SUCCESS:r/s, 'session reused');
+
+}
 
 # revoke with saved session
 
@@ -391,8 +397,14 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 
 # reusing session with revoked certificate
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') and $version > 0x303;
+
 like(get('ec-end', ses => $ses),
 	qr/400 Bad.*FAILED:certificate revoked:r/s, 'session reused - revoked');
+
+}
 
 # regression test for self-signed
 

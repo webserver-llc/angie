@@ -55,6 +55,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     add_header X-Verify x$ssl_client_verify:${ssl_client_cert}x;
+    add_header X-Protocol $ssl_protocol;
 
     ssl_session_cache shared:SSL:1m;
     ssl_session_tickets off;
@@ -169,14 +170,23 @@ like(get('optional', '3.example.com'), qr/SUCCESS.*BEGIN/, 'good cert trusted');
 SKIP: {
 skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
 
+TODO: {
+local $TODO = 'broken TLSv1.3 CA list in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 my $ca = join ' ', get('optional', '3.example.com');
 is($ca, '/CN=2.example.com', 'no trusted sent');
 
+}
 }
 
 like(get('optional', undef, 'localhost'), qr/421 Misdirected/, 'misdirected');
 
 ###############################################################################
+
+sub test_tls13 {
+	get('optional') =~ /TLSv1.3/;
+}
 
 sub get {
 	my ($sni, $cert, $host) = @_;

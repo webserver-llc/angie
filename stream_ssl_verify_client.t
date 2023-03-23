@@ -86,6 +86,11 @@ stream {
         ssl_verify_client optional_no_ca;
         ssl_client_certificate 2.example.com.crt;
     }
+
+    server {
+        listen  127.0.0.1:8084 ssl;
+        return  $ssl_protocol;
+    }
 }
 
 EOF
@@ -126,9 +131,14 @@ like(get(8082, '3.example.com'), qr/SUCCESS.*BEGIN/, 'good cert trusted');
 SKIP: {
 skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
 
+TODO: {
+local $TODO = 'broken TLSv1.3 CA list in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 my $ca = join ' ', get(8082, '3.example.com');
 is($ca, '/CN=2.example.com', 'no trusted sent');
 
+}
 }
 
 $t->stop();
@@ -136,6 +146,10 @@ $t->stop();
 is($t->read_file('status.log'), "500\n200\n", 'log');
 
 ###############################################################################
+
+sub test_tls13 {
+	get(8084) =~ /TLSv1.3/;
+}
 
 sub get {
 	my ($port, $cert) = @_;

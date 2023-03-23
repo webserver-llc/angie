@@ -130,6 +130,12 @@ $t->run();
 plan(skip_all => 'no TLS 1.3 sessions')
 	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
 	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
+plan(skip_all => 'no TLS 1.3 sessions in LibreSSL')
+	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
+	&& $t->has_module('LibreSSL');
+plan(skip_all => 'no TLS 1.3 session cache in BoringSSL')
+	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
+	&& $t->has_module('BoringSSL');
 
 $t->plan(6);
 

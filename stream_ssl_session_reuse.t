@@ -144,15 +144,33 @@ $t->waitforsocket('127.0.0.1:' . port(8081));
 # - only cache none
 # - only cache off
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 is(test_reuse(8443), 1, 'tickets reused');
 is(test_reuse(8444), 1, 'tickets and cache reused');
+
+TODO: {
+local $TODO = 'no TLSv1.3 session cache in BoringSSL'
+	if $t->has_module('BoringSSL') && test_tls13();
+
 is(test_reuse(8445), 1, 'cache shared reused');
 is(test_reuse(8446), 1, 'cache builtin reused');
 is(test_reuse(8447), 1, 'cache builtin size reused');
+
+}
+}
+
 is(test_reuse(8448), 0, 'cache none not reused');
 is(test_reuse(8449), 0, 'cache off not reused');
 
 ###############################################################################
+
+sub test_tls13 {
+	my ($s, $ssl) = get_ssl_socket(8443);
+	return (Net::SSLeay::version($ssl) > 0x303);
+}
 
 sub test_reuse {
 	my ($port) = @_;

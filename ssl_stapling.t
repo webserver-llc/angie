@@ -38,7 +38,7 @@ my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
 
 plan(skip_all => 'no OCSP stapling') if $t->has_module('BoringSSL');
 
-$t->plan(9)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(10)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -259,10 +259,24 @@ staple(8449, 'ECDSA');
 sleep 1;
 
 ok(!staple(8443, 'RSA'), 'staple revoked');
+
+TODO: {
+local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
+	if $t->has_module('LibreSSL') && $version > 0x303;
+
 ok(staple(8443, 'ECDSA'), 'staple success');
 
+}
+
 ok(!staple(8444, 'RSA'), 'responder revoked');
+
+TODO: {
+local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
+	if $t->has_module('LibreSSL') && $version > 0x303;
+
 ok(staple(8444, 'ECDSA'), 'responder success');
+
+}
 
 ok(!staple(8445, 'ECDSA'), 'verify - root not trusted');
 
@@ -272,6 +286,14 @@ is(staple(8447, 'RSA'), '1 1', 'file revoked');
 is(staple(8448, 'ECDSA'), '1 0', 'file success');
 
 ok(!staple(8449, 'ECDSA'), 'ocsp error');
+
+TODO: {
+local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
+	if $t->has_module('LibreSSL') && $version > 0x303;
+
+like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
+
+}
 
 ###############################################################################
 

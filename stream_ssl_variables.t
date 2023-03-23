@@ -101,10 +101,16 @@ is(stream('127.0.0.1:' . port(8080))->read(), ':::', 'no ssl');
 like(Net::SSLeay::read($ssl), qr/^\.:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 	'ssl variables');
 
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
+
 my $ses = Net::SSLeay::get_session($ssl);
 ($s, $ssl) = get_ssl_socket(port(8081), $ses);
 like(Net::SSLeay::read($ssl), qr/^r:(\w{64})?:[\w-]+:(TLS|SSL)v(\d|\.)+$/,
 	'ssl variables - session reused');
+
+}
 
 SKIP: {
 skip 'no sni', 3 unless $t->has_module('sni');
@@ -122,6 +128,11 @@ is(Net::SSLeay::ssl_read_all($ssl), '', 'ssl server name empty');
 }
 
 ###############################################################################
+
+sub test_tls13 {
+	($s, $ssl) = get_ssl_socket(port(8081));
+	Net::SSLeay::read($ssl) =~ /TLSv1.3/;
+}
 
 sub get_ssl_socket {
 	my ($port, $ses, $name) = @_;

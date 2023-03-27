@@ -161,7 +161,15 @@ my ($s, $ssl) = get('default', 8080);
 my $ses = Net::SSLeay::get_session($ssl);
 
 like(get('default', 8080, $ses), qr/default:r/, 'session reused');
+
+TODO: {
+# ticket key name mismatch prevents session resumption
+local $TODO = 'not yet' unless $t->has_version('1.23.2');
+
 like(get('default', 8081, $ses), qr/default:r/, 'session id context match');
+
+}
+
 like(get('default', 8082, $ses), qr/default:\./, 'session id context distinct');
 
 # errors

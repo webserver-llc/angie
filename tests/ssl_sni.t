@@ -148,9 +148,13 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 
 like(get('/', 'localhost', 8081, $ctx), qr/^\.:localhost$/m, 'ssl server name');
 
-SKIP: {
-skip 'no TLS 1.3 sessions', 1 if get('/protocol', 'localhost') =~ /TLSv1.3/
-	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
+TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && test_tls13();
 
 like(get('/', 'localhost', 8081, $ctx), qr/^r:localhost$/m,
 	'ssl server name - reused');
@@ -158,6 +162,10 @@ like(get('/', 'localhost', 8081, $ctx), qr/^r:localhost$/m,
 }
 
 ###############################################################################
+
+sub test_tls13 {
+	get('/protocol', 'localhost') =~ /TLSv1.3/;
+}
 
 sub get_ssl_socket {
 	my ($host, $port, $ctx) = @_;

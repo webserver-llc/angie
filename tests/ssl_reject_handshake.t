@@ -59,8 +59,8 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080 ssl;
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8080;
+        listen       127.0.0.1:8081;
         server_name  virtual;
 
         ssl_certificate localhost.crt;
@@ -76,12 +76,12 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8082 ssl;
+        listen       127.0.0.1:8082;
         server_name  virtual1;
     }
 
     server {
-        listen       127.0.0.1:8082 ssl;
+        listen       127.0.0.1:8082;
         server_name  virtual2;
 
         ssl_reject_handshake on;

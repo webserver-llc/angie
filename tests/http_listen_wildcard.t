@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for listen port ranges.
+# Tests for listen port ranges with a wildcard address.
 
 ###############################################################################
 
@@ -24,6 +24,9 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
 
+plan(skip_all => 'listen on wildcard address')
+	unless $ENV{TEST_NGINX_UNSAFE};
+
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -38,8 +41,7 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        listen       127.0.0.1:%%PORT_8182%%-%%PORT_8183%%;
-        listen       [::1]:%%PORT_8182%%-%%PORT_8183%%;
+        listen       %%PORT_8186%%-%%PORT_8187%%;
         server_name  localhost;
 
         location / {
@@ -54,36 +56,27 @@ http {
     # catch out of range
 
     server {
-        listen       127.0.0.1:8181;
-        listen       127.0.0.1:8184;
-        listen       [::1]:%%PORT_8181%%;
-        listen       [::1]:%%PORT_8184%%;
+        listen       127.0.0.1:8185;
+        listen       127.0.0.1:8188;
         server_name  localhost;
     }
 }
 
 EOF
 
-my $p0 = port(8080); my $p3 = port(8183);
-my $p1 = port(8181); my $p4 = port(8184);
-my $p2 = port(8182);
+my $p5 = port(8185); my $p7 = port(8187);
+my $p6 = port(8186); my $p8 = port(8188);
 
 plan(skip_all => 'no requested ranges')
-	if "$p2$p3" ne "81828183";
+	if "$p6$p7" ne "81868187";
 
-$t->run()->plan(9);
+$t->run()->plan(4);
 
 ###############################################################################
 
-like(http_get("/?b=127.0.0.1:$p0"), qr/127.0.0.1:$p0/, 'single');
-unlike(http_get("/?b=127.0.0.1:$p1"), qr/127.0.0.1:$p1/, 'out of range 1');
-like(http_get("/?b=127.0.0.1:$p2"), qr/127.0.0.1:$p2/, 'range 1');
-like(http_get("/?b=127.0.0.1:$p3"), qr/127.0.0.1:$p3/, 'range 2');
-unlike(http_get("/?b=127.0.0.1:$p4"), qr/127.0.0.1:$p4/, 'out of range 2');
-
-unlike(http_get("/?b=[::1]:$p1"), qr/::1:$p1/, 'inet6 out of range 1');
-like(http_get("/?b=[::1]:$p2"), qr/::1:$p2/, 'inet6 range 1');
-like(http_get("/?b=[::1]:$p3"), qr/::1:$p3/, 'inet6 range 2');
-unlike(http_get("/?b=[::1]:$p4"), qr/::1:$p4/, 'inet6 out of range 2');
+unlike(http_get("/?b=127.0.0.1:$p5"), qr/127.0.0.1:$p5/, 'out of range 1');
+like(http_get("/?b=127.0.0.1:$p6"), qr/127.0.0.1:$p6/, 'wildcard range 1');
+like(http_get("/?b=127.0.0.1:$p7"), qr/127.0.0.1:$p7/, 'wildcard range 2');
+unlike(http_get("/?b=127.0.0.1:$p8"), qr/127.0.0.1:$p8/, 'out of range 2');
 
 ###############################################################################

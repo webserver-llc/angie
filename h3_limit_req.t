@@ -138,6 +138,8 @@ is($frame->{headers}->{':status'}, 200, 'request body - limit req - empty');
 
 $s = Test::Nginx::HTTP3->new();
 $sid = $s->new_stream({ path => '/', body_more => 1 });
+wait_ack($s);
+
 $s->reset_stream($sid, 0x010c);
 $frames = $s->read(all => [{ type => 'DECODER_C' }]);
 
@@ -149,6 +151,17 @@ $t->stop();
 like($t->read_file('test.log'), qr/499/, 'reset stream - log');
 
 ###############################################################################
+
+sub wait_ack {
+	my ($s) = @_;
+	my $last = $s->{pn}[0][3];
+
+	for (1 .. 5) {
+		my $frames = $s->read(all => [ {type => 'ACK' }]);
+		my ($frame) = grep { $_->{type} eq "ACK" } @$frames;
+		last unless $frame->{largest} < $last;
+	}
+}
 
 sub read_body_file {
 	my ($path) = @_;

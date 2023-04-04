@@ -65,8 +65,8 @@ sub write {
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_write($extra{write_timeout} || 1.5)) {
 		my $n = $s->syswrite($message);
-		log_out(substr($message, 0, $n));
 		last unless $n;
+		log_out(substr($message, 0, $n));
 
 		$message = substr($message, $n);
 		last unless length $message;

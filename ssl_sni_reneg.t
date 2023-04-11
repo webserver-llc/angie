@@ -55,6 +55,7 @@ http {
 
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
+    ssl_protocols TLSv1.2;
 
     server {
         listen       127.0.0.1:8080 ssl;
@@ -93,13 +94,6 @@ foreach my $name ('localhost') {
 }
 
 $t->run();
-
-{
-	my (undef, $ssl) = get_ssl_socket(8080);
-	plan(skip_all => "TLS 1.3 forbids renegotiation")
-		if Net::SSLeay::version($ssl) > 0x0303;
-}
-
 $t->plan(8);
 
 ###############################################################################

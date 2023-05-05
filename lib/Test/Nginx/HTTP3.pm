@@ -462,6 +462,15 @@ sub pack_body {
 	$buf .= $body;
 }
 
+sub h3_max_data {
+	my ($self, $val, $stream) = @_;
+
+	my $buf = defined $stream
+		? "\x11" . build_int($stream) . build_int($val)
+		: "\x10" . build_int($val);
+	return $self->raw_write($buf);
+}
+
 my %cframe = (
 	0 => { name => 'DATA', value => \&data },
 	1 => { name => 'HEADERS', value => \&headers },

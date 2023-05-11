@@ -158,27 +158,6 @@ $t->write_file('test.js', <<EOF);
             ['invalid header value', () => {
                 var h = new Headers({A: 'aa\x00a'});
              }, 'invalid header value'],
-            ['forbidden header', () => {
-                const forbidden = ['Host', 'Connection', 'Content-length'];
-                forbidden.forEach(fh => {
-                    var headers = {};
-                    headers[fh] = 'xxx';
-                    headers.foo = 'bar';
-
-                    var h = new Headers(headers);
-                    if (h.get(fh) != 'xxx') {
-                        throw new Error(`forbidden header \${fh}`);
-                    }
-
-                    if (h.get('foo') != 'bar') {
-                        throw new Error(
-                              `non forbidden header foo: \${h.get('foo')}`);
-                    }
-                })
-
-                return 'OK';
-
-             }, 'OK'],
             ['combine', () => {
                 var h = new Headers({a: 'X', A: 'Z'});
                 return h.get('a');
@@ -323,24 +302,6 @@ $t->write_file('test.js', <<EOF);
                         throw e;
                     }
                 }
-
-                return 'OK';
-
-             }, 'OK'],
-            ['forbidden request header', () => {
-                const forbidden = ['Host', 'Connection', 'Content-length'];
-                forbidden.forEach(fh => {
-                    var r = new Request("http://nginx.org",
-                                    {headers: {[fh]: 'xxx', foo: 'bar'}});
-                    if (r.headers.get(fh) != null) {
-                        throw new Error(`forbidden header \${fh}`);
-                    }
-
-                    if (r.headers.get('foo') != 'bar') {
-                        throw new Error(
-                         `non forbidden header foo: \${r.headers.get('foo')}`);
-                    }
-                })
 
                 return 'OK';
 

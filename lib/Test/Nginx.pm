@@ -838,12 +838,14 @@ sub http($;%) {
 	my $s = http_start($request, %extra);
 
 	return $s if $extra{start} or !defined $s;
-	return http_end($s);
+	return http_end($s, %extra);
 }
 
 sub http_start($;%) {
 	my ($request, %extra) = @_;
 	my $s;
+
+	my $port = $extra{SSL} ? 8443 : 8080;
 
 	eval {
 		local $SIG{ALRM} = sub { die "timeout\n" };
@@ -852,9 +854,24 @@ sub http_start($;%) {
 
 		$s = $extra{socket} || IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port(8080)
+			PeerAddr => '127.0.0.1:' . port($port),
+			%extra
 		)
 			or die "Can't connect to nginx: $!\n";
+
+		if ($extra{SSL}) {
+			require IO::Socket::SSL;
+			IO::Socket::SSL->start_SSL(
+				$s,
+				SSL_verify_mode =>
+					IO::Socket::SSL::SSL_VERIFY_NONE(),
+				%extra
+			)
+				or die $IO::Socket::SSL::SSL_ERROR . "\n";
+
+			log_in("ssl cipher: " . $s->get_cipher());
+			log_in("ssl cert: " . $s->peer_certificate('issuer'));
+		}
 
 		log_out($request);
 		$s->print($request);
@@ -889,6 +906,8 @@ sub http_end($;%) {
 
 		local $/;
 		$reply = $s->getline();
+
+		$s->close();
 
 		alarm(0);
 	};

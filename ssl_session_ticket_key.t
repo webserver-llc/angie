@@ -15,23 +15,19 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay; die if $Net::SSLeay::VERSION < 1.86;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
+eval { require Net::SSLeay; die if $Net::SSLeay::VERSION < 1.86; };
 plan(skip_all => 'Net::SSLeay version => 1.86 required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl')
-	->plan(2)->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
+	->has_daemon('openssl')->plan(2)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -47,8 +43,10 @@ http {
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
 
+    add_header X-SSL-Protocol $ssl_protocol;
+
     server {
-        listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  localhost;
 
         ssl_session_cache shared:SSL:1m;
@@ -75,6 +73,8 @@ foreach my $name ('localhost') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
+
+$t->write_file('index.html', '');
 
 $t->run();
 
@@ -105,8 +105,7 @@ cmp_ok(get_ticket_key_name(), 'ne', $key, 'ticket key next');
 ###############################################################################
 
 sub get_ticket_key_name {
-	my $ses = get_ssl_session();
-	my $asn = Net::SSLeay::i2d_SSL_SESSION($ses);
+	my $asn = get_ssl_session();
 	my $any = qr/[\x00-\xff]/;
 next:
 	# tag(10) | len{2} | OCTETSTRING(4) | len{2} | ticket(key_name|..)
@@ -119,29 +118,25 @@ next:
 }
 
 sub get_ssl_session {
-	my ($s, $ssl) = get_ssl_socket();
+	my $cache = IO::Socket::SSL::Session_Cache->new(100);
 
-	Net::SSLeay::write($ssl, <<EOF);
-GET / HTTP/1.0
-Host: localhost
+	my $s = http_get(
+		'/', start => 1,
+		SSL => 1,
+		SSL_session_cache => $cache,
+		SSL_session_key => 1
+	);
 
-EOF
-	Net::SSLeay::read($ssl);
-	Net::SSLeay::get_session($ssl);
+	return unless $s;
+	http_end($s);
+
+	my $sess = $cache->get_session(1);
+	return '' unless defined $sess;
+	return Net::SSLeay::i2d_SSL_SESSION($sess);
 }
 
 sub test_tls13 {
-	my ($s, $ssl) = get_ssl_socket();
-	return (Net::SSLeay::version($ssl) > 0x303);
-}
-
-sub get_ssl_socket {
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port(8080));
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
+	return http_get('/', SSL => 1) =~ /TLSv1.3/;
 }
 
 ###############################################################################

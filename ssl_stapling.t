@@ -24,17 +24,13 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-	Net::SSLeay::SSLeay();
-	defined &Net::SSLeay::set_tlsext_status_type or die;
-};
-plan(skip_all => 'Net::SSLeay not installed or too old') if $@;
+my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
+	->has_daemon('openssl');
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
+eval { defined &Net::SSLeay::set_tlsext_status_type or die; };
+plan(skip_all => 'Net::SSLeay too old') if $@;
+eval { defined &IO::Socket::SSL::SSL_OCSP_TRY_STAPLE or die; };
+plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
 plan(skip_all => 'no OCSP stapling') if $t->has_module('BoringSSL');
 
@@ -246,8 +242,6 @@ $t->waitforsocket("127.0.0.1:" . port(8081));
 
 ###############################################################################
 
-my $version = get_version();
-
 staple(8443, 'RSA');
 staple(8443, 'ECDSA');
 staple(8444, 'RSA');
@@ -262,7 +256,7 @@ ok(!staple(8443, 'RSA'), 'staple revoked');
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && $version > 0x303;
+	if $t->has_module('LibreSSL') && test_tls13();
 
 ok(staple(8443, 'ECDSA'), 'staple success');
 
@@ -272,7 +266,7 @@ ok(!staple(8444, 'RSA'), 'responder revoked');
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && $version > 0x303;
+	if $t->has_module('LibreSSL') && test_tls13();
 
 ok(staple(8444, 'ECDSA'), 'responder success');
 
@@ -289,7 +283,7 @@ ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && $version > 0x303;
+	if $t->has_module('LibreSSL') && test_tls13();
 
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
@@ -302,9 +296,16 @@ sub staple {
 	my (@resp);
 
 	my $staple_cb = sub {
-		my ($ssl, $resp) = @_;
+		my ($s, $resp) = @_;
 		push @resp, !!$resp;
 		return 1 unless $resp;
+
+		# Contrary to the documentation, IO::Socket::SSL calls the
+		# SSL_ocsp_staple_callback with the socket, and not the
+		# Net::SSLeay object.
+
+		my $ssl = $s->_get_ssl_object();
+
 		my $cert = Net::SSLeay::get_peer_certificate($ssl);
 		my $certid = eval { Net::SSLeay::OCSP_cert2ids($ssl, $cert) }
 			or do { die "no OCSP_CERTID for certificate: $@"; };
@@ -313,69 +314,34 @@ sub staple {
 		push @resp, $res[0][2]->{'statusType'};
 	};
 
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
-	my $ssleay = Net::SSLeay::SSLeay();
-	if ($ssleay < 0x1000200f || $ssleay == 0x20000000) {
-		Net::SSLeay::CTX_set_cipher_list($ctx, $ciphers)
-			or die("Failed to set cipher list");
-	} else {
+	my $ctx_cb = sub {
+		my $ctx = shift;
+		return unless defined $ciphers;
+		my $ssleay = Net::SSLeay::SSLeay();
+		return if ($ssleay < 0x1000200f || $ssleay == 0x20000000);
+		my $sigalgs = 'RSA+SHA256:PSS+SHA256';
+		$sigalgs = $ciphers . '+SHA256' unless $ciphers eq 'RSA';
 		# SSL_CTRL_SET_SIGALGS_LIST
-		$ciphers = 'PSS' if $ciphers eq 'RSA' && $version > 0x0303;
-		Net::SSLeay::CTX_ctrl($ctx, 98, 0, $ciphers . '+SHA256')
+		Net::SSLeay::CTX_ctrl($ctx, 98, 0, $sigalgs)
 			or die("Failed to set sigalgs");
-	}
+	};
 
-	Net::SSLeay::CTX_load_verify_locations($ctx, $ca || '', '');
-	Net::SSLeay::CTX_set_tlsext_status_cb($ctx, $staple_cb);
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_tlsext_status_type($ssl,
-		Net::SSLeay::TLSEXT_STATUSTYPE_ocsp());
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
+	my $s = http_get(
+		'/', start => 1, PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_cipher_list => $ciphers,
+		SSL_create_ctx_callback => $ctx_cb,
+		SSL_ocsp_staple_callback => $staple_cb,
+		SSL_ocsp_mode => IO::Socket::SSL::SSL_OCSP_TRY_STAPLE(),
+		SSL_ca_file => $ca
+	);
 
+	return $s unless $s;
 	return join ' ', @resp;
 }
 
-sub get_version {
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::INET->new('127.0.0.1:' . port(8443));
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-
-	Net::SSLeay::version($ssl);
+sub test_tls13 {
+	return http_get('/', start => 1, SSL => 1) =~ /TLSv1.3/;
 }
 
 ###############################################################################

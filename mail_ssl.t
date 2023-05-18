@@ -25,6 +25,8 @@ use Test::Nginx::SMTP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+local $SIG{PIPE} = 'IGNORE';
+
 eval {
 	require Net::SSLeay;
 	Net::SSLeay::load_error_strings();

@@ -16,29 +16,16 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
-eval {
-	my $ctx = Net::SSLeay::CTX_new() or die;
-	my $ssl = Net::SSLeay::new($ctx) or die;
-	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
-};
-plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
-
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_geo stream_return openssl:1.0.2/)
+	->has(qw/socket_ssl_sni/)
 	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -69,7 +56,7 @@ stream {
 
     server {
         listen       127.0.0.1:8080 ssl;
-        return       $ssl_server_name:$ssl_session_reused;
+        return       $ssl_server_name:$ssl_session_reused:$ssl_protocol;
 
         ssl_certificate $one.crt;
         ssl_certificate_key $one.key;
@@ -154,59 +141,63 @@ like(get('password', 8083), qr/password/, 'ssl_password_file');
 
 # session reuse
 
-my ($s, $ssl) = get('default', 8080);
-my $ses = Net::SSLeay::get_session($ssl);
+my $s = session('default', 8080);
 
-like(get('default', 8080, $ses), qr/default:r/, 'session reused');
+TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+
+like(get('default', 8080, $s), qr/default:r/, 'session reused');
 
 TODO: {
 # ticket key name mismatch prevents session resumption
 local $TODO = 'not yet' unless $t->has_version('1.23.2');
 
-like(get('default', 8081, $ses), qr/default:r/, 'session id context match');
+like(get('default', 8081, $s), qr/default:r/, 'session id context match');
 
 }
+}
 
-like(get('default', 8082, $ses), qr/default:\./, 'session id context distinct');
+like(get('default', 8082, $s), qr/default:\./, 'session id context distinct');
 
 # errors
 
-Net::SSLeay::ERR_clear_error();
-get_ssl_socket('nx', 8084);
-ok(Net::SSLeay::ERR_peek_error(), 'no certificate');
+ok(!get('nx', 8084), 'no certificate');
 
 ###############################################################################
 
 sub get {
-	my ($host, $port, $ctx) = @_;
-	my ($s, $ssl) = get_ssl_socket($host, $port, $ctx) or return;
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	my $r = Net::SSLeay::read($ssl);
-	Net::SSLeay::shutdown($ssl);
-	$s->close();
-	return $r unless wantarray();
-	return ($s, $ssl);
+	my $s = get_socket(@_) || return;
+	return $s->read();
 }
 
 sub cert {
-	my ($host, $port, $ctx) = @_;
-	my ($s, $ssl) = get_ssl_socket($host, $port, $ctx) or return;
-	Net::SSLeay::dump_peer_certificate($ssl);
+	my $s = get_socket(@_) || return;
+	return $s->socket()->dump_peer_certificate();
 }
 
-sub get_ssl_socket {
-	my ($host, $port, $ses) = @_;
+sub session {
+	my $s = get_socket(@_);
+	$s->read();
+	return $s->socket();
+}
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_tlsext_host_name($ssl, $host);
-	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
+sub get_socket {
+	my ($host, $port, $ctx) = @_;
+	return stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_hostname => $host,
+		SSL_session_cache_size => 100,
+		SSL_session_key => 1,
+		SSL_reuse_ctx => $ctx
+	);
+}
+
+sub test_tls13 {
+	return get('default', 8080) =~ /TLSv1.3/;
 }
 
 ###############################################################################

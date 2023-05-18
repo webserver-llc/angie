@@ -19,23 +19,17 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl_sslversion/)
+	->has_daemon('openssl')->plan(7);
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl/)->has_daemon('openssl');
-
-$t->plan(7)->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -124,8 +118,6 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
 $t->run_daemon(\&http_daemon);
 
 $t->run();
@@ -145,6 +137,10 @@ $t->waitforsocket('127.0.0.1:' . port(8081));
 # - only cache off
 
 TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
 
@@ -168,29 +164,30 @@ is(test_reuse(8449), 0, 'cache off not reused');
 ###############################################################################
 
 sub test_tls13 {
-	my ($s, $ssl) = get_ssl_socket(8443);
-	return (Net::SSLeay::version($ssl) > 0x303);
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port(8443),
+		SSL => 1
+	);
+	return ($s->socket()->get_sslversion_int() > 0x303);
 }
 
 sub test_reuse {
 	my ($port) = @_;
-	my ($s, $ssl) = get_ssl_socket($port);
-	Net::SSLeay::write($ssl, "GET / HTTP/1.0$CRLF$CRLF");
-	Net::SSLeay::read($ssl);
-	my $ses = Net::SSLeay::get_session($ssl);
-	($s, $ssl) = get_ssl_socket($port, $ses);
-	return Net::SSLeay::session_reused($ssl);
-}
 
-sub get_ssl_socket {
-	my ($port, $ses) = @_;
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_session_cache_size => 100
+	);
+	$s->io("GET / HTTP/1.0$CRLF$CRLF");
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
+	$s = stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_reuse_ctx => $s->socket()
+	);
+
+	return $s->socket()->get_session_reused();
 }
 
 ###############################################################################

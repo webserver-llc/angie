@@ -24,15 +24,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return socket_ssl/)
 	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -154,18 +146,23 @@ sub test_tls13 {
 sub get {
 	my ($port, $cert) = @_;
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
-		or die if $cert;
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		$cert ? (
+		SSL_cert_file => "$d/$cert.crt",
+		SSL_key_file => "$d/$cert.key"
+		) : ()
+	);
 
-	my $buf = Net::SSLeay::read($ssl);
-	log_in($buf);
-	return $buf unless wantarray();
+	return $s->read() unless wantarray();
 
+	# Note: this uses IO::Socket::SSL::_get_ssl_object() internal method.
+	# While not exactly correct, it looks like there is no other way to
+	# obtain CA list with IO::Socket::SSL, and this seems to be good
+	# enough for tests.
+
+	my $ssl = $s->socket()->_get_ssl_object();
 	my $list = Net::SSLeay::get_client_CA_list($ssl);
 	my @names;
 	for my $i (0 .. Net::SSLeay::sk_X509_NAME_num($list) - 1) {

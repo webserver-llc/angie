@@ -16,22 +16,16 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_return openssl:1.0.2/)
+	->has(qw/socket_ssl_reused/)
 	->has_daemon('openssl');
 
 plan(skip_all => 'no ssl_conf_command') if $t->has_module('BoringSSL');
@@ -92,32 +86,31 @@ $t->run()->plan(3);
 
 ###############################################################################
 
-my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
+my $s;
 
-my ($s, $ssl) = get_ssl_socket();
-like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=override/, 'Certificate');
+$s = stream(
+	PeerAddr => '127.0.0.1:' . port(8443),
+	SSL => 1,
+	SSL_session_cache_size => 100
+);
+$s->read();
 
-my $ses = Net::SSLeay::get_session($ssl);
-($s, $ssl) = get_ssl_socket(ses => $ses);
-ok(Net::SSLeay::session_reused($ssl), 'SessionTicket');
+like($s->socket()->dump_peer_certificate(), qr/CN=override/, 'Certificate');
 
-($s, $ssl) = get_ssl_socket(ciphers =>
-	'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384');
-is(Net::SSLeay::get_cipher($ssl),
+$s = stream(
+	PeerAddr => '127.0.0.1:' . port(8443),
+	SSL => 1,
+	SSL_reuse_ctx => $s->socket()
+);
+ok($s->socket()->get_session_reused(), 'SessionTicket');
+
+$s = stream(
+	PeerAddr => '127.0.0.1:' . port(8443),
+	SSL => 1,
+	SSL_cipher_list =>
+		'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+);
+is($s->socket()->get_cipher(),
 	'ECDHE-RSA-AES128-GCM-SHA256', 'ServerPreference');
-
-###############################################################################
-
-sub get_ssl_socket {
-	my (%extra) = @_;
-
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port(8443));
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_session($ssl, $extra{ses}) if $extra{ses};
-	Net::SSLeay::set_cipher_list($ssl, $extra{ciphers}) if $extra{ciphers};
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
-}
 
 ###############################################################################

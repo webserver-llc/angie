@@ -38,22 +38,48 @@ sub new {
 
 	unshift(@_, "PeerAddr") if @_ == 1;
 
-	$self->{_socket} = IO::Socket::INET->new(
-		Proto => "tcp",
-		PeerAddr => '127.0.0.1',
-		@_
-	)
-		or die "Can't connect to nginx: $!\n";
+	eval {
+		local $SIG{ALRM} = sub { die "timeout\n" };
+		local $SIG{PIPE} = sub { die "sigpipe\n" };
+		alarm(8);
 
-	if ({@_}->{'SSL'}) {
-		require IO::Socket::SSL;
-		IO::Socket::SSL->start_SSL($self->{_socket}, @_)
-			or die $IO::Socket::SSL::SSL_ERROR . "\n";
+		$self->{_socket} = IO::Socket::INET->new(
+			Proto => "tcp",
+			PeerAddr => '127.0.0.1',
+			@_
+		)
+			or die "Can't connect to nginx: $!\n";
+
+		if ({@_}->{'SSL'}) {
+			require IO::Socket::SSL;
+			IO::Socket::SSL->start_SSL(
+				$self->{_socket},
+				SSL_verify_mode =>
+					IO::Socket::SSL::SSL_VERIFY_NONE(),
+				@_
+			)
+				or die $IO::Socket::SSL::SSL_ERROR . "\n";
+
+			my $s = $self->{_socket};
+			log_in("ssl cipher: " . $s->get_cipher());
+			log_in("ssl cert: " . $s->peer_certificate('issuer'));
+		}
+
+		alarm(0);
+	};
+	alarm(0);
+	if ($@) {
+		log_in("died: $@");
 	}
 
 	$self->{_socket}->autoflush(1);
 
 	return $self;
+}
+
+sub DESTROY {
+	my $self = shift;
+	$self->{_socket}->close();
 }
 
 sub write {
@@ -133,6 +159,11 @@ sub sockhost {
 sub sockport {
 	my $self = shift;
 	return $self->{_socket}->sockport();
+}
+
+sub socket {
+	my ($self) = @_;
+	$self->{_socket};
 }
 
 ###############################################################################

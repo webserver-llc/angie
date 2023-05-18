@@ -23,10 +23,8 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy cache/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_ssl http_v2 proxy cache socket_ssl/)
 	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');

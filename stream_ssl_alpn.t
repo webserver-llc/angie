@@ -23,8 +23,10 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_return/)
-	->has_daemon('openssl')->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()
+	->has(qw/stream stream_ssl stream_return socket_ssl_alpn/)
+	->has_daemon('openssl')
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -50,15 +52,6 @@ stream {
 }
 
 EOF
-
-eval { require IO::Socket::SSL; die if $IO::Socket::SSL::VERSION < 1.56; };
-plan(skip_all => 'IO::Socket::SSL version >= 1.56 required') if $@;
-
-eval { IO::Socket::SSL->can_alpn() or die; };
-plan(skip_all => 'IO::Socket::SSL with OpenSSL ALPN support required') if $@;
-
-eval { exists &Net::SSLeay::P_alpn_selected or die; };
-plan(skip_all => 'Net::SSLeay with OpenSSL ALPN support required') if $@;
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]

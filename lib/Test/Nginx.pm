@@ -241,6 +241,31 @@ sub has_feature($) {
 		return $^O ne 'MSWin32';
 	}
 
+	if ($feature =~ /^socket_ssl/) {
+		eval { require IO::Socket::SSL; };
+		return 0 if $@;
+		eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
+		return 0 if $@;
+		if ($feature eq 'socket_ssl') {
+			return 1;
+		}
+		if ($feature eq 'socket_ssl_sni') {
+			eval { IO::Socket::SSL->can_client_sni() or die; };
+			return !$@;
+		}
+		if ($feature eq 'socket_ssl_alpn') {
+			eval { IO::Socket::SSL->can_alpn() or die; };
+			return !$@;
+		}
+		if ($feature eq 'socket_ssl_sslversion') {
+			return IO::Socket::SSL->can('get_sslversion');
+		}
+		if ($feature eq 'socket_ssl_reused') {
+			return IO::Socket::SSL->can('get_session_reused');
+		}
+		return 0;
+	}
+
 	return 0;
 }
 

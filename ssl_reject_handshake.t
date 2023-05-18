@@ -22,12 +22,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL->can_client_sni() or die; };
-plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)->has_daemon('openssl');
+my $t = Test::Nginx->new()->has(qw/http http_ssl sni socket_ssl/)
+	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

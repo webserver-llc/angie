@@ -24,7 +24,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_map stream_ssl_preread/)
-	->has(qw/stream_ssl stream_return/)->has_daemon('openssl')
+	->has(qw/stream_ssl stream_return socket_ssl_sni/)
+	->has_daemon('openssl')->plan(13)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -106,25 +107,6 @@ stream {
 }
 
 EOF
-
-eval { require IO::Socket::SSL; die if $IO::Socket::SSL::VERSION < 1.56; };
-plan(skip_all => 'IO::Socket::SSL version >= 1.56 required') if $@;
-
-eval {
-	if (IO::Socket::SSL->can('can_client_sni')) {
-		IO::Socket::SSL->can_client_sni() or die;
-	}
-};
-plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
-
-eval {
-	my $ctx = Net::SSLeay::CTX_new() or die;
-	my $ssl = Net::SSLeay::new($ctx) or die;
-	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
-};
-plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
-
-$t->plan(13);
 
 $t->write_file('openssl.conf', <<EOF);
 [ req ]

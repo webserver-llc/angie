@@ -22,12 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
-plan(skip_all => 'IO::Socket::SSL too old') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
 	->has_daemon('openssl');
 
 $t->{_configure_args} =~ /OpenSSL (\d+)/;

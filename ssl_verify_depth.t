@@ -22,12 +22,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
-plan(skip_all => 'IO::Socket::SSL too old') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->has_daemon('openssl');
+my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
+	->has_daemon('openssl');
 
 plan(skip_all => 'LibreSSL') if $t->has_module('LibreSSL');
 

@@ -26,14 +26,10 @@ use Test::Nginx::IMAP;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; };
-plan(skip_all => 'IO::Socket::SSL not installed') if $@;
-eval { IO::Socket::SSL::SSL_VERIFY_NONE(); };
-plan(skip_all => 'IO::Socket::SSL too old') if $@;
-
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap http rewrite/)
+my $t = Test::Nginx->new()
+	->has(qw/mail mail_ssl imap http rewrite socket_ssl_sslversion/)
 	->has_daemon('openssl')->plan(13)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -215,12 +211,10 @@ $s->read();
 
 my ($cipher, $sslversion);
 
-if ($IO::Socket::SSL::VERSION >= 1.964) {
-	$s = get_ssl_socket(8143);
-	$cipher = $s->get_cipher();
-	$sslversion = $s->get_sslversion();
-	$sslversion =~ s/_/./;
-}
+$s = get_ssl_socket(8143);
+$cipher = $s->get_cipher();
+$sslversion = $s->get_sslversion();
+$sslversion =~ s/_/./;
 
 undef $s;
 
@@ -239,17 +233,11 @@ like($f, qr!^on:SUCCESS:(/?CN=2.example.com):\1:\w+:\w+:[^:]+:s4$!m,
 like($f, qr!^on:SUCCESS:(/?CN=3.example.com):\1:\w+:\w+:[^:]+:s5$!m,
 	'log - trusted cert');
 
-SKIP: {
-skip 'IO::Socket::SSL version >= 1.964 required', 1
-	if $IO::Socket::SSL::VERSION < 1.964;
-
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.2');
 
 $f = $t->read_file('auth2.log');
 like($f, qr|^$cipher:$sslversion$|m, 'log - cipher sslversion');
-
-}
 
 }
 

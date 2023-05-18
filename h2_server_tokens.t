@@ -106,7 +106,7 @@ like(header_server('/on/200'), qr/^$re$/, 'http2 tokens on 200');
 like(header_server('/on/404'), qr/^$re$/, 'http2 tokens on 404');
 like(body('/on/404'), $re, 'http2 tokens on 404 body');
 
-$re = qr/$re \Q($1)\E/ if $t->{_configure_args} =~ /--build=(\S+)/;
+$re = qr/$re \(.*\)/ if $t->has_module('--build=');
 
 like(header_server('/b/200'), qr/^$re$/, 'http2 tokens build 200');
 like(header_server('/b/404'), qr/^$re$/, 'http2 tokens build 404');

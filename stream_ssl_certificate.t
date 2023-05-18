@@ -37,13 +37,10 @@ eval {
 };
 plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl stream_geo stream_return/)
-	->has_daemon('openssl');
-
-$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
-plan(skip_all => 'OpenSSL too old') unless defined $1 and $1 ge '1.0.2';
-
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()
+	->has(qw/stream stream_ssl stream_geo stream_return openssl:1.0.2/)
+	->has_daemon('openssl')
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

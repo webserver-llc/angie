@@ -87,10 +87,12 @@ $t->plan(3);
 ###############################################################################
 
 SKIP: {
-$t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
-skip 'LibreSSL too old', 1 if defined $1 and $1 lt '3.4.0';
-$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
-skip 'OpenSSL too old', 1 if defined $1 and $1 lt '1.1.0';
+skip 'LibreSSL too old', 1
+	if $t->has_module('LibreSSL')
+	and not $t->has_feature('libressl:3.4.0');
+skip 'OpenSSL too old', 1
+	if $t->has_module('OpenSSL')
+	and not $t->has_feature('openssl:1.1.0');
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.4');

@@ -81,10 +81,12 @@ is(get_ssl('wrong', 'second'), 'X second X', 'alpn second');
 is(get_ssl(), 'X  X', 'no alpn');
 
 SKIP: {
-$t->{_configure_args} =~ /LibreSSL ([\d\.]+)/;
-skip 'LibreSSL too old', 2 if defined $1 and $1 lt '3.4.0';
-$t->{_configure_args} =~ /OpenSSL ([\d\.]+)/;
-skip 'OpenSSL too old', 2 if defined $1 and $1 lt '1.1.0';
+skip 'LibreSSL too old', 2
+	if $t->has_module('LibreSSL')
+	and not $t->has_feature('libressl:3.4.0');
+skip 'OpenSSL too old', 2
+	if $t->has_module('OpenSSL')
+	and not $t->has_feature('openssl:1.1.0');
 
 ok(!get_ssl('wrong'), 'alpn mismatch');
 

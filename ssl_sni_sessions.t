@@ -110,15 +110,14 @@ $t->write_file('ticket2.key', '2' x 48);
 
 $t->run();
 
-plan(skip_all => 'no TLS 1.3 sessions')
-	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
-	&& ($Net::SSLeay::VERSION < 1.88 || $IO::Socket::SSL::VERSION < 2.061);
-plan(skip_all => 'no TLS 1.3 sessions in LibreSSL')
-	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
-	&& $t->has_module('LibreSSL');
+plan(skip_all => 'no TLSv1.3 sessions, old Net::SSLeay')
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+plan(skip_all => 'no TLSv1.3 sessions, old IO::Socket::SSL')
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
+        if $t->has_module('LibreSSL') && test_tls13();
 plan(skip_all => 'no TLS 1.3 session cache in BoringSSL')
-	if get('default', port(8443), get_ssl_context()) =~ /TLSv1.3/
-	&& $t->has_module('BoringSSL');
+	if $t->has_module('BoringSSL') && test_tls13();
 
 $t->plan(6);
 
@@ -128,8 +127,8 @@ $t->plan(6);
 
 my $ctx = get_ssl_context();
 
-like(get('default', port(8443), $ctx), qr!default:\.!, 'default server');
-like(get('default', port(8443), $ctx), qr!default:r!, 'default server reused');
+like(get('default', 8443, $ctx), qr!default:\.!, 'default server');
+like(get('default', 8443, $ctx), qr!default:r!, 'default server reused');
 
 # check that sessions are still properly saved and restored
 # when using an SNI-based virtual server with different session cache;
@@ -143,16 +142,16 @@ like(get('default', port(8443), $ctx), qr!default:r!, 'default server reused');
 
 $ctx = get_ssl_context();
 
-like(get('nocache', port(8443), $ctx), qr!nocache:\.!, 'without cache');
-like(get('nocache', port(8443), $ctx), qr!nocache:r!, 'without cache reused');
+like(get('nocache', 8443, $ctx), qr!nocache:\.!, 'without cache');
+like(get('nocache', 8443, $ctx), qr!nocache:r!, 'without cache reused');
 
 # make sure tickets can be used if an SNI-based virtual server
 # uses a different set of session ticket keys explicitly set
 
 $ctx = get_ssl_context();
 
-like(get('tickets', port(8444), $ctx), qr!tickets:\.!, 'tickets');
-like(get('tickets', port(8444), $ctx), qr!tickets:r!, 'tickets reused');
+like(get('tickets', 8444, $ctx), qr!tickets:\.!, 'tickets');
+like(get('tickets', 8444, $ctx), qr!tickets:r!, 'tickets reused');
 
 ###############################################################################
 
@@ -163,46 +162,19 @@ sub get_ssl_context {
 	);
 }
 
-sub get_ssl_socket {
-	my ($host, $port, $ctx) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => $port,
-			SSL_hostname => $host,
-			SSL_reuse_ctx => $ctx,
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
-}
-
 sub get {
 	my ($host, $port, $ctx) = @_;
+	return http(
+		"GET / HTTP/1.0\nHost: $host\n\n",
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_hostname => $host,
+		SSL_reuse_ctx => $ctx
+	);
+}
 
-	my $s = get_ssl_socket($host, $port, $ctx) or return;
-	my $r = http(<<EOF, socket => $s);
-GET / HTTP/1.0
-Host: $host
-
-EOF
-
-	$s->close();
-	return $r;
+sub test_tls13 {
+	return get('default', 8443) =~ /TLSv1.3/;
 }
 
 ###############################################################################

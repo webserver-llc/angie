@@ -133,41 +133,27 @@ $t->run();
 
 ###############################################################################
 
-is(get_ssl_socket(port(8080)), undef, 'incomplete chain');
-ok(get_ssl_socket(port(8081)), 'intermediate');
-ok(get_ssl_socket(port(8082)), 'intermediate server');
+ok(!get_ssl_socket(8080), 'incomplete chain');
+ok(get_ssl_socket(8081), 'intermediate');
+ok(get_ssl_socket(8082), 'intermediate server');
 
 ###############################################################################
 
 sub get_ssl_socket {
 	my ($port) = @_;
-	my ($s, $verify);
+	my ($verify);
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => $port,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_PEER(),
-			SSL_ca_file => "$d/root.crt",
-			SSL_verify_callback => sub {
-				my ($ok) = @_;
-				$verify = $ok;
-				return $ok;
-			},
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
+	http(
+		'', PeerAddr => '127.0.0.1:' . port($port), start => 1,
+		SSL => 1,
+		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_PEER(),
+		SSL_ca_file => "$d/root.crt",
+		SSL_verify_callback => sub {
+			my ($ok) = @_;
+			$verify = $ok;
+			return $ok;
+		}
+	);
 
 	return $verify;
 }

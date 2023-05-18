@@ -37,42 +37,34 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
         location / {
-            return 200 $server_name;
+            return 200 $server_name:$ssl_server_name;
         }
 
         location /protocol {
             return 200 $ssl_protocol;
         }
+
+        location /name {
+            return 200 $ssl_session_reused:$ssl_server_name;
+        }
     }
 
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:8443;
         server_name  example.com;
 
         ssl_certificate_key example.com.key;
         ssl_certificate example.com.crt;
 
         location / {
-            return 200 $server_name;
-        }
-    }
-
-    server {
-        listen       127.0.0.1:8081 ssl;
-        server_name  localhost;
-
-        ssl_certificate_key localhost.key;
-        ssl_certificate localhost.crt;
-
-        location / {
-            return 200 $ssl_session_reused:$ssl_server_name;
+            return 200 $server_name:$ssl_server_name;
         }
     }
 }
@@ -104,19 +96,19 @@ $t->run();
 like(get_cert_cn(), qr!/CN=localhost!, 'default cert');
 like(get_cert_cn('example.com'), qr!/CN=example.com!, 'sni cert');
 
-like(https_get_host('example.com'), qr!example.com!,
+like(get_host('example.com'), qr!example.com:example.com!,
 	'host exists, sni exists, and host is equal sni');
 
-like(https_get_host('example.com', 'example.org'), qr!example.com!,
+like(get_host('example.com', 'example.org'), qr!example.com:example.org!,
 	'host exists, sni not found');
 
 TODO: {
 local $TODO = 'sni restrictions';
 
-like(https_get_host('example.com', 'localhost'), qr!400 Bad Request!,
+like(get_host('example.com', 'localhost'), qr!400 Bad Request!,
 	'host exists, sni exists, and host is not equal sni');
 
-like(https_get_host('example.org', 'example.com'), qr!400 Bad Request!,
+like(get_host('example.org', 'example.com'), qr!400 Bad Request!,
 	'host not found, sni exists');
 
 }
@@ -127,7 +119,7 @@ my $ctx = new IO::Socket::SSL::SSL_Context(
 	SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	SSL_session_cache_size => 100);
 
-like(get('/', 'localhost', 8081, $ctx), qr/^\.:localhost$/m, 'ssl server name');
+like(get('/name', 'localhost', $ctx), qr/^\.:localhost$/m, 'ssl server name');
 
 TODO: {
 local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
@@ -137,7 +129,7 @@ local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
 
-like(get('/', 'localhost', 8081, $ctx), qr/^r:localhost$/m,
+like(get('/name', 'localhost', $ctx), qr/^r:localhost$/m,
 	'ssl server name - reused');
 
 }
@@ -148,58 +140,29 @@ sub test_tls13 {
 	get('/protocol', 'localhost') =~ /TLSv1.3/;
 }
 
-sub get_ssl_socket {
-	my ($host, $port, $ctx) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port($port || 8080),
-			SSL_hostname => $host,
-			SSL_reuse_ctx => $ctx,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
-}
-
 sub get_cert_cn {
 	my ($host) = @_;
-	my $s = get_ssl_socket($host);
-
+	my $s = http('', start => 1, SSL => 1, SSL_hostname => $host);
 	return $s->dump_peer_certificate();
 }
 
-sub https_get_host {
+sub get_host {
 	my ($host, $sni) = @_;
-	my $s = get_ssl_socket($sni ? $sni : $host);
-
-	return http(<<EOF, socket => $s);
-GET / HTTP/1.0
-Host: $host
-
-EOF
+	return http(
+		"GET / HTTP/1.0\nHost: $host\n\n",
+		SSL => 1,
+		SSL_hostname => $sni || $host
+	);
 }
 
 sub get {
-	my ($uri, $host, $port, $ctx) = @_;
-	my $s = get_ssl_socket($host, $port, $ctx) or return;
-	my $r = http_get($uri, socket => $s);
-	$s->close();
-	return $r;
+	my ($uri, $host, $ctx) = @_;
+	return http_get(
+		$uri,
+		SSL => 1,
+		SSL_hostname => $host,
+		SSL_reuse_ctx => $ctx
+	);
 }
 
 ###############################################################################

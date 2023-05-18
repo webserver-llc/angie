@@ -49,7 +49,7 @@ http {
     ssl_password_file password_http;
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         listen       127.0.0.1:8080;
         server_name  localhost;
 
@@ -132,33 +132,6 @@ is($@, '', 'ssl_password_file works');
 # simple tests to ensure that nothing broke with ssl_password_file directive
 
 like(http_get('/'), qr/200 OK.*http/ms, 'http');
-like(http_get('/', socket => get_ssl_socket()), qr/200 OK.*https/ms, 'https');
-
-###############################################################################
-
-sub get_ssl_socket {
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port(8081),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
-}
+like(http_get('/', SSL => 1), qr/200 OK.*https/ms, 'https');
 
 ###############################################################################

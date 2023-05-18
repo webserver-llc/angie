@@ -14,6 +14,7 @@ use strict;
 use Test::More;
 
 use Socket qw/ CRLF /;
+use IO::Select;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -278,11 +279,9 @@ sub test_tls13 {
 }
 
 sub get {
-	my ($uri, $port, $ctx) = @_;
-	my $s = get_ssl_socket($port, $ctx) or return;
-	my $r = http_get($uri, socket => $s);
-	$s->close();
-	return $r;
+	my ($uri, $port, $ctx, %extra) = @_;
+	my $s = get_ssl_socket($port, $ctx, %extra) or return;
+	return http_get($uri, socket => $s);
 }
 
 sub get_body {
@@ -297,16 +296,16 @@ sub get_body {
 	http($chs . CRLF . $body x $len . CRLF, socket => $s, start => 1)
 		for 1 .. $n;
 	my $r = http("0" . CRLF . CRLF, socket => $s);
-	$s->close();
 	return $r;
 }
 
 sub cert {
 	my ($uri, $port) = @_;
-	my $s = get_ssl_socket($port, undef,
+	return get(
+		$uri, $port, undef,
 		SSL_cert_file => "$d/subject.crt",
-		SSL_key_file => "$d/subject.key") or return;
-	http_get($uri, socket => $s);
+		SSL_key_file => "$d/subject.key"
+	);
 }
 
 sub get_ssl_context {
@@ -318,45 +317,32 @@ sub get_ssl_context {
 
 sub get_ssl_socket {
 	my ($port, $ctx, %extra) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port($port),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_reuse_ctx => $ctx,
-			SSL_error_trap => sub { die $_[1] },
-			%extra
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
+	return http(
+		'', PeerAddr => '127.0.0.1:' . port($port), start => 1,
+		SSL => 1,
+		SSL_reuse_ctx => $ctx,
+		%extra
+	);
 }
 
 sub get_ssl_shutdown {
 	my ($port) = @_;
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	Net::SSLeay::write($ssl, 'GET /' . CRLF . 'extra');
-	Net::SSLeay::read($ssl);
-	Net::SSLeay::set_shutdown($ssl, 1);
-	Net::SSLeay::shutdown($ssl);
+	my $s = http(
+		'GET /' . CRLF . 'extra',
+		PeerAddr => '127.0.0.1:' . port($port), start => 1,
+		SSL => 1
+	);
+
+	$s->blocking(0);
+	while (IO::Select->new($s)->can_read(8)) {
+                my $n = $s->sysread(my $buf, 16384);
+                next if !defined $n && $!{EWOULDBLOCK};
+                last;
+	}
+	$s->blocking(1);
+
+	return $s->stop_SSL();
 }
 
 ###############################################################################

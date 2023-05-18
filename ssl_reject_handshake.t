@@ -136,44 +136,14 @@ like(get('virtual2', 8082), qr/unrecognized name/, 'virtual 2 rejected');
 
 sub get {
 	my ($host, $port) = @_;
-	my $s = get_ssl_socket($host, $port) or return $@;
-	$host = 'localhost' if !defined $host;
-	my $r = http(<<EOF, socket => $s);
-GET / HTTP/1.0
-Host: $host
-
-EOF
-
-	$s->close();
+	my $r = http(
+		"GET / HTTP/1.0\nHost: " . ($host || 'localhost') . "\n\n",
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_hostname => $host
+	)
+		or return "$@";
 	return $r;
-}
-
-sub get_ssl_socket {
-	my ($host, $port) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port($port),
-			SSL_hostname => $host,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_error_trap => sub { die $_[1] },
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
 }
 
 ###############################################################################

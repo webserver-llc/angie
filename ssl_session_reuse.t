@@ -16,7 +16,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -192,58 +192,26 @@ like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 ###############################################################################
 
 sub test_tls13 {
-	return get('/protocol', 8443) =~ /TLSv1.3/;
+	return http_get('/protocol', SSL => 1) =~ /TLSv1.3/;
 }
 
 sub test_reuse {
 	my ($port) = @_;
-	my $ctx = get_ssl_context();
-	get('/', $port, $ctx);
-	return (get('/', $port, $ctx) =~ qr/^body r$/m) ? 1 : 0;
-}
 
-sub get {
-	my ($uri, $port, $ctx) = @_;
-	my $s = get_ssl_socket($port, $ctx) or return;
-	my $r = http_get($uri, socket => $s);
-	$s->close();
-	return $r;
-}
-
-sub get_ssl_context {
-	return IO::Socket::SSL::SSL_Context->new(
-		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
+	my $s = http_get(
+		'/', PeerAddr => '127.0.0.1:' . port($port), start => 1,
+		SSL => 1,
 		SSL_session_cache_size => 100
 	);
-}
+	http_end($s);
 
-sub get_ssl_socket {
-	my ($port, $ctx, %extra) = @_;
-	my $s;
+	my $r = http_get(
+		'/', PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_reuse_ctx => $s
+	);
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port($port),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_reuse_ctx => $ctx,
-			SSL_error_trap => sub { die $_[1] },
-			%extra
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
+	return ($r =~ qr/^body r$/m) ? 1 : 0;
 }
 
 ###############################################################################

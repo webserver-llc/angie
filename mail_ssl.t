@@ -27,19 +27,8 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
-eval { exists &Net::SSLeay::P_alpn_selected or die; };
-plan(skip_all => 'Net::SSLeay with OpenSSL ALPN support required') if $@;
-
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3 smtp/)
-	->has_daemon('openssl')->plan(18);
+my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap pop3 smtp socket_ssl/)
+	->has_daemon('openssl')->plan(19);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -143,7 +132,6 @@ foreach my $name ('localhost', 'inherits') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
 $t->write_file('password', 'localhost');
 
 open OLDERR, ">&", \*STDERR; close STDERR;
@@ -164,15 +152,24 @@ $s->check(qr/\+ VXNlcm5hbWU6/, 'login');
 
 # ssl_certificate inheritance
 
-($s, $ssl) = get_ssl_socket(8145);
-like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=localhost/, 'CN');
+$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(8145), SSL => 1);
+$s->ok('greeting ssl');
 
-($s, $ssl) = get_ssl_socket(8148);
-like(Net::SSLeay::dump_peer_certificate($ssl), qr/CN=inherits/, 'CN inner');
+like($s->socket()->dump_peer_certificate(), qr/CN=localhost/, 'CN');
+
+$s = Test::Nginx::IMAP->new(PeerAddr => '127.0.0.1:' . port(8148), SSL => 1);
+$s->read();
+
+like($s->socket()->dump_peer_certificate(), qr/CN=inherits/, 'CN inner');
 
 # alpn
 
-ok(get_ssl_socket(8148, ['imap']), 'alpn');
+$s = Test::Nginx::IMAP->new(
+	PeerAddr => '127.0.0.1:' . port(8148),
+	SSL => 1,
+	SSL_alpn_protocols => [ 'imap' ]
+);
+$s->ok('alpn');
 
 SKIP: {
 skip 'LibreSSL too old', 1
@@ -184,8 +181,15 @@ skip 'OpenSSL too old', 1
 
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.4');
+local $TODO = 'no ALPN support in IO::Socket::SSL'
+	unless $t->has_feature('socket_ssl_alpn');
 
-ok(!get_ssl_socket(8148, ['unknown']), 'alpn rejected');
+$s = Test::Nginx::IMAP->new(
+	PeerAddr => '127.0.0.1:' . port(8148),
+	SSL => 1,
+	SSL_alpn_protocols => [ 'unknown' ]
+);
+ok(!$s->read(), 'alpn rejected');
 
 }
 
@@ -268,18 +272,5 @@ $s->read();
 
 $s->send('STARTTLS');
 $s->ok('smtp starttls only');
-
-###############################################################################
-
-sub get_ssl_socket {
-	my ($port, $alpn) = @_;
-
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_alpn_protos($ssl, $alpn) if defined $alpn;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) == 1 or return;
-	return ($s, $ssl);
-}
 
 ###############################################################################

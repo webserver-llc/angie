@@ -17,6 +17,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::IMAP;
 
 ###############################################################################
 
@@ -25,15 +26,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap/)
+my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap socket_ssl_sslversion/)
 	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -125,8 +118,6 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
 $t->run();
 
 ###############################################################################
@@ -142,6 +133,10 @@ $t->run();
 # - only cache off
 
 TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
 
@@ -165,28 +160,27 @@ is(test_reuse(8999), 0, 'cache off not reused');
 ###############################################################################
 
 sub test_tls13 {
-	my ($s, $ssl) = get_ssl_socket(8993);
-	return (Net::SSLeay::version($ssl) > 0x303);
+	my $s = Test::Nginx::IMAP->new(SSL => 1);
+	return ($s->socket()->get_sslversion_int() > 0x303);
 }
 
 sub test_reuse {
 	my ($port) = @_;
-	my ($s, $ssl) = get_ssl_socket($port);
-	Net::SSLeay::read($ssl);
-	my $ses = Net::SSLeay::get_session($ssl);
-	($s, $ssl) = get_ssl_socket($port, $ses);
-	return Net::SSLeay::session_reused($ssl);
-}
 
-sub get_ssl_socket {
-	my ($port, $ses) = @_;
+	my $s = Test::Nginx::IMAP->new(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_session_cache_size => 100
+	);
+	$s->read();
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) == 1 or return;
-	return ($s, $ssl);
+	$s = Test::Nginx::IMAP->new(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_reuse_ctx => $s->socket()
+	);
+
+	return $s->socket()->get_session_reused();
 }
 
 ###############################################################################

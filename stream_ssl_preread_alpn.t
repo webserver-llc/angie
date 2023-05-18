@@ -114,25 +114,12 @@ get_ssl(8081, '');
 
 sub get_ssl {
 	my ($port, @alpn) = @_;
-	my $s = stream('127.0.0.1:' . port($port));
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		IO::Socket::SSL->start_SSL($s->{_socket},
-			SSL_alpn_protocols => [ @alpn ],
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_alpn_protocols => [ @alpn ]
+	);
 
 	return $s->read();
 }

@@ -142,7 +142,7 @@ is(get_ssl('bar', 8081), $p2, 'sni 2 again');
 
 is(get_ssl('', 8081), $p3, 'no sni');
 is(get_ssl('foo', 8082), $p3, 'preread off');
-is(get_ssl('foo', 8083), undef, 'preread buffer full');
+is(get_ssl('foo', 8083), '', 'preread buffer full');
 is(stream('127.0.0.1:' . port(8080))->io('x' x 1000), "127.0.0.1:$p3",
 	'not a handshake');
 
@@ -202,25 +202,12 @@ sub get_oldver {
 
 sub get_ssl {
 	my ($host, $port) = @_;
-	my $s = stream('127.0.0.1:' . port($port));
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		IO::Socket::SSL->start_SSL($s->{_socket},
-			SSL_hostname => $host,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_hostname => $host
+	);
 
 	return $s->read();
 }

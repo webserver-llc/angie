@@ -57,6 +57,8 @@ http {
 
     ssl_ciphers DEFAULT:ECCdraft;
 
+    add_header X-SSL-Protocol $ssl_protocol always;
+
     server {
         listen       127.0.0.1:8443 ssl;
         listen       127.0.0.1:8080;
@@ -341,7 +343,7 @@ sub staple {
 }
 
 sub test_tls13 {
-	return http_get('/', start => 1, SSL => 1) =~ /TLSv1.3/;
+	return http_get('/', SSL => 1) =~ /TLSv1.3/;
 }
 
 ###############################################################################

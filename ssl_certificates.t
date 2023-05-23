@@ -120,10 +120,11 @@ sub get_socket {
 		return unless defined $type;
 		my $ssleay = Net::SSLeay::SSLeay();
 		return if ($ssleay < 0x1000200f || $ssleay == 0x20000000);
-		my $sigalgs = 'RSA+SHA256:PSS+SHA256';
-		$sigalgs = $type . '+SHA256' unless $type eq 'RSA';
+		my @sigalgs = ('RSA+SHA256:PSS+SHA256', 'RSA+SHA256');
+		@sigalgs = ($type . '+SHA256') unless $type eq 'RSA';
 		# SSL_CTRL_SET_SIGALGS_LIST
-		Net::SSLeay::CTX_ctrl($ctx, 98, 0, $sigalgs)
+		Net::SSLeay::CTX_ctrl($ctx, 98, 0, $sigalgs[0])
+			or Net::SSLeay::CTX_ctrl($ctx, 98, 0, $sigalgs[1])
 			or die("Failed to set sigalgs");
 	};
 

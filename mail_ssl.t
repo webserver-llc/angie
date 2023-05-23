@@ -164,6 +164,16 @@ like($s->socket()->dump_peer_certificate(), qr/CN=inherits/, 'CN inner');
 
 # alpn
 
+SKIP: {
+skip 'LibreSSL too old', 2
+	if $t->has_module('LibreSSL')
+	and not $t->has_feature('libressl:3.4.0');
+skip 'OpenSSL too old', 2
+	if $t->has_module('OpenSSL')
+	and not $t->has_feature('openssl:1.1.0');
+skip 'no ALPN support in IO::Socket::SSL', 2
+	unless $t->has_feature('socket_ssl_alpn');
+
 $s = Test::Nginx::IMAP->new(
 	PeerAddr => '127.0.0.1:' . port(8148),
 	SSL => 1,
@@ -171,18 +181,8 @@ $s = Test::Nginx::IMAP->new(
 );
 $s->ok('alpn');
 
-SKIP: {
-skip 'LibreSSL too old', 1
-	if $t->has_module('LibreSSL')
-	and not $t->has_feature('libressl:3.4.0');
-skip 'OpenSSL too old', 1
-	if $t->has_module('OpenSSL')
-	and not $t->has_feature('openssl:1.1.0');
-
 TODO: {
 local $TODO = 'not yet' unless $t->has_version('1.21.4');
-local $TODO = 'no ALPN support in IO::Socket::SSL'
-	unless $t->has_feature('socket_ssl_alpn');
 
 $s = Test::Nginx::IMAP->new(
 	PeerAddr => '127.0.0.1:' . port(8148),

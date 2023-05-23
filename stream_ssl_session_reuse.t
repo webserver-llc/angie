@@ -26,7 +26,8 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl_sslversion/)
+my $t = Test::Nginx->new()
+	->has(qw/stream stream_ssl socket_ssl_sslversion socket_ssl_reused/)
 	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

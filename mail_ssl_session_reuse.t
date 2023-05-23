@@ -26,7 +26,8 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail mail_ssl imap socket_ssl_sslversion/)
+my $t = Test::Nginx->new()
+	->has(qw/mail mail_ssl imap socket_ssl_sslversion socket_ssl_reused/)
 	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

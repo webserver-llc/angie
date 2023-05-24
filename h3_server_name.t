@@ -47,7 +47,7 @@ http {
     ssl_certificate localhost.crt;
 
     server {
-        listen       127.0.0.1:8080 ssl http2;
+        listen       127.0.0.1:8443 ssl http2;
         listen       127.0.0.1:%%PORT_8980_UDP%% quic;
         server_name  ~^(?P<name>.+)\.example\.com$;
 
@@ -97,19 +97,20 @@ is(get3('test.example.com', 'localhost'), 'test', 'http3 - sni not found');
 
 sub get1 {
 	my ($host, $sni) = @_;
-	my $s = get_ssl_socket(sni => $sni || $host, alpn => ['http/1.1']);
-	http(<<EOF, socket => $s) =~ /.*?\x0d\x0a?\x0d\x0a?(.*)/ms;
-GET / HTTP/1.1
-Host: $host
-Connection: close
-
-EOF
+	http("GET / HTTP/1.0\nHost: $host\n\n",
+		SSL => 1,
+		SSL_hostname => $sni || $host,
+		SSL_alpn_protocols => ['http/1.1'])
+			=~ /.*?\x0d\x0a?\x0d\x0a?(.*)/ms;
 	return $1;
 }
 
 sub get2 {
 	my ($host, $sni) = @_;
-	my $sock = get_ssl_socket(sni => $sni || $host, alpn => ['h2']);
+	my $sock = http('', start => 1,
+		SSL => 1,
+		SSL_hostname => $sni || $host,
+		SSL_alpn_protocols => ['h2']);
 	my $s = Test::Nginx::HTTP2->new(undef, socket => $sock);
 	my $sid = $s->new_stream({ host => $host });
 	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
@@ -126,35 +127,6 @@ sub get3 {
 
 	my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
 	return $frame->{data};
-}
-
-sub get_ssl_socket {
-	my (%extra) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port(8080),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_hostname => $extra{sni},
-			SSL_alpn_protocols => $extra{alpn},
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
 }
 
 ###############################################################################

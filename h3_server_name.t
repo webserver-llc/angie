@@ -24,19 +24,11 @@ use Test::Nginx::HTTP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require IO::Socket::SSL; die if $IO::Socket::SSL::VERSION < 1.56; };
-plan(skip_all => 'IO::Socket::SSL version >= 1.56 required') if $@;
-
-eval { IO::Socket::SSL->can_client_sni() or die; };
-plan(skip_all => 'IO::Socket::SSL with OpenSSL SNI support required') if $@;
-
-eval { IO::Socket::SSL->can_alpn() or die; };
-plan(skip_all => 'IO::Socket::SSL with OpenSSL ALPN support required') if $@;
-
 eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
 plan(skip_all => 'CryptX version >= 0.067 required') if $@;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 http_v3 rewrite/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_ssl http_v2 http_v3 rewrite socket_ssl_alpn/)
 	->has_daemon('openssl')->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

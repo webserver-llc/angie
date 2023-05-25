@@ -1,10 +1,9 @@
 #!/usr/bin/perl
 
-# (C) Andrey Zelenkov
-# (C) Maxim Dounin
+# (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for http ssl module, session reuse.
+# Tests for TLS session resumption with HTTP/3.
 
 ###############################################################################
 
@@ -16,17 +15,20 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_end /;
+use Test::Nginx;
+use Test::Nginx::HTTP3;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
-	->has_daemon('openssl')->plan(8);
+eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
+plan(skip_all => 'CryptX version >= 0.067 required') if $@;
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http http_v3/)
+	->has_daemon('openssl')->plan(8)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -41,88 +43,59 @@ http {
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
 
-    server {
-        listen       127.0.0.1:8443 ssl;
-        server_name  localhost;
+    add_header X-Session $ssl_session_reused always;
 
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
-        location /protocol {
-            return 200 "body $ssl_protocol";
-        }
+    server {
+        listen       127.0.0.1:%%PORT_8943_UDP%% quic;
+        server_name  localhost;
     }
 
     server {
-        listen       127.0.0.1:8444 ssl;
+        listen       127.0.0.1:%%PORT_8944_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache shared:SSL:1m;
         ssl_session_tickets on;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 
     server {
-        listen       127.0.0.1:8445 ssl;
+        listen       127.0.0.1:%%PORT_8945_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache shared:SSL:1m;
         ssl_session_tickets off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 
     server {
-        listen       127.0.0.1:8446 ssl;
+        listen       127.0.0.1:%%PORT_8946_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache builtin;
         ssl_session_tickets off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 
     server {
-        listen       127.0.0.1:8447 ssl;
+        listen       127.0.0.1:%%PORT_8947_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache builtin:1000;
         ssl_session_tickets off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 
     server {
-        listen       127.0.0.1:8448 ssl;
+        listen       127.0.0.1:%%PORT_8948_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache none;
         ssl_session_tickets off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 
     server {
-        listen       127.0.0.1:8449 ssl;
+        listen       127.0.0.1:%%PORT_8949_UDP%% quic;
         server_name  localhost;
 
         ssl_session_cache off;
         ssl_session_tickets off;
-
-        location / {
-            return 200 "body $ssl_session_reused";
-        }
     }
 }
 
@@ -161,29 +134,23 @@ $t->run();
 # - only cache off
 
 TODO: {
-local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
-	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
-local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
-	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL');
 
-is(test_reuse(8443), 1, 'tickets reused');
-is(test_reuse(8444), 1, 'tickets and cache reused');
+is(test_reuse(8943), 1, 'tickets reused');
+is(test_reuse(8944), 1, 'tickets and cache reused');
 
-TODO: {
 local $TODO = 'no TLSv1.3 session cache in BoringSSL'
-	if $t->has_module('BoringSSL') && test_tls13();
+	if $t->has_module('BoringSSL');
 
-is(test_reuse(8445), 1, 'cache shared reused');
-is(test_reuse(8446), 1, 'cache builtin reused');
-is(test_reuse(8447), 1, 'cache builtin size reused');
+is(test_reuse(8945), 1, 'cache shared reused');
+is(test_reuse(8946), 1, 'cache builtin reused');
+is(test_reuse(8947), 1, 'cache builtin size reused');
 
 }
-}
 
-is(test_reuse(8448), 0, 'cache none not reused');
-is(test_reuse(8449), 0, 'cache off not reused');
+is(test_reuse(8948), 0, 'cache none not reused');
+is(test_reuse(8949), 0, 'cache off not reused');
 
 $t->stop();
 
@@ -191,27 +158,19 @@ like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 
-sub test_tls13 {
-	return http_get('/protocol', SSL => 1) =~ /TLSv1.3/;
-}
-
 sub test_reuse {
 	my ($port) = @_;
 
-	my $s = http_get(
-		'/', PeerAddr => '127.0.0.1:' . port($port), start => 1,
-		SSL => 1,
-		SSL_session_cache_size => 100
-	);
-	http_end($s);
+	my $s = Test::Nginx::HTTP3->new($port);
+	my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 
-	my $r = http_get(
-		'/', PeerAddr => '127.0.0.1:' . port($port),
-		SSL => 1,
-		SSL_reuse_ctx => $s
-	);
+	my $psk_list = $s->{psk_list};
 
-	return ($r =~ qr/^body r$/m) ? 1 : 0;
+	$s = Test::Nginx::HTTP3->new($port, psk_list => $psk_list);
+	$frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+
+	my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+	return $frame->{headers}->{'x-session'} eq 'r' ? 1 : 0;
 }
 
 ###############################################################################

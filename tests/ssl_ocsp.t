@@ -17,31 +17,15 @@ use MIME::Base64 qw/ decode_base64 /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-	Net::SSLeay::SSLeay();
-	defined &Net::SSLeay::set_tlsext_status_type or die;
-};
-plan(skip_all => 'Net::SSLeay not installed or too old') if $@;
-
-eval {
-	my $ctx = Net::SSLeay::CTX_new() or die;
-	my $ssl = Net::SSLeay::new($ctx) or die;
-	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
-};
-plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)->has_daemon('openssl');
+my $t = Test::Nginx->new()->has(qw/http http_ssl sni socket_ssl_sni/)
+	->has_daemon('openssl');
 
 plan(skip_all => 'no OCSP support in BoringSSL')
 	if $t->has_module('BoringSSL');
@@ -70,6 +54,7 @@ http {
     ssl_session_tickets off;
 
     add_header X-Verify x${ssl_client_verify}:${ssl_session_reused}x always;
+    add_header X-SSL-Protocol $ssl_protocol always;
 
     server {
         listen       127.0.0.1:8443 ssl;
@@ -283,8 +268,6 @@ $t->run()->plan(15);
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
 
-my $version = get_version();
-
 ###############################################################################
 
 like(get('end'), qr/200 OK.*SUCCESS/s, 'ocsp leaf');
@@ -366,14 +349,17 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 
 like(get('ec-end'), qr/200 OK.*SUCCESS/s, 'ocsp ecdsa');
 
-my ($s, $ssl) = get('ec-end');
-my $ses = Net::SSLeay::get_session($ssl);
+my $s = session('ec-end');
 
 TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
-	if $t->has_module('LibreSSL') and $version > 0x303;
+	if $t->has_module('LibreSSL') && test_tls13();
 
-like(get('ec-end', ses => $ses),
+like(get('ec-end', ses => $s),
 	qr/200 OK.*SUCCESS:r/s, 'session reused');
 
 }
@@ -398,10 +384,14 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 # reusing session with revoked certificate
 
 TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
-	if $t->has_module('LibreSSL') and $version > 0x303;
+	if $t->has_module('LibreSSL') && test_tls13();
 
-like(get('ec-end', ses => $ses),
+like(get('ec-end', ses => $s),
 	qr/400 Bad.*FAILED:certificate revoked:r/s, 'session reused - revoked');
 
 }
@@ -417,57 +407,38 @@ like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 ###############################################################################
 
 sub get {
-	my ($cert, %extra) = @_;
-	my ($s, $ssl) = get_ssl_socket($cert, %extra);
-	my $cipher = Net::SSLeay::get_cipher($ssl);
-	Test::Nginx::log_core('||', "cipher: $cipher");
-	my $host = $extra{sni} ? $extra{sni} : 'localhost';
-	local $SIG{PIPE} = 'IGNORE';
-	log_out("GET /serial HTTP/1.0\nHost: $host\n\n");
-	Net::SSLeay::write($ssl, "GET /serial HTTP/1.0\nHost: $host\n\n");
-	my $r = Net::SSLeay::read($ssl);
-	log_in($r);
-	$s->close();
-	return $r unless wantarray();
-	return ($s, $ssl);
+	my $s = get_socket(@_) || return;
+	return http_end($s);
 }
 
-sub get_ssl_socket {
+sub session {
+	my $s = get_socket(@_) || return;
+	http_end($s);
+	return $s;
+}
+
+sub get_socket {
 	my ($cert, %extra) = @_;
 	my $ses = $extra{ses};
-	my $sni = $extra{sni};
+	my $sni = $extra{sni} || 'localhost';
 	my $port = $extra{port} || 8443;
-	my $s;
 
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::INET->new('127.0.0.1:' . port($port));
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-
-	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
-		or die if $cert;
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_session($ssl, $ses) if defined $ses;
-	Net::SSLeay::set_tlsext_host_name($ssl, $sni) if $sni;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
-	return ($s, $ssl);
+	return http(
+		"GET /serial HTTP/1.0\nHost: $sni\n\n",
+		start => 1, PeerAddr => '127.0.0.1:' . port($port),
+		SSL => 1,
+		SSL_hostname => $sni,
+		SSL_session_cache_size => 100,
+		SSL_reuse_ctx => $ses,
+		$cert ? (
+		SSL_cert_file => "$d/$cert.crt",
+		SSL_key_file => "$d/$cert.key"
+		) : ()
+	);
 }
 
-sub get_version {
-	my ($s, $ssl) = get_ssl_socket();
-	return Net::SSLeay::version($ssl);
+sub test_tls13 {
+	return http_get('/', SSL => 1) =~ /TLSv1.3/;
 }
 
 ###############################################################################

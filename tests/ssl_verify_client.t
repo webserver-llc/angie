@@ -17,29 +17,14 @@ use Socket qw/ CRLF /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval {
-	require Net::SSLeay;
-	Net::SSLeay::load_error_strings();
-	Net::SSLeay::SSLeay_add_ssl_algorithms();
-	Net::SSLeay::randomize();
-};
-plan(skip_all => 'Net::SSLeay not installed') if $@;
-
-eval {
-	my $ctx = Net::SSLeay::CTX_new() or die;
-	my $ssl = Net::SSLeay::new($ctx) or die;
-	Net::SSLeay::set_tlsext_host_name($ssl, 'example.org') == 1 or die;
-};
-plan(skip_all => 'Net::SSLeay with OpenSSL SNI support required') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_ssl sni/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl sni socket_ssl_sni/)
 	->has_daemon('openssl')->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -72,7 +57,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  on;
 
         ssl_certificate_key 1.example.com.key;
@@ -83,7 +68,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  optional;
 
         ssl_certificate_key 1.example.com.key;
@@ -95,7 +80,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  off;
 
         ssl_certificate_key 1.example.com.key;
@@ -107,7 +92,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  optional.no.ca;
 
         ssl_certificate_key 1.example.com.key;
@@ -118,7 +103,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  no.context;
 
         ssl_verify_client on;
@@ -191,25 +176,28 @@ sub test_tls13 {
 sub get {
 	my ($sni, $cert, $host) = @_;
 
-	local $SIG{PIPE} = 'IGNORE';
-
 	$host = $sni if !defined $host;
 
-	my $s = IO::Socket::INET->new('127.0.0.1:' . port(8081));
-	my $ctx = Net::SSLeay::CTX_new() or die("Failed to create SSL_CTX $!");
-	Net::SSLeay::set_cert_and_key($ctx, "$d/$cert.crt", "$d/$cert.key")
-		or die if $cert;
-	my $ssl = Net::SSLeay::new($ctx) or die("Failed to create SSL $!");
-	Net::SSLeay::set_tlsext_host_name($ssl, $sni) == 1 or die;
-	Net::SSLeay::set_fd($ssl, fileno($s));
-	Net::SSLeay::connect($ssl) or die("ssl connect");
+	my $s = http(
+		"GET /t HTTP/1.0" . CRLF .
+		"Host: $host" . CRLF . CRLF,
+		start => 1,
+		SSL => 1,
+		SSL_hostname => $sni,
+		$cert ? (
+		SSL_cert_file => "$d/$cert.crt",
+		SSL_key_file => "$d/$cert.key"
+		) : ()
+	);
 
-	Net::SSLeay::write($ssl, 'GET /t HTTP/1.0' . CRLF);
-	Net::SSLeay::write($ssl, "Host: $host" . CRLF . CRLF);
-	my $buf = Net::SSLeay::read($ssl);
-	log_in($buf);
-	return $buf unless wantarray();
+	return http_end($s) unless wantarray();
 
+	# Note: this uses IO::Socket::SSL::_get_ssl_object() internal method.
+	# While not exactly correct, it looks like there is no other way to
+	# obtain CA list with IO::Socket::SSL, and this seems to be good
+	# enough for tests.
+
+	my $ssl = $s->_get_ssl_object();
 	my $list = Net::SSLeay::get_client_CA_list($ssl);
 	my @names;
 	for my $i (0 .. Net::SSLeay::sk_X509_NAME_num($list) - 1) {

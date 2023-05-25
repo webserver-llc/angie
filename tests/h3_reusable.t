@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for http ssl module, $ssl_client_escaped_cert variable.
+# Tests for HTTP/3, reusable connections.
 
 ###############################################################################
 
@@ -16,22 +16,26 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::HTTP3;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
-	->has_daemon('openssl')->plan(3);
+eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
+plan(skip_all => 'CryptX version >= 0.067 required') if $@;
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http http_v3/)
+	->has_daemon('openssl')->plan(1)
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
 daemon off;
 
 events {
+    worker_connections 12;
 }
 
 http {
@@ -39,18 +43,12 @@ http {
 
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-    ssl_verify_client optional_no_ca;
 
     server {
-        listen       127.0.0.1:8443 ssl;
+        listen       127.0.0.1:%%PORT_8980_UDP%% quic;
         server_name  localhost;
 
-        location /cert {
-            return 200 $ssl_client_raw_cert;
-        }
-        location /escaped {
-            return 200 $ssl_client_escaped_cert;
-        }
+        location / { }
     }
 }
 
@@ -78,25 +76,19 @@ $t->run();
 
 ###############################################################################
 
-my ($cert) = cert('/cert') =~ /\x0d\x0a?\x0d\x0a?(.*)/ms;
-my ($escaped) = cert('/escaped') =~ /\x0d\x0a?\x0d\x0a?(.*)/ms;
+my $s1 = Test::Nginx::HTTP3->new();
+$s1->insert_literal(':path', '/foo');
+$s1->read(all => [ { type => 'DECODER_ICI' } ]);
 
-ok($cert, 'ssl_client_raw_cert');
-ok($escaped, 'ssl_client_escaped_cert');
+# expect to steal reusable worker connections
 
-$escaped =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-is($escaped, $cert, 'ssl_client_escaped_cert unescape match');
+my $s2 = Test::Nginx::HTTP3->new();
+$s2->start_chain();
+my @sids = map { $s2->new_stream() } 1 .. 5;
+$s2->send_chain();
+my $frames = $s2->read(all => [ map { { sid => $_, fin => 1 } } @sids ]);
 
-###############################################################################
-
-sub cert {
-	my ($uri) = @_;
-	return http_get(
-		$uri,
-		SSL => 1,
-		SSL_cert_file => "$d/localhost.crt",
-		SSL_key_file => "$d/localhost.key"
-	);
-}
+my $streams = grep { $_->{type} eq "HEADERS" } @$frames;
+is($streams, 5, 'streams');
 
 ###############################################################################

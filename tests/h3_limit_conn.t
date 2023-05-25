@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for http ssl module, $ssl_client_escaped_cert variable.
+# Tests for HTTP/3 protocol with limit_conn.
 
 ###############################################################################
 
@@ -16,14 +16,18 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::HTTP3;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
-	->has_daemon('openssl')->plan(3);
+eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
+plan(skip_all => 'CryptX version >= 0.067 required') if $@;
+
+my $t = Test::Nginx->new()->has(qw/http http_v3 limit_conn proxy/)
+	->has_daemon('openssl')->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -39,17 +43,21 @@ http {
 
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-    ssl_verify_client optional_no_ca;
+
+    limit_conn_zone  $binary_remote_addr  zone=conn:1m;
 
     server {
-        listen       127.0.0.1:8443 ssl;
+        listen       127.0.0.1:%%PORT_8980_UDP%% quic;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
-        location /cert {
-            return 200 $ssl_client_raw_cert;
+        location / {
+            limit_conn conn 1;
+            proxy_pass http://127.0.0.1:8080/stub;
         }
-        location /escaped {
-            return 200 $ssl_client_escaped_cert;
+
+        location /stub {
+            limit_rate 200;
         }
     }
 }
@@ -74,29 +82,22 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
+$t->write_file('stub', 'x' x 200);
 $t->run();
 
 ###############################################################################
 
-my ($cert) = cert('/cert') =~ /\x0d\x0a?\x0d\x0a?(.*)/ms;
-my ($escaped) = cert('/escaped') =~ /\x0d\x0a?\x0d\x0a?(.*)/ms;
+my $s = Test::Nginx::HTTP3->new();
+my $sid = $s->new_stream();
+my $sid2 = $s->new_stream();
+my $frames = $s->read(all => [
+	{ sid => $sid, fin => 1 },
+	{ sid => $sid2, fin => 1 }]);
 
-ok($cert, 'ssl_client_raw_cert');
-ok($escaped, 'ssl_client_escaped_cert');
+my ($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid } @$frames;
+is($frame->{headers}->{':status'}, 200, 'limit_conn first stream');
 
-$escaped =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
-is($escaped, $cert, 'ssl_client_escaped_cert unescape match');
-
-###############################################################################
-
-sub cert {
-	my ($uri) = @_;
-	return http_get(
-		$uri,
-		SSL => 1,
-		SSL_cert_file => "$d/localhost.crt",
-		SSL_key_file => "$d/localhost.key"
-	);
-}
+($frame) = grep { $_->{type} eq "HEADERS" && $_->{sid} == $sid2 } @$frames;
+is($frame->{headers}->{':status'}, 503, 'limit_conn rejected');
 
 ###############################################################################

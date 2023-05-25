@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
 
 plan(skip_all => 'listen on wildcard address')
-	unless $ENV{TEST_NGINX_UNSAFE};
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

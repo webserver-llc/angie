@@ -89,7 +89,7 @@ ngx_setproctitle(char *title)
 
     ngx_os_argv[1] = NULL;
 
-    p = ngx_cpystrn((u_char *) ngx_os_argv[0], (u_char *) "Angie: ",
+    p = ngx_cpystrn((u_char *) ngx_os_argv[0], (u_char *) "angie: ",
                     ngx_os_argv_last - ngx_os_argv[0]);
 
     p = ngx_cpystrn(p, (u_char *) title, ngx_os_argv_last - (char *) p);

@@ -1462,6 +1462,10 @@ fi
 
 if [ $STREAM != NO ]; then
 
+    if [ $USE_NTLS = YES ]; then
+        have=NGX_STREAM_PROXY_MULTICERT . auto/have
+    fi
+
     if [ $STREAM = YES ]; then
         modules="$modules $STREAM_MODULES"
 

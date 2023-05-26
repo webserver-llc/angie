@@ -22,12 +22,12 @@ the session are routed to the same server.
 
 <change type="feature">
 <para lang="ru">
-поддержка NTLS в HTTP SSL и HTTP proxy модулях при использовании библиотеки
-TongSuo, которую можно включить опцией сборки "--with-ntls" и сконфигурировать
+поддержка NTLS в HTTP и stream модулях при использовании библиотеки TongSuo,
+которую можно включить опцией сборки "--with-ntls" и сконфигурировать
 с помощью соответствующих директив "ssl_ntls" и "proxy_ssl_ntls".
 </para>
 <para lang="en">
-support for NTLS in the HTTP SSL and HTTP proxy modules using TongSuo library,
+support for NTLS in the HTTP and stream modules using TongSuo library,
 that can be enabled via the "--with-ntls" build time option and configured
 with the "ssl_ntls" and "proxy_ssl_ntls" corresponding directives.
 </para>

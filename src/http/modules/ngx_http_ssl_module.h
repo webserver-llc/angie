@@ -79,8 +79,6 @@ typedef struct {
 extern ngx_module_t  ngx_http_ssl_module;
 
 #if (NGX_HTTP_PROXY_MULTICERT)
-char *ngx_http_ssl_certificate_slot(ngx_conf_t *cf,
-    ngx_command_t *cmd, void *conf);
 ngx_int_t ngx_http_ssl_compile_certificates(ngx_conf_t *cf,
     ngx_http_ssl_srv_conf_t *conf);
 #endif

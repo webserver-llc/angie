@@ -6122,6 +6122,84 @@ ngx_ssl_parse_time(
     return time;
 }
 
+#if (NGX_HTTP_PROXY_MULTICERT || NGX_STREAM_PROXY_MULTICERT)
+
+char *
+ngx_ssl_certificate_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t     *value, *s;
+    ngx_array_t  **a;
+#if (NGX_HAVE_NTLS)
+    u_char        *data;
+#endif
+
+    a = (ngx_array_t **) (p + cmd->offset);
+
+    if (*a == NGX_CONF_UNSET_PTR) {
+
+        *a = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
+        if (*a == NULL) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    s = ngx_array_push(*a);
+    if (s == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    value = cf->args->elts;
+
+    if (cf->args->nelts == 2) {
+        *s = value[1];
+        return NGX_CONF_OK;
+    }
+
+#if (NGX_HAVE_NTLS)
+
+    /* prefix certificate paths with 'sign:' and 'enc:', null-terminate */
+
+    s->len = sizeof("sign:") - 1 + value[1].len;
+
+    s->data = ngx_pcalloc(cf->pool, s->len + 1);
+    if (s->data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    data = ngx_cpymem(s->data, "sign:", sizeof("sign:") - 1);
+    ngx_memcpy(data, value[1].data, value[1].len);
+
+    s = ngx_array_push(*a);
+    if (s == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    s->len = sizeof("enc:") - 1 + value[2].len;
+
+    s->data = ngx_pcalloc(cf->pool, s->len + 1);
+    if (s->data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    data = ngx_cpymem(s->data, "enc:", sizeof("enc:") - 1);
+    ngx_memcpy(data, value[2].data, value[2].len);
+
+    return NGX_CONF_OK;
+
+#else
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "NTLS support is not enabled, dual certs not supported");
+
+    return NGX_CONF_ERROR;
+
+#endif
+}
+
+#endif
+
 
 static void *
 ngx_openssl_create_conf(ngx_cycle_t *cycle)

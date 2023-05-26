@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -44,8 +45,10 @@ static void *ngx_stream_ssl_create_conf(ngx_conf_t *cf);
 static char *ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
+#if (!defined(NGX_STREAM_PROXY_MULTICERT))
 static ngx_int_t ngx_stream_ssl_compile_certificates(ngx_conf_t *cf,
     ngx_stream_ssl_conf_t *conf);
+#endif
 
 static char *ngx_stream_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -93,6 +96,24 @@ static ngx_command_t  ngx_stream_ssl_commands[] = {
       offsetof(ngx_stream_ssl_conf_t, handshake_timeout),
       NULL },
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+
+    { ngx_string("ssl_certificate"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_ssl_certificate_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_ssl_conf_t, certificates),
+      NULL },
+
+    { ngx_string("ssl_certificate_key"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_ssl_certificate_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_ssl_conf_t, certificate_keys),
+      NULL },
+
+#else
+
     { ngx_string("ssl_certificate"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_array_slot,
@@ -106,6 +127,8 @@ static ngx_command_t  ngx_stream_ssl_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_ssl_conf_t, certificate_keys),
       NULL },
+
+#endif
 
     { ngx_string("ssl_password_file"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
@@ -225,6 +248,15 @@ static ngx_command_t  ngx_stream_ssl_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       0,
       NULL },
+
+#if (NGX_HAVE_NTLS)
+    { ngx_string("ssl_ntls"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_ssl_conf_t, ntls),
+      NULL },
+#endif
 
       ngx_null_command
 };
@@ -410,6 +442,14 @@ ngx_stream_ssl_init_connection(ngx_ssl_t *ssl, ngx_connection_t *c)
     if (ngx_ssl_create_connection(ssl, c, 0) != NGX_OK) {
         return NGX_ERROR;
     }
+
+#if (NGX_HAVE_NTLS)
+    sslcf = ngx_stream_get_module_srv_conf(s, ngx_stream_ssl_module);
+
+    if (sslcf->ntls) {
+        SSL_enable_ntls(c->ssl->connection);
+    }
+#endif
 
     rc = ngx_ssl_handshake(c);
 
@@ -706,6 +746,9 @@ ngx_stream_ssl_create_conf(ngx_conf_t *cf)
     scf->session_timeout = NGX_CONF_UNSET;
     scf->session_tickets = NGX_CONF_UNSET;
     scf->session_ticket_keys = NGX_CONF_UNSET_PTR;
+#if (NGX_HAVE_NTLS)
+    scf->ntls = NGX_CONF_UNSET;
+#endif
 
     return scf;
 }
@@ -758,6 +801,9 @@ ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_ptr_value(conf->conf_commands, prev->conf_commands, NULL);
 
+#if (NGX_HAVE_NTLS)
+    ngx_conf_merge_value(conf->ntls, prev->ntls, 0);
+#endif
 
     conf->ssl.log = cf->log;
 
@@ -934,7 +980,11 @@ ngx_stream_ssl_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+ngx_int_t
+#else
 static ngx_int_t
+#endif
 ngx_stream_ssl_compile_certificates(ngx_conf_t *cf,
     ngx_stream_ssl_conf_t *conf)
 {

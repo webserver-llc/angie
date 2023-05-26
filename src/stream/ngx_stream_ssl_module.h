@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -56,10 +57,21 @@ typedef struct {
 
     u_char          *file;
     ngx_uint_t       line;
+
+#if (NGX_HAVE_NTLS)
+    ngx_flag_t       ntls;
+#endif
+
 } ngx_stream_ssl_conf_t;
 
 
 extern ngx_module_t  ngx_stream_ssl_module;
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+char *ngx_stream_ssl_certificate_slot(ngx_conf_t *cf,
+    ngx_command_t *cmd, void *conf);
+ngx_int_t ngx_stream_ssl_compile_certificates(ngx_conf_t *cf,
+    ngx_stream_ssl_conf_t *conf);
+#endif
 
 #endif /* _NGX_STREAM_SSL_H_INCLUDED_ */

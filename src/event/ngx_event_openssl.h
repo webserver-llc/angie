@@ -328,6 +328,10 @@ void ngx_cdecl ngx_ssl_error(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     char *fmt, ...);
 void ngx_ssl_cleanup_ctx(void *data);
 
+#if (NGX_HTTP_PROXY_MULTICERT || NGX_STREAM_PROXY_MULTICERT)
+char *ngx_ssl_certificate_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+#endif
 
 extern int  ngx_ssl_connection_index;
 extern int  ngx_ssl_server_conf_index;

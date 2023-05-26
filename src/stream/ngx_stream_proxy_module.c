@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -47,12 +48,27 @@ typedef struct {
     ngx_uint_t                       ssl_verify_depth;
     ngx_str_t                        ssl_trusted_certificate;
     ngx_str_t                        ssl_crl;
+
+#if (NGX_STREAM_PROXY_MULTICERT)
+    ngx_array_t                     *ssl_certificates;
+    ngx_array_t                     *ssl_certificate_keys;
+
+    ngx_array_t                     *ssl_certificate_values;
+    ngx_array_t                     *ssl_certificate_key_values;
+#else
     ngx_stream_complex_value_t      *ssl_certificate;
     ngx_stream_complex_value_t      *ssl_certificate_key;
+#endif
+
     ngx_array_t                     *ssl_passwords;
     ngx_array_t                     *ssl_conf_commands;
 
     ngx_ssl_t                       *ssl;
+
+#if (NGX_HAVE_NTLS)
+    ngx_flag_t                       ssl_ntls;
+#endif
+
 #endif
 
     ngx_stream_upstream_srv_conf_t  *upstream;
@@ -102,7 +118,11 @@ static void ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s);
 static void ngx_stream_proxy_ssl_handshake(ngx_connection_t *pc);
 static void ngx_stream_proxy_ssl_save_session(ngx_connection_t *c);
 static ngx_int_t ngx_stream_proxy_ssl_name(ngx_stream_session_t *s);
+#if (NGX_STREAM_PROXY_MULTICERT)
+static ngx_int_t ngx_stream_proxy_ssl_certificates(ngx_stream_session_t *s);
+#else
 static ngx_int_t ngx_stream_proxy_ssl_certificate(ngx_stream_session_t *s);
+#endif
 static ngx_int_t ngx_stream_proxy_merge_ssl(ngx_conf_t *cf,
     ngx_stream_proxy_srv_conf_t *conf, ngx_stream_proxy_srv_conf_t *prev);
 static ngx_int_t ngx_stream_proxy_set_ssl(ngx_conf_t *cf,
@@ -327,6 +347,24 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       offsetof(ngx_stream_proxy_srv_conf_t, ssl_crl),
       NULL },
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+
+    { ngx_string("proxy_ssl_certificate"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_ssl_certificate_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_proxy_srv_conf_t, ssl_certificates),
+      NULL },
+
+    { ngx_string("proxy_ssl_certificate_key"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_ssl_certificate_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_proxy_srv_conf_t, ssl_certificate_keys),
+      NULL },
+
+#else
+
     { ngx_string("proxy_ssl_certificate"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_stream_set_complex_value_zero_slot,
@@ -341,6 +379,8 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       offsetof(ngx_stream_proxy_srv_conf_t, ssl_certificate_key),
       NULL },
 
+#endif
+
     { ngx_string("proxy_ssl_password_file"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
       ngx_stream_proxy_ssl_password_file,
@@ -354,6 +394,15 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_proxy_srv_conf_t, ssl_conf_commands),
       &ngx_stream_proxy_ssl_conf_command_post },
+
+#if (NGX_HAVE_NTLS)
+    { ngx_string("proxy_ssl_ntls"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_proxy_srv_conf_t, ssl_ntls),
+      NULL },
+#endif
 
 #endif
 
@@ -1059,6 +1108,16 @@ ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s)
 
     pscf = ngx_stream_get_module_srv_conf(s, ngx_stream_proxy_module);
 
+#if (NGX_HAVE_NTLS)
+    if (pscf->ssl_ntls) {
+
+        SSL_CTX_set_ssl_version(pscf->ssl->ctx, NTLS_method());
+        SSL_CTX_set_cipher_list(pscf->ssl->ctx,
+                                (char *) pscf->ssl_ciphers.data);
+        SSL_CTX_enable_ntls(pscf->ssl->ctx);
+    }
+#endif
+
     if (ngx_ssl_create_connection(pscf->ssl, pc, NGX_SSL_BUFFER|NGX_SSL_CLIENT)
         != NGX_OK)
     {
@@ -1073,6 +1132,17 @@ ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s)
         }
     }
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+
+    if (pscf->ssl_certificate_values) {
+        if (ngx_stream_proxy_ssl_certificates(s) != NGX_OK) {
+            ngx_stream_proxy_finalize(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
+            return;
+        }
+    }
+
+#else
+
     if (pscf->ssl_certificate
         && pscf->ssl_certificate->value.len
         && (pscf->ssl_certificate->lengths
@@ -1083,6 +1153,8 @@ ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s)
             return;
         }
     }
+
+#endif
 
     if (pscf->ssl_session_reuse) {
         pc->ssl->save_session = ngx_stream_proxy_ssl_save_session;
@@ -1272,6 +1344,76 @@ done:
 }
 
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+
+static ngx_int_t
+ngx_stream_proxy_ssl_certificates(ngx_stream_session_t *s)
+{
+    ngx_str_t                    *certp, *keyp, cert, key;
+    ngx_uint_t                    i, nelts;
+#if (NGX_HAVE_NTLS)
+    ngx_str_t                     tcert, tkey;
+#endif
+    ngx_connection_t             *c;
+    ngx_stream_complex_value_t   *certs, *keys;
+    ngx_stream_proxy_srv_conf_t  *pscf;
+
+    c = s->upstream->peer.connection;
+
+    pscf = ngx_stream_get_module_srv_conf(s, ngx_stream_proxy_module);
+
+
+    nelts = pscf->ssl_certificate_values->nelts;
+    certs = pscf->ssl_certificate_values->elts;
+    keys = pscf->ssl_certificate_key_values->elts;
+
+    for (i = 0; i < nelts; i++) {
+        certp = &cert;
+        keyp = &key;
+
+        if (ngx_stream_complex_value(s, &certs[i], certp) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+#if (NGX_HAVE_NTLS)
+        tcert = *certp;
+        ngx_ssl_ntls_prefix_strip(&tcert);
+        certp = &cert;
+#endif
+
+        if (*certp->data == 0) {
+            continue;
+        }
+
+        ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0,
+                       "stream upstream ssl cert: \"%s\"", certp->data);
+
+        if (ngx_stream_complex_value(s, &keys[i], keyp) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+#if (NGX_HAVE_NTLS)
+        tkey = *keyp;
+        ngx_ssl_ntls_prefix_strip(&tkey);
+        keyp = &key;
+#endif
+
+        ngx_log_debug1(NGX_LOG_DEBUG_STREAM, c->log, 0,
+                       "stream upstream ssl key: \"%s\"", keyp->data);
+
+        if (ngx_ssl_connection_certificate(c, s->connection->pool, certp, keyp,
+                                           pscf->ssl_passwords)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+#else
+
 static ngx_int_t
 ngx_stream_proxy_ssl_certificate(ngx_stream_session_t *s)
 {
@@ -1314,6 +1456,7 @@ ngx_stream_proxy_ssl_certificate(ngx_stream_session_t *s)
 
     return NGX_OK;
 }
+#endif
 
 #endif
 
@@ -2099,10 +2242,19 @@ ngx_stream_proxy_create_srv_conf(ngx_conf_t *cf)
     conf->ssl_server_name = NGX_CONF_UNSET;
     conf->ssl_verify = NGX_CONF_UNSET;
     conf->ssl_verify_depth = NGX_CONF_UNSET_UINT;
+#if (NGX_STREAM_PROXY_MULTICERT)
+    conf->ssl_certificates = NGX_CONF_UNSET_PTR;
+    conf->ssl_certificate_keys = NGX_CONF_UNSET_PTR;
+#else
     conf->ssl_certificate = NGX_CONF_UNSET_PTR;
     conf->ssl_certificate_key = NGX_CONF_UNSET_PTR;
+#endif
     conf->ssl_passwords = NGX_CONF_UNSET_PTR;
     conf->ssl_conf_commands = NGX_CONF_UNSET_PTR;
+#if (NGX_HAVE_NTLS)
+    conf->ssl_ntls = NGX_CONF_UNSET;
+#endif
+
 #endif
 
     return conf;
@@ -2183,16 +2335,27 @@ ngx_stream_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_str_value(conf->ssl_crl, prev->ssl_crl, "");
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+    ngx_conf_merge_ptr_value(conf->ssl_certificates,
+                              prev->ssl_certificates, NULL);
+    ngx_conf_merge_ptr_value(conf->ssl_certificate_keys,
+                              prev->ssl_certificate_keys, NULL);
+#else
     ngx_conf_merge_ptr_value(conf->ssl_certificate,
                               prev->ssl_certificate, NULL);
 
     ngx_conf_merge_ptr_value(conf->ssl_certificate_key,
                               prev->ssl_certificate_key, NULL);
+#endif
 
     ngx_conf_merge_ptr_value(conf->ssl_passwords, prev->ssl_passwords, NULL);
 
     ngx_conf_merge_ptr_value(conf->ssl_conf_commands,
                               prev->ssl_conf_commands, NULL);
+
+#if (NGX_HAVE_NTLS)
+    ngx_conf_merge_value(conf->ssl_ntls, prev->ssl_ntls, 0);
+#endif
 
     if (conf->ssl_enable && ngx_stream_proxy_set_ssl(cf, conf) != NGX_OK) {
         return NGX_CONF_ERROR;
@@ -2214,14 +2377,22 @@ ngx_stream_proxy_merge_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *conf,
 
     if (conf->ssl_protocols == 0
         && conf->ssl_ciphers.data == NULL
+#if (NGX_STREAM_PROXY_MULTICERT)
+        && conf->ssl_certificates == NGX_CONF_UNSET_PTR
+        && conf->ssl_certificate_keys == NGX_CONF_UNSET_PTR
+#else
         && conf->ssl_certificate == NGX_CONF_UNSET_PTR
         && conf->ssl_certificate_key == NGX_CONF_UNSET_PTR
+#endif
         && conf->ssl_passwords == NGX_CONF_UNSET_PTR
         && conf->ssl_verify == NGX_CONF_UNSET
         && conf->ssl_verify_depth == NGX_CONF_UNSET_UINT
         && conf->ssl_trusted_certificate.data == NULL
         && conf->ssl_crl.data == NULL
         && conf->ssl_session_reuse == NGX_CONF_UNSET
+#if (NGX_HAVE_NTLS)
+        && conf->ssl_ntls == NGX_CONF_UNSET
+#endif
         && conf->ssl_conf_commands == NGX_CONF_UNSET_PTR)
     {
         if (prev->ssl) {
@@ -2281,6 +2452,49 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
         return NGX_ERROR;
     }
 
+#if (NGX_STREAM_PROXY_MULTICERT)
+
+    if (pscf->ssl_certificates) {
+        ngx_stream_ssl_conf_t  scf;
+
+        if (pscf->ssl_certificate_keys == NULL) {
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                          "no \"proxy_ssl_certificate_key\" is defined");
+            return NGX_ERROR;
+        }
+
+        if (pscf->ssl_certificate_keys->nelts < pscf->ssl_certificates->nelts) {
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                          "number of \"proxy_ssl_certificate_key\" does not "
+                          "correspond \"proxy_ssl_ssl_certificate\"");
+            return NGX_ERROR;
+        }
+
+        ngx_memzero(&scf, sizeof(ngx_stream_ssl_conf_t));
+
+        scf.certificates = pscf->ssl_certificates;
+        scf.certificate_keys = pscf->ssl_certificate_keys;
+        scf.passwords = pscf->ssl_passwords;
+
+        if (ngx_stream_ssl_compile_certificates(cf, &scf) != NGX_OK) {
+            return NGX_ERROR;
+        }
+        pscf->ssl_passwords = scf.passwords;
+        pscf->ssl_certificate_values = scf.certificate_values;
+        pscf->ssl_certificate_key_values = scf.certificate_key_values;
+
+        if (pscf->ssl_certificate_values == NULL) {
+
+            if (ngx_ssl_certificates(cf, pscf->ssl, pscf->ssl_certificates,
+                                     pscf->ssl_certificate_keys,
+                                     pscf->ssl_passwords)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
+        }
+    }
+#else
     if (pscf->ssl_certificate
         && pscf->ssl_certificate->value.len)
     {
@@ -2312,6 +2526,7 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
             }
         }
     }
+#endif
 
     if (pscf->ssl_verify) {
         if (pscf->ssl_trusted_certificate.len == 0) {

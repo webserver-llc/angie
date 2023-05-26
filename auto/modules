@@ -1417,6 +1417,12 @@ if [ $USE_API = YES ]; then
 fi
 
 
+if [ $USE_NTLS = YES ]; then
+    have=NGX_HTTP_PROXY_MULTICERT . auto/have
+    have=NGX_HAVE_NTLS . auto/have
+fi
+
+
 modules="$CORE_MODULES $EVENT_MODULES"
 
 

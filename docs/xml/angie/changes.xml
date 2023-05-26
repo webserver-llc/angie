@@ -22,6 +22,32 @@ the session are routed to the same server.
 
 <change type="feature">
 <para lang="ru">
+поддержка NTLS в HTTP SSL и HTTP proxy модулях при использовании библиотеки
+TongSuo, которую можно включить опцией сборки "--with-ntls" и сконфигурировать
+с помощью соответствующих директив "ssl_ntls" и "proxy_ssl_ntls".
+</para>
+<para lang="en">
+support for NTLS in the HTTP SSL and HTTP proxy modules using TongSuo library,
+that can be enabled via the "--with-ntls" build time option and configured
+with the "ssl_ntls" and "proxy_ssl_ntls" corresponding directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+в HTTP proxy модуле теперь можно настраивать несколько сертификатов разного
+типа (RSA и ECDSA) и соответствующих им ключей, используя директивы
+"proxy_ssl_certificate" и "proxy_ssl_certificate_key".
+</para>
+<para lang="en">
+in HTTP proxy module ability to specify multiple certificates with different
+types (RSA and ECDSA) and corresponding keys, using the "proxy_ssl_certificate"
+and "proxy_ssl_certificate_key" directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 возможность сжатия модулем gzip ответов со статусом "207 Multi-Status".
 Спасибо DBotThePony.
 </para>

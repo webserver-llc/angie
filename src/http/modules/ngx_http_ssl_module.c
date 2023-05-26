@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -40,8 +41,10 @@ static void *ngx_http_ssl_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
+#if (!defined(NGX_HTTP_PROXY_MULTICERT))
 static ngx_int_t ngx_http_ssl_compile_certificates(ngx_conf_t *cf,
     ngx_http_ssl_srv_conf_t *conf);
+#endif
 
 static char *ngx_http_ssl_enable(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -108,6 +111,24 @@ static ngx_command_t  ngx_http_ssl_commands[] = {
       offsetof(ngx_http_ssl_srv_conf_t, enable),
       &ngx_http_ssl_deprecated },
 
+#if (NGX_HTTP_PROXY_MULTICERT)
+
+    { ngx_string("ssl_certificate"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_http_ssl_certificate_slot,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_ssl_srv_conf_t, certificates),
+      NULL },
+
+    { ngx_string("ssl_certificate_key"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE12,
+      ngx_http_ssl_certificate_slot,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_ssl_srv_conf_t, certificate_keys),
+      NULL },
+
+#else
+
     { ngx_string("ssl_certificate"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_array_slot,
@@ -121,6 +142,8 @@ static ngx_command_t  ngx_http_ssl_commands[] = {
       NGX_HTTP_SRV_CONF_OFFSET,
       offsetof(ngx_http_ssl_srv_conf_t, certificate_keys),
       NULL },
+
+#endif
 
     { ngx_string("ssl_password_file"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
@@ -303,6 +326,15 @@ static ngx_command_t  ngx_http_ssl_commands[] = {
       NGX_HTTP_SRV_CONF_OFFSET,
       offsetof(ngx_http_ssl_srv_conf_t, reject_handshake),
       NULL },
+
+#if (NGX_HAVE_NTLS)
+    { ngx_string("ssl_ntls"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_ssl_srv_conf_t, ntls),
+      NULL },
+#endif
 
       ngx_null_command
 };
@@ -636,6 +668,9 @@ ngx_http_ssl_create_srv_conf(ngx_conf_t *cf)
     sscf->ocsp_cache_zone = NGX_CONF_UNSET_PTR;
     sscf->stapling = NGX_CONF_UNSET;
     sscf->stapling_verify = NGX_CONF_UNSET;
+#if (NGX_HAVE_NTLS)
+    sscf->ntls = NGX_CONF_UNSET;
+#endif
 
     return sscf;
 }
@@ -711,6 +746,10 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->stapling_file, prev->stapling_file, "");
     ngx_conf_merge_str_value(conf->stapling_responder,
                          prev->stapling_responder, "");
+
+#if (NGX_HAVE_NTLS)
+    ngx_conf_merge_value(conf->ntls, prev->ntls, 0);
+#endif
 
     conf->ssl.log = cf->log;
 
@@ -942,7 +981,11 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 
+#if (NGX_HTTP_PROXY_MULTICERT)
+ngx_int_t
+#else
 static ngx_int_t
+#endif
 ngx_http_ssl_compile_certificates(ngx_conf_t *cf,
     ngx_http_ssl_srv_conf_t *conf)
 {
@@ -1048,6 +1091,85 @@ ngx_http_ssl_enable(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
+
+
+#if (NGX_HTTP_PROXY_MULTICERT)
+
+char *
+ngx_http_ssl_certificate_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t    *value, *s;
+    ngx_array_t  **a;
+#if (NGX_HAVE_NTLS)
+    u_char       *data;
+#endif
+
+    a = (ngx_array_t **) (p + cmd->offset);
+
+    if (*a == NGX_CONF_UNSET_PTR) {
+
+        *a = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
+        if (*a == NULL) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    s = ngx_array_push(*a);
+    if (s == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    value = cf->args->elts;
+
+    if (cf->args->nelts == 2) {
+        *s = value[1];
+        return NGX_CONF_OK;
+    }
+
+#if (NGX_HAVE_NTLS)
+
+    /* prefix certificate paths with 'sign:' and 'enc:', null-terminate */
+
+    s->len = sizeof("sign:") - 1 + value[1].len;
+
+    s->data = ngx_pcalloc(cf->pool, s->len + 1);
+    if (s->data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    data = ngx_cpymem(s->data, "sign:", sizeof("sign:") - 1);
+    ngx_memcpy(data, value[1].data, value[1].len);
+
+    s = ngx_array_push(*a);
+    if (s == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    s->len = sizeof("enc:") - 1 + value[2].len;
+
+    s->data = ngx_pcalloc(cf->pool, s->len + 1);
+    if (s->data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    data = ngx_cpymem(s->data, "enc:", sizeof("enc:") - 1);
+    ngx_memcpy(data, value[2].data, value[2].len);
+
+    return NGX_CONF_OK;
+
+#else
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "NTLS support is not enabled, dual certs not supported");
+
+    return NGX_CONF_ERROR;
+
+#endif
+}
+
+#endif
 
 
 static char *

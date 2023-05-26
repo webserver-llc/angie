@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -941,6 +941,12 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
                 ngx_http_close_connection(c);
                 return;
             }
+
+#if (NGX_HAVE_NTLS)
+            if (sscf->ntls) {
+                SSL_enable_ntls(c->ssl->connection);
+            }
+#endif
 
             ngx_reusable_connection(c, 0);
 

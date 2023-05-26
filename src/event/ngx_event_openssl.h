@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -197,6 +198,9 @@ ngx_int_t ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl,
     ngx_str_t *cert, ngx_str_t *key, ngx_array_t *passwords);
 ngx_int_t ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
     ngx_str_t *cert, ngx_str_t *key, ngx_array_t *passwords);
+#if (NGX_HAVE_NTLS)
+void ngx_ssl_ntls_prefix_strip(ngx_str_t *s);
+#endif
 
 ngx_int_t ngx_ssl_ciphers(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *ciphers,
     ngx_uint_t prefer_server_ciphers);

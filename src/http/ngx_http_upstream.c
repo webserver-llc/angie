@@ -198,6 +198,10 @@ static ngx_int_t ngx_http_upstream_ssl_name(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_connection_t *c);
 static ngx_int_t ngx_http_upstream_ssl_certificate(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_connection_t *c);
+#if (NGX_HTTP_PROXY_MULTICERT)
+static ngx_int_t ngx_http_upstream_ssl_certificates(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c);
+#endif
 #endif
 
 
@@ -1750,6 +1754,16 @@ ngx_http_upstream_ssl_init_connection(ngx_http_request_t *r,
         return;
     }
 
+#if (NGX_HAVE_NTLS)
+    if (u->conf->ssl_ntls) {
+
+        SSL_CTX_set_ssl_version(u->conf->ssl->ctx, NTLS_method());
+        SSL_CTX_set_cipher_list(u->conf->ssl->ctx,
+                                (char *) u->conf->ssl_ciphers.data);
+        SSL_CTX_enable_ntls(u->conf->ssl->ctx);
+    }
+#endif
+
     if (ngx_ssl_create_connection(u->conf->ssl, c,
                                   NGX_SSL_BUFFER|NGX_SSL_CLIENT)
         != NGX_OK)
@@ -1766,6 +1780,19 @@ ngx_http_upstream_ssl_init_connection(ngx_http_request_t *r,
             return;
         }
     }
+
+#if (NGX_HTTP_PROXY_MULTICERT)
+
+    if (u->conf->ssl_certificate_values) {
+        if (ngx_http_upstream_ssl_certificates(r, u, c) != NGX_OK) {
+            ngx_http_upstream_finalize_request(r, u,
+                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
+            return;
+        }
+
+    } else
+
+#endif
 
     if (u->conf->ssl_certificate
         && u->conf->ssl_certificate->value.len
@@ -2042,6 +2069,71 @@ ngx_http_upstream_ssl_certificate(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
+
+#if (NGX_HTTP_PROXY_MULTICERT)
+
+static ngx_int_t
+ngx_http_upstream_ssl_certificates(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c)
+{
+    ngx_str_t                 *certp, *keyp, cert, key;
+    ngx_uint_t                 i, nelts;
+    ngx_http_complex_value_t  *certs, *keys;
+#if (NGX_HAVE_NTLS)
+    ngx_str_t                  tcert, tkey;
+#endif
+
+    nelts = u->conf->ssl_certificate_values->nelts;
+    certs = u->conf->ssl_certificate_values->elts;
+    keys = u->conf->ssl_certificate_key_values->elts;
+
+    for (i = 0; i < nelts; i++) {
+        certp = &cert;
+        keyp = &key;
+
+        if (ngx_http_complex_value(r, &certs[i], certp) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+#if (NGX_HAVE_NTLS)
+        tcert = *certp;
+        ngx_ssl_ntls_prefix_strip(&tcert);
+        certp = &cert;
+#endif
+
+        if (*certp->data == 0) {
+            continue;
+        }
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                       "http upstream ssl cert: \"%s\"", certp->data);
+
+        if (ngx_http_complex_value(r, &keys[i], keyp) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+#if (NGX_HAVE_NTLS)
+        tkey = *keyp;
+        ngx_ssl_ntls_prefix_strip(&tkey);
+        keyp = &key;
+#endif
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                       "http upstream ssl key: \"%s\"", keyp->data);
+
+        if (ngx_ssl_connection_certificate(c, r->pool, certp, keyp,
+                                           u->conf->ssl_passwords)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+#endif
 
 #endif
 

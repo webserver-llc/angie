@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -12,12 +13,23 @@
 
 #define NGX_SSL_PASSWORD_BUFFER_SIZE  4096
 
+#if (NGX_HAVE_NTLS)
+
+#define NGX_SSL_NTLS_CERT_REGULAR     0
+#define NGX_SSL_NTLS_CERT_SIGN        1
+#define NGX_SSL_NTLS_CERT_ENC         2
+
+#endif
+
 
 typedef struct {
     ngx_uint_t  engine;   /* unsigned  engine:1; */
 } ngx_openssl_conf_t;
 
 
+#if (NGX_HAVE_NTLS)
+static ngx_uint_t ngx_ssl_ntls_type(ngx_str_t *s);
+#endif
 static X509 *ngx_ssl_load_certificate(ngx_pool_t *pool, char **err,
     ngx_str_t *cert, STACK_OF(X509) **chain);
 static EVP_PKEY *ngx_ssl_load_certificate_key(ngx_pool_t *pool, char **err,
@@ -424,6 +436,9 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
     X509            *x509;
     EVP_PKEY        *pkey;
     STACK_OF(X509)  *chain;
+#if (NGX_HAVE_NTLS)
+    ngx_uint_t       type;
+#endif
 
     x509 = ngx_ssl_load_certificate(cf->pool, &err, cert, &chain);
     if (x509 == NULL) {
@@ -435,6 +450,35 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
 
         return NGX_ERROR;
     }
+
+#if (NGX_HAVE_NTLS)
+    type = ngx_ssl_ntls_type(cert);
+
+    if (type == NGX_SSL_NTLS_CERT_SIGN) {
+
+        if (SSL_CTX_use_sign_certificate(ssl->ctx, x509) == 0) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "SSL_CTX_use_sign_certificate(\"%s\") failed",
+                          cert->data);
+            X509_free(x509);
+            sk_X509_pop_free(chain, X509_free);
+            return NGX_ERROR;
+        }
+
+    } else if (type == NGX_SSL_NTLS_CERT_ENC) {
+
+        if (SSL_CTX_use_enc_certificate(ssl->ctx, x509) == 0) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "SSL_CTX_use_enc_certificate(\"%s\") failed",
+                          cert->data);
+            X509_free(x509);
+            sk_X509_pop_free(chain, X509_free);
+            return NGX_ERROR;
+        }
+
+    } else
+
+#endif
 
     if (SSL_CTX_use_certificate(ssl->ctx, x509) == 0) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
@@ -524,6 +568,33 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
         return NGX_ERROR;
     }
 
+#if (NGX_HAVE_NTLS)
+    type = ngx_ssl_ntls_type(key);
+
+    if (type == NGX_SSL_NTLS_CERT_SIGN) {
+
+        if (SSL_CTX_use_sign_PrivateKey(ssl->ctx, pkey) == 0) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "SSL_CTX_use_sign_PrivateKey(\"%s\") failed",
+                          key->data);
+            EVP_PKEY_free(pkey);
+            return NGX_ERROR;
+        }
+
+    } else if (type == NGX_SSL_NTLS_CERT_ENC) {
+
+        if (SSL_CTX_use_enc_PrivateKey(ssl->ctx, pkey) == 0) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "SSL_CTX_use_enc_PrivateKey(\"%s\") failed",
+                          key->data);
+            EVP_PKEY_free(pkey);
+            return NGX_ERROR;
+        }
+
+    } else
+
+#endif
+
     if (SSL_CTX_use_PrivateKey(ssl->ctx, pkey) == 0) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
                       "SSL_CTX_use_PrivateKey(\"%s\") failed", key->data);
@@ -537,6 +608,40 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
 }
 
 
+#if (NGX_HAVE_NTLS)
+
+static ngx_uint_t
+ngx_ssl_ntls_type(ngx_str_t *s)
+{
+    if (ngx_strncmp(s->data, "sign:", sizeof("sign:") - 1) == 0) {
+
+        return NGX_SSL_NTLS_CERT_SIGN;
+
+    } else if (ngx_strncmp(s->data, "enc:", sizeof("enc:") - 1) == 0) {
+
+        return NGX_SSL_NTLS_CERT_ENC;
+    }
+
+    return NGX_SSL_NTLS_CERT_REGULAR;
+}
+
+
+void
+ngx_ssl_ntls_prefix_strip(ngx_str_t *s)
+{
+    if (ngx_strncmp(s->data, "sign:", sizeof("sign:") - 1) == 0) {
+        s->data += sizeof("sign:") - 1;
+        s->len -= sizeof("sign:") - 1;
+
+    } else if (ngx_strncmp(s->data, "enc:", sizeof("enc:") - 1) == 0) {
+        s->data += sizeof("enc:") - 1;
+        s->len -= sizeof("enc:") - 1;
+    }
+}
+
+#endif
+
+
 ngx_int_t
 ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
     ngx_str_t *cert, ngx_str_t *key, ngx_array_t *passwords)
@@ -545,6 +650,9 @@ ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
     X509            *x509;
     EVP_PKEY        *pkey;
     STACK_OF(X509)  *chain;
+#if (NGX_HAVE_NTLS)
+    ngx_uint_t       type;
+#endif
 
     x509 = ngx_ssl_load_certificate(pool, &err, cert, &chain);
     if (x509 == NULL) {
@@ -556,6 +664,35 @@ ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
 
         return NGX_ERROR;
     }
+
+#if (NGX_HAVE_NTLS)
+    type = ngx_ssl_ntls_type(cert);
+
+    if (type == NGX_SSL_NTLS_CERT_SIGN) {
+
+        if (SSL_use_sign_certificate(c->ssl->connection, x509) == 0) {
+            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
+                          "SSL_use_sign_certificate(\"%s\") failed",
+                          cert->data);
+            X509_free(x509);
+            sk_X509_pop_free(chain, X509_free);
+            return NGX_ERROR;
+        }
+
+    } else if (type == NGX_SSL_NTLS_CERT_ENC) {
+
+        if (SSL_use_enc_certificate(c->ssl->connection, x509) == 0) {
+            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
+                          "SSL_use_enc_certificate(\"%s\") failed",
+                          cert->data);
+            X509_free(x509);
+            sk_X509_pop_free(chain, X509_free);
+            return NGX_ERROR;
+        }
+
+    } else
+
+#endif
 
     if (SSL_use_certificate(c->ssl->connection, x509) == 0) {
         ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
@@ -595,6 +732,31 @@ ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
         return NGX_ERROR;
     }
 
+#if (NGX_HAVE_NTLS)
+    type = ngx_ssl_ntls_type(key);
+
+    if (type == NGX_SSL_NTLS_CERT_SIGN) {
+
+        if (SSL_use_sign_PrivateKey(c->ssl->connection, pkey) == 0) {
+            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
+                          "SSL_use_sign_PrivateKey(\"%s\") failed", key->data);
+            EVP_PKEY_free(pkey);
+            return NGX_ERROR;
+        }
+
+    } else if (type == NGX_SSL_NTLS_CERT_ENC) {
+
+        if (SSL_use_enc_PrivateKey(c->ssl->connection, pkey) == 0) {
+            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
+                          "SSL_use_enc_PrivateKey(\"%s\") failed", key->data);
+            EVP_PKEY_free(pkey);
+            return NGX_ERROR;
+        }
+
+    } else
+
+#endif
+
     if (SSL_use_PrivateKey(c->ssl->connection, pkey) == 0) {
         ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
                       "SSL_use_PrivateKey(\"%s\") failed", key->data);
@@ -615,6 +777,14 @@ ngx_ssl_load_certificate(ngx_pool_t *pool, char **err, ngx_str_t *cert,
     BIO     *bio;
     X509    *x509, *temp;
     u_long   n;
+
+#if (NGX_HAVE_NTLS)
+    ngx_str_t  tcert;
+
+    tcert = *cert;
+    ngx_ssl_ntls_prefix_strip(&tcert);
+    cert = &tcert;
+#endif
 
     if (ngx_strncmp(cert->data, "data:", sizeof("data:") - 1) == 0) {
 
@@ -707,6 +877,14 @@ ngx_ssl_load_certificate_key(ngx_pool_t *pool, char **err,
     ngx_str_t        *pwd;
     ngx_uint_t        tries;
     pem_password_cb  *cb;
+
+#if (NGX_HAVE_NTLS)
+    ngx_str_t  tkey;
+
+    tkey = *key;
+    ngx_ssl_ntls_prefix_strip(&tkey);
+    key = &tkey;
+#endif
 
     if (ngx_strncmp(key->data, "engine:", sizeof("engine:") - 1) == 0) {
 

@@ -21,7 +21,7 @@ use IPC::Open3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $openssl = $ENV{'TEST_OPENSSL_BINARY'} || 'openssl';
+my $openssl = $ENV{'TEST_ANGIE_OPENSSL_BINARY'} || 'openssl';
 
 my $t = Test::Nginx->new()->has(qw/ntls http http_ssl/)
 	->has_daemon($openssl);

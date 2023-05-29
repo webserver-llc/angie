@@ -23,10 +23,7 @@ use Test::Nginx::HTTP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
-plan(skip_all => 'CryptX version >= 0.067 required') if $@;
-
-my $t = Test::Nginx->new()->has(qw/http http_v3 proxy/)
+my $t = Test::Nginx->new()->has(qw/http http_v3 proxy cryptx/)
 	->has_daemon('openssl')->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

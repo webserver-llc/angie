@@ -288,6 +288,13 @@ sub has_feature($) {
 		return 1;
 	}
 
+	if ($feature eq 'cryptx') {
+		eval { require Crypt::Misc; };
+		return 0 if $@;
+		eval { die if $Crypt::Misc::VERSION < 0.067; };
+		return !$@;
+	}
+
 	return 0;
 }
 

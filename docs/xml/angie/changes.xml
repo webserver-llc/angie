@@ -48,6 +48,17 @@ and "proxy_ssl_certificate_key" directives.
 
 <change type="feature">
 <para lang="ru">
+отображение версии и имени сборки в заголовке "master" процесса, что позволяет
+с помощью утилиты "ps" получить эту информацию о работающем экземпляре сервера.
+</para>
+<para lang="en">
+display of version and build name in the "master" process title, which allows
+to get this information about a running server instance using the "ps" utility.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 возможность сжатия модулем gzip ответов со статусом "207 Multi-Status".
 Спасибо DBotThePony.
 </para>

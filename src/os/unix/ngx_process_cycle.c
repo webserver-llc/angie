@@ -53,7 +53,12 @@ ngx_uint_t    ngx_noaccepting;
 ngx_uint_t    ngx_restart;
 
 
-static u_char  master_process[] = "master process";
+static u_char  master_process[] = (
+    "master process v" ANGIE_VERSION
+#ifdef NGX_BUILD
+    " " NGX_BUILD
+#endif
+);
 
 
 static ngx_cache_manager_ctx_t  ngx_cache_manager_ctx = {

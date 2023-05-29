@@ -1,4 +1,35 @@
 
+Changes with Angie 1.2.0                                         30 May 2023
+
+    *) Feature: the "sticky" directive and related options in the HTTP
+       module "upstream" block, that allow to configure sticky sessions
+       mode, where all requests of the session are routed to the same
+       server.
+
+    *) Feature: the $upstream_sticky_status variable, that takes either
+       "new", "hit" or "miss" values depending on success of requesting
+       related upstream server with sticky sessions enabled.
+
+    *) Feature: support for NTLS in the HTTP and stream modules using
+       TongSuo TLS library, that can be enabled via the "--with-ntls" build
+       time option and configured with the "ssl_ntls" and "proxy_ssl_ntls"
+       corresponding directives.
+
+    *) Feature: in the HTTP and stream proxy-modules ability to specify
+       multiple certificates with different types (RSA and ECDSA) and
+       corresponding keys, using the "proxy_ssl_certificate" and
+       "proxy_ssl_certificate_key" directives.
+
+    *) Feature: display of version and build name in the "master" process
+       title, which allows to get this information about a running server
+       instance using the "ps" utility.
+
+    *) Feature: ability to compress of "207 Multi-Status" responses by the
+       gzip module. Thanks to DBotThePony.
+
+    *) Feature: all functionality of nginx 1.25.0, including HTTP/3 support.
+
+
 Changes with Angie 1.1.0                                         24 Jan 2023
 
     *) Feature: the "resolve" option of the "server" directive in the HTTP

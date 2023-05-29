@@ -23,13 +23,10 @@ use Test::Nginx::HTTP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require Crypt::Misc; die if $Crypt::Misc::VERSION < 0.067; };
-plan(skip_all => 'CryptX version >= 0.067 required') if $@;
-
 plan(skip_all => '127.0.0.20 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.20' );
 
-my $t = Test::Nginx->new()->has(qw/http http_v3/)
+my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
 	->has_daemon('openssl')->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

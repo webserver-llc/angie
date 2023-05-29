@@ -22,6 +22,19 @@ the session are routed to the same server.
 
 <change type="feature">
 <para lang="ru">
+переменная $upstream_sticky_status, принимающая значения "new", "hit" или "miss"
+в зависимости от успеха направления запроса на релевантный проксируемый сервер с
+включенной привязкой сессий.
+</para>
+<para lang="en">
+the $upstream_sticky_status variable, that takes either "new", "hit" or "miss"
+values depending on success of requesting related upstream server with sticky
+sessions enabled.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка NTLS в HTTP и stream модулях при использовании библиотеки TongSuo,
 которую можно включить опцией сборки "--with-ntls" и сконфигурировать
 с помощью соответствующих директив "ssl_ntls" и "proxy_ssl_ntls".

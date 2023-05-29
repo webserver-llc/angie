@@ -21,9 +21,15 @@ use IPC::Open3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $openssl = $ENV{'TEST_OPENSSL_BINARY'};
+my $openssl = $ENV{'TEST_OPENSSL_BINARY'} || 'openssl';
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl/)->plan(7);
+my $t = Test::Nginx->new()->has(qw/ntls http http_ssl/)
+	->has_daemon($openssl);
+
+plan(skip_all => 'no NTLS client')
+	if `$openssl s_client -help 2>&1` !~ /-ntls/m;
+
+$t->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

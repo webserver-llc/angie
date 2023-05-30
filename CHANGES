@@ -7,7 +7,7 @@ Changes with Angie 1.2.0                                         30 May 2023
        server.
 
     *) Feature: the $upstream_sticky_status variable, that takes either
-       "new", "hit" or "miss" values depending on success of requesting
+       "NEW", "HIT" or "MISS" values depending on success of requesting
        related upstream server with sticky sessions enabled.
 
     *) Feature: support for NTLS in the HTTP and stream modules using

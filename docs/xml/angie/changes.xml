@@ -61,7 +61,7 @@ with different types (RSA and ECDSA) and corresponding keys, using the
 
 <change type="feature">
 <para lang="ru">
-отображение версии и имени сборки в заголовке "master" процесса, что позволяет
+вывод версии и сборки в отображаемом имени "master" процесса, что позволяет
 с помощью утилиты "ps" получить эту информацию о работающем экземпляре сервера.
 </para>
 <para lang="en">

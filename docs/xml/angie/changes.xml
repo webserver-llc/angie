@@ -22,12 +22,12 @@ the session are routed to the same server.
 
 <change type="feature">
 <para lang="ru">
-переменная $upstream_sticky_status, принимающая значения "new", "hit" или "miss"
+переменная $upstream_sticky_status, принимающая значения "NEW", "HIT" или "MISS"
 в зависимости от успеха направления запроса на релевантный проксируемый сервер с
 включенной привязкой сессий.
 </para>
 <para lang="en">
-the $upstream_sticky_status variable, that takes either "new", "hit" or "miss"
+the $upstream_sticky_status variable, that takes either "NEW", "HIT" or "MISS"
 values depending on success of requesting related upstream server with sticky
 sessions enabled.
 </para>

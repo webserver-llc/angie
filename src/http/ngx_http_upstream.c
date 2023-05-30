@@ -6213,9 +6213,9 @@ ngx_http_upstream_cache_etag(ngx_http_request_t *r,
 
 static ngx_str_t  ngx_http_upstream_sticky_status[4] = {
     ngx_string(""),
-    ngx_string("new"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW */
-    ngx_string("hit"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_HIT */
-    ngx_string("miss")    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_MISS */
+    ngx_string("NEW"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW */
+    ngx_string("HIT"),    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_HIT */
+    ngx_string("MISS")    /* NGX_HTTP_UPSTREAM_STICKY_STATUS_MISS */
 };
 
 

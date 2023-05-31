@@ -64,7 +64,11 @@ http {
 
 EOF
 
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

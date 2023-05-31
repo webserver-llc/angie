@@ -51,7 +51,12 @@ http {
 EOF
 
 $t->write_file('t.html', 'SEE-THIS');
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

@@ -23,7 +23,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 rewrite/)
+my $t = Test::Nginx->new()->has(qw/http http_v2 rewrite/)->plan(12)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -88,7 +88,11 @@ http {
 
 EOF
 
-$t->run()->plan(12);
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
+$t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

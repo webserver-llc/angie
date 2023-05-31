@@ -128,7 +128,11 @@ sleep 1 if $^O eq 'MSWin32';
 
 $t->write_file('password', 'client');
 
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

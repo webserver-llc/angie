@@ -139,7 +139,11 @@ $t->write_file('t1', join('', map { sprintf "X%04dXXX", $_ } (1 .. 8202)));
 $t->write_file('t2', 'SEE-THIS');
 $t->write_file('explf', join('', map { sprintf "X%06dXXX", $_ } (1 .. 6553)));
 
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

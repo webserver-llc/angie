@@ -28,7 +28,7 @@ my $t = Test::Nginx->new()
 
 plan(skip_all => 'no ssl_conf_command') if $t->has_module('BoringSSL');
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(3);
 
 %%TEST_GLOBALS%%
 
@@ -106,7 +106,12 @@ foreach my $name ('localhost', 'override') {
 }
 
 $t->write_file('index.html', '');
-$t->run()->plan(3);
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
+$t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

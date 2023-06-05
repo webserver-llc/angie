@@ -54,12 +54,8 @@ mail {
     }
 
     server {
-        listen             127.0.0.1:8148;
+        listen             127.0.0.1:8148 ssl;
         protocol           imap;
-
-        # Special case for enabled "ssl" directive.
-
-        ssl on;
 
         ssl_certificate_key inherits.key;
         ssl_certificate inherits.crt;
@@ -133,10 +129,7 @@ foreach my $name ('localhost', 'inherits') {
 }
 
 $t->write_file('password', 'localhost');
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

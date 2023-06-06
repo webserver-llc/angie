@@ -1947,7 +1947,7 @@ sub read_stream_message {
 
 	while (1) {
 		@data = $self->parse_stream();
-		return @data if $#data;
+		return @data if @data;
 		return if scalar @{$self->{frames_in}};
 
 again:
@@ -1973,7 +1973,7 @@ again:
 			goto retry if $self->{token};
 			$self->handle_frames(parse_frames($plaintext), $level);
 			@data = $self->parse_stream();
-			return @data if $#data;
+			return @data if @data;
 			return if scalar @{$self->{frames_in}};
 		}
 	}
@@ -2005,6 +2005,7 @@ sub parse_stream {
 
 		return ($i, $data, $stream->{eof} ? 1 : 0);
 	}
+	return;
 }
 
 ###############################################################################

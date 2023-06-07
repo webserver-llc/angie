@@ -165,7 +165,7 @@ EOF
 my $dconf = $t->testdir()."/dns.conf";
 
 $t->run_daemon('dnsmasq', '-C', $tdir."/dns.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5464, 'b1.example.com', '127.0.0.1');
+$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
 
 $t->run();
 

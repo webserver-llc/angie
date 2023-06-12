@@ -40,6 +40,8 @@ sub new {
 	$self->{psk_list} = $extra{psk_list} || [];
 
 	$self->{sni} = exists $extra{sni} ? $extra{sni} : 'localhost';
+	$self->{cipher} = 0x1301;
+	$self->{ciphers} = $extra{ciphers} || "\x13\x01";
 	$self->{opts} = $extra{opts};
 
 	$self->{zero} = pack("x5");
@@ -107,15 +109,19 @@ sub retry {
 	Test::Nginx::log_core('||', "dcid = " . unpack("H*", $self->{dcid}));
 	Test::Nginx::log_core('||', "prk = " . unpack("H*", $prk));
 
-	$self->set_traffic_keys('tls13 client in', 0, 'w', $prk);
-	$self->set_traffic_keys('tls13 server in', 0, 'r', $prk);
+	$self->set_traffic_keys('tls13 client in', 'SHA256', 32, 0, 'w', $prk);
+	$self->set_traffic_keys('tls13 server in', 'SHA256', 32, 0, 'r', $prk);
 }
 
 sub init_key_schedule {
 	my ($self) = @_;
 	$self->{psk} = $self->{psk_list}[0];
+	my ($hash, $hlen) = $self->{psk} && $self->{psk}{cipher} == 0x1302 ?
+		('SHA384', 48) : ('SHA256', 32);
 	$self->{es_prk} = Crypt::KeyDerivation::hkdf_extract(
-		$self->{psk}->{secret} || pack("x32"), pack("x32"), 'SHA256');
+		$self->{psk}->{secret} || pack("x$hlen"), pack("x$hlen"),
+		$hash);
+	Test::Nginx::log_core('||', "es = " . unpack("H*", $self->{es_prk}));
 	$self->{sk} = Crypt::PK::X25519->new->generate_key;
 }
 
@@ -130,8 +136,10 @@ sub initial {
 	my $initial = $self->encrypt_aead($payload, 0);
 
 	if ($ed && $self->{psk}->{ed}) {
-		$self->set_traffic_keys('tls13 c e traffic', 1, 'w',
-			$self->{es_prk}, Crypt::Digest::digest_data('SHA256',
+		my ($hash, $hlen) = $self->{psk}{cipher} == 0x1302 ?
+			('SHA384', 48) : ('SHA256', 32);
+		$self->set_traffic_keys('tls13 c e traffic', $hash, $hlen, 1,
+			'w', $self->{es_prk}, Crypt::Digest::digest_data($hash,
 			$self->{tlsm}{ch}));
 
 #		my $ed = "\x0a\x02\x08\x00\x04\x02\x06\x1f\x0d\x00\x0a"
@@ -153,6 +161,8 @@ sub handshake {
 	$self->read_tls_message(\$buf, \&parse_tls_server_hello) or return;
 
 	my $sh = $self->{tlsm}{sh};
+	$self->{cipher} = unpack("n", substr($sh, 6 + 32 + 1, 2));
+
 	my $extens_len = unpack("C*", substr($sh, 6 + 32 + 4, 2)) * 8
 		+ unpack("C*", substr($sh, 6 + 32 + 5, 1));
 	my $extens = substr($sh, 6 + 32 + 4 + 2, $extens_len);
@@ -166,21 +176,27 @@ sub handshake {
 
 	# tls13_advance_key_schedule
 
+	my ($hash, $hlen) = $self->{cipher} == 0x1302 ?
+		('SHA384', 48) : ('SHA256', 32);
+
 	my $psk = pre_shared_key($extens);
 	$self->{psk} = (defined $psk && $self->{psk_list}[$psk]) || undef;
 	$self->{es_prk} = Crypt::KeyDerivation::hkdf_extract(
-		$self->{psk}->{secret} || pack("x32"), pack("x32"), 'SHA256');
+		$self->{psk}->{secret} || pack("x$hlen"), pack("x$hlen"),
+		$hash);
 
-	$self->{hs_prk} = hkdf_advance($shared_secret, $self->{es_prk});
+	$self->{hs_prk} = hkdf_advance($hash, $hlen, $shared_secret,
+		$self->{es_prk});
+	Test::Nginx::log_core('||', "es = " . unpack("H*", $self->{es_prk}));
 	Test::Nginx::log_core('||', "hs = " . unpack("H*", $self->{hs_prk}));
 
 	# derive_secret_with_transcript
 
-	my $digest = Crypt::Digest::digest_data('SHA256', $self->{tlsm}{ch}
+	my $digest = Crypt::Digest::digest_data($hash, $self->{tlsm}{ch}
 		. $self->{tlsm}{sh});
-	$self->set_traffic_keys('tls13 c hs traffic', 2, 'w',
+	$self->set_traffic_keys('tls13 c hs traffic', $hash, $hlen, 2, 'w',
 		$self->{hs_prk}, $digest);
-	$self->set_traffic_keys('tls13 s hs traffic', 2, 'r',
+	$self->set_traffic_keys('tls13 s hs traffic', $hash, $hlen, 2, 'r',
 		$self->{hs_prk}, $digest);
 
 	$self->read_tls_message(\$buf, \&parse_tls_encrypted_extensions);
@@ -194,31 +210,33 @@ sub handshake {
 
 	# tls13_advance_key_schedule(application)
 
-	$self->{ms_prk} = hkdf_advance(pack("x32"), $self->{hs_prk});
+	$self->{ms_prk} = hkdf_advance($hash, $hlen, pack("x$hlen"),
+		$self->{hs_prk});
 	Test::Nginx::log_core('||',
 		"master = " . unpack("H*", $self->{ms_prk}));
 
 	# derive_secret_with_transcript(application)
 
-	$digest = Crypt::Digest::digest_data('SHA256', $self->{tlsm}{ch}
+	$digest = Crypt::Digest::digest_data($hash, $self->{tlsm}{ch}
 		. $self->{tlsm}{sh} . $self->{tlsm}{ee} . $self->{tlsm}{cert}
 		. $self->{tlsm}{cv} . $self->{tlsm}{sf});
-	$self->set_traffic_keys('tls13 c ap traffic', 3, 'w',
+	$self->set_traffic_keys('tls13 c ap traffic', $hash, $hlen, 3, 'w',
 		$self->{ms_prk}, $digest);
-	$self->set_traffic_keys('tls13 s ap traffic', 3, 'r',
+	$self->set_traffic_keys('tls13 s ap traffic', $hash, $hlen, 3, 'r',
 		$self->{ms_prk}, $digest);
 
 	# client finished
 
-	my $finished = tls13_finished($self->{keys}[2]{w}{prk}, $digest);
+	my $finished = tls13_finished($hash, $hlen, $self->{keys}[2]{w}{prk},
+		$digest);
 	Test::Nginx::log_core('||', "finished = " . unpack("H*", $finished));
 
 	$self->{tlsm}{cf} = $finished;
 
-	$digest = Crypt::Digest::digest_data('SHA256', $self->{tlsm}{ch}
+	$digest = Crypt::Digest::digest_data($hash, $self->{tlsm}{ch}
 		. $self->{tlsm}{sh} . $self->{tlsm}{ee} . $self->{tlsm}{cert}
 		. $self->{tlsm}{cv} . $self->{tlsm}{sf} . $self->{tlsm}{cf});
-	$self->{rms_prk} = hkdf_expand_label("tls13 res master", 32,
+	$self->{rms_prk} = hkdf_expand_label("tls13 res master", $hash, $hlen,
 		$self->{ms_prk}, $digest);
 	Test::Nginx::log_core('||',
 		"resumption = " . unpack("H*", $self->{rms_prk}));
@@ -1597,10 +1615,13 @@ sub insert_crypto {
 sub save_session_tickets {
 	my ($self, $content) = @_;
 
+	my ($hash, $hlen) = $self->{cipher} == 0x1302 ?
+		('SHA384', 48) : ('SHA256', 32);
+
 	my $nst_len = unpack("n", substr($content, 2, 2));
 	my $nst = substr($content, 4, $nst_len);
 
-	my $psk = {};
+	my $psk = { cipher => $self->{cipher} };
 	my $lifetime = substr($nst, 0, 4);
 	$psk->{age_add} = substr($nst, 4, 4);
 	my $nonce_len = unpack("C", substr($nst, 8, 1));
@@ -1612,7 +1633,7 @@ sub save_session_tickets {
 	my $extens = substr($nst, 11 + $nonce_len + $len + 2, $extens_len);
 
 	$psk->{ed} = early_data($extens);
-	$psk->{secret} = hkdf_expand_label("tls13 resumption", 32,
+	$psk->{secret} = hkdf_expand_label("tls13 resumption", $hash, $hlen,
 		$self->{rms_prk}, $nonce);
 	push @{$self->{psk_list}}, $psk;
 }
@@ -1747,11 +1768,13 @@ sub retry_verify_tag {
 }
 
 sub set_traffic_keys {
-	my ($self, $label, $level, $direction, $secret, $digest) = @_;
-	my $prk = hkdf_expand_label($label, 32, $secret, $digest);
-	my $key = hkdf_expand_label("tls13 quic key", 16, $prk);
-	my $iv = hkdf_expand_label("tls13 quic iv", 12, $prk);
-	my $hp = hkdf_expand_label("tls13 quic hp", 16, $prk);
+	my ($self, $label, $hash, $hlen, $level, $direction, $secret, $digest)
+		= @_;
+	my $prk = hkdf_expand_label($label, $hash, $hlen, $secret, $digest);
+	my $klen = $self->{cipher} == 0x1301 ? 16 : 32;
+	my $key = hkdf_expand_label("tls13 quic key", $hash, $klen, $prk);
+	my $iv = hkdf_expand_label("tls13 quic iv", $hash, 12, $prk);
+	my $hp = hkdf_expand_label("tls13 quic hp", $hash, $klen, $prk);
 	$self->{keys}[$level]{$direction}{prk} = $prk;
 	$self->{keys}[$level]{$direction}{key} = $key;
 	$self->{keys}[$level]{$direction}{iv} = $iv;
@@ -1759,36 +1782,34 @@ sub set_traffic_keys {
 }
 
 sub hmac_finished {
-	my ($key, $digest) = @_;
-	my $finished_key = hkdf_expand_label("tls13 finished", 32, $key);
-	Crypt::Mac::HMAC::hmac('SHA256', $finished_key, $digest);
+	my ($hash, $hlen, $key, $digest) = @_;
+	my $expand = hkdf_expand_label("tls13 finished", $hash, $hlen, $key);
+	Crypt::Mac::HMAC::hmac($hash, $expand, $digest);
 }
 
 sub tls13_finished {
-	my ($key, $digest) = @_;
-	my $hmac = hmac_finished($key, $digest);
+	my $hmac = hmac_finished(@_);
 	"\x14\x00" . pack('n', length($hmac)) . $hmac;
 }
 
 sub binders {
-	my ($key, $digest) = @_;
-	my $hmac = hmac_finished($key, $digest);
+	my $hmac = hmac_finished(@_);
 	pack('n', length($hmac) + 1) . pack('C', length($hmac)) . $hmac;
 }
 
 sub hkdf_advance {
-	my ($secret, $prk) = @_;
-	my $digest0 = Crypt::Digest::digest_data('SHA256', '');
-	my $expand = hkdf_expand_label("tls13 derived", 32, $prk, $digest0);
-	Crypt::KeyDerivation::hkdf_extract($secret, $expand, 'SHA256');
+	my ($hash, $hlen, $secret, $prk) = @_;
+	my $expand = hkdf_expand_label("tls13 derived", $hash, $hlen, $prk,
+		Crypt::Digest::digest_data($hash, ''));
+	Crypt::KeyDerivation::hkdf_extract($secret, $expand, $hash);
 }
 
 sub hkdf_expand_label {
-	my ($label, $len, $prk, $context) = @_;
+	my ($label, $hash, $len, $prk, $context) = @_;
 	$context = '' if !defined $context;
 	my $info = pack("C3", 0, $len, length($label)) . $label
 		. pack("C", length($context)) . $context;
-	return Crypt::KeyDerivation::hkdf_expand($prk, 'SHA256', $len, $info);
+	Crypt::KeyDerivation::hkdf_expand($prk, $hash, $len, $info);
 }
 
 sub key_share {
@@ -2158,7 +2179,7 @@ sub build_tls_client_hello {
 	my $version = "\x03\x03";
 	my $random = Crypt::PRNG::random_bytes(32);
 	my $session = "\x00";
-	my $cipher = "\x00\x02\x13\x01";
+	my $cipher = pack('n', length($self->{ciphers})) . $self->{ciphers};
 	my $compr = "\x01\x00";
 	my $ext = build_tlsext_server_name($self->{sni})
 		. build_tlsext_supported_groups(29)
@@ -2175,7 +2196,7 @@ sub build_tls_client_hello {
 	my $len = pack('n', length($ext));
 	my $ch = $version . $random . $session . $cipher . $compr . $len . $ext;
 	$ch = "\x01\x00" . pack('n', length($ch)) . $ch;
-	$ch = build_tls_ch_with_binder($ch, $self->{es_prk})
+	$ch = build_tls_ch_with_binder($ch, $self->{psk}, $self->{es_prk})
 		if keys %{$self->{psk}};
 	return $ch;
 }
@@ -2249,19 +2270,21 @@ sub build_tlsext_psk {
 	my $identity = pack('n', length($psk->{ticket})) . $psk->{ticket}
 		. $psk->{age_add};
 	my $identities = pack('n', length($identity)) . $identity;
-	my $hash = pack('x32'); # SHA256
+	my $hash = $psk->{cipher} == 0x1302 ? pack('x48') : pack('x32');
 	my $binder = pack('C', length($hash)) . $hash;
 	my $binders = pack('n', length($binder)) . $binder;
 	pack('n2', 41, length($identities . $binders)) . $identities . $binders;
 }
 
 sub build_tls_ch_with_binder {
-	my ($ch, $prk) = @_;
-	my $digest0 = Crypt::Digest::digest_data('SHA256', '');
-	my $key = hkdf_expand_label("tls13 res binder", 32, $prk, $digest0);
-	my $truncated = substr($ch, 0, -35);
-	my $context = Crypt::Digest::digest_data('SHA256', $truncated);
-	$truncated . binders($key, $context);
+	my ($ch, $psk, $prk) = @_;
+	my ($hash, $hlen) = $psk->{cipher} == 0x1302 ?
+		('SHA384', 48) : ('SHA256', 32);
+	my $key = hkdf_expand_label("tls13 res binder", $hash, $hlen, $prk,
+		Crypt::Digest::digest_data($hash, ''));
+	my $truncated = substr($ch, 0, -3 - $hlen);
+	my $context = Crypt::Digest::digest_data($hash, $truncated);
+	$truncated . binders($hash, $hlen, $key, $context);
 }
 
 ###############################################################################

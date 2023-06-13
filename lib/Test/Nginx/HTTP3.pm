@@ -26,7 +26,9 @@ sub new {
 	require Crypt::PK::X25519;
 	require Crypt::PRNG;
 	require Crypt::AuthEnc::GCM;
+	require Crypt::AuthEnc::ChaCha20Poly1305;
 	require Crypt::Mode::CTR;
+	require Crypt::Stream::ChaCha;
 	require Crypt::Digest;
 	require Crypt::Mac::HMAC;
 
@@ -1656,6 +1658,14 @@ sub decode_pn {
 	return $pn;
 }
 
+sub decrypt_aead_f {
+	my ($level, $cipher) = @_;
+	if ($level == 0 || $cipher == 0x1301 || $cipher == 0x1302) {
+		return \&Crypt::AuthEnc::GCM::gcm_decrypt_verify, 'AES';
+	}
+	\&Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_decrypt_verify;
+}
+
 sub decrypt_aead {
 	my ($self, $buf) = @_;
 	my $flags = unpack("C", substr($buf, 0, 1));
@@ -1677,14 +1687,15 @@ sub decrypt_aead {
 
 	my $sample = substr($buf, $offpn + 4, 16);
 	my ($ad, $pnl, $pn) = $self->decrypt_ad($buf,
-		$self->{keys}[$level]{r}{hp}, $sample, $offpn, $level == 3);
+		$self->{keys}[$level]{r}{hp}, $sample, $offpn, $level);
 	Test::Nginx::log_core('||', "ad = " . unpack("H*", $ad));
 	$pn = $self->decode_pn($pn, $pnl, $level);
 	my $nonce = substr(pack("x12") . pack("N", $pn), -12)
 		^ $self->{keys}[$level]{r}{iv};
 	my $ciphertext = substr($buf, $offpn + $pnl, $val - 16 - $pnl);
 	my $tag = substr($buf, $offpn + $val - 16, 16);
-	my $plaintext = Crypt::AuthEnc::GCM::gcm_decrypt_verify('AES',
+	my ($f, @args) = decrypt_aead_f($level, $self->{cipher});
+	my $plaintext = $f->(@args,
 		$self->{keys}[$level]{r}{key}, $nonce, $ad, $ciphertext, $tag);
 	return if !defined $plaintext;
 	Test::Nginx::log_core('||',
@@ -1699,17 +1710,34 @@ sub decrypt_aead {
 }
 
 sub decrypt_ad {
-	my ($self, $buf, $hp, $sample, $offset, $short) = @_;
+	my ($self, $buf, $hp, $sample, $offset, $level) = @_;
+
+	goto aes if $level == 0 || $self->{cipher} != 0x1303;
+
+	my $counter = unpack("V", substr($sample, 0, 4));
+	my $nonce = substr($sample, 4, 12);
+	my $stream = Crypt::Stream::ChaCha->new($hp, $nonce, $counter);
+	my $mask = $stream->crypt($self->{zero});
+	goto mask;
+aes:
 	my $m = Crypt::Mode::CTR->new('AES');
-	my $mask = $m->encrypt($self->{zero}, $hp, $sample);
-	substr($buf, 0, 1) ^= substr($mask, 0, 1) & ($short ? "\x1f" : "\x0f");
+	$mask = $m->encrypt($self->{zero}, $hp, $sample);
+mask:
+	substr($buf, 0, 1) ^= substr($mask, 0, 1)
+		& ($level == 3 ? "\x1f" : "\x0f");
 	my $pnl = unpack("C", substr($buf, 0, 1) & "\x03") + 1;
-	for (my $i = 0; $i < $pnl; $i++) {
-		substr($buf, $offset + $i, 1) ^= substr($mask, $i + 1, 1);
-	}
+	substr($buf, $offset, $pnl) ^= substr($mask, 1);
 	my $pn = unpack("C", substr($buf, $offset, $pnl));
 	my $ad = substr($buf, 0, $offset + $pnl);
 	return ($ad, $pnl, $pn);
+}
+
+sub encrypt_aead_f {
+	my ($level, $cipher) = @_;
+	if ($level == 0 || $cipher == 0x1301 || $cipher == 0x1302) {
+		return \&Crypt::AuthEnc::GCM::gcm_encrypt_authenticate, 'AES';
+	}
+	\&Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_encrypt_authenticate;
 }
 
 sub encrypt_aead {
@@ -1726,20 +1754,32 @@ sub encrypt_aead {
 	$ad .= pack("N", $pn);
 	my $nonce = substr(pack("x12") . pack("N", $pn), -12)
 		^ $self->{keys}[$level]{w}{iv};
-	my ($ciphertext, $tag) = Crypt::AuthEnc::GCM::gcm_encrypt_authenticate(
-		'AES', $self->{keys}[$level]{w}{key}, $nonce, $ad, $payload);
+	my ($f, @args) = encrypt_aead_f($level, $self->{cipher});
+	my ($ciphertext, $tag) = $f->(@args,
+		$self->{keys}[$level]{w}{key}, $nonce, $ad, $payload);
 	my $sample = substr($ciphertext . $tag, 0, 16);
 
 	$ad = $self->encrypt_ad($ad, $self->{keys}[$level]{w}{hp},
-		$sample, $level == 3);
+		$sample, $level);
 	return $ad . $ciphertext . $tag;
 }
 
 sub encrypt_ad {
-	my ($self, $ad, $hp, $sample, $short) = @_;
+	my ($self, $ad, $hp, $sample, $level) = @_;
+
+	goto aes if $level == 0 || $self->{cipher} != 0x1303;
+
+	my $counter = unpack("V", substr($sample, 0, 4));
+	my $nonce = substr($sample, 4, 12);
+	my $stream = Crypt::Stream::ChaCha->new($hp, $nonce, $counter);
+	my $mask = $stream->crypt($self->{zero});
+	goto mask;
+aes:
 	my $m = Crypt::Mode::CTR->new('AES');
-	my $mask = $m->encrypt($self->{zero}, $hp, $sample);
-	substr($ad, 0, 1) ^= substr($mask, 0, 1) & ($short ? "\x1f" : "\x0f");
+	$mask = $m->encrypt($self->{zero}, $hp, $sample);
+mask:
+	substr($ad, 0, 1) ^= substr($mask, 0, 1)
+		& ($level == 3 ? "\x1f" : "\x0f");
 	substr($ad, -4) ^= substr($mask, 1);
 	return $ad;
 }

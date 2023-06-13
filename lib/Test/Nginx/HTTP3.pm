@@ -26,6 +26,7 @@ sub new {
 	require Crypt::PK::X25519;
 	require Crypt::PRNG;
 	require Crypt::AuthEnc::GCM;
+	require Crypt::AuthEnc::CCM;
 	require Crypt::AuthEnc::ChaCha20Poly1305;
 	require Crypt::Mode::CTR;
 	require Crypt::Stream::ChaCha;
@@ -1663,6 +1664,9 @@ sub decrypt_aead_f {
 	if ($level == 0 || $cipher == 0x1301 || $cipher == 0x1302) {
 		return \&Crypt::AuthEnc::GCM::gcm_decrypt_verify, 'AES';
 	}
+	if ($cipher == 0x1304) {
+		return \&Crypt::AuthEnc::CCM::ccm_decrypt_verify, 'AES';
+	}
 	\&Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_decrypt_verify;
 }
 
@@ -1737,6 +1741,9 @@ sub encrypt_aead_f {
 	if ($level == 0 || $cipher == 0x1301 || $cipher == 0x1302) {
 		return \&Crypt::AuthEnc::GCM::gcm_encrypt_authenticate, 'AES';
 	}
+	if ($cipher == 0x1304) {
+		return \&Crypt::AuthEnc::CCM::ccm_encrypt_authenticate, 'AES';
+	}
 	\&Crypt::AuthEnc::ChaCha20Poly1305::chacha20poly1305_encrypt_authenticate;
 }
 
@@ -1756,7 +1763,8 @@ sub encrypt_aead {
 		^ $self->{keys}[$level]{w}{iv};
 	my ($f, @args) = encrypt_aead_f($level, $self->{cipher});
 	my ($ciphertext, $tag) = $f->(@args,
-		$self->{keys}[$level]{w}{key}, $nonce, $ad, $payload);
+		$self->{keys}[$level]{w}{key}, $nonce, $ad,
+		$self->{cipher} == 0x1304 ? 16 : (), $payload);
 	my $sample = substr($ciphertext . $tag, 0, 16);
 
 	$ad = $self->encrypt_ad($ad, $self->{keys}[$level]{w}{hp},
@@ -1811,7 +1819,8 @@ sub set_traffic_keys {
 	my ($self, $label, $hash, $hlen, $level, $direction, $secret, $digest)
 		= @_;
 	my $prk = hkdf_expand_label($label, $hash, $hlen, $secret, $digest);
-	my $klen = $self->{cipher} == 0x1301 ? 16 : 32;
+	my $klen = $self->{cipher} == 0x1301 || $self->{cipher} == 0x1304
+		? 16 : 32;
 	my $key = hkdf_expand_label("tls13 quic key", $hash, $klen, $prk);
 	my $iv = hkdf_expand_label("tls13 quic iv", $hash, 12, $prk);
 	my $hp = hkdf_expand_label("tls13 quic hp", $hash, $klen, $prk);

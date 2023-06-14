@@ -77,8 +77,6 @@ $t->run();
 
 ###############################################################################
 
-my ($s, $sid, $frames, $frame);
-
 is(get("\x13\x01"), 'TLS_AES_128_GCM_SHA256', 'TLS_AES_128_GCM_SHA256');
 is(get("\x13\x02"), 'TLS_AES_256_GCM_SHA384', 'TLS_AES_256_GCM_SHA384');
 is(get("\x13\x03"), 'TLS_CHACHA20_POLY1305_SHA256',
@@ -88,21 +86,28 @@ is(get("\x13\x03"), 'TLS_CHACHA20_POLY1305_SHA256',
 
 is(get("\x13\x02\x13\x01"), 'TLS_AES_256_GCM_SHA384', 'ciphers many');
 
-TODO: {
-local $TODO = 'CCM cipher disabled';
+# prefer TLS_AES_128_CCM_SHA256 and fail gracefully as we are not there yet,
+# the cipher might be patched to be enabled by default in certain distributions
 
-is(get("\x13\x04\x13\x01"), 'TLS_AES_128_CCM_SHA256', 'TLS_AES_128_CCM_SHA256');
+my $s = Test::Nginx::HTTP3->new(8980, ciphers => "\x13\x04\x13\x01");
+
+TODO: {
+todo_skip 'not yet', 1 unless $s;
+
+like(get("\x13\x04\x13\x01", $s), qr/TLS_AES_128_[GC]CM_SHA256/,
+	'TLS_AES_128_CCM_SHA256');
 
 }
 
 ###############################################################################
 
 sub get {
-	my ($ciphers) = @_;
-	my $s = Test::Nginx::HTTP3->new(8980, ciphers => $ciphers);
+	my ($ciphers, $sock) = @_;
+	my $s = Test::Nginx::HTTP3->new(8980, ciphers => $ciphers,
+		socket => $sock) or return;
 	my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 
-	($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+	my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 	return $frame->{headers}->{'x-cipher'};
 }
 

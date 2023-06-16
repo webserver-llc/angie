@@ -1762,9 +1762,9 @@ sub encrypt_aead {
 	my $nonce = substr(pack("x12") . pack("N", $pn), -12)
 		^ $self->{keys}[$level]{w}{iv};
 	my ($f, @args) = encrypt_aead_f($level, $self->{cipher});
+	my @taglen = ($level != 0 && $self->{cipher} == 0x1304) ? 16 : ();
 	my ($ciphertext, $tag) = $f->(@args,
-		$self->{keys}[$level]{w}{key}, $nonce, $ad,
-		$self->{cipher} == 0x1304 ? 16 : (), $payload);
+		$self->{keys}[$level]{w}{key}, $nonce, $ad, @taglen, $payload);
 	my $sample = substr($ciphertext . $tag, 0, 16);
 
 	$ad = $self->encrypt_ad($ad, $self->{keys}[$level]{w}{hp},

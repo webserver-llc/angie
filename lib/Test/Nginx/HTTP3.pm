@@ -39,7 +39,7 @@ sub new {
 	);
 
 	$self->{repeat} = 0;
-	$self->{token} = '';
+	$self->{token} = $extra{token} || '';
 	$self->{psk_list} = $extra{psk_list} || [];
 
 	$self->{sni} = exists $extra{sni} ? $extra{sni} : 'localhost';
@@ -56,23 +56,7 @@ sub new {
 	$self->{buf} = '';
 
 	$self->init();
-	$self->init_key_schedule();
-	$self->initial();
-	return $self if $extra{probe};
-	$self->handshake() or return;
-
-	# RFC 9204, 4.3.1.  Set Dynamic Table Capacity
-
-	my $buf = pack("B*", '001' . ipack(5, $extra{capacity} || 400));
-	$self->{encoder_offset} = length($buf) + 1;
-	$buf = "\x08\x02\x02" . $buf;
-
-	# RFC 9114, 6.2.1.  Control Streams
-
-	$buf = "\x0a\x06\x03\x00\x04\x00" . $buf;
-	$self->{control_offset} = 3;
-
-	$self->raw_write($buf);
+	$self->retry(%extra) or return;
 
 	return $self;
 }
@@ -99,12 +83,10 @@ sub init {
 			.  "\x9a\xe6\xa4\xc8\x0c\xad\xcc\xbb\x7f\x0a";
 	$self->{ncid} = [];
 	$self->{early_data} = $early_data;
-
-	$self->retry();
 }
 
 sub retry {
-	my ($self) = @_;
+	my ($self, %extra) = @_;
 	my $prk = Crypt::KeyDerivation::hkdf_extract($self->{dcid},
 		$self->{salt}, 'SHA256');
 
@@ -114,6 +96,24 @@ sub retry {
 
 	$self->set_traffic_keys('tls13 client in', 'SHA256', 32, 0, 'w', $prk);
 	$self->set_traffic_keys('tls13 server in', 'SHA256', 32, 0, 'r', $prk);
+
+	$self->init_key_schedule();
+	$self->initial();
+	return $self if $extra{probe};
+	$self->handshake() or return;
+
+	# RFC 9204, 4.3.1.  Set Dynamic Table Capacity
+
+	my $buf = pack("B*", '001' . ipack(5, $extra{capacity} || 400));
+	$self->{encoder_offset} = length($buf) + 1;
+	$buf = "\x08\x02\x02" . $buf;
+
+	# RFC 9114, 6.2.1.  Control Streams
+
+	$buf = "\x0a\x06\x03\x00\x04\x00" . $buf;
+	$self->{control_offset} = 3;
+
+	$self->raw_write($buf);
 }
 
 sub init_key_schedule {
@@ -1803,15 +1803,27 @@ sub decrypt_retry {
 	my $tag = substr($buf, -16);
 	my $pseudo = pack("C", length($self->{odcid})) . $self->{odcid}
 		. substr($buf, 0, -16);
-	return ($tag, retry_verify_tag($pseudo), $token);
+	$self->{retry} = { token => $token, tag => $tag, pseudo => $pseudo };
+	return $tag, '', $token;
+}
+
+sub retry_token {
+	my ($self) = @_;
+	return $self->{retry}{token};
+}
+
+sub retry_tag {
+	my ($self) = @_;
+	return $self->{retry}{tag};
 }
 
 sub retry_verify_tag {
+	my ($self) = @_;
 	my $key = "\xbe\x0c\x69\x0b\x9f\x66\x57\x5a"
 		. "\x1d\x76\x6b\x54\xe3\x68\xc8\x4e";
 	my $nonce = "\x46\x15\x99\xd3\x5d\x63\x2b\xf2\x23\x98\x25\xbb";
 	my (undef, $tag) = Crypt::AuthEnc::GCM::gcm_encrypt_authenticate('AES',
-		$key, $nonce, shift, '');
+		$key, $nonce, $self->{retry}{pseudo}, '');
 	return $tag;
 }
 
@@ -2040,7 +2052,7 @@ again:
 				$self->{buf} = '';
 				goto again;
 			}
-			goto retry if $self->{token};
+			$self->retry(), return if $self->{token};
 			$self->handle_frames(parse_frames($plaintext), $level);
 			@data = $self->parse_stream();
 			return @data if @data;
@@ -2101,7 +2113,7 @@ sub read_tls_message {
 			(my $level, my $plaintext, $$buf, $self->{token})
 				= $self->decrypt_aead($$buf);
 			return if !defined $plaintext;
-			goto retry if $self->{token};
+			$self->retry(), return 1 if $self->{token};
 			$self->handle_frames(parse_frames($plaintext), $level);
 			return 1 if $type->($self);
 		}

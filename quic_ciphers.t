@@ -86,25 +86,17 @@ is(get("\x13\x03"), 'TLS_CHACHA20_POLY1305_SHA256',
 
 is(get("\x13\x02\x13\x01"), 'TLS_AES_256_GCM_SHA384', 'ciphers many');
 
-# prefer TLS_AES_128_CCM_SHA256 and fail gracefully as we are not there yet,
-# the cipher might be patched to be enabled by default in certain distributions
+# prefer TLS_AES_128_CCM_SHA256 with fallback to GCM,
+# the cipher is enabled by default in some distributions
 
-my $s = Test::Nginx::HTTP3->new(8980, ciphers => "\x13\x04\x13\x01");
-
-TODO: {
-todo_skip 'not yet', 1 unless $s;
-
-like(get("\x13\x04\x13\x01", $s), qr/TLS_AES_128_[GC]CM_SHA256/,
+like(get("\x13\x04\x13\x01"), qr/TLS_AES_128_[GC]CM_SHA256/,
 	'TLS_AES_128_CCM_SHA256');
-
-}
 
 ###############################################################################
 
 sub get {
-	my ($ciphers, $sock) = @_;
-	my $s = Test::Nginx::HTTP3->new(8980, ciphers => $ciphers,
-		socket => $sock) or return;
+	my ($ciphers) = @_;
+	my $s = Test::Nginx::HTTP3->new(8980, ciphers => $ciphers);
 	my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 
 	my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

@@ -41,6 +41,7 @@ sub new {
 	$self->{repeat} = 0;
 	$self->{token} = $extra{token} || '';
 	$self->{psk_list} = $extra{psk_list} || [];
+	$self->{early_data} = $extra{early_data};
 
 	$self->{sni} = exists $extra{sni} ? $extra{sni} : 'localhost';
 	$self->{cipher} = 0x1301;
@@ -62,7 +63,7 @@ sub new {
 }
 
 sub init {
-	my ($self, $early_data) = @_;
+	my ($self) = @_;
 	$self->{keys} = [];
 	$self->{pn} = [[-1, -1, -1, -1], [-1, -1, -1, -1]];
 	$self->{crypto_in} = [[],[],[],[]];
@@ -82,7 +83,6 @@ sub init {
 	$self->{salt} = "\x38\x76\x2c\xf7\xf5\x59\x34\xb3\x4d\x17"
 			.  "\x9a\xe6\xa4\xc8\x0c\xad\xcc\xbb\x7f\x0a";
 	$self->{ncid} = [];
-	$self->{early_data} = $early_data;
 }
 
 sub retry {
@@ -129,26 +129,24 @@ sub init_key_schedule {
 }
 
 sub initial {
-	my ($self, $ed) = @_;
+	my ($self) = @_;
 	$self->{tlsm}{ch} = $self->build_tls_client_hello();
 	my $ch = $self->{tlsm}{ch};
 	my $crypto = build_crypto($ch);
 	my $padding = 1200 - length($crypto);
-	$padding = 0 if $padding < 0 || $self->{psk}->{ed};
+	$padding = 0 if $padding < 0;
+	$padding = 0 if $self->{psk}{ed} && $self->{early_data};
 	my $payload = $crypto . pack("x$padding");
 	my $initial = $self->encrypt_aead($payload, 0);
 
-	if ($ed && $self->{psk}->{ed}) {
+	if ($self->{early_data} && $self->{psk}->{ed}) {
 		my ($hash, $hlen) = $self->{psk}{cipher} == 0x1302 ?
 			('SHA384', 48) : ('SHA256', 32);
 		$self->set_traffic_keys('tls13 c e traffic', $hash, $hlen, 1,
 			'w', $self->{es_prk}, Crypt::Digest::digest_data($hash,
 			$self->{tlsm}{ch}));
 
-#		my $ed = "\x0a\x02\x08\x00\x04\x02\x06\x1f\x0d\x00\x0a"
-#			. $self->build_stream("\x01\x06\x00\x00\xc0");
-		$payload = $ed;
-#		$payload = $self->build_stream("GET /\n");
+		$payload = $self->build_new_stream($self->{early_data});
 		$padding = 1200 - length($crypto) - length($payload);
 		$payload .= pack("x$padding") if $padding > 0;
 		$initial .= $self->encrypt_aead($payload, 1);
@@ -247,13 +245,6 @@ sub handshake {
 	my $crypto = build_crypto($finished);
 	$self->{socket}->syswrite($self->encrypt_aead($crypto, 2));
 }
-
-#if (!$psk->{ed}) {
-#	my $r = "\x0a\x02\x08\x00\x04\x02\x06\x1f\x0d\x00\x0a";
-#	$s->syswrite(encrypt_aead($r, 3));
-#	$r = "\x01\x06\x00\x00\xc0";
-#	$s->syswrite(encrypt_aead($self->build_stream($r), 3));
-#}
 
 sub DESTROY {
 	my ($self) = @_;
@@ -408,7 +399,7 @@ sub cancel_push {
 		. build_int($offset) . build_int($length) . $buf);
 }
 
-sub new_stream {
+sub build_new_stream {
 	my ($self, $uri, $stream) = @_;
 	my ($input, $buf);
 
@@ -459,8 +450,12 @@ sub new_stream {
 	$buf .= pack_body($self, $body) if defined $body;
 
 	$self->{streams}{$self->{last_stream}}{sent} = length($buf);
-	$self->raw_write($self->build_stream($buf, start => $uri->{body_more}));
+	$self->build_stream($buf, start => $uri->{body_more});
+}
 
+sub new_stream {
+	my ($self, $uri, $stream) = @_;
+	$self->raw_write($self->build_new_stream($uri, $stream));
 	return $self->{last_stream};
 }
 

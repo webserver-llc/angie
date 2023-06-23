@@ -83,7 +83,6 @@ is($frame->{headers}->{'x-session'}, '.', 'new session');
 local $TODO = 'no TLSv1.3 sessions in LibreSSL' if $t->has_module('LibreSSL');
 
 my $psk_list = $s->{psk_list};
-my $ed = $s->build_new_stream();
 
 $s = Test::Nginx::HTTP3->new(8980, psk_list => $psk_list, early_data => {});
 

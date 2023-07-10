@@ -108,11 +108,16 @@ is($frame->{error}, 11, 'retry token invalid');
 
 # connection with retry token, corrupted
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.25.2');
+
 substr($retry_token, 32) ^= "\xff";
 $s = Test::Nginx::HTTP3->new(8980, token => $retry_token, probe => 1);
 $frames = $s->read(all => [{ type => 'CONNECTION_CLOSE' }]);
 
 ($frame) = grep { $_->{type} eq "CONNECTION_CLOSE" } @$frames;
 is($frame->{error}, 11, 'retry token decrypt error');
+
+}
 
 ###############################################################################

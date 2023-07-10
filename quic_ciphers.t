@@ -89,8 +89,13 @@ is(get("\x13\x02\x13\x01"), 'TLS_AES_256_GCM_SHA384', 'ciphers many');
 # prefer TLS_AES_128_CCM_SHA256 with fallback to GCM,
 # the cipher is enabled by default in some distributions
 
+TODO: {
+todo_skip 'not yet', 1 unless $t->has_version('1.25.2');
+
 like(get("\x13\x04\x13\x01"), qr/TLS_AES_128_[GC]CM_SHA256/,
 	'TLS_AES_128_CCM_SHA256');
+
+}
 
 ###############################################################################
 

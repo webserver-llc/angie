@@ -41,7 +41,7 @@ http {
 
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
-    ssl_protocols TLSv1.2;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
 
     server {
         listen       127.0.0.1:8443 ssl;

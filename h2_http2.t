@@ -127,8 +127,15 @@ ok(!get_ssl_socket(8443, 'disabled'), 'sni to disabled');
 
 }
 
+TODO: {
+local $TODO = 'OpenSSL too old'
+	if $t->has_module('OpenSSL')
+	and not $t->has_feature('openssl:1.0.2');
+
 is(get_https(8443, 'http2'), 200, 'host to enabled');
 is(get_https(8443, 'disabled', 'http2'), 421, 'host to disabled');
+
+}
 
 # make sure HTTP/2 can be enabled selectively on virtual servers
 

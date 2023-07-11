@@ -266,20 +266,22 @@ sub has_feature($) {
 		return 0;
 	}
 
-	if ($feature =~ /^(openssl|libressl):([0-9.]+)/) {
+	if ($feature =~ /^(openssl|libressl):([0-9.]+)([a-z]*)/) {
 		my $library = $1;
 		my $need = $2;
+		my $patch = $3;
 
 		$self->{_configure_args} = `$NGINX -V 2>&1`
 			if !defined $self->{_configure_args};
 
 		return 0 unless
-			$self->{_configure_args} =~ /with $library ([0-9.]+)/i;
+			$self->{_configure_args}
+			=~ /with $library ([0-9.]+)([a-z]*)/i;
 
-		my @v = split(/\./, $1);
+		my @v = (split(/\./, $1), unpack("C*", $2));
 		my ($n, $v);
 
-		for $n (split(/\./, $need)) {
+		for $n (split(/\./, $need), unpack("C*", $patch)) {
 			$v = shift @v || 0;
 			return 0 if $n > $v;
 			return 1 if $v > $n;

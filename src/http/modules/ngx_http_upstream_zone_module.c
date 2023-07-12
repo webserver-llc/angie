@@ -786,6 +786,8 @@ ngx_http_upstream_zone_preresolve(ngx_http_upstream_rr_peer_t *resolve,
                 addr.name = opeer->server;
                 addr.weight = opeer->weight;
 
+                template->host->valid = host->valid;
+
                 peer = ngx_http_upstream_zone_new_peer(peers, &addr, template);
                 if (peer == NULL) {
                     ngx_http_upstream_rr_peers_unlock(opeers);
@@ -1355,6 +1357,8 @@ ngx_api_http_upstream_peer_selected_last_handler(ngx_api_entry_data_t data,
 static ngx_int_t
 ngx_http_upstream_zone_init_worker(ngx_cycle_t *cycle)
 {
+    time_t                          now;
+    ngx_msec_t                      timer;
     ngx_uint_t                      i;
     ngx_event_t                    *event;
     ngx_http_upstream_rr_peer_t    *peer;
@@ -1368,6 +1372,7 @@ ngx_http_upstream_zone_init_worker(ngx_cycle_t *cycle)
         return NGX_OK;
     }
 
+    now = ngx_time();
     umcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_upstream_module);
 
     if (umcf == NULL) {
@@ -1404,7 +1409,11 @@ ngx_http_upstream_zone_init_worker(ngx_cycle_t *cycle)
                 event->cancelable = 1;
 
                 ngx_http_upstream_rr_peer_ref(peers, peer);
-                ngx_add_timer(event, 1);
+
+                timer = (peer->host->valid > now)
+                        ? (ngx_msec_t) 1000 * (peer->host->valid - now) : 1;
+
+                ngx_add_timer(event, timer);
             }
 
             ngx_http_upstream_rr_peers_unlock(peers);
@@ -1731,6 +1740,8 @@ again:
 done:
 
     ngx_http_upstream_set_round_robin_single(uscf);
+
+    host->valid = ctx->valid;
 
     ngx_http_upstream_rr_peers_unlock(peers);
 

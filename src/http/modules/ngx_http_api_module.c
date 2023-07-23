@@ -194,11 +194,19 @@ ngx_http_api_handler(ngx_http_request_t *r)
         ctx.path.data++;
     }
 
+    ctx.orig_path = ctx.path;
+
+    /*
+     * Remove of ending slashes allows consistent detection if more path
+     * segments are left by just checking "ctx.path.len".
+     */
+    while (ctx.path.len && ctx.path.data[ctx.path.len - 1] == '/') {
+        ctx.path.len--;
+    }
+
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http api request path: \"%V\", method: %ui",
                    &ctx.path, r->method);
-
-    ctx.orig_path = ctx.path;
 
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
         return ngx_http_api_error(r, &ctx, NGX_HTTP_NOT_ALLOWED);
@@ -241,7 +249,7 @@ ngx_http_api_response(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 
     rc = entry->handler(entry->data, ctx, NULL);
 
-    if (rc == NGX_OK && ctx->path.len > 1) {
+    if (rc == NGX_OK && ctx->path.len) {
         rc = NGX_API_NOT_FOUND;
     }
 

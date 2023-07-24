@@ -525,7 +525,9 @@ ngx_http_upstream_init_chash_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
     uint32_t                             hash;
+#if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_rr_peer_data_t    *rrp;
+#endif
     ngx_http_upstream_hash_srv_conf_t   *hcf;
     ngx_http_upstream_hash_peer_data_t  *hp;
 
@@ -540,11 +542,11 @@ ngx_http_upstream_init_chash_peer(ngx_http_request_t *r,
 
     hash = ngx_crc32_long(hp->key.data, hp->key.len);
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
     rrp = r->upstream->peer.data;
 
     ngx_http_upstream_rr_peers_rlock(rrp->peers);
 
-#if (NGX_HTTP_UPSTREAM_ZONE)
     if (rrp->peers->generation
         && (hcf->points == NULL
             || hcf->generation != *rrp->peers->generation))

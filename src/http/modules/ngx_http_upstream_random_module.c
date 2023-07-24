@@ -159,7 +159,9 @@ static ngx_int_t
 ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
+#if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_rr_peer_data_t      *rrp;
+#endif
     ngx_http_upstream_random_srv_conf_t   *rcf;
     ngx_http_upstream_random_peer_data_t  *rp;
 
@@ -188,11 +190,11 @@ ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
 
     rp->tries = 0;
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
     rrp = r->upstream->peer.data;
 
     ngx_http_upstream_rr_peers_rlock(rrp->peers);
 
-#if (NGX_HTTP_UPSTREAM_ZONE)
     if (rrp->peers->generation
         && (rcf->ranges == NULL
             || rcf->generation != *rrp->peers->generation))
@@ -204,9 +206,9 @@ ngx_http_upstream_init_random_peer(ngx_http_request_t *r,
 
         rcf->generation = *rrp->peers->generation;
     }
-#endif
 
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
+#endif
 
     return NGX_OK;
 }

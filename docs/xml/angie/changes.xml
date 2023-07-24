@@ -7,6 +7,19 @@
 
 <changes ver="1.3.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+сборка завершалась ошибкой при использовании опции ./configure
+"--without-http_upstream_zone_module";
+ошибка появилась в 1.2.0.
+</para>
+<para lang="en">
+compilation failed when ./configure option
+"--without-http_upstream_zone_module" was used;
+the bug had appeared in 1.2.0.
+</para>
+</change>
+
 </changes>
 
 

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2023 Web Server LLC
  */
 
 
@@ -311,7 +311,7 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
             ngx_str_set(&ctx->err, "PathNotFound");
 
             len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
-                               "Requested API element \"/%V\" doesn't exist.",
+                               "Requested API entity \"/%V\" doesn't exist.",
                                &ctx->orig_path)
                   - errstr;
 
@@ -324,7 +324,7 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 
             len = ngx_snprintf(errstr, NGX_MAX_ERROR_STR,
                                "The %V method is not allowed for "
-                               "the requested API element \"/%V\".",
+                               "the requested API entity \"/%V\".",
                                &r->method_name, &ctx->orig_path)
                   - errstr;
 
@@ -334,16 +334,15 @@ ngx_http_api_error(ngx_http_request_t *r, ngx_api_ctx_t *ctx, ngx_uint_t status)
 
         case NGX_HTTP_BAD_REQUEST:
             ngx_str_set(&ctx->err, "BadRequest");
-            ngx_str_set(&ctx->err_desc, "Client sent invalid request.");
+            ngx_str_set(&ctx->err_desc, "HTTP request is invalid.");
             break;
 
         case NGX_HTTP_INTERNAL_SERVER_ERROR:
         default:
             ngx_str_set(&ctx->err, "InternalError");
             ngx_str_set(&ctx->err_desc,
-                        "Something went wrong during the API request "
-                        "processing.  Check error log for additional "
-                        "details.");
+                        "Something went wrong during API request processing.  "
+                        "Check the error log for additional details.");
         }
     }
 

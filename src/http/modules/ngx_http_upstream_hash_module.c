@@ -302,7 +302,7 @@ ngx_http_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
         peer->checked = now;
     }
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     peer->stats.requests++;
     peer->stats.selected = now;
 #endif
@@ -723,7 +723,7 @@ found:
         best->checked = now;
     }
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     best->stats.requests++;
     best->stats.selected = now;
 #endif

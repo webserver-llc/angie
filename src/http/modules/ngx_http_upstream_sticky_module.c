@@ -223,7 +223,7 @@ again:
             peer->checked = now;
         }
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
         peer->stats.requests++;
         peer->stats.selected = now;
 #endif

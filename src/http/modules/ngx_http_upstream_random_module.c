@@ -325,7 +325,7 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     peer->stats.requests++;
     peer->stats.selected = now;
 #endif
@@ -466,7 +466,7 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     peer->stats.requests++;
     peer->stats.selected = now;
 #endif

@@ -26,7 +26,7 @@ static ngx_inline ngx_int_t ngx_http_upstream_set_round_robin_peer(
     ngx_http_upstream_server_t *server);
 static ngx_http_upstream_rr_peer_t *ngx_http_upstream_get_peer(
     ngx_http_upstream_rr_peer_data_t *rrp);
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
 static void ngx_http_upstream_stat(ngx_peer_connection_t *pc,
     ngx_http_upstream_rr_peer_t *peer, ngx_uint_t state);
 #endif
@@ -660,7 +660,7 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     peer->stats.requests++;
     peer->stats.selected = ngx_time();
 #endif
@@ -846,7 +846,7 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 
     peer->conns--;
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_stat(pc, peer, state);
 #endif
 
@@ -862,7 +862,7 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 }
 
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
 
 static void
 ngx_http_upstream_stat(ngx_peer_connection_t *pc,

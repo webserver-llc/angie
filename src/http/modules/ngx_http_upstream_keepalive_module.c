@@ -35,7 +35,7 @@ typedef struct {
     socklen_t                          socklen;
     ngx_sockaddr_t                     sockaddr;
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_rr_peers_t      *rr_peers;
 #endif
 
@@ -257,7 +257,7 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
             ngx_queue_remove(q);
             ngx_queue_insert_head(&kcf->free, q);
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
             if (item->rr_peers) {
                 (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive,
                                             -1);
@@ -369,7 +369,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
         ngx_http_upstream_keepalive_close(item->connection);
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
         if (item->rr_peers) {
             (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, -1);
         }
@@ -384,7 +384,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     ngx_queue_insert_head(&kcf->cache, q);
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     if (u->upstream && (u->upstream->flags & NGX_HTTP_UPSTREAM_CONF)) {
         item->rr_peers = u->upstream->peer.data;
         (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, 1);
@@ -478,7 +478,7 @@ close:
     ngx_queue_remove(&item->queue);
     ngx_queue_insert_head(&conf->free, &item->queue);
 
-#if (NGX_API)
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
     if (item->rr_peers) {
         (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, -1);
     }

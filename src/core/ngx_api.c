@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2023 Web Server LLC
  */
 
 
@@ -566,6 +566,8 @@ ngx_api_entries_dup(ngx_api_entry_t *entry, ngx_log_t *log)
         if (entry->handler == &ngx_api_object_handler) {
             entry->data.ents = ngx_api_entries_dup(entry->data.ents, log);
             if (entry->data.ents == NULL) {
+                ngx_memzero(entry, sizeof(ngx_api_entry_t));
+                ngx_api_entries_free(dup);
                 return NULL;
             }
         }

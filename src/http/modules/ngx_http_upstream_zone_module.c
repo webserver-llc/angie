@@ -614,6 +614,9 @@ ngx_http_upstream_zone_copy_peer(ngx_http_upstream_rr_peers_t *peers,
 #if (NGX_HTTP_UPSTREAM_SID)
         dst->sid.data = NULL;
 #endif
+#if (NGX_API)
+        dst->stats.responses = NULL;
+#endif
     }
 
     dst->sockaddr = ngx_slab_calloc_locked(pool, sizeof(ngx_sockaddr_t));
@@ -625,6 +628,13 @@ ngx_http_upstream_zone_copy_peer(ngx_http_upstream_rr_peers_t *peers,
     if (dst->name.data == NULL) {
         goto failed;
     }
+
+#if (NGX_API)
+    dst->stats.responses = ngx_slab_calloc_locked(pool, sizeof(uint64_t) * 501);
+    if (dst->stats.responses == NULL) {
+        goto failed;
+    }
+#endif
 
     if (src) {
         ngx_memcpy(dst->sockaddr, src->sockaddr, src->socklen);
@@ -702,6 +712,12 @@ failed:
 #if (NGX_HTTP_UPSTREAM_SID)
     if (dst->sid.data) {
         ngx_slab_free_locked(pool, dst->sid.data);
+    }
+#endif
+
+#if (NGX_API)
+    if (dst->stats.responses) {
+        ngx_slab_free_locked(pool, dst->stats.responses);
     }
 #endif
 
@@ -1135,14 +1151,14 @@ ngx_api_http_upstream_peer_response_codes_handler(ngx_api_entry_data_t data,
 {
     ngx_http_upstream_rr_peer_t *peer = ctx;
 
-    void                *codes;
-    ngx_api_iter_ctx_t   ictx;
+    void                **codes;
+    ngx_api_iter_ctx_t    ictx;
 
-    codes = (u_char *) peer + data.off;
+    codes = (void **) ((u_char *) peer + data.off);
 
     ictx.entry.handler = ngx_api_number_handler;
     ictx.ctx = (void *) 0;
-    ictx.elts = codes;
+    ictx.elts = *codes;
 
     return ngx_api_object_iterate(
                                 ngx_api_http_upstream_peer_response_codes_iter,

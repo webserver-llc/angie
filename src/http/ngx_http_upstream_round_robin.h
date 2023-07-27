@@ -29,7 +29,7 @@ typedef struct {
     uint64_t                        requests;
     uint64_t                        fails;
     uint64_t                        unavailable;
-    uint64_t                        responses[501];
+    uint64_t                       *responses;
     uint64_t                        sent;
     uint64_t                        received;
     time_t                          selected;
@@ -197,6 +197,9 @@ ngx_http_upstream_rr_peer_free_locked(ngx_http_upstream_rr_peers_t *peers,
 
     ngx_slab_free_locked(peers->shpool, peer->sockaddr);
     ngx_slab_free_locked(peers->shpool, peer->name.data);
+#if (NGX_API)
+    ngx_slab_free_locked(peers->shpool, peer->stats.responses);
+#endif
 
     if (peer->server.data) {
         ngx_slab_free_locked(peers->shpool, peer->server.data);

@@ -905,8 +905,7 @@ ngx_http_upstream_stat(ngx_peer_connection_t *pc,
     r = c->data;
     u = r->upstream;
 
-    if (u->upstream == NULL || u->upstream->srv_conf == NULL) {
-        /* implicit upstream */
+    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
         return;
     }
 

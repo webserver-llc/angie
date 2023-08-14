@@ -1969,7 +1969,8 @@ sub build_stream {
 	my $length = $extra{length} ? $extra{length} : build_int(length($r));
 	my $offset = build_int($extra{offset} ? $extra{offset} : 0);
 	my $sid = defined $extra{sid} ? $extra{sid} : $self->{requests}++;
-	pack("CC", $stream, 4 * $sid) . $offset . $length . $r;
+	$sid = build_int(4 * $sid);
+	pack("C", $stream) . $sid . $offset . $length . $r;
 }
 
 sub parse_int {

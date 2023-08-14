@@ -208,6 +208,7 @@ sub handshake {
 	}
 
 	$self->read_tls_message(\$buf, \&parse_tls_finished);
+	$self->{buf} = $buf;
 
 	# tls13_advance_key_schedule(application)
 

@@ -1727,7 +1727,13 @@ mask:
 		& ($level == 3 ? "\x1f" : "\x0f");
 	my $pnl = unpack("C", substr($buf, 0, 1) & "\x03") + 1;
 	substr($buf, $offset, $pnl) ^= substr($mask, 1);
-	my $pn = unpack("C", substr($buf, $offset, $pnl));
+
+	my $pn = 0;
+	for my $n (1 .. $pnl) {
+		$pn += unpack("C", substr($buf, $offset + $n - 1, 1))
+			<< ($pnl - $n) * 8;
+	}
+
 	my $ad = substr($buf, 0, $offset + $pnl);
 	return ($ad, $pnl, $pn);
 }

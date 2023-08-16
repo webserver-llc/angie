@@ -514,6 +514,18 @@ sub read {
 			goto frames;
 		}
 
+		if (!length($buf) && $eof) {
+			# emulate empty DATA frame
+			$length = 0;
+			$frame->{length} = $length;
+			$frame->{type} = 'DATA';
+			$frame->{data} = '';
+			$frame->{flags} = $eof;
+			$frame->{sid} = $stream;
+			$frame->{uni} = $uni if defined $uni;
+			goto push_me;
+		}
+
 		if (length($self->{frames_incomplete}[$stream]{buf})) {
 			$buf = $self->{frames_incomplete}[$stream]{buf} . $buf;
 		}

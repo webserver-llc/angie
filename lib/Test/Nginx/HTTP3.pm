@@ -2100,6 +2100,9 @@ sub parse_stream {
 		my $stream = $self->{stream_in}[$i];
 		next if !defined $stream;
 
+		my $offset = $stream->{buf}[0][0];
+		next if $offset != 0;
+
 		my $buf = $stream->{buf}[0][2];
 
 		if ($stream->{buf}[0][3]) {

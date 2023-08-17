@@ -6,7 +6,7 @@ TEMP =		tmp
 
 CC =		cl
 OBJS =		objs.msvc8
-OPENSSL =	openssl-1.1.1t
+OPENSSL =	openssl-3.0.10
 ZLIB =		zlib-1.2.13
 PCRE =		pcre2-10.39
 
@@ -95,7 +95,7 @@ zip: export
 	$(MAKE) -f docs/GNUmakefile changes
 	mv $(TEMP)/$(ANGIE)/CHANGES* $(TEMP)/$(ANGIE)/docs/
 
-	cp -p $(OBJS)/lib/$(OPENSSL)/LICENSE				\
+	cp -p $(OBJS)/lib/$(OPENSSL)/LICENSE.txt			\
 		$(TEMP)/$(ANGIE)/docs/OpenSSL.LICENSE
 
 	cp -p $(OBJS)/lib/$(PCRE)/LICENCE				\

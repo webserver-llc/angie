@@ -207,9 +207,9 @@ ngx_quic_rtt_sample(ngx_connection_t *c, ngx_quic_ack_frame_t *ack,
             adjusted_rtt -= ack_delay;
         }
 
-        qc->avg_rtt += (adjusted_rtt >> 3) - (qc->avg_rtt >> 3);
         rttvar_sample = ngx_abs((ngx_msec_int_t) (qc->avg_rtt - adjusted_rtt));
         qc->rttvar += (rttvar_sample >> 2) - (qc->rttvar >> 2);
+        qc->avg_rtt += (adjusted_rtt >> 3) - (qc->avg_rtt >> 3);
     }
 
     ngx_log_debug4(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -228,6 +228,12 @@ ngx_quic_handle_ack_frame_range(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx,
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
+
+    if (ctx->level == ssl_encryption_application) {
+        if (ngx_quic_handle_path_mtu(c, qc->path, min, max) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
 
     st->max_pn = NGX_TIMER_INFINITE;
     found = 0;
@@ -548,6 +554,7 @@ ngx_quic_persistent_congestion(ngx_connection_t *c)
 void
 ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
 {
+    uint64_t                pnum;
     ngx_queue_t            *q;
     ngx_quic_frame_t       *f, *start;
     ngx_quic_stream_t      *qs;
@@ -556,6 +563,7 @@ ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
     qc = ngx_quic_get_connection(c);
     q = ngx_queue_head(&ctx->sent);
     start = ngx_queue_data(q, ngx_quic_frame_t, queue);
+    pnum = start->pnum;
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic resend packet pnum:%uL", start->pnum);
@@ -565,7 +573,7 @@ ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
     do {
         f = ngx_queue_data(q, ngx_quic_frame_t, queue);
 
-        if (f->pnum != start->pnum) {
+        if (f->pnum != pnum) {
             break;
         }
 
@@ -818,9 +826,9 @@ ngx_quic_pto_handler(ngx_event_t *ev)
 {
     ngx_uint_t              i;
     ngx_msec_t              now;
-    ngx_queue_t            *q, *next;
+    ngx_queue_t            *q;
     ngx_connection_t       *c;
-    ngx_quic_frame_t       *f;
+    ngx_quic_frame_t       *f, frame;
     ngx_quic_send_ctx_t    *ctx;
     ngx_quic_connection_t  *qc;
 
@@ -838,7 +846,7 @@ ngx_quic_pto_handler(ngx_event_t *ev)
             continue;
         }
 
-        q = ngx_queue_head(&ctx->sent);
+        q = ngx_queue_last(&ctx->sent);
         f = ngx_queue_data(q, ngx_quic_frame_t, queue);
 
         if (f->pnum <= ctx->largest_ack
@@ -857,62 +865,22 @@ ngx_quic_pto_handler(ngx_event_t *ev)
                        "quic pto %s pto_count:%ui",
                        ngx_quic_level_name(ctx->level), qc->pto_count);
 
-        for (q = ngx_queue_head(&ctx->frames);
-             q != ngx_queue_sentinel(&ctx->frames);
-             /* void */)
+        ngx_memzero(&frame, sizeof(ngx_quic_frame_t));
+
+        frame.level = ctx->level;
+        frame.type = NGX_QUIC_FT_PING;
+
+        if (ngx_quic_frame_sendto(c, &frame, 0, qc->path) != NGX_OK
+            || ngx_quic_frame_sendto(c, &frame, 0, qc->path) != NGX_OK)
         {
-            next = ngx_queue_next(q);
-            f = ngx_queue_data(q, ngx_quic_frame_t, queue);
-
-            if (f->type == NGX_QUIC_FT_PING) {
-                ngx_queue_remove(q);
-                ngx_quic_free_frame(c, f);
-            }
-
-            q = next;
+            ngx_quic_close_connection(c, NGX_ERROR);
+            return;
         }
-
-        for (q = ngx_queue_head(&ctx->sent);
-             q != ngx_queue_sentinel(&ctx->sent);
-             /* void */)
-        {
-            next = ngx_queue_next(q);
-            f = ngx_queue_data(q, ngx_quic_frame_t, queue);
-
-            if (f->type == NGX_QUIC_FT_PING) {
-                ngx_quic_congestion_lost(c, f);
-                ngx_queue_remove(q);
-                ngx_quic_free_frame(c, f);
-            }
-
-            q = next;
-        }
-
-        /* enforce 2 udp datagrams */
-
-        f = ngx_quic_alloc_frame(c);
-        if (f == NULL) {
-            break;
-        }
-
-        f->level = ctx->level;
-        f->type = NGX_QUIC_FT_PING;
-        f->flush = 1;
-
-        ngx_quic_queue_frame(qc, f);
-
-        f = ngx_quic_alloc_frame(c);
-        if (f == NULL) {
-            break;
-        }
-
-        f->level = ctx->level;
-        f->type = NGX_QUIC_FT_PING;
-
-        ngx_quic_queue_frame(qc, f);
     }
 
     qc->pto_count++;
+
+    ngx_quic_set_lost_timer(c);
 
     ngx_quic_connstate_dbg(c);
 }
@@ -1171,7 +1139,8 @@ ngx_quic_generate_ack(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
         delay = ngx_current_msec - ctx->ack_delay_start;
         qc = ngx_quic_get_connection(c);
 
-        if (ctx->send_ack < NGX_QUIC_MAX_ACK_GAP
+        if (ngx_queue_empty(&ctx->frames)
+            && ctx->send_ack < NGX_QUIC_MAX_ACK_GAP
             && delay < qc->tp.max_ack_delay)
         {
             if (!qc->push.timer_set && !qc->closing) {

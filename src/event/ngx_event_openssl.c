@@ -152,12 +152,41 @@ int  ngx_ssl_stapling_index;
 ngx_int_t
 ngx_ssl_init(ngx_log_t *log)
 {
-#if OPENSSL_VERSION_NUMBER >= 0x10100003L
+#if (OPENSSL_INIT_LOAD_CONFIG && !defined LIBRESSL_VERSION_NUMBER)
 
-    if (OPENSSL_init_ssl(OPENSSL_INIT_LOAD_CONFIG, NULL) == 0) {
+    uint64_t                opts;
+    OPENSSL_INIT_SETTINGS  *init;
+
+    opts = OPENSSL_INIT_LOAD_CONFIG;
+
+#if (NGX_OPENSSL_NO_CONFIG)
+
+    if (getenv("OPENSSL_CONF") == NULL) {
+        opts = OPENSSL_INIT_NO_LOAD_CONFIG;
+    }
+
+#endif
+
+    init = OPENSSL_INIT_new();
+    if (init == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "OPENSSL_INIT_new() failed");
+        return NGX_ERROR;
+    }
+
+#ifndef OPENSSL_NO_STDIO
+    if (OPENSSL_INIT_set_config_appname(init, "angie") == 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0,
+                      "OPENSSL_INIT_set_config_appname() failed");
+        return NGX_ERROR;
+    }
+#endif
+
+    if (OPENSSL_init_ssl(opts, init) == 0) {
         ngx_ssl_error(NGX_LOG_ALERT, log, 0, "OPENSSL_init_ssl() failed");
         return NGX_ERROR;
     }
+
+    OPENSSL_INIT_free(init);
 
     /*
      * OPENSSL_init_ssl() may leave errors in the error queue
@@ -168,7 +197,15 @@ ngx_ssl_init(ngx_log_t *log)
 
 #else
 
-    OPENSSL_config(NULL);
+#if (NGX_OPENSSL_NO_CONFIG)
+
+    if (getenv("OPENSSL_CONF") == NULL) {
+        OPENSSL_no_config();
+    }
+
+#endif
+
+    OPENSSL_config("angie");
 
     SSL_library_init();
     SSL_load_error_strings();

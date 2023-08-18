@@ -73,9 +73,7 @@ $t->run();
 
 ###############################################################################
 
-my ($s, $sid, $frames, $frame);
-
-$s = Test::Nginx::HTTP3->new();
+my $s = Test::Nginx::HTTP3->new();
 ok(get($s), 'request');
 
 # sets the Key Phase bit

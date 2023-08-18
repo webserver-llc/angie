@@ -65,6 +65,7 @@ sub new {
 sub init {
 	my ($self) = @_;
 	$self->{keys} = [];
+	$self->{key_phase} = 0;
 	$self->{pn} = [[-1, -1, -1, -1], [-1, -1, -1, -1]];
 	$self->{crypto_in} = [[],[],[],[]];
 	$self->{stream_in} = [];
@@ -1775,7 +1776,9 @@ sub encrypt_aead_f {
 sub encrypt_aead {
 	my ($self, $payload, $level) = @_;
 	my $pn = ++$self->{pn}[0][$level];
-	my $ad = pack("C", $level == 3 ? 0x40 : 0xc + $level << 4) | "\x03";
+	my $ad = pack("C", $level == 3
+		? 0x40 | ($self->{key_phase} << 2)
+		: 0xc + $level << 4) | "\x03";
 	$ad .= "\x00\x00\x00\x01" unless $level == 3;
 	$ad .= $level == 3 ? $self->{dcid} :
 		pack("C", length($self->{dcid})) . $self->{dcid}
@@ -1865,6 +1868,26 @@ sub set_traffic_keys {
 	$self->{keys}[$level]{$direction}{key} = $key;
 	$self->{keys}[$level]{$direction}{iv} = $iv;
 	$self->{keys}[$level]{$direction}{hp} = $hp;
+}
+
+sub key_update {
+	my ($self) = @_;
+	my ($prk, $key, $iv);
+	my $klen = $self->{cipher} == 0x1301 || $self->{cipher} == 0x1304
+		? 16 : 32;
+	my ($hash, $hlen) = $self->{cipher} == 0x1302 ?
+		('SHA384', 48) : ('SHA256', 32);
+	$self->{key_phase} ^= 1;
+
+	for my $direction ('r', 'w') {
+		$prk = $self->{keys}[3]{$direction}{prk};
+		$prk = hkdf_expand_label("tls13 quic ku", $hash, $hlen, $prk);
+		$key = hkdf_expand_label("tls13 quic key", $hash, $klen, $prk);
+		$iv = hkdf_expand_label("tls13 quic iv", $hash, 12, $prk);
+		$self->{keys}[3]{$direction}{prk} = $prk;
+		$self->{keys}[3]{$direction}{key} = $key;
+		$self->{keys}[3]{$direction}{iv} = $iv;
+	}
 }
 
 sub hmac_finished {

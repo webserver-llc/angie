@@ -129,7 +129,13 @@ $s->{socket} = IO::Socket::INET->new(
 $s->{scid} = "connection_id_1";
 $s->{dcid} = $frame->{cid};
 
-$frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+my $sid = $s->new_stream();
+
+$frames = $s->read(all => [{ type => 'PATH_CHALLENGE' }]);
+($frame) = grep { $_->{type} eq "PATH_CHALLENGE" } @$frames;
+$s->path_response($frame->{data});
+
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-ip'}, '127.0.0.1', 'remote addr on migration');
 

@@ -1721,6 +1721,18 @@ sub decrypt_aead {
 	my ($f, @args) = decrypt_aead_f($level, $self->{cipher});
 	my $plaintext = $f->(@args,
 		$self->{keys}[$level]{r}{key}, $nonce, $ad, $ciphertext, $tag);
+	if ($level == 3 && $self->{keys}[4]) {
+		if (!defined $plaintext) {
+			# in-flight packets might be protected with old keys
+			$nonce = substr(pack("x12") . pack("N", $pn), -12)
+				^ $self->{keys}[4]{r}{iv};
+			$plaintext = $f->(@args, $self->{keys}[4]{r}{key},
+				$nonce, $ad, $ciphertext, $tag);
+		} else {
+			# remove old keys after unprotected with new keys
+			splice @{$self->{keys}}, 4, 1;
+		}
+	}
 	return if !defined $plaintext;
 	Test::Nginx::log_core('||',
 		"pn = $pn, level = $level, length = " . length($plaintext));
@@ -1884,6 +1896,10 @@ sub key_update {
 		$prk = hkdf_expand_label("tls13 quic ku", $hash, $hlen, $prk);
 		$key = hkdf_expand_label("tls13 quic key", $hash, $klen, $prk);
 		$iv = hkdf_expand_label("tls13 quic iv", $hash, 12, $prk);
+		$self->{keys}[4]{$direction}{key} =
+			$self->{keys}[3]{$direction}{key};
+		$self->{keys}[4]{$direction}{iv} =
+			$self->{keys}[3]{$direction}{iv};
 		$self->{keys}[3]{$direction}{prk} = $prk;
 		$self->{keys}[3]{$direction}{key} = $key;
 		$self->{keys}[3]{$direction}{iv} = $iv;

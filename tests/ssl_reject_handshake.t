@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni socket_ssl/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -47,16 +47,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081;
-        server_name  ssl;
-
-        ssl on;
-        ssl_reject_handshake on;
-    }
-
-    server {
         listen       127.0.0.1:8080;
-        listen       127.0.0.1:8081;
         server_name  virtual;
 
         ssl_certificate localhost.crt;
@@ -105,12 +96,7 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', '');
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run()->plan(9);
-open STDERR, ">&", \*OLDERR;
+$t->run();
 
 ###############################################################################
 
@@ -119,11 +105,6 @@ open STDERR, ">&", \*OLDERR;
 like(get('default', 8080), qr/unrecognized name/, 'default rejected');
 like(get(undef, 8080), qr/unrecognized name/, 'absent sni rejected');
 like(get('virtual', 8080), qr/virtual/, 'virtual accepted');
-
-# default virtual server rejected - ssl on
-
-like(get('default', 8081), qr/unrecognized name/, 'default rejected - ssl on');
-like(get('virtual', 8081), qr/virtual/, 'virtual accepted - ssl on');
 
 # non-default server "virtual2" rejected
 

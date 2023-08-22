@@ -82,7 +82,7 @@ $t->run();
 open STDERR, ">&", \*OLDERR;
 
 plan(skip_all => 'no ALPN negotiation') unless defined getconn();
-$t->plan(3);
+$t->plan(4);
 
 ###############################################################################
 
@@ -111,6 +111,12 @@ my $sid = $s->new_stream();
 my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'alpn to HTTP/2');
+
+# h2c preface on ssl-enabled socket is rejected as invalid HTTP/1.x request,
+# ensure that HTTP/2 auto-detection doesn't kick in
+
+like(http("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"), qr/Bad Request/,
+	'no h2c on ssl socket');
 
 # client cancels last stream after HEADERS has been created,
 # while some unsent data was left in the SSL buffer

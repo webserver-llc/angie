@@ -97,7 +97,12 @@ foreach my $name ('localhost') {
 }
 
 $t->run_daemon(\&dns_daemon, port(8982), $t);
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run()->plan(5);
+open STDERR, ">&", \*OLDERR;
 
 $t->waitforfile($t->testdir . '/' . port(8982));
 

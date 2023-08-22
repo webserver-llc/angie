@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(1);
 
-$t->write_file_expand('nginx.conf', <<'EOF')->run();
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -67,6 +67,12 @@ http {
 }
 
 EOF
+
+# suppress deprecation warning
+
+open OLDERR, ">&", \*STDERR; close STDERR;
+$t->run();
+open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

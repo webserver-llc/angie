@@ -3,7 +3,7 @@
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for HTTP/2 protocol with proxy to ssl backend.
+# Tests for QUIC key update.
 
 ###############################################################################
 
@@ -16,15 +16,15 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::HTTP2;
+use Test::Nginx::HTTP3;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 proxy/)
-	->has_daemon('openssl')->plan(1);
+my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
+	->has_daemon('openssl')->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -38,18 +38,14 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    ssl_certificate_key localhost.key;
+    ssl_certificate localhost.crt;
+
     server {
-        listen       127.0.0.1:8080 http2;
-        listen       127.0.0.1:8081 ssl;
+        listen       127.0.0.1:%%PORT_8980_UDP%% quic;
         server_name  localhost;
 
-        ssl_certificate_key localhost.key;
-        ssl_certificate localhost.crt;
-
         location / { }
-        location /proxy_ssl/ {
-            proxy_pass https://127.0.0.1:8081/;
-        }
     }
 }
 
@@ -73,25 +69,29 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->write_file('index.html', '');
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 
-# request body with an empty DATA frame proxied to ssl backend
-# "zero size buf in output" alerts seen
+my $s = Test::Nginx::HTTP3->new();
+ok(get($s), 'request');
 
-my $s = Test::Nginx::HTTP2->new();
-my $sid = $s->new_stream({ path => '/proxy_ssl/', body_more => 1 });
-$s->h2_body('');
-my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+# sets the Key Phase bit
 
-my ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-is($frame->{headers}->{':status'}, 200, 'empty request body');
+$s->key_update();
+ok(get($s), 'key update 1');
+
+# clears the Key Phase bit
+
+$s->key_update();
+ok(get($s), 'key update 2');
+
+###############################################################################
+
+sub get {
+	my ($s) = @_;
+	my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+	grep { $_->{type} eq "HEADERS" } @$frames;
+}
 
 ###############################################################################

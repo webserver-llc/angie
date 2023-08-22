@@ -23,6 +23,7 @@ sub new {
 	my ($port, %extra) = @_;
 
 	require Crypt::KeyDerivation;
+	require Crypt::PK::ECC;
 	require Crypt::PK::X25519;
 	require Crypt::PRNG;
 	require Crypt::AuthEnc::GCM;
@@ -46,6 +47,7 @@ sub new {
 	$self->{sni} = exists $extra{sni} ? $extra{sni} : 'localhost';
 	$self->{cipher} = 0x1301;
 	$self->{ciphers} = $extra{ciphers} || "\x13\x01";
+	$self->{group} = $extra{group} || 'x25519';
 	$self->{opts} = $extra{opts};
 
 	$self->{zero} = pack("x5");
@@ -126,7 +128,8 @@ sub init_key_schedule {
 		$self->{psk}->{secret} || pack("x$hlen"), pack("x$hlen"),
 		$hash);
 	Test::Nginx::log_core('||', "es = " . unpack("H*", $self->{es_prk}));
-	$self->{sk} = Crypt::PK::X25519->new->generate_key;
+
+	$self->tls_generate_key();
 }
 
 sub initial {
@@ -171,9 +174,7 @@ sub handshake {
 	my $pub = key_share($extens);
 	Test::Nginx::log_core('||', "pub = " . unpack("H*", $pub));
 
-	my $pk = Crypt::PK::X25519->new;
-	$pk->import_key_raw($pub, "public");
-	my $shared_secret = $self->{sk}->shared_secret($pk);
+	my $shared_secret = $self->tls_shared_secret($pub);
 	Test::Nginx::log_core('||', "shared = " . unpack("H*", $shared_secret));
 
 	# tls13_advance_key_schedule
@@ -2307,7 +2308,8 @@ sub parse_tls_nst {
 
 sub build_tls_client_hello {
 	my ($self) = @_;
-	my $key_share = $self->{sk}->export_key_raw('public');
+	my $named_group = $self->tls_named_group();
+	my $key_share = $self->tls_public_key();
 
 	my $version = "\x03\x03";
 	my $random = Crypt::PRNG::random_bytes(32);
@@ -2315,12 +2317,12 @@ sub build_tls_client_hello {
 	my $cipher = pack('n', length($self->{ciphers})) . $self->{ciphers};
 	my $compr = "\x01\x00";
 	my $ext = build_tlsext_server_name($self->{sni})
-		. build_tlsext_supported_groups(29)
+		. build_tlsext_supported_groups($named_group)
 		. build_tlsext_alpn("h3", "hq-interop")
 		. build_tlsext_sigalgs(0x0804, 0x0805, 0x0806)
 		. build_tlsext_supported_versions(0x0304)
 		. build_tlsext_ke_modes(1)
-		. build_tlsext_key_share(29, $key_share)
+		. build_tlsext_key_share($named_group, $key_share)
 		. build_tlsext_quic_tp($self->{scid}, $self->{opts});
 
 	$ext .= build_tlsext_early_data($self->{psk})
@@ -2418,6 +2420,36 @@ sub build_tls_ch_with_binder {
 	my $truncated = substr($ch, 0, -3 - $hlen);
 	my $context = Crypt::Digest::digest_data($hash, $truncated);
 	$truncated . binders($hash, $hlen, $key, $context);
+}
+
+sub tls_generate_key {
+	my ($self) = @_;
+	$self->{sk} = $self->{group} eq 'x25519'
+		? Crypt::PK::X25519->new->generate_key
+		: Crypt::PK::ECC->new->generate_key($self->{group});
+}
+
+sub tls_public_key {
+	my ($self) = @_;
+	$self->{sk}->export_key_raw('public');
+}
+
+sub tls_shared_secret {
+	my ($self, $pub) = @_;
+	my $pk = $self->{group} eq 'x25519'
+		? Crypt::PK::X25519->new : Crypt::PK::ECC->new;
+	$pk->import_key_raw($pub, $self->{group} eq 'x25519'
+		? 'public' : $self->{group});
+	$self->{sk}->shared_secret($pk);
+}
+
+sub tls_named_group {
+	my ($self) = @_;
+	my $name = $self->{group};
+	return 0x17 if $name eq 'secp256r1';
+	return 0x18 if $name eq 'secp384r1';
+	return 0x19 if $name eq 'secp521r1';
+	return 0x1d if $name eq 'x25519';
 }
 
 ###############################################################################

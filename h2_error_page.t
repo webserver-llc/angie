@@ -88,13 +88,19 @@ my $s2 = Test::Nginx::HTTP2->new();
 $sid = $s2->new_stream({ method => 'foo' });
 $frames = $s2->read(all => [{ type => 'RST_STREAM' }]);
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.23.4');
+
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;
 is($frame->{sid}, $sid, 'error 400 return 444 - invalid header');
+
+}
 
 # while keeping $s1 and $s2, stop nginx; this should result in
 # "open socket ... left in connection ..." alerts if any of these
 # sockets are still open
 
 $t->stop();
+$t->todo_alerts() unless $t->has_version('1.23.4');
 
 ###############################################################################

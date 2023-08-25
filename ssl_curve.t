@@ -71,7 +71,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no $ssl_curve')->plan(1);
+$t->run()->plan(1);
 
 ###############################################################################
 

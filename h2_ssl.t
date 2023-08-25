@@ -94,12 +94,7 @@ skip 'OpenSSL too old', 1
 	if $t->has_module('OpenSSL')
 	and not $t->has_feature('openssl:1.1.0');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.4');
-
 ok(!get_ssl_socket(['unknown']), 'alpn rejected');
-
-}
 
 }
 

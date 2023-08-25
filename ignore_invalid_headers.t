@@ -125,14 +125,9 @@ my $bad4 = 'GET / HTTP/1.0' . CRLF
 my $bad5 = 'GET / HTTP/1.0' . CRLF
 	. "foo\x02: x-bar" . CRLF . CRLF;
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.1');
-
 like(http($bad3), qr/400 Bad/, 'colon first');
 like(http($bad4), qr/400 Bad/, 'space');
 like(http($bad5), qr/400 Bad/, 'control');
-
-}
 
 ###############################################################################
 

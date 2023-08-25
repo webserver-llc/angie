@@ -174,17 +174,12 @@ $s = Test::Nginx::IMAP->new(
 );
 $s->ok('alpn');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.4');
-
 $s = Test::Nginx::IMAP->new(
 	PeerAddr => '127.0.0.1:' . port(8148),
 	SSL => 1,
 	SSL_alpn_protocols => [ 'unknown' ]
 );
 ok(!$s->read(), 'alpn rejected');
-
-}
 
 }
 

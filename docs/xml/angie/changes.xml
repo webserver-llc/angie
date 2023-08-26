@@ -38,6 +38,19 @@ now appname "angie" is used when loading OpenSSL configuration.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+отображение номера поколения конфигурации в именах процессов, что позволяет
+с помощью утилиты "ps" отслеживать успех перезагрузок конфигурации и количество
+поколений рабочих процессов с предыдущими версиями конфигурации.
+</para>
+<para lang="en">
+display of the configuration generation number in process titles, which allows
+to monitor the success of configuration reloads and the number of previous
+worker process generations using the "ps" utility.
+</para>
+</change>
+
 </changes>
 
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -76,9 +77,11 @@ ngx_init_setproctitle(ngx_log_t *log)
 
 
 void
-ngx_setproctitle(char *title)
+ngx_setproctitle_fmt(const char *fmt, ...)
 {
+    int         n;
     u_char     *p;
+    va_list     args;
 
 #if (NGX_SOLARIS)
 
@@ -92,7 +95,11 @@ ngx_setproctitle(char *title)
     p = ngx_cpystrn((u_char *) ngx_os_argv[0], (u_char *) "angie: ",
                     ngx_os_argv_last - ngx_os_argv[0]);
 
-    p = ngx_cpystrn(p, (u_char *) title, ngx_os_argv_last - (char *) p);
+    va_start(args, fmt);
+    n = vsnprintf((char *) p, ngx_os_argv_last - (char *) p, fmt, args);
+    va_end(args);
+
+    p += ngx_min(n, ngx_os_argv_last - (char *) p);
 
 #if (NGX_SOLARIS)
 

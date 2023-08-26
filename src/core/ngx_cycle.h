@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -86,9 +86,9 @@ struct ngx_cycle_s {
     ngx_str_t                 lock_file;
     ngx_str_t                 hostname;
 
+    uint64_t                  generation;
 #if (NGX_API)
     ngx_time_t                time;
-    uint64_t                  generation;
 #endif
 };
 

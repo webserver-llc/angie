@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+возможность указывать в директиве "location" несколько строк для сопоставления,
+что позволяет объединить несколько блоков "location" с одинаковыми настройками
+и, таким образом, упростить конфигурацию за счет уменьшения дублирования.
+</para>
+<para lang="en">
+ability to specify multiple match patterns in the "location" directive,
+which allows to combine several "location" blocks with similar settings
+and therefore simplify configuration by reducing duplication.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.2.
 </para>
 <para lang="en">

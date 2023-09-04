@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  * Copyright (C) Manlio Perillo (manlio.perillo@gmail.com)
@@ -1950,9 +1951,7 @@ ngx_http_scgi_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    if (clcf->name.len && clcf->name.data[clcf->name.len - 1] == '/') {
-        clcf->auto_redirect = 1;
-    }
+    clcf->auto_redirect = 1;
 
     return NGX_CONF_OK;
 }

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Unbit S.a.s. 2009-2010
  * Copyright (C) 2008 Manlio Perillo (manlio.perillo@gmail.com)
  * Copyright (C) Igor Sysoev
@@ -2272,9 +2273,7 @@ ngx_http_uwsgi_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    if (clcf->name.len && clcf->name.data[clcf->name.len - 1] == '/') {
-        clcf->auto_redirect = 1;
-    }
+    clcf->auto_redirect = 1;
 
     return NGX_CONF_OK;
 }

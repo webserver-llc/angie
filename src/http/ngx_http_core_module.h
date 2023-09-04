@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -63,6 +63,7 @@ typedef struct ngx_thread_pool_s  ngx_thread_pool_t;
 
 typedef struct ngx_http_location_tree_node_s  ngx_http_location_tree_node_t;
 typedef struct ngx_http_core_loc_conf_s  ngx_http_core_loc_conf_t;
+typedef struct ngx_http_core_loc_s       ngx_http_core_loc_t;
 
 
 typedef struct {
@@ -261,7 +262,7 @@ typedef struct {
     unsigned                    captures:1;
 #endif
 
-    ngx_http_core_loc_conf_t  **named_locations;
+    ngx_http_core_loc_t       **named_locations;
 
 #if (NGX_API)
     ngx_http_stats_zone_t      *server_zone;
@@ -365,7 +366,6 @@ typedef struct {
 
 struct ngx_http_core_loc_conf_s {
     ngx_str_t     name;          /* location name */
-    ngx_str_t     escaped_name;
 
 #if (NGX_PCRE)
     ngx_http_regex_t  *regex;
@@ -386,7 +386,7 @@ struct ngx_http_core_loc_conf_s {
 
     ngx_http_location_tree_node_t   *static_locations;
 #if (NGX_PCRE)
-    ngx_http_core_loc_conf_t       **regex_locations;
+    ngx_http_core_loc_t            **regex_locations;
 #endif
 
     /* pointer to the modules' loc_conf */
@@ -508,16 +508,33 @@ struct ngx_http_core_loc_conf_s {
     ngx_http_core_loc_conf_t  *prev_location;
 #endif
 
+    ngx_http_core_loc_t    *combined;
+
 #if (NGX_API)
     ngx_http_stats_zone_t  *location_zone;
 #endif
 };
 
 
+struct ngx_http_core_loc_s {
+    ngx_str_t                        name;
+#if (NGX_PCRE)
+    ngx_http_regex_t                *regex;
+#endif
+
+    ngx_http_core_loc_conf_t        *conf;
+    ngx_http_core_loc_t             *next;
+
+    unsigned                         named:1;
+    unsigned                         exact_match:1;
+    unsigned                         noregex:1;
+};
+
+
 typedef struct {
     ngx_queue_t                      queue;
-    ngx_http_core_loc_conf_t        *exact;
-    ngx_http_core_loc_conf_t        *inclusive;
+    ngx_http_core_loc_t             *exact;
+    ngx_http_core_loc_t             *inclusive;
     ngx_str_t                       *name;
     u_char                          *file_name;
     ngx_uint_t                       line;
@@ -530,8 +547,8 @@ struct ngx_http_location_tree_node_s {
     ngx_http_location_tree_node_t   *right;
     ngx_http_location_tree_node_t   *tree;
 
-    ngx_http_core_loc_conf_t        *exact;
-    ngx_http_core_loc_conf_t        *inclusive;
+    ngx_http_core_loc_t             *exact;
+    ngx_http_core_loc_t             *inclusive;
 
     u_short                          len;
     u_char                           auto_redirect;

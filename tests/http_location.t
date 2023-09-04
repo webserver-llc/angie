@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2023 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for location selection.
@@ -21,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(14)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(24)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -92,6 +93,16 @@ http {
             add_header X-Location uppercase;
             return 204;
         }
+
+        location =/exact
+                 /pref
+                 ^~/noreg/
+                 ~*\.php$
+                 ~caseaware
+        {
+            add_header X-Location "combined";
+            return 204;
+        }
     }
 }
 
@@ -128,5 +139,27 @@ SKIP: {
 
 like(http_get('/lowercase'), qr/X-Location: lowercase/, 'lowercase');
 like(http_get('/UPPERCASE'), qr/X-Location: uppercase/, 'uppercase');
+
+like(http_get('/exact'), qr/X-Location: combined/, 'combined exact');
+like(http_get('/exact/'), qr/X-Location: root/, 'combined exact miss');
+like(http_get('/prefff'), qr/X-Location: combined/, 'combined prefix');
+like(http_get('/pref/t.gif'), qr/X-Location: regex/,
+     'combined prefix overridden by regex');
+like(http_get('/noreg/t.gif'), qr/X-Location: combined/, 'combined no regex');
+like(http_get('/foo/t.php'), qr/X-Location: combined/, 'combined regex');
+like(http_get('/foo/t.PHP'), qr/X-Location: combined/,
+     'combined regex with mungled case');
+like(http_get('/caseaware/casefull/t.php'), qr/X-Location: casefull/,
+     'combined first regex wins');
+like(http_get('/caseaware/'), qr/X-Location: combined/,
+     'combined casefull regex');
+
+SKIP: {
+	skip 'caseless os', 1
+		if $^O eq 'MSWin32' or $^O eq 'darwin';
+
+	like(http_get('/CASEAWARE/'), qr/X-Location: root/,
+		'combined casefull regex do not match wrong case');
+}
 
 ###############################################################################

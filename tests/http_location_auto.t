@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2023 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for location selection, an auto_redirect edge case.
@@ -21,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -56,6 +57,10 @@ http {
         location /a/  { proxy_pass http://127.0.0.1:8080/a-a; }
         location /a-a { add_header X-Location a-a; return 204; }
         location /a-b { add_header X-Location a-b; return 204; }
+        location /cc /d/ =/e/ =/f/ /a-a/ =/f {
+            rewrite ^ /a-b break;
+            proxy_pass http://127.0.0.1:8080;
+        }
     }
 }
 
@@ -65,9 +70,18 @@ $t->run();
 
 ###############################################################################
 
-like(http_get('/a'), qr/301 Moved/, 'auto redirect');
+my $p = port(8080);
+
+like(http_get('/a'), qr!301 Moved.*Location: http://localhost:$p/a/\x0d?$!ms,
+     'auto redirect');
 like(http_get('/a/'), qr/X-Location: unset/, 'match a');
 like(http_get('/a-a'), qr/X-Location: a-a/, 'match a-a');
 like(http_get('/a-b'), qr/X-Location: a-b/, 'match a-b');
+like(http_get('/c'), qr/404 Not Found/, 'no redirect for /c');
+like(http_get('/d'), qr!301 Moved.*Location: http://localhost:$p/d/\x0d?$!ms,
+     'auto redirect for /d/');
+like(http_get('/e'), qr!301 Moved.*Location: http://localhost:$p/e/\x0d?$!ms,
+     'auto redirect for /e/');
+like(http_get('/f'), qr/X-Location: unset/, 'no redirect for /f');
 
 ###############################################################################

@@ -422,8 +422,8 @@ ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 
-    if (clcf->named) {
-        return "cannot be used inside the named location";
+    if (clcf->named || clcf->combined != NULL) {
+        return "cannot be used inside named or combined locations";
     }
 
     if (!clcf->exact_match

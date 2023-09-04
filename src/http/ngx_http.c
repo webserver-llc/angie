@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -37,8 +38,6 @@ static ngx_int_t ngx_http_init_locations(ngx_conf_t *cf,
     ngx_http_core_srv_conf_t *cscf, ngx_http_core_loc_conf_t *pclcf);
 static ngx_int_t ngx_http_init_static_location_trees(ngx_conf_t *cf,
     ngx_http_core_loc_conf_t *pclcf);
-static ngx_int_t ngx_http_escape_location_name(ngx_conf_t *cf,
-    ngx_http_core_loc_conf_t *clcf);
 static ngx_int_t ngx_http_cmp_locations(const ngx_queue_t *one,
     const ngx_queue_t *two);
 static ngx_int_t ngx_http_join_exact_locations(ngx_conf_t *cf,
@@ -628,6 +627,7 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
     char                       *rv;
     ngx_queue_t                *q;
     ngx_http_conf_ctx_t        *ctx, saved;
+    ngx_http_core_loc_t        *loc;
     ngx_http_core_loc_conf_t   *clcf;
     ngx_http_location_queue_t  *lq;
 
@@ -644,7 +644,13 @@ ngx_http_merge_locations(ngx_conf_t *cf, ngx_queue_t *locations,
     {
         lq = (ngx_http_location_queue_t *) q;
 
-        clcf = lq->exact ? lq->exact : lq->inclusive;
+        loc = lq->exact ? lq->exact : lq->inclusive;
+
+        if (loc->next != NULL) {
+            continue;
+        }
+
+        clcf = loc->conf;
         ctx->loc_conf = clcf->loc_conf;
 
         rv = module->merge_loc_conf(cf, loc_conf[ctx_index],
@@ -672,9 +678,8 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
 {
     ngx_uint_t                   n;
     ngx_queue_t                 *q, *locations, *named, tail;
-    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_core_loc_t        **locp, *loc;
     ngx_http_location_queue_t   *lq;
-    ngx_http_core_loc_conf_t   **clcfp;
 #if (NGX_PCRE)
     ngx_uint_t                   r;
     ngx_queue_t                 *regex;
@@ -701,15 +706,17 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     {
         lq = (ngx_http_location_queue_t *) q;
 
-        clcf = lq->exact ? lq->exact : lq->inclusive;
+        loc = lq->exact ? lq->exact : lq->inclusive;
 
-        if (ngx_http_init_locations(cf, NULL, clcf) != NGX_OK) {
+        if (loc->next == NULL
+            && ngx_http_init_locations(cf, NULL, loc->conf) != NGX_OK)
+        {
             return NGX_ERROR;
         }
 
 #if (NGX_PCRE)
 
-        if (clcf->regex) {
+        if (loc->regex) {
             r++;
 
             if (regex == NULL) {
@@ -721,7 +728,7 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
 
 #endif
 
-        if (clcf->named) {
+        if (loc->named) {
             n++;
 
             if (named == NULL) {
@@ -731,7 +738,7 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
             continue;
         }
 
-        if (clcf->noname) {
+        if (loc->conf->noname) {
             break;
         }
     }
@@ -741,13 +748,12 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
     }
 
     if (named) {
-        clcfp = ngx_palloc(cf->pool,
-                           (n + 1) * sizeof(ngx_http_core_loc_conf_t *));
-        if (clcfp == NULL) {
+        locp = ngx_palloc(cf->pool, (n + 1) * sizeof(ngx_http_core_loc_t *));
+        if (locp == NULL) {
             return NGX_ERROR;
         }
 
-        cscf->named_locations = clcfp;
+        cscf->named_locations = locp;
 
         for (q = named;
              q != ngx_queue_sentinel(locations);
@@ -755,10 +761,10 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
         {
             lq = (ngx_http_location_queue_t *) q;
 
-            *(clcfp++) = lq->exact;
+            *(locp++) = lq->exact;
         }
 
-        *clcfp = NULL;
+        *locp = NULL;
 
         ngx_queue_split(locations, named, &tail);
     }
@@ -767,13 +773,12 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
 
     if (regex) {
 
-        clcfp = ngx_palloc(cf->pool,
-                           (r + 1) * sizeof(ngx_http_core_loc_conf_t *));
-        if (clcfp == NULL) {
+        locp = ngx_palloc(cf->pool, (r + 1) * sizeof(ngx_http_core_loc_t *));
+        if (locp == NULL) {
             return NGX_ERROR;
         }
 
-        pclcf->regex_locations = clcfp;
+        pclcf->regex_locations = locp;
 
         for (q = regex;
              q != ngx_queue_sentinel(locations);
@@ -781,10 +786,10 @@ ngx_http_init_locations(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
         {
             lq = (ngx_http_location_queue_t *) q;
 
-            *(clcfp++) = lq->exact;
+            *(locp++) = lq->exact;
         }
 
-        *clcfp = NULL;
+        *locp = NULL;
 
         ngx_queue_split(locations, regex, &tail);
     }
@@ -800,7 +805,7 @@ ngx_http_init_static_location_trees(ngx_conf_t *cf,
     ngx_http_core_loc_conf_t *pclcf)
 {
     ngx_queue_t                *q, *locations;
-    ngx_http_core_loc_conf_t   *clcf;
+    ngx_http_core_loc_t        *loc;
     ngx_http_location_queue_t  *lq;
 
     locations = pclcf->locations;
@@ -819,9 +824,11 @@ ngx_http_init_static_location_trees(ngx_conf_t *cf,
     {
         lq = (ngx_http_location_queue_t *) q;
 
-        clcf = lq->exact ? lq->exact : lq->inclusive;
+        loc = lq->exact ? lq->exact : lq->inclusive;
 
-        if (ngx_http_init_static_location_trees(cf, clcf) != NGX_OK) {
+        if (loc->next == NULL
+            && ngx_http_init_static_location_trees(cf, loc->conf) != NGX_OK)
+        {
             return NGX_ERROR;
         }
     }
@@ -845,6 +852,7 @@ ngx_int_t
 ngx_http_add_location(ngx_conf_t *cf, ngx_queue_t **locations,
     ngx_http_core_loc_conf_t *clcf)
 {
+    ngx_http_core_loc_t        *loc;
     ngx_http_location_queue_t  *lq;
 
     if (*locations == NULL) {
@@ -857,67 +865,51 @@ ngx_http_add_location(ngx_conf_t *cf, ngx_queue_t **locations,
         ngx_queue_init(*locations);
     }
 
-    lq = ngx_palloc(cf->temp_pool, sizeof(ngx_http_location_queue_t));
-    if (lq == NULL) {
+    loc = ngx_palloc(cf->pool, sizeof(ngx_http_core_loc_t));
+    if (loc == NULL) {
         return NGX_ERROR;
     }
 
-    if (clcf->exact_match
+    loc->name = clcf->name;
 #if (NGX_PCRE)
-        || clcf->regex
+    loc->regex = clcf->regex;
 #endif
-        || clcf->named || clcf->noname)
-    {
-        lq->exact = clcf;
-        lq->inclusive = NULL;
+    loc->named = clcf->named;
+    loc->exact_match = clcf->exact_match;
+    loc->noregex = clcf->noregex;
+    loc->conf = clcf;
+    loc->next = clcf->combined;
 
-    } else {
-        lq->exact = NULL;
-        lq->inclusive = clcf;
-    }
-
-    lq->name = &clcf->name;
-    lq->file_name = cf->conf_file->file.name.data;
-    lq->line = cf->conf_file->line;
-
-    ngx_queue_init(&lq->list);
-
-    ngx_queue_insert_tail(*locations, &lq->queue);
-
-    if (ngx_http_escape_location_name(cf, clcf) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_escape_location_name(ngx_conf_t *cf, ngx_http_core_loc_conf_t *clcf)
-{
-    u_char     *p;
-    size_t      len;
-    uintptr_t   escape;
-
-    escape = 2 * ngx_escape_uri(NULL, clcf->name.data, clcf->name.len,
-                                NGX_ESCAPE_URI);
-
-    if (escape) {
-        len = clcf->name.len + escape;
-
-        p = ngx_pnalloc(cf->pool, len);
-        if (p == NULL) {
+    do {
+        lq = ngx_palloc(cf->temp_pool, sizeof(ngx_http_location_queue_t));
+        if (lq == NULL) {
             return NGX_ERROR;
         }
 
-        clcf->escaped_name.len = len;
-        clcf->escaped_name.data = p;
+        if (loc->exact_match
+#if (NGX_PCRE)
+            || loc->regex
+#endif
+            || loc->named || loc->conf->noname)
+        {
+            lq->exact = loc;
+            lq->inclusive = NULL;
 
-        ngx_escape_uri(p, clcf->name.data, clcf->name.len, NGX_ESCAPE_URI);
+        } else {
+            lq->exact = NULL;
+            lq->inclusive = loc;
+        }
 
-    } else {
-        clcf->escaped_name = clcf->name;
-    }
+        lq->name = &loc->name;
+        lq->file_name = cf->conf_file->file.name.data;
+        lq->line = cf->conf_file->line;
+
+        ngx_queue_init(&lq->list);
+
+        ngx_queue_insert_tail(*locations, &lq->queue);
+
+        loc = loc->next;
+    } while (loc != NULL);
 
     return NGX_OK;
 }
@@ -927,7 +919,7 @@ static ngx_int_t
 ngx_http_cmp_locations(const ngx_queue_t *one, const ngx_queue_t *two)
 {
     ngx_int_t                   rc;
-    ngx_http_core_loc_conf_t   *first, *second;
+    ngx_http_core_loc_t        *first, *second;
     ngx_http_location_queue_t  *lq1, *lq2;
 
     lq1 = (ngx_http_location_queue_t *) one;
@@ -936,17 +928,17 @@ ngx_http_cmp_locations(const ngx_queue_t *one, const ngx_queue_t *two)
     first = lq1->exact ? lq1->exact : lq1->inclusive;
     second = lq2->exact ? lq2->exact : lq2->inclusive;
 
-    if (first->noname && !second->noname) {
+    if (first->conf->noname && !second->conf->noname) {
         /* shift no named locations to the end */
         return 1;
     }
 
-    if (!first->noname && second->noname) {
+    if (!first->conf->noname && second->conf->noname) {
         /* shift no named locations to the end */
         return -1;
     }
 
-    if (first->noname || second->noname) {
+    if (first->conf->noname || second->conf->noname) {
         /* do not sort no named locations */
         return 0;
     }
@@ -1107,6 +1099,7 @@ ngx_http_create_locations_tree(ngx_conf_t *cf, ngx_queue_t *locations,
 {
     size_t                          len;
     ngx_queue_t                    *q, tail;
+    ngx_http_core_loc_t            *loc;
     ngx_http_location_queue_t      *lq;
     ngx_http_location_tree_node_t  *node;
 
@@ -1127,8 +1120,11 @@ ngx_http_create_locations_tree(ngx_conf_t *cf, ngx_queue_t *locations,
     node->exact = lq->exact;
     node->inclusive = lq->inclusive;
 
-    node->auto_redirect = (u_char) ((lq->exact && lq->exact->auto_redirect)
-                           || (lq->inclusive && lq->inclusive->auto_redirect));
+    loc = lq->exact ? lq->exact : lq->inclusive;
+
+    node->auto_redirect = (loc->conf->auto_redirect
+                           && loc->name.len
+                           && loc->name.data[loc->name.len - 1] == '/');
 
     node->len = (u_short) len;
     ngx_memcpy(node->name, &lq->name->data[prefix], len);

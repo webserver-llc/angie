@@ -4185,10 +4185,7 @@ ngx_http_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 
     clcf->handler = ngx_http_proxy_handler;
-
-    if (clcf->name.len && clcf->name.data[clcf->name.len - 1] == '/') {
-        clcf->auto_redirect = 1;
-    }
+    clcf->auto_redirect = 1;
 
     value = cf->args->elts;
 
@@ -4266,15 +4263,17 @@ ngx_http_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #if (NGX_PCRE)
         || clcf->regex
 #endif
-        || clcf->noname)
+        || clcf->noname
+        || clcf->combined != NULL)
     {
         if (plcf->vars.uri.len) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "\"proxy_pass\" cannot have URI part in "
-                               "location given by regular expression, "
-                               "or inside named location, "
-                               "or inside \"if\" statement, "
-                               "or inside \"limit_except\" block");
+                               "a location specified with a regex, "
+                               "inside a named location, "
+                               "inside a combined location, "
+                               "inside an \"if\" statement, "
+                               "or inside a \"limit_except\" block");
             return NGX_CONF_ERROR;
         }
 

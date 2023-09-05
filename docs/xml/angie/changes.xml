@@ -31,13 +31,15 @@ all functionality of nginx 1.25.2.
 
 <change type="bugfix">
 <para lang="ru">
-сборка завершалась ошибкой при использовании опции ./configure
-"--without-http_upstream_zone_module";
+сборка завершалась ошибкой при использовании опций ./configure
+"--without-http_upstream_zone_module"
+и "--without-stream_upstream_zone_module";
 ошибка появилась в 1.2.0.
 </para>
 <para lang="en">
-compilation failed when ./configure option
-"--without-http_upstream_zone_module" was used;
+compilation failed when ./configure options
+"--without-http_upstream_zone_module"
+and "--without-stream_upstream_zone_module" were used;
 the bug had appeared in 1.2.0.
 </para>
 </change>

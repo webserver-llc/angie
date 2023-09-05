@@ -469,7 +469,9 @@ ngx_stream_upstream_init_chash_peer(ngx_stream_session_t *s,
     ngx_stream_upstream_srv_conf_t *us)
 {
     uint32_t                               hash;
+#if (NGX_STREAM_UPSTREAM_ZONE)
     ngx_stream_upstream_rr_peer_data_t    *rrp;
+#endif
     ngx_stream_upstream_hash_srv_conf_t   *hcf;
     ngx_stream_upstream_hash_peer_data_t  *hp;
 
@@ -485,13 +487,17 @@ ngx_stream_upstream_init_chash_peer(ngx_stream_session_t *s,
 
     hash = ngx_crc32_long(hp->key.data, hp->key.len);
 
+#if (NGX_STREAM_UPSTREAM_ZONE)
     rrp = s->upstream->peer.data;
 
     ngx_stream_upstream_rr_peers_rlock(rrp->peers);
+#endif
 
     hp->hash = ngx_stream_upstream_find_chash_point(hcf->points, hash);
 
+#if (NGX_STREAM_UPSTREAM_ZONE)
     ngx_stream_upstream_rr_peers_unlock(rrp->peers);
+#endif
 
     return NGX_OK;
 }

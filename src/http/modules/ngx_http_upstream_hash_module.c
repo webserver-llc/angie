@@ -564,7 +564,9 @@ ngx_http_upstream_init_chash_peer(ngx_http_request_t *r,
         hp->hash = ngx_http_upstream_find_chash_point(hcf->points, hash);
     }
 
+#if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
+#endif
 
     return NGX_OK;
 }

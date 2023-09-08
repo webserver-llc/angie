@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -21,6 +22,7 @@
 #define NGX_STREAM_UPSTREAM_FAIL_TIMEOUT  0x0008
 #define NGX_STREAM_UPSTREAM_DOWN          0x0010
 #define NGX_STREAM_UPSTREAM_BACKUP        0x0020
+#define NGX_STREAM_UPSTREAM_CONF          0x0040
 #define NGX_STREAM_UPSTREAM_MAX_CONNS     0x0100
 
 

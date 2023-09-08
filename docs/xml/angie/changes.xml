@@ -22,6 +22,17 @@ and therefore simplify configuration by reducing duplication.
 
 <change type="feature">
 <para lang="ru">
+детальная информация и метрики по группам проксируемых stream-серверов в
+интерфейсе статистики, предоставляемом директивой "api".
+</para>
+<para lang="en">
+detailed information and metrics for groups of stream upstream servers
+in the statistics interface provided by the "api" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.2.
 </para>
 <para lang="en">

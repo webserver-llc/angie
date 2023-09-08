@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -319,6 +320,7 @@ ngx_stream_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     u.no_port = 1;
 
     uscf = ngx_stream_upstream_add(cf, &u, NGX_STREAM_UPSTREAM_CREATE
+                                           |NGX_STREAM_UPSTREAM_CONF
                                            |NGX_STREAM_UPSTREAM_WEIGHT
                                            |NGX_STREAM_UPSTREAM_MAX_CONNS
                                            |NGX_STREAM_UPSTREAM_MAX_FAILS

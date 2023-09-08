@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -12,6 +13,23 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
+
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+
+typedef struct {
+    uint64_t                         conns;
+    uint64_t                         fails;
+    uint64_t                         unavailable;
+    uint64_t                         sent;
+    uint64_t                         received;
+    time_t                           selected;
+
+    uint64_t                         downtime;
+    uint64_t                         downstart;
+} ngx_stream_upstream_peer_stats_t;
+
+#endif
 
 
 typedef struct ngx_stream_upstream_rr_peer_s   ngx_stream_upstream_rr_peer_t;
@@ -48,6 +66,10 @@ struct ngx_stream_upstream_rr_peer_s {
 #endif
 
     ngx_stream_upstream_rr_peer_t   *next;
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    ngx_stream_upstream_peer_stats_t  stats;
+#endif
 
     NGX_COMPAT_BEGIN(25)
     NGX_COMPAT_END

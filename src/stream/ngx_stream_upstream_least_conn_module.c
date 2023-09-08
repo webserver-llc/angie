@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Maxim Dounin
  * Copyright (C) Nginx, Inc.
  */
@@ -246,6 +247,11 @@ ngx_stream_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 
     rrp->tried[n] |= m;
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    best->stats.conns++;
+    best->stats.selected = now;
+#endif
+
     ngx_stream_upstream_rr_peers_unlock(peers);
 
     return NGX_OK;
@@ -299,6 +305,7 @@ ngx_stream_upstream_least_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     uscf->peer.init_upstream = ngx_stream_upstream_init_least_conn;
 
     uscf->flags = NGX_STREAM_UPSTREAM_CREATE
+                  |NGX_STREAM_UPSTREAM_CONF
                   |NGX_STREAM_UPSTREAM_WEIGHT
                   |NGX_STREAM_UPSTREAM_MAX_CONNS
                   |NGX_STREAM_UPSTREAM_MAX_FAILS

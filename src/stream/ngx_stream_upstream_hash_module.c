@@ -275,6 +275,11 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
         peer->checked = now;
     }
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    peer->stats.conns++;
+    peer->stats.selected = now;
+#endif
+
     ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
     ngx_stream_upstream_rr_peers_unlock(rrp->peers);
 
@@ -625,6 +630,11 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
         best->checked = now;
     }
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    best->stats.conns++;
+    best->stats.selected = now;
+#endif
+
     ngx_stream_upstream_rr_peers_unlock(rrp->peers);
 
     n = best_i / (8 * sizeof(uintptr_t));
@@ -681,6 +691,7 @@ ngx_stream_upstream_hash(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     uscf->flags = NGX_STREAM_UPSTREAM_CREATE
+                  |NGX_STREAM_UPSTREAM_CONF
                   |NGX_STREAM_UPSTREAM_WEIGHT
                   |NGX_STREAM_UPSTREAM_MAX_CONNS
                   |NGX_STREAM_UPSTREAM_MAX_FAILS

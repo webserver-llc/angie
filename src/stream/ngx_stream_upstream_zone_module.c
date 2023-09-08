@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Ruslan Ermilov
  * Copyright (C) Nginx, Inc.
  */
@@ -19,6 +20,188 @@ static ngx_stream_upstream_rr_peers_t *ngx_stream_upstream_zone_copy_peers(
 static ngx_stream_upstream_rr_peer_t *ngx_stream_upstream_zone_copy_peer(
     ngx_stream_upstream_rr_peers_t *peers, ngx_stream_upstream_rr_peer_t *src);
 
+#if (NGX_API)
+
+static ngx_int_t ngx_api_stream_upstreams_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstreams_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_stream_upstream_peers_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peers_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+#if (NGX_DEBUG)
+static ngx_int_t ngx_api_stream_upstream_zone_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+#endif
+
+static ngx_int_t ngx_api_stream_upstream_peer_server_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_backup_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_state_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_max_conns_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_downtime_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_downstart_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_stream_upstream_peer_selected_last_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+
+#endif
+
+
+#if (NGX_API)
+
+static ngx_api_entry_t  ngx_api_stream_upstream_entries[] = {
+
+    {
+        .name      = ngx_string("peers"),
+        .handler   = ngx_api_stream_upstream_peers_handler,
+    },
+
+#if (NGX_DEBUG)
+    {
+        .name      = ngx_string("zone"),
+        .handler   = ngx_api_stream_upstream_zone_handler,
+    },
+#endif
+
+    ngx_api_null_entry
+};
+
+
+static ngx_uint_t  ngx_api_stream_upstream_peer_backup;
+
+
+static ngx_api_entry_t  ngx_api_stream_upstream_peer_selected_entries[] = {
+
+    {
+        .name      = ngx_string("current"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, conns)
+    },
+
+    {
+        .name      = ngx_string("total"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, stats.conns)
+    },
+
+    {
+        .name      = ngx_string("last"),
+        .handler   = ngx_api_stream_upstream_peer_selected_last_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_upstream_peer_health_entries[] = {
+
+    {
+        .name      = ngx_string("fails"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, stats.fails)
+    },
+
+    {
+        .name      = ngx_string("unavailable"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, stats.unavailable)
+    },
+
+    {
+        .name      = ngx_string("downtime"),
+        .handler   = ngx_api_stream_upstream_peer_downtime_handler,
+    },
+
+    {
+        .name      = ngx_string("downstart"),
+        .handler   = ngx_api_stream_upstream_peer_downstart_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_upstream_peer_data_entries[] = {
+
+    {
+        .name      = ngx_string("sent"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, stats.sent)
+    },
+
+    {
+        .name      = ngx_string("received"),
+        .handler   = ngx_api_struct_int64_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, stats.received)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_upstream_peer_entries[] = {
+
+    {
+        .name      = ngx_string("server"),
+        .handler   = ngx_api_stream_upstream_peer_server_handler,
+    },
+
+    {
+        .name      = ngx_string("backup"),
+        .handler   = ngx_api_stream_upstream_peer_backup_handler,
+    },
+
+    {
+        .name      = ngx_string("weight"),
+        .handler   = ngx_api_struct_int_handler,
+        .data.off  = offsetof(ngx_stream_upstream_rr_peer_t, weight)
+    },
+
+    {
+        .name      = ngx_string("state"),
+        .handler   = ngx_api_stream_upstream_peer_state_handler,
+    },
+
+    {
+        .name      = ngx_string("selected"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_stream_upstream_peer_selected_entries
+    },
+
+    {
+        .name      = ngx_string("max_conns"),
+        .handler   = ngx_api_stream_upstream_peer_max_conns_handler,
+    },
+
+    {
+        .name      = ngx_string("data"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_stream_upstream_peer_data_entries
+    },
+
+    {
+        .name      = ngx_string("health"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_stream_upstream_peer_health_entries
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_stream_upstreams_entry = {
+    .name      = ngx_string("upstreams"),
+    .handler   = ngx_api_stream_upstreams_handler,
+};
+
+#endif
+
 
 static ngx_command_t  ngx_stream_upstream_zone_commands[] = {
 
@@ -33,9 +216,12 @@ static ngx_command_t  ngx_stream_upstream_zone_commands[] = {
 };
 
 
+static ngx_int_t ngx_stream_upstream_zone_init(ngx_conf_t *cf);
+
+
 static ngx_stream_module_t  ngx_stream_upstream_zone_module_ctx = {
     NULL,                                  /* preconfiguration */
-    NULL,                                  /* postconfiguration */
+    ngx_stream_upstream_zone_init,         /* postconfiguration */
 
     NULL,                                  /* create main configuration */
     NULL,                                  /* init main configuration */
@@ -319,4 +505,293 @@ failed:
     ngx_slab_free_locked(pool, dst);
 
     return NULL;
+}
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_api_stream_upstreams_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_array_t                        upstreams;
+    ngx_api_iter_ctx_t                 ictx;
+    ngx_stream_upstream_main_conf_t   *umcf;
+
+    umcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
+                                                 ngx_stream_upstream_module);
+    upstreams = umcf->upstreams;
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_stream_upstream_entries;
+    ictx.elts = &upstreams;
+
+    return ngx_api_object_iterate(ngx_api_stream_upstreams_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstreams_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_array_t                      *upstreams;
+    ngx_stream_upstream_srv_conf_t  **uscfp, *uscf;
+
+    upstreams = ictx->elts;
+
+    for ( ;; ) {
+        if (upstreams->nelts == 0) {
+            return NGX_DECLINED;
+        }
+
+        uscfp = upstreams->elts;
+
+        upstreams->elts = uscfp + 1;
+        upstreams->nelts--;
+
+        uscf = *uscfp;
+
+        if (uscf->shm_zone && (uscf->flags & NGX_STREAM_UPSTREAM_CONF)) {
+            ictx->entry.name = uscf->host;
+            ictx->ctx = uscf;
+
+            return NGX_OK;
+        }
+    }
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peers_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_srv_conf_t *uscf = ctx;
+
+    ngx_int_t                        rc;
+    ngx_api_iter_ctx_t               ictx;
+    ngx_stream_upstream_rr_peers_t  *peers;
+
+    peers = uscf->peer.data;
+
+    ngx_api_stream_upstream_peer_backup = 0;
+
+    ngx_stream_upstream_rr_peers_rlock(peers);
+
+    if (peers->next) {
+        ngx_stream_upstream_rr_peers_rlock(peers->next);
+    }
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_stream_upstream_peer_entries;
+    ictx.ctx = NULL;
+    ictx.elts = peers;
+
+    rc = ngx_api_object_iterate(ngx_api_stream_upstream_peers_iter,
+                                &ictx, actx);
+
+    ngx_stream_upstream_rr_peers_unlock(peers);
+
+    if (peers->next) {
+        ngx_stream_upstream_rr_peers_unlock(peers->next);
+    }
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peers_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx)
+{
+    ngx_stream_upstream_rr_peer_t   *peer;
+    ngx_stream_upstream_rr_peers_t  *peers;
+
+    peers = ictx->elts;
+    peer = ictx->ctx;
+
+    peer = (peer == NULL) ? peers->peer : peer->next;
+
+    for ( ;; ) {
+
+        if (peer == NULL) {
+
+            peers = peers->next;
+
+            if (peers == NULL) {
+                return NGX_DECLINED;
+            }
+
+            ngx_api_stream_upstream_peer_backup = 1;
+
+            ictx->elts = peers;
+            peer = peers->peer;
+
+            continue;
+        }
+
+        ictx->entry.name = peer->name;
+        ictx->ctx = peer;
+
+        return NGX_OK;
+    }
+}
+
+
+#if (NGX_DEBUG)
+
+static ngx_int_t
+ngx_api_stream_upstream_zone_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_srv_conf_t *uscf = ctx;
+
+    data.str = &uscf->shm_zone->shm.name;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+#endif
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_server_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    data.str = &peer->server;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_backup_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    data.flag = ngx_api_stream_upstream_peer_backup;
+
+    return ngx_api_flag_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_state_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    ngx_str_t  state;
+
+    if (peer->down) {
+        ngx_str_set(&state, "down");
+
+    } else if (peer->stats.downstart != 0) {
+        ngx_str_set(&state, "unavailable");
+
+    } else {
+        ngx_str_set(&state, "up");
+    }
+
+    data.str = &state;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_max_conns_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    if (peer->max_conns == 0) {
+        return NGX_DECLINED;
+    }
+
+    data.num = peer->max_conns;
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_downtime_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    ngx_time_t  *tp;
+
+    data.num = peer->stats.downtime;
+
+    if (peer->stats.downstart) {
+        tp = ngx_timeofday();
+        data.num += (uint64_t) tp->sec * 1000 + tp->msec
+                    - peer->stats.downstart;
+    }
+
+    return ngx_api_number_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_downstart_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    uint64_t    downstart;
+    ngx_time_t  time;
+
+    downstart = peer->stats.downstart;
+
+    if (downstart == 0) {
+        return NGX_DECLINED;
+    }
+
+    time.sec = downstart / 1000;
+    time.msec = downstart % 1000;
+
+    data.tp = &time;
+
+    return ngx_api_time_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_selected_last_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    ngx_time_t  time;
+
+    if (peer->stats.selected == 0) {
+        return NGX_DECLINED;
+    }
+
+    time.sec = peer->stats.selected;
+    time.msec = 0;
+
+    data.tp = &time;
+
+    return ngx_api_time_handler(data, actx, ctx);
+}
+
+#endif
+
+
+static ngx_int_t
+ngx_stream_upstream_zone_init(ngx_conf_t *cf)
+{
+#if (NGX_API)
+    if (ngx_api_add(cf->cycle, "/status/stream",
+                    &ngx_api_stream_upstreams_entry)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+#endif
+
+    return NGX_OK;
 }

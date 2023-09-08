@@ -293,6 +293,11 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    peer->stats.conns++;
+    peer->stats.selected = now;
+#endif
+
     ngx_stream_upstream_rr_peer_unlock(peers, peer);
     ngx_stream_upstream_rr_peers_unlock(peers);
 
@@ -410,6 +415,11 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    peer->stats.conns++;
+    peer->stats.selected = now;
+#endif
+
     ngx_stream_upstream_rr_peers_unlock(peers);
 
     rrp->tried[n] |= m;
@@ -482,6 +492,7 @@ ngx_stream_upstream_random(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     uscf->peer.init_upstream = ngx_stream_upstream_init_random;
 
     uscf->flags = NGX_STREAM_UPSTREAM_CREATE
+                  |NGX_STREAM_UPSTREAM_CONF
                   |NGX_STREAM_UPSTREAM_WEIGHT
                   |NGX_STREAM_UPSTREAM_MAX_CONNS
                   |NGX_STREAM_UPSTREAM_MAX_FAILS

@@ -19,6 +19,10 @@ static ngx_stream_upstream_rr_peer_t *ngx_stream_upstream_get_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp);
 static void ngx_stream_upstream_notify_round_robin_peer(
     ngx_peer_connection_t *pc, void *data, ngx_uint_t state);
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+static void ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
+    ngx_stream_upstream_rr_peer_t *peer, ngx_uint_t state);
+#endif
 
 #if (NGX_STREAM_SSL)
 
@@ -492,6 +496,11 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
 
     peer->conns++;
 
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    peer->stats.conns++;
+    peer->stats.selected = ngx_time();
+#endif
+
     ngx_stream_upstream_rr_peers_unlock(peers);
 
     return NGX_OK;
@@ -625,16 +634,6 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     ngx_stream_upstream_rr_peers_rlock(rrp->peers);
     ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
-    if (rrp->peers->single) {
-        peer->conns--;
-
-        ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
-        ngx_stream_upstream_rr_peers_unlock(rrp->peers);
-
-        pc->tries = 0;
-        return;
-    }
-
     if (state & NGX_PEER_FAILED) {
         now = ngx_time();
 
@@ -645,7 +644,7 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
         if (peer->max_fails) {
             peer->effective_weight -= peer->weight / peer->max_fails;
 
-            if (peer->fails >= peer->max_fails) {
+            if (peer->fails >= peer->max_fails && !rrp->peers->single) {
                 ngx_log_error(NGX_LOG_WARN, pc->log, 0,
                               "upstream server temporarily disabled");
             }
@@ -669,6 +668,10 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     }
 
     peer->conns--;
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    ngx_stream_upstream_stat(pc, peer, state);
+#endif
 
     ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
     ngx_stream_upstream_rr_peers_unlock(rrp->peers);
@@ -703,6 +706,59 @@ ngx_stream_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
         ngx_stream_upstream_rr_peers_unlock(rrp->peers);
     }
 }
+
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+
+static void
+ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
+    ngx_stream_upstream_rr_peer_t *peer, ngx_uint_t state)
+{
+    ngx_time_t             *tp;
+    ngx_connection_t       *c;
+    ngx_stream_session_t   *s;
+    ngx_stream_upstream_t  *u;
+
+    c = pc->connection;
+
+    if (c == NULL || c->data == NULL) {
+        return;
+    }
+
+    s = c->data;
+    u = s->upstream;
+
+    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
+        return;
+    }
+
+    if (state & NGX_PEER_FAILED) {
+        peer->stats.fails++;
+
+        if (peer->max_fails && peer->fails == peer->max_fails) {
+            peer->stats.unavailable++;
+
+            tp = ngx_timeofday();
+            peer->stats.downstart = (uint64_t) tp->sec * 1000 + tp->msec;
+        }
+
+    } else if (peer->accessed < peer->checked) {
+
+        if (peer->stats.downstart != 0) {
+
+            tp = ngx_timeofday();
+            peer->stats.downtime += (uint64_t) tp->sec * 1000
+                                    + tp->msec
+                                    - peer->stats.downstart;
+            peer->stats.downstart = 0;
+        }
+    }
+
+    peer->stats.sent += c->sent;
+    peer->stats.received += u->received;
+}
+
+#endif
 
 
 #if (NGX_STREAM_SSL)

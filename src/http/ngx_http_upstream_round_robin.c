@@ -874,6 +874,19 @@ ngx_http_upstream_stat(ngx_peer_connection_t *pc,
     ngx_http_request_t   *r;
     ngx_http_upstream_t  *u;
 
+    c = pc->connection;
+
+    if (c == NULL || c->data == NULL) {
+        return;
+    }
+
+    r = c->data;
+    u = r->upstream;
+
+    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
+        return;
+    }
+
     if (state & NGX_PEER_FAILED) {
         peer->stats.fails++;
 
@@ -894,19 +907,6 @@ ngx_http_upstream_stat(ngx_peer_connection_t *pc,
                                     - peer->stats.downstart;
             peer->stats.downstart = 0;
         }
-    }
-
-    c = pc->connection;
-
-    if (c == NULL || c->data == NULL) {
-        return;
-    }
-
-    r = c->data;
-    u = r->upstream;
-
-    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
-        return;
     }
 
     if (u->state->status) {

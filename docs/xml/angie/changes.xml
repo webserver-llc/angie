@@ -61,6 +61,19 @@ and automatically update it without the need of reloading configuration.
 
 <change type="feature">
 <para lang="ru">
+опция "service" директивы "server" в блоке "upstream" stream-модуля,
+позволяющая получать списки адресов из DNS SRV записей,
+с базовой поддержкой приоритета.
+</para>
+<para lang="en">
+the "service" option of the "server" directive in the stream module
+"upstream" block, that allows to retrieve lists of addresses
+from DNS SRV records, with basic priority support.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.2.
 </para>
 <para lang="en">

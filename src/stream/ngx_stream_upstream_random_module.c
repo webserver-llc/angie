@@ -18,6 +18,9 @@ typedef struct {
 
 typedef struct {
     ngx_uint_t                              two;
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    ngx_uint_t                              generation;
+#endif
     ngx_stream_upstream_random_range_t     *ranges;
 } ngx_stream_upstream_random_srv_conf_t;
 
@@ -122,6 +125,11 @@ ngx_stream_upstream_update_random(ngx_pool_t *pool,
 
     rcf = ngx_stream_conf_upstream_srv_conf(us,
                                             ngx_stream_upstream_random_module);
+    if (rcf->ranges) {
+        ngx_free(rcf->ranges);
+        rcf->ranges = NULL;
+    }
+
     peers = us->peer.data;
 
     size = peers->number * sizeof(ngx_stream_upstream_random_range_t);
@@ -187,11 +195,16 @@ ngx_stream_upstream_init_random_peer(ngx_stream_session_t *s,
 
     ngx_stream_upstream_rr_peers_rlock(rrp->peers);
 
-    if (rrp->peers->shpool && rcf->ranges == NULL) {
+    if (rrp->peers->generation
+        && (rcf->ranges == NULL
+            || rcf->generation != *rrp->peers->generation))
+    {
         if (ngx_stream_upstream_update_random(NULL, us) != NGX_OK) {
             ngx_stream_upstream_rr_peers_unlock(rrp->peers);
             return NGX_ERROR;
         }
+
+        rcf->generation = *rrp->peers->generation;
     }
 
     ngx_stream_upstream_rr_peers_unlock(rrp->peers);
@@ -228,10 +241,17 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_stream_upstream_rr_peers_rlock(peers);
 
-    if (rp->tries > 20 || peers->single) {
+    if (rp->tries > 20 || peers->number < 2) {
         ngx_stream_upstream_rr_peers_unlock(peers);
         return ngx_stream_upstream_get_round_robin_peer(pc, rrp);
     }
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    if (peers->generation && rrp->generation != *peers->generation) {
+        ngx_stream_upstream_rr_peers_unlock(peers);
+        return ngx_stream_upstream_get_round_robin_peer(pc, rrp);
+    }
+#endif
 
     pc->cached = 0;
     pc->connection = NULL;
@@ -282,6 +302,7 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
     }
 
     rrp->current = peer;
+    ngx_stream_upstream_rr_peer_ref(peers, peer);
 
     if (now - peer->checked > peer->fail_timeout) {
         peer->checked = now;
@@ -334,10 +355,17 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_stream_upstream_rr_peers_wlock(peers);
 
-    if (rp->tries > 20 || peers->single) {
+    if (rp->tries > 20 || peers->number < 2) {
         ngx_stream_upstream_rr_peers_unlock(peers);
         return ngx_stream_upstream_get_round_robin_peer(pc, rrp);
     }
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    if (peers->generation && rrp->generation != *peers->generation) {
+        ngx_stream_upstream_rr_peers_unlock(peers);
+        return ngx_stream_upstream_get_round_robin_peer(pc, rrp);
+    }
+#endif
 
     pc->cached = 0;
     pc->connection = NULL;
@@ -404,6 +432,7 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
     }
 
     rrp->current = peer;
+    ngx_stream_upstream_rr_peer_ref(peers, peer);
 
     if (now - peer->checked > peer->fail_timeout) {
         peer->checked = now;

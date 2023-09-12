@@ -46,6 +46,21 @@ worker processes via the interface provided by the "api" directive with the
 
 <change type="feature">
 <para lang="ru">
+опция "resolve" директивы "server" в блоке "upstream" stream-модуля,
+позволяющая отслеживать изменения списка IP-адресов,
+соответствующего доменному имени,
+и автоматически обновлять его без перезагрузки конфигурации.
+</para>
+<para lang="en">
+the "resolve" option of the "server" directive in the stream module
+"upstream" block, that allows to monitor changes to the list of IP addresses
+corresponding to a domain name,
+and automatically update it without the need of reloading configuration.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.2.
 </para>
 <para lang="en">

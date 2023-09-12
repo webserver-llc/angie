@@ -33,6 +33,21 @@ typedef struct {
 
 
 typedef struct ngx_stream_upstream_rr_peer_s   ngx_stream_upstream_rr_peer_t;
+typedef struct ngx_stream_upstream_rr_peers_s  ngx_stream_upstream_rr_peers_t;
+
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+
+typedef struct {
+    ngx_event_t                      event;    /* must be first */
+    ngx_uint_t                       worker;
+    ngx_str_t                        name;
+    ngx_stream_upstream_rr_peers_t  *peers;
+    ngx_stream_upstream_rr_peer_t   *peer;
+} ngx_stream_upstream_host_t;
+
+#endif
+
 
 struct ngx_stream_upstream_rr_peer_s {
     struct sockaddr                 *sockaddr;
@@ -67,16 +82,23 @@ struct ngx_stream_upstream_rr_peer_s {
 
     ngx_stream_upstream_rr_peer_t   *next;
 
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    ngx_uint_t                       refs;
+    ngx_stream_upstream_host_t      *host;
+#endif
+
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
     ngx_stream_upstream_peer_stats_t  stats;
+#endif
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    unsigned                        zombie:1;
 #endif
 
     NGX_COMPAT_BEGIN(25)
     NGX_COMPAT_END
 };
 
-
-typedef struct ngx_stream_upstream_rr_peers_s  ngx_stream_upstream_rr_peers_t;
 
 struct ngx_stream_upstream_rr_peers_s {
     ngx_uint_t                       number;
@@ -98,6 +120,13 @@ struct ngx_stream_upstream_rr_peers_s {
     ngx_stream_upstream_rr_peers_t  *next;
 
     ngx_stream_upstream_rr_peer_t   *peer;
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    ngx_uint_t                      *generation;
+    ngx_stream_upstream_rr_peer_t   *resolve;
+#endif
+
+    ngx_uint_t                       zombies;
 };
 
 
@@ -134,6 +163,61 @@ struct ngx_stream_upstream_rr_peers_s {
         ngx_rwlock_unlock(&peer->lock);                                       \
     }
 
+#define ngx_stream_upstream_rr_peer_ref(peers, peer)                          \
+    (peer)->refs++;
+
+
+static ngx_inline void
+ngx_stream_upstream_rr_peer_free_locked(ngx_stream_upstream_rr_peers_t *peers,
+    ngx_stream_upstream_rr_peer_t *peer)
+{
+    if (peer->refs) {
+        peer->zombie = 1;
+        peers->zombies++;
+        return;
+    }
+
+    ngx_slab_free_locked(peers->shpool, peer->sockaddr);
+    ngx_slab_free_locked(peers->shpool, peer->name.data);
+
+    if (peer->server.data) {
+        ngx_slab_free_locked(peers->shpool, peer->server.data);
+    }
+
+    ngx_slab_free_locked(peers->shpool, peer);
+}
+
+
+static ngx_inline void
+ngx_stream_upstream_rr_peer_free(ngx_stream_upstream_rr_peers_t *peers,
+    ngx_stream_upstream_rr_peer_t *peer)
+{
+    ngx_shmtx_lock(&peers->shpool->mutex);
+    ngx_stream_upstream_rr_peer_free_locked(peers, peer);
+    ngx_shmtx_unlock(&peers->shpool->mutex);
+}
+
+
+static ngx_inline ngx_int_t
+ngx_stream_upstream_rr_peer_unref(ngx_stream_upstream_rr_peers_t *peers,
+    ngx_stream_upstream_rr_peer_t *peer)
+{
+    peer->refs--;
+
+    if (peers->shpool == NULL) {
+        return NGX_OK;
+    }
+
+    if (peer->refs == 0 && peer->zombie) {
+        ngx_stream_upstream_rr_peer_free(peers, peer);
+        peers->zombies--;
+
+        return NGX_DONE;
+    }
+
+    return NGX_OK;
+}
+
 #else
 
 #define ngx_stream_upstream_rr_peers_rlock(peers)
@@ -141,12 +225,14 @@ struct ngx_stream_upstream_rr_peers_s {
 #define ngx_stream_upstream_rr_peers_unlock(peers)
 #define ngx_stream_upstream_rr_peer_lock(peers, peer)
 #define ngx_stream_upstream_rr_peer_unlock(peers, peer)
+#define ngx_stream_upstream_rr_peer_ref(peers, peer)
+#define ngx_stream_upstream_rr_peer_unref(peers, peer)  NGX_OK
 
 #endif
 
 
 typedef struct {
-    ngx_uint_t                       config;
+    ngx_uint_t                       generation;
     ngx_stream_upstream_rr_peers_t  *peers;
     ngx_stream_upstream_rr_peer_t   *current;
     uintptr_t                       *tried;
@@ -155,6 +241,8 @@ typedef struct {
 
 
 ngx_int_t ngx_stream_upstream_init_round_robin(ngx_conf_t *cf,
+    ngx_stream_upstream_srv_conf_t *us);
+void ngx_stream_upstream_set_round_robin_single(
     ngx_stream_upstream_srv_conf_t *us);
 ngx_int_t ngx_stream_upstream_init_round_robin_peer(ngx_stream_session_t *s,
     ngx_stream_upstream_srv_conf_t *us);

@@ -23,6 +23,11 @@ static char *ngx_stream_upstream(ngx_conf_t *cf, ngx_command_t *cmd,
     void *dummy);
 static char *ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+#if (NGX_STREAM_UPSTREAM_ZONE)
+static char *ngx_stream_upstream_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+#endif
+
 static void *ngx_stream_upstream_create_main_conf(ngx_conf_t *cf);
 static char *ngx_stream_upstream_init_main_conf(ngx_conf_t *cf, void *conf);
 
@@ -42,6 +47,24 @@ static ngx_command_t  ngx_stream_upstream_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       0,
       NULL },
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+
+    { ngx_string("resolver"),
+      NGX_STREAM_UPS_CONF|NGX_CONF_1MORE,
+      ngx_stream_upstream_resolver,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("resolver_timeout"),
+      NGX_STREAM_UPS_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_msec_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_upstream_srv_conf_t, resolver_timeout),
+      NULL },
+
+#endif
 
       ngx_null_command
 };
@@ -390,7 +413,11 @@ ngx_stream_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         return rv;
     }
 
-    if (uscf->servers->nelts == 0) {
+    if (uscf->servers->nelts == 0
+#if (NGX_STREAM_UPSTREAM_ZONE)
+        && uscf->shm_zone == NULL
+#endif
+    ) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "no servers are inside upstream");
         return NGX_CONF_ERROR;
@@ -410,6 +437,9 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_url_t                      u;
     ngx_int_t                      weight, max_conns, max_fails;
     ngx_uint_t                     i;
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    ngx_uint_t                     resolve;
+#endif
     ngx_stream_upstream_server_t  *us;
 
     us = ngx_array_push(uscf->servers);
@@ -425,6 +455,9 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     max_conns = 0;
     max_fails = 1;
     fail_timeout = 10;
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    resolve = 0;
+#endif
 
     for (i = 2; i < cf->args->nelts; i++) {
 
@@ -513,12 +546,26 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
+#if (NGX_STREAM_UPSTREAM_ZONE)
+        if (ngx_strcmp(value[i].data, "resolve") == 0) {
+            resolve = 1;
+            continue;
+        }
+#endif
+
         goto invalid;
     }
 
     ngx_memzero(&u, sizeof(ngx_url_t));
 
     u.url = value[1];
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    if (resolve) {
+        /* run time resolving */
+        u.no_resolve = 1;
+    }
+#endif
 
     if (ngx_parse_url(cf->pool, &u) != NGX_OK) {
         if (u.err) {
@@ -536,8 +583,45 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     us->name = u.url;
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+
+    if (resolve && u.naddrs == 0) {
+        ngx_addr_t  *addr;
+
+        /* save port */
+
+        addr = ngx_pcalloc(cf->pool, sizeof(ngx_addr_t));
+        if (addr == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        addr->sockaddr = ngx_palloc(cf->pool, u.socklen);
+        if (addr->sockaddr == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        ngx_memcpy(addr->sockaddr, &u.sockaddr, u.socklen);
+
+        addr->socklen = u.socklen;
+
+        us->addrs = addr;
+        us->naddrs = 1;
+
+        us->host = u.host;
+
+    } else {
+        us->addrs = u.addrs;
+        us->naddrs = u.naddrs;
+    }
+
+#else
+
     us->addrs = u.addrs;
     us->naddrs = u.naddrs;
+
+#endif
+
     us->weight = weight;
     us->max_conns = max_conns;
     us->max_fails = max_fails;
@@ -560,6 +644,32 @@ not_supported:
 
     return NGX_CONF_ERROR;
 }
+
+
+#if (NGX_STREAM_UPSTREAM_ZONE)
+
+static char *
+ngx_stream_upstream_resolver(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_stream_upstream_srv_conf_t  *uscf = conf;
+
+    ngx_str_t  *value;
+
+    if (uscf->resolver) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    uscf->resolver = ngx_resolver_create(cf, &value[1], cf->args->nelts - 1);
+    if (uscf->resolver == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+#endif
 
 
 ngx_stream_upstream_srv_conf_t *
@@ -640,6 +750,9 @@ ngx_stream_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
     uscf->line = cf->conf_file->line;
     uscf->port = u->port;
     uscf->no_port = u->no_port;
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    uscf->resolver_timeout = NGX_CONF_UNSET_MSEC;
+#endif
 
     if (u->naddrs == 1 && (u->port || u->family == AF_UNIX)) {
         uscf->servers = ngx_array_create(cf->pool, 1,

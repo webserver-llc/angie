@@ -33,6 +33,17 @@ in the statistics interface provided by the "api" directive.
 
 <change type="feature">
 <para lang="ru">
+получение содержимого конфигурационных файлов, с которыми было запущено текущее
+поколение рабочих процессов, в интерфейсе, предоставляемом директивой "api".
+</para>
+<para lang="en">
+access to the contents of configuration files used by the current generation of
+worker processes via the interface provided by the "api" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.2.
 </para>
 <para lang="en">

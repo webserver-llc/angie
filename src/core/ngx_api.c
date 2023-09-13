@@ -33,6 +33,10 @@ static ngx_int_t ngx_api_angie_generation_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_angie_config_files_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_angie_config_files_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
 
 static ngx_int_t ngx_api_connections_dropped_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
@@ -94,6 +98,11 @@ static ngx_api_entry_t  ngx_api_angie_entries[] = {
     {
         .name      = ngx_string("load_time"),
         .handler   = ngx_api_angie_load_time_handler,
+    },
+
+    {
+        .name      = ngx_string("config_files"),
+        .handler   = ngx_api_angie_config_files_handler,
     },
 
     ngx_api_null_entry
@@ -450,6 +459,46 @@ ngx_api_angie_load_time_handler(ngx_api_entry_data_t data,
     data.tp = &((ngx_cycle_t *) ngx_cycle)->time;
 
     return ngx_api_time_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_angie_config_files_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_str_t           str;
+    ngx_api_iter_ctx_t  ictx;
+
+    ictx.entry.handler = ngx_api_string_handler;
+    ictx.entry.data.str = &str;
+    ictx.elts = ngx_cycle->config_dump.elts;
+
+    return ngx_api_object_iterate(ngx_api_angie_config_files_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_angie_config_files_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_buf_t        *b;
+    ngx_conf_dump_t  *first, *current;
+
+    first = ngx_cycle->config_dump.elts;
+    current = ictx->elts;
+
+    if ((ngx_uint_t) (current - first) == ngx_cycle->config_dump.nelts) {
+        return NGX_DECLINED;
+    }
+
+    ictx->elts = current + 1;
+
+    ictx->entry.name = current->name;
+
+    b = current->buffer;
+    ictx->entry.data.str->len = b->last - b->pos;
+    ictx->entry.data.str->data = b->pos;
+
+    return NGX_OK;
 }
 
 

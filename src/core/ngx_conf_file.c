@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -217,7 +218,7 @@ ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
         type = parse_file;
 
         if (ngx_dump_config
-#if (NGX_DEBUG)
+#if (NGX_DEBUG || NGX_API)
             || 1
 #endif
            )

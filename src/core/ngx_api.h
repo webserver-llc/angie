@@ -24,7 +24,9 @@ struct ngx_api_ctx_s {
     ngx_connection_t           *connection;
     ngx_pool_t                 *pool;
     ngx_data_item_t            *out;
-    ngx_uint_t                  pretty;
+
+    unsigned                    pretty:1;
+    unsigned                    config_files:1;
 
     ngx_str_t                   orig_path;
     ngx_str_t                   err;

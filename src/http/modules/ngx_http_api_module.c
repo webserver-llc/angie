@@ -11,6 +11,7 @@
 
 typedef struct {
     ngx_http_complex_value_t  *prefix;
+    ngx_flag_t                 config_files;
 } ngx_http_api_conf_t;
 
 
@@ -24,6 +25,7 @@ static ngx_int_t ngx_http_api_output(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
     ngx_uint_t status);
 
 static void *ngx_http_api_create_conf(ngx_conf_t *cf);
+static char *ngx_http_api_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 static char *ngx_http_set_api(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
@@ -34,6 +36,13 @@ static ngx_command_t  ngx_http_api_commands[] = {
       ngx_http_set_api,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
+      NULL },
+
+    { ngx_string("api_config_files"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_api_conf_t, config_files),
       NULL },
 
       ngx_null_command
@@ -51,7 +60,7 @@ static ngx_http_module_t  ngx_http_api_module_ctx = {
     NULL,                                  /* merge server configuration */
 
     ngx_http_api_create_conf,              /* create location configuration */
-    NULL                                   /* merge location configuration */
+    ngx_http_api_merge_conf                /* merge location configuration */
 };
 
 
@@ -110,6 +119,7 @@ ngx_http_api_handler(ngx_http_request_t *r)
 
     ctx.connection = r->connection;
     ctx.pool = r->pool;
+    ctx.config_files = acf->config_files;
 
     if (ngx_http_api_args(r, &ctx) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -403,7 +413,34 @@ ngx_http_api_output(ngx_http_request_t *r, ngx_api_ctx_t *ctx,
 static void *
 ngx_http_api_create_conf(ngx_conf_t *cf)
 {
-    return ngx_pcalloc(cf->pool, sizeof(ngx_http_api_conf_t));
+    ngx_http_api_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_api_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * set by ngx_pcalloc():
+     *
+     *     conf->prefix = NULL;
+     */
+
+    conf->config_files = NGX_CONF_UNSET;
+
+    return conf;
+}
+
+
+static char *
+ngx_http_api_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_api_conf_t  *prev = parent;
+    ngx_http_api_conf_t  *conf = child;
+
+    ngx_conf_merge_value(conf->config_files, prev->config_files, 0);
+
+    return NGX_CONF_OK;
 }
 
 

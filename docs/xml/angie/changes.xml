@@ -34,11 +34,13 @@ in the statistics interface provided by the "api" directive.
 <change type="feature">
 <para lang="ru">
 получение содержимого конфигурационных файлов, с которыми было запущено текущее
-поколение рабочих процессов, в интерфейсе, предоставляемом директивой "api".
+поколение рабочих процессов, в интерфейсе, предоставляемом директивой "api"
+при включении директивы "api_config_files".
 </para>
 <para lang="en">
 access to the contents of configuration files used by the current generation of
-worker processes via the interface provided by the "api" directive.
+worker processes via the interface provided by the "api" directive with the
+"api_config_files" directive enabled.
 </para>
 </change>
 

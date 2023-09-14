@@ -469,6 +469,10 @@ ngx_api_angie_config_files_handler(ngx_api_entry_data_t data,
     ngx_str_t           str;
     ngx_api_iter_ctx_t  ictx;
 
+    if (!actx->config_files) {
+        return NGX_DECLINED;
+    }
+
     ictx.entry.handler = ngx_api_string_handler;
     ictx.entry.data.str = &str;
     ictx.elts = ngx_cycle->config_dump.elts;

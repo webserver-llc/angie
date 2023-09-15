@@ -22,6 +22,17 @@ and therefore simplify configuration by reducing duplication.
 
 <change type="feature">
 <para lang="ru">
+экспорт различных метрик статистики в формате Prometheus с гибко настраиваемыми
+шаблонами при помощи новых директив "prometheus" и "prometheus_template".
+</para>
+<para lang="en">
+export of varied statistics metrics in Prometheus format with flexible template
+configuration using the new "prometheus" and "prometheus_template" directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 детальная информация и метрики по группам проксируемых stream-серверов в
 интерфейсе статистики, предоставляемом директивой "api".
 </para>

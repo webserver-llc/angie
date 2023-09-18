@@ -44,6 +44,33 @@ in the statistics interface provided by the "api" directive.
 
 <change type="feature">
 <para lang="ru">
+опция "resolve" директивы "server" в блоке "upstream" модуля "stream",
+позволяющая отслеживать изменения списка IP-адресов, соответствующего
+доменному имени, и автоматически обновлять его без перезагрузки конфигурации.
+</para>
+<para lang="en">
+the "resolve" option of the "server" directive in the "stream" module’s
+"upstream" block that allows to monitor changes to the list of IP addresses
+corresponding to a domain name, and automatically update it without the need
+of reloading configuration.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+опция "service" директивы "server" в блоке "upstream" модуля "stream",
+позволяющая получать списки адресов из DNS-записей SRV, с базовой поддержкой
+приоритета.
+</para>
+<para lang="en">
+the "service" option of the "server" directive in the "stream" module’s
+"upstream" block that allows to retrieve lists of addresses from DNS SRV
+records, with basic priority support.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 получение содержимого конфигурационных файлов, с которыми было запущено текущее
 поколение рабочих процессов, в интерфейсе, предоставляемом директивой "api"
 при включении директивы "api_config_files".
@@ -57,29 +84,14 @@ worker processes via the interface provided by the "api" directive with the
 
 <change type="feature">
 <para lang="ru">
-опция "resolve" директивы "server" в блоке "upstream" stream-модуля,
-позволяющая отслеживать изменения списка IP-адресов,
-соответствующего доменному имени,
-и автоматически обновлять его без перезагрузки конфигурации.
+отображение номера поколения конфигурации в именах процессов, что позволяет
+с помощью утилиты "ps" отслеживать успех перезагрузок конфигурации и количество
+поколений рабочих процессов с предыдущими версиями конфигурации.
 </para>
 <para lang="en">
-the "resolve" option of the "server" directive in the stream module
-"upstream" block, that allows to monitor changes to the list of IP addresses
-corresponding to a domain name,
-and automatically update it without the need of reloading configuration.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-опция "service" директивы "server" в блоке "upstream" stream-модуля,
-позволяющая получать списки адресов из DNS SRV записей,
-с базовой поддержкой приоритета.
-</para>
-<para lang="en">
-the "service" option of the "server" directive in the stream module
-"upstream" block, that allows to retrieve lists of addresses
-from DNS SRV records, with basic priority support.
+display of the configuration generation number in process titles, which allows
+to monitor the success of configuration reloads and the number of previous
+worker process generations using the "ps" utility.
 </para>
 </change>
 
@@ -96,13 +108,13 @@ all functionality of nginx 1.25.2.
 <para lang="ru">
 сборка завершалась ошибкой при использовании опций ./configure
 "--without-http_upstream_zone_module"
-и "--without-stream_upstream_zone_module";
+или "--without-stream_upstream_zone_module";
 ошибка появилась в 1.2.0.
 </para>
 <para lang="en">
 compilation failed when ./configure options
 "--without-http_upstream_zone_module"
-and "--without-stream_upstream_zone_module" were used;
+or "--without-stream_upstream_zone_module" were used;
 the bug had appeared in 1.2.0.
 </para>
 </change>
@@ -112,20 +124,7 @@ the bug had appeared in 1.2.0.
 теперь при загрузке конфигурации OpenSSL используется appname "angie".
 </para>
 <para lang="en">
-now appname "angie" is used when loading OpenSSL configuration.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-отображение номера поколения конфигурации в именах процессов, что позволяет
-с помощью утилиты "ps" отслеживать успех перезагрузок конфигурации и количество
-поколений рабочих процессов с предыдущими версиями конфигурации.
-</para>
-<para lang="en">
-display of the configuration generation number in process titles, which allows
-to monitor the success of configuration reloads and the number of previous
-worker process generations using the "ps" utility.
+now appname "angie" is used when loading the OpenSSL configuration.
 </para>
 </change>
 

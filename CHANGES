@@ -1,4 +1,48 @@
 
+Changes with Angie 1.3.0                                         19 Sep 2023
+
+    *) Feature: ability to specify multiple match patterns in the "location"
+       directive, which allows to combine several "location" blocks with
+       similar settings and therefore simplify configuration by reducing
+       duplication.
+
+    *) Feature: export of varied statistics metrics in Prometheus format
+       with flexible template configuration using the new "prometheus" and
+       "prometheus_template" directives.
+
+    *) Feature: detailed information and metrics for groups of stream
+       upstream servers in the statistics interface provided by the "api"
+       directive.
+
+    *) Feature: the "resolve" option of the "server" directive in the
+       "stream" module’s "upstream" block that allows to monitor changes to
+       the list of IP addresses corresponding to a domain name, and
+       automatically update it without the need of reloading configuration.
+
+    *) Feature: the "service" option of the "server" directive in the
+       "stream" module’s "upstream" block that allows to retrieve lists of
+       addresses from DNS SRV records, with basic priority support.
+
+    *) Feature: access to the contents of configuration files used by the
+       current generation of worker processes via the interface provided by
+       the "api" directive with the "api_config_files" directive enabled.
+
+    *) Feature: display of the configuration generation number in process
+       titles, which allows to monitor the success of configuration reloads
+       and the number of previous worker process generations using the "ps"
+       utility.
+
+    *) Feature: all functionality of nginx 1.25.2.
+
+    *) Bugfix: compilation failed when ./configure options
+       "--without-http_upstream_zone_module" or
+       "--without-stream_upstream_zone_module" were used; the bug had
+       appeared in 1.2.0.
+
+    *) Change: now appname "angie" is used when loading the OpenSSL
+       configuration.
+
+
 Changes with Angie 1.2.0                                         30 May 2023
 
     *) Feature: the "sticky" directive and related options in the HTTP

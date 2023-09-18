@@ -144,6 +144,11 @@ install:	build $NGX_INSTALL_PERL_MODULES
 	cp conf/scgi_params \\
 		'\$(DESTDIR)$NGX_CONF_PREFIX/scgi_params.default'
 
+	test -f '\$(DESTDIR)$NGX_CONF_PREFIX/prometheus_all.conf' \\
+		|| cp conf/prometheus_all.conf '\$(DESTDIR)$NGX_CONF_PREFIX'
+	cp conf/prometheus_all.conf  \\
+		'\$(DESTDIR)$NGX_CONF_PREFIX/prometheus_all.conf.default'
+
 	test -f '\$(DESTDIR)$NGX_CONF_PATH' \\
 		|| cp conf/angie.conf '\$(DESTDIR)$NGX_CONF_PATH'
 	cp conf/angie.conf '\$(DESTDIR)$NGX_CONF_PREFIX/angie.conf.default'

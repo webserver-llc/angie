@@ -90,9 +90,7 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
                 us->resolver = clcf->resolver;
             }
 
-            if (us->resolver == NULL
-                || us->resolver->connections.nelts == 0)
-            {
+            if (us->resolver->connections.nelts == 0) {
                 ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                               "no resolver configured for resolving names "
                               "at run time in upstream \"%V\" in %s:%ui",

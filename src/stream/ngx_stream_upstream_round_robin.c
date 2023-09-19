@@ -50,7 +50,6 @@ ngx_stream_upstream_init_round_robin(ngx_conf_t *cf,
 {
     ngx_url_t                        u;
     ngx_uint_t                       i, n;
-    ngx_addr_t                       addr;
     ngx_stream_upstream_rr_peer_t   *peer, **peerp;
     ngx_stream_upstream_rr_peers_t  *peers, *backup;
 
@@ -171,7 +170,6 @@ ngx_stream_upstream_init_round_robin(ngx_conf_t *cf,
 
     peers->single = (n == 1);
     peers->number = n;
-    peers->weighted = 0;
     peers->total_weight = n;
     peers->tries = n;
     peers->name = &us->host;
@@ -179,12 +177,8 @@ ngx_stream_upstream_init_round_robin(ngx_conf_t *cf,
     peerp = &peers->peer;
 
     for (i = 0; i < u.naddrs; i++) {
-        addr.sockaddr = u.addrs[i].sockaddr;
-        addr.socklen = u.addrs[i].socklen;
-        addr.name = u.addrs[i].name;
-
         if (ngx_stream_upstream_set_round_robin_peer(cf->pool, &peer[i],
-                                                     &addr, NULL)
+                                                     &u.addrs[i], NULL)
             != NGX_OK)
         {
             return NGX_ERROR;
@@ -364,12 +358,9 @@ ngx_stream_upstream_set_round_robin_peer(ngx_pool_t *pool,
         peer->weight = 1;
         peer->effective_weight = 1;
 
-        peer->max_conns = 0;
         peer->max_fails = 1;
         peer->fail_timeout = 10;
     }
-
-    peer->current_weight = 0;
 
     return NGX_OK;
 }

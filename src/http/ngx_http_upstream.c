@@ -44,6 +44,8 @@ static void ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
     ngx_event_t *ev);
 static void ngx_http_upstream_connect(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
+static ngx_int_t ngx_http_upstream_configure(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c);
 static ngx_int_t ngx_http_upstream_reinit(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
 static void ngx_http_upstream_send_request(ngx_http_request_t *r,
@@ -1568,9 +1570,8 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
 static void
 ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
-    ngx_int_t                  rc;
-    ngx_connection_t          *c;
-    ngx_http_core_loc_conf_t  *clcf;
+    ngx_int_t          rc;
+    ngx_connection_t  *c;
 
     r->connection->log->action = "connecting to upstream";
 
@@ -1648,16 +1649,6 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     c->write->handler = ngx_http_upstream_handler;
     c->read->handler = ngx_http_upstream_handler;
 
-    u->write_event_handler = ngx_http_upstream_send_request_handler;
-    u->read_event_handler = ngx_http_upstream_process_header;
-
-    c->sendfile &= r->connection->sendfile;
-    u->output.sendfile = c->sendfile;
-
-    if (r->connection->tcp_nopush == NGX_TCP_NOPUSH_DISABLED) {
-        c->tcp_nopush = NGX_TCP_NOPUSH_DISABLED;
-    }
-
     if (c->pool == NULL) {
 
         /* we need separate pool here to be able to cache SSL connections */
@@ -1675,52 +1666,17 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     c->read->log = c->log;
     c->write->log = c->log;
 
-    /* init or reinit the ngx_output_chain() and ngx_chain_writer() contexts */
+    c->sendfile &= r->connection->sendfile;
 
-    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
-
-    u->writer.out = NULL;
-    u->writer.last = &u->writer.out;
-    u->writer.connection = c;
-    u->writer.limit = clcf->sendfile_max_chunk;
-
-    if (u->request_sent) {
-        if (ngx_http_upstream_reinit(r, u) != NGX_OK) {
-            ngx_http_upstream_finalize_request(r, u,
-                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
-            return;
-        }
+    if (r->connection->tcp_nopush == NGX_TCP_NOPUSH_DISABLED) {
+        c->tcp_nopush = NGX_TCP_NOPUSH_DISABLED;
     }
 
-    if (r->request_body
-        && r->request_body->buf
-        && r->request_body->temp_file
-        && r == r->main)
-    {
-        /*
-         * the r->request_body->buf can be reused for one request only,
-         * the subrequests should allocate their own temporary bufs
-         */
-
-        u->output.free = ngx_alloc_chain_link(r->pool);
-        if (u->output.free == NULL) {
-            ngx_http_upstream_finalize_request(r, u,
-                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
-            return;
-        }
-
-        u->output.free->buf = r->request_body->buf;
-        u->output.free->next = NULL;
-        u->output.allocated = 1;
-
-        r->request_body->buf->pos = r->request_body->buf->start;
-        r->request_body->buf->last = r->request_body->buf->start;
-        r->request_body->buf->tag = u->output.tag;
+    if (ngx_http_upstream_configure(r, u, c) != NGX_OK) {
+        ngx_http_upstream_finalize_request(r, u,
+                                           NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return;
     }
-
-    u->request_sent = 0;
-    u->request_body_sent = 0;
-    u->request_body_blocked = 0;
 
     if (rc == NGX_AGAIN) {
         ngx_add_timer(c->write, u->conf->connect_timeout);
@@ -1737,6 +1693,64 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 #endif
 
     ngx_http_upstream_send_request(r, u, 1);
+}
+
+
+static ngx_int_t
+ngx_http_upstream_configure(ngx_http_request_t *r, ngx_http_upstream_t *u,
+    ngx_connection_t *c)
+{
+    ngx_http_core_loc_conf_t  *clcf;
+
+    u->write_event_handler = ngx_http_upstream_send_request_handler;
+    u->read_event_handler = ngx_http_upstream_process_header;
+
+    u->output.sendfile = c->sendfile;
+
+    /* init or reinit the ngx_output_chain() and ngx_chain_writer() contexts */
+
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+    u->writer.out = NULL;
+    u->writer.last = &u->writer.out;
+    u->writer.connection = c;
+    u->writer.limit = clcf->sendfile_max_chunk;
+
+    if (u->request_sent) {
+        if (ngx_http_upstream_reinit(r, u) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    if (r->request_body
+        && r->request_body->buf
+        && r->request_body->temp_file
+        && r == r->main)
+    {
+        /*
+         * the r->request_body->buf can be reused for one request only,
+         * the subrequests should allocate their own temporary bufs
+         */
+
+        u->output.free = ngx_alloc_chain_link(r->pool);
+        if (u->output.free == NULL) {
+            return NGX_ERROR;
+        }
+
+        u->output.free->buf = r->request_body->buf;
+        u->output.free->next = NULL;
+        u->output.allocated = 1;
+
+        r->request_body->buf->pos = r->request_body->buf->start;
+        r->request_body->buf->last = r->request_body->buf->start;
+        r->request_body->buf->tag = u->output.tag;
+    }
+
+    u->request_sent = 0;
+    u->request_body_sent = 0;
+    u->request_body_blocked = 0;
+
+    return NGX_OK;
 }
 
 

@@ -104,6 +104,8 @@ static void ngx_http_upstream_dummy_handler(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
 static void ngx_http_upstream_next(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_uint_t ft_type);
+static void ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_uint_t no_send);
 static void ngx_http_upstream_cleanup(void *data);
 static void ngx_http_upstream_finalize_request(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_int_t rc);
@@ -4613,28 +4615,43 @@ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
     }
 
     if (u->peer.connection) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "close http upstream connection: %d",
-                       u->peer.connection->fd);
-#if (NGX_HTTP_SSL)
-
-        if (u->peer.connection->ssl) {
-            u->peer.connection->ssl->no_wait_shutdown = 1;
-            u->peer.connection->ssl->no_send_shutdown = 1;
-
-            (void) ngx_ssl_shutdown(u->peer.connection);
-        }
-#endif
-
-        if (u->peer.connection->pool) {
-            ngx_destroy_pool(u->peer.connection->pool);
-        }
-
-        ngx_close_connection(u->peer.connection);
-        u->peer.connection = NULL;
+        ngx_http_upstream_close_peer_connection(r, u, 1);
     }
 
     ngx_http_upstream_connect(r, u);
+}
+
+
+static void
+ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_uint_t no_send)
+{
+    ngx_pool_t       *pool;
+    ngx_connection_t *c;
+
+    c = u->peer.connection;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "close http upstream connection: %d", c->fd);
+
+#if (NGX_HTTP_SSL)
+    if (c->ssl) {
+        c->ssl->no_wait_shutdown = 1;
+        c->ssl->no_send_shutdown = no_send;
+
+        (void) ngx_ssl_shutdown(c);
+    }
+#endif
+
+    pool = c->pool;
+
+    ngx_close_connection(c);
+
+    if (pool) {
+        ngx_destroy_pool(pool);
+    }
+
+    u->peer.connection = NULL;
 }
 
 
@@ -4698,37 +4715,15 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
     }
 
     if (u->peer.connection) {
-
-#if (NGX_HTTP_SSL)
-
         /* TODO: do not shutdown persistent connection */
 
-        if (u->peer.connection->ssl) {
-
-            /*
-             * We send the "close notify" shutdown alert to the upstream only
-             * and do not wait its "close notify" shutdown alert.
-             * It is acceptable according to the TLS standard.
-             */
-
-            u->peer.connection->ssl->no_wait_shutdown = 1;
-
-            (void) ngx_ssl_shutdown(u->peer.connection);
-        }
-#endif
-
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "close http upstream connection: %d",
-                       u->peer.connection->fd);
-
-        if (u->peer.connection->pool) {
-            ngx_destroy_pool(u->peer.connection->pool);
-        }
-
-        ngx_close_connection(u->peer.connection);
+        /*
+         * We send the "close notify" shutdown alert to the upstream only
+         * and do not wait its "close notify" shutdown alert.
+         * It is acceptable according to the TLS standard.
+         */
+        ngx_http_upstream_close_peer_connection(r, u, 0);
     }
-
-    u->peer.connection = NULL;
 
     if (u->pipe && u->pipe->temp_file) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,

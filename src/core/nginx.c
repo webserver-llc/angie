@@ -14,9 +14,9 @@ static void ngx_show_version_info(void);
 static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle);
 static void ngx_cleanup_environment(void *data);
 static void ngx_cleanup_environment_variable(void *data);
+static ngx_int_t ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv);
 static ngx_int_t ngx_get_options(int argc, char *const *argv);
 static ngx_int_t ngx_process_options(ngx_cycle_t *cycle);
-static ngx_int_t ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv);
 static void *ngx_core_module_create_conf(ngx_cycle_t *cycle);
 static char *ngx_core_module_init_conf(ngx_cycle_t *cycle, void *conf);
 static char *ngx_set_user(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -799,6 +799,48 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 
 
 static ngx_int_t
+ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
+{
+#if (NGX_FREEBSD)
+
+    ngx_os_argv = (char **) argv;
+    ngx_argc = argc;
+    ngx_argv = (char **) argv;
+
+#else
+    size_t     len;
+    ngx_int_t  i;
+
+    ngx_os_argv = (char **) argv;
+    ngx_argc = argc;
+
+    ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);
+    if (ngx_argv == NULL) {
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < argc; i++) {
+        len = ngx_strlen(argv[i]) + 1;
+
+        ngx_argv[i] = ngx_alloc(len, cycle->log);
+        if (ngx_argv[i] == NULL) {
+            return NGX_ERROR;
+        }
+
+        (void) ngx_cpystrn((u_char *) ngx_argv[i], (u_char *) argv[i], len);
+    }
+
+    ngx_argv[i] = NULL;
+
+#endif
+
+    ngx_os_environ = environ;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {
     u_char     *p;
@@ -939,48 +981,6 @@ ngx_get_options(int argc, char *const *argv)
 
         continue;
     }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
-{
-#if (NGX_FREEBSD)
-
-    ngx_os_argv = (char **) argv;
-    ngx_argc = argc;
-    ngx_argv = (char **) argv;
-
-#else
-    size_t     len;
-    ngx_int_t  i;
-
-    ngx_os_argv = (char **) argv;
-    ngx_argc = argc;
-
-    ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);
-    if (ngx_argv == NULL) {
-        return NGX_ERROR;
-    }
-
-    for (i = 0; i < argc; i++) {
-        len = ngx_strlen(argv[i]) + 1;
-
-        ngx_argv[i] = ngx_alloc(len, cycle->log);
-        if (ngx_argv[i] == NULL) {
-            return NGX_ERROR;
-        }
-
-        (void) ngx_cpystrn((u_char *) ngx_argv[i], (u_char *) argv[i], len);
-    }
-
-    ngx_argv[i] = NULL;
-
-#endif
-
-    ngx_os_environ = environ;
 
     return NGX_OK;
 }

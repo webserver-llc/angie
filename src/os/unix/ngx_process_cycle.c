@@ -12,7 +12,6 @@
 #include <ngx_channel.h>
 
 
-static void ngx_update_process_title(ngx_cycle_t *cycle, ngx_uint_t single);
 static void ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n,
     ngx_int_t type);
 static void ngx_start_cache_manager_processes(ngx_cycle_t *cycle,
@@ -314,7 +313,7 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
 }
 
 
-static void
+void
 ngx_update_process_title(ngx_cycle_t *cycle, ngx_uint_t single)
 {
     u_char     *p, *end, args[2048];

@@ -14,7 +14,7 @@ static void ngx_show_version_info(void);
 static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle);
 static void ngx_cleanup_environment(void *data);
 static void ngx_cleanup_environment_variable(void *data);
-static ngx_int_t ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv);
+static ngx_int_t ngx_save_argv(int argc, char *const *argv);
 static ngx_int_t ngx_get_options(int argc, char *const *argv);
 static ngx_int_t ngx_process_options(ngx_cycle_t *cycle);
 static void *ngx_core_module_create_conf(ngx_cycle_t *cycle);
@@ -209,7 +209,11 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    if (ngx_get_options(argc, argv) != NGX_OK) {
+    if (ngx_save_argv(argc, argv) != NGX_OK) {
+        return 1;
+    }
+
+    if (ngx_get_options(ngx_argc, ngx_argv) != NGX_OK) {
         return 1;
     }
 
@@ -256,9 +260,11 @@ main(int argc, char *const *argv)
         return 1;
     }
 
-    if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
+    if (ngx_init_setproctitle(log) != NGX_OK) {
         return 1;
     }
+
+    ngx_update_process_title(&init_cycle, 0);
 
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
@@ -799,13 +805,17 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 
 
 static ngx_int_t
-ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
+ngx_save_argv(int argc, char *const *argv)
 {
+    ngx_os_environ = environ;
+
 #if (NGX_FREEBSD)
 
     ngx_os_argv = (char **) argv;
     ngx_argc = argc;
     ngx_argv = (char **) argv;
+
+    return NGX_OK;
 
 #else
     size_t     len;
@@ -814,17 +824,19 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
     ngx_os_argv = (char **) argv;
     ngx_argc = argc;
 
-    ngx_argv = ngx_alloc((argc + 1) * sizeof(char *), cycle->log);
+    len = (argc + 1) * sizeof(char *);
+
+    ngx_argv = malloc(len);
     if (ngx_argv == NULL) {
-        return NGX_ERROR;
+        goto fail;
     }
 
     for (i = 0; i < argc; i++) {
         len = ngx_strlen(argv[i]) + 1;
 
-        ngx_argv[i] = ngx_alloc(len, cycle->log);
+        ngx_argv[i] = malloc(len);
         if (ngx_argv[i] == NULL) {
-            return NGX_ERROR;
+            goto fail;
         }
 
         (void) ngx_cpystrn((u_char *) ngx_argv[i], (u_char *) argv[i], len);
@@ -832,11 +844,14 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 
     ngx_argv[i] = NULL;
 
-#endif
-
-    ngx_os_environ = environ;
-
     return NGX_OK;
+
+fail:
+
+    ngx_log_stderr(ngx_errno, "[emerg]: malloc(%uz) failed", len);
+    return NGX_ERROR;
+
+#endif
 }
 
 

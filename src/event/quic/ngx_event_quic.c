@@ -185,8 +185,8 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
         qc->tp.max_idle_timeout = peer_tp->max_idle_timeout;
     }
 
-    qc->streams.server_max_streams_bidi = peer_tp->initial_max_streams_bidi;
-    qc->streams.server_max_streams_uni = peer_tp->initial_max_streams_uni;
+    qc->streams.server.bidi.max = peer_tp->initial_max_streams_bidi;
+    qc->streams.server.uni.max = peer_tp->initial_max_streams_uni;
 
     ngx_memcpy(&qc->peer_tp, peer_tp, sizeof(ngx_quic_tp_t));
 
@@ -310,8 +310,8 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     qc->streams.recv_max_data = qc->tp.initial_max_data;
     qc->streams.recv_window = qc->streams.recv_max_data;
 
-    qc->streams.client_max_streams_uni = qc->tp.initial_max_streams_uni;
-    qc->streams.client_max_streams_bidi = qc->tp.initial_max_streams_bidi;
+    qc->streams.client.uni.max = qc->tp.initial_max_streams_uni;
+    qc->streams.client.bidi.max = qc->tp.initial_max_streams_bidi;
 
     qc->congestion.window = ngx_min(10 * qc->tp.max_udp_payload_size,
                                     ngx_max(2 * qc->tp.max_udp_payload_size,

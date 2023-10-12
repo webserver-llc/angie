@@ -609,8 +609,8 @@ ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
         case NGX_QUIC_FT_MAX_STREAMS:
         case NGX_QUIC_FT_MAX_STREAMS2:
             f->u.max_streams.limit = f->u.max_streams.bidi
-                                     ? qc->streams.client_max_streams_bidi
-                                     : qc->streams.client_max_streams_uni;
+                                     ? qc->streams.client.bidi.max
+                                     : qc->streams.client.uni.max;
             ngx_quic_queue_frame(qc, f);
             break;
 

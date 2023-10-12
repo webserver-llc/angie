@@ -129,6 +129,18 @@ struct ngx_quic_socket_s {
 
 
 typedef struct {
+    uint64_t                          max;
+    uint64_t                          count;
+} ngx_quic_stream_ctl_t;
+
+
+typedef struct {
+    ngx_quic_stream_ctl_t             uni;
+    ngx_quic_stream_ctl_t             bidi;
+} ngx_quic_stream_peer_t;
+
+
+typedef struct {
     ngx_rbtree_t                      tree;
     ngx_rbtree_node_t                 sentinel;
 
@@ -143,15 +155,8 @@ typedef struct {
     uint64_t                          send_offset;
     uint64_t                          send_max_data;
 
-    uint64_t                          server_max_streams_uni;
-    uint64_t                          server_max_streams_bidi;
-    uint64_t                          server_streams_uni;
-    uint64_t                          server_streams_bidi;
-
-    uint64_t                          client_max_streams_uni;
-    uint64_t                          client_max_streams_bidi;
-    uint64_t                          client_streams_uni;
-    uint64_t                          client_streams_bidi;
+    ngx_quic_stream_peer_t            server;
+    ngx_quic_stream_peer_t            client;
 
     ngx_uint_t                        initialized;
                                                  /* unsigned  initialized:1; */

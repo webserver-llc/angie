@@ -26,8 +26,10 @@
 
 #ifdef OPENSSL_IS_BORINGSSL
 #define ngx_quic_cipher_t             EVP_AEAD
+#define ngx_quic_crypto_ctx_t         EVP_AEAD_CTX
 #else
 #define ngx_quic_cipher_t             EVP_CIPHER
+#define ngx_quic_crypto_ctx_t         EVP_CIPHER_CTX
 #endif
 
 
@@ -45,9 +47,10 @@ typedef struct {
 
 typedef struct {
     ngx_quic_md_t             secret;
-    ngx_quic_md_t             key;
     ngx_quic_iv_t             iv;
     ngx_quic_md_t             hp;
+    ngx_quic_crypto_ctx_t    *ctx;
+    EVP_CIPHER_CTX           *hp_ctx;
 } ngx_quic_secret_t;
 
 
@@ -95,19 +98,21 @@ ngx_int_t ngx_quic_keys_set_encryption_secret(ngx_log_t *log,
     enum ssl_encryption_level_t level, const SSL_CIPHER *cipher,
     const uint8_t *secret, size_t secret_len);
 ngx_uint_t ngx_quic_keys_available(ngx_quic_keys_t *keys,
-    enum ssl_encryption_level_t level);
+    enum ssl_encryption_level_t level, ngx_uint_t is_write);
 void ngx_quic_keys_discard(ngx_quic_keys_t *keys,
     enum ssl_encryption_level_t level);
 void ngx_quic_keys_switch(ngx_connection_t *c, ngx_quic_keys_t *keys);
-ngx_int_t ngx_quic_keys_update(ngx_connection_t *c, ngx_quic_keys_t *keys);
+void ngx_quic_keys_update(ngx_event_t *ev);
+void ngx_quic_keys_cleanup(ngx_quic_keys_t *keys);
 ngx_int_t ngx_quic_encrypt(ngx_quic_header_t *pkt, ngx_str_t *res);
 ngx_int_t ngx_quic_decrypt(ngx_quic_header_t *pkt, uint64_t *largest_pn);
 void ngx_quic_compute_nonce(u_char *nonce, size_t len, uint64_t pn);
-ngx_int_t ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers,
-    enum ssl_encryption_level_t level);
-ngx_int_t ngx_quic_tls_seal(const ngx_quic_cipher_t *cipher,
-    ngx_quic_secret_t *s, ngx_str_t *out, u_char *nonce, ngx_str_t *in,
-    ngx_str_t *ad, ngx_log_t *log);
+ngx_int_t ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers);
+ngx_int_t ngx_quic_crypto_init(const ngx_quic_cipher_t *cipher,
+    ngx_quic_secret_t *s, ngx_quic_md_t *key, ngx_int_t enc, ngx_log_t *log);
+ngx_int_t ngx_quic_crypto_seal(ngx_quic_secret_t *s, ngx_str_t *out,
+    u_char *nonce, ngx_str_t *in, ngx_str_t *ad, ngx_log_t *log);
+void ngx_quic_crypto_cleanup(ngx_quic_secret_t *s);
 ngx_int_t ngx_quic_hkdf_expand(ngx_quic_hkdf_t *hkdf, const EVP_MD *digest,
     ngx_log_t *log);
 

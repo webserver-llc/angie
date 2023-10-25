@@ -44,7 +44,8 @@ static int ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
 static int ngx_quic_flush_flight(ngx_ssl_conn_t *ssl_conn);
 static int ngx_quic_send_alert(ngx_ssl_conn_t *ssl_conn,
     enum ssl_encryption_level_t level, uint8_t alert);
-static ngx_int_t ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data);
+static ngx_int_t ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
+    enum ssl_encryption_level_t level);
 
 
 #if (NGX_QUIC_BORINGSSL_API)
@@ -355,7 +356,7 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     }
 
     if (f->offset == ctx->crypto.offset) {
-        if (ngx_quic_crypto_input(c, frame->data) != NGX_OK) {
+        if (ngx_quic_crypto_input(c, frame->data, pkt->level) != NGX_OK) {
             return NGX_ERROR;
         }
 
@@ -373,7 +374,7 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     cl = ngx_quic_read_buffer(c, &ctx->crypto, (uint64_t) -1);
 
     if (cl) {
-        if (ngx_quic_crypto_input(c, cl) != NGX_OK) {
+        if (ngx_quic_crypto_input(c, cl, pkt->level) != NGX_OK) {
             return NGX_ERROR;
         }
 
@@ -385,7 +386,8 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
 
 
 static ngx_int_t
-ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data)
+ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
+    enum ssl_encryption_level_t level)
 {
     int                     n, sslerr;
     ngx_buf_t              *b;
@@ -398,17 +400,10 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data)
 
     ssl_conn = c->ssl->connection;
 
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "quic SSL_quic_read_level:%d SSL_quic_write_level:%d",
-                   (int) SSL_quic_read_level(ssl_conn),
-                   (int) SSL_quic_write_level(ssl_conn));
-
     for (cl = data; cl; cl = cl->next) {
         b = cl->buf;
 
-        if (!SSL_provide_quic_data(ssl_conn, SSL_quic_read_level(ssl_conn),
-                                   b->pos, b->last - b->pos))
-        {
+        if (!SSL_provide_quic_data(ssl_conn, level, b->pos, b->last - b->pos)) {
             ngx_ssl_error(NGX_LOG_INFO, c->log, 0,
                           "SSL_provide_quic_data() failed");
             return NGX_ERROR;
@@ -416,11 +411,6 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data)
     }
 
     n = SSL_do_handshake(ssl_conn);
-
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "quic SSL_quic_read_level:%d SSL_quic_write_level:%d",
-                   (int) SSL_quic_read_level(ssl_conn),
-                   (int) SSL_quic_write_level(ssl_conn));
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 
@@ -445,7 +435,7 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data)
     }
 
     if (n <= 0 || SSL_in_init(ssl_conn)) {
-        if (ngx_quic_keys_available(qc->keys, ssl_encryption_early_data)
+        if (ngx_quic_keys_available(qc->keys, ssl_encryption_early_data, 0)
             && qc->client_tp_done)
         {
             if (ngx_quic_init_streams(c) != NGX_OK) {
@@ -483,9 +473,7 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data)
      * Generating next keys before a key update is received.
      */
 
-    if (ngx_quic_keys_update(c, qc->keys) != NGX_OK) {
-        return NGX_ERROR;
-    }
+    ngx_post_event(&qc->key_update, &ngx_posted_events);
 
     /*
      * RFC 9001, 4.9.2.  Discarding Handshake Keys

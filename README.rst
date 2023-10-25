@@ -13,6 +13,6 @@ Angie is a drop-in replacement for nginx, so you can use existing nginx
 configuration without major changes.
 
 `Documentation Site <https://angie.software/en/>`_
------------------------------------------------
+--------------------------------------------------
 `Changes <CHANGES>`_
 --------------------

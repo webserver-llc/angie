@@ -59,6 +59,7 @@ sub new {
 	$self->{buf} = '';
 
 	$self->init();
+	$self->init_key_schedule();
 	$self->retry(%extra) or return;
 
 	return $self;
@@ -100,7 +101,6 @@ sub retry {
 	$self->set_traffic_keys('tls13 client in', 'SHA256', 32, 0, 'w', $prk);
 	$self->set_traffic_keys('tls13 server in', 'SHA256', 32, 0, 'r', $prk);
 
-	$self->init_key_schedule();
 	$self->initial();
 	return $self if $extra{probe};
 	$self->handshake() or return;
@@ -134,7 +134,7 @@ sub init_key_schedule {
 
 sub initial {
 	my ($self) = @_;
-	$self->{tlsm}{ch} = $self->build_tls_client_hello();
+	$self->{tlsm}{ch} ||= $self->build_tls_client_hello();
 	my $ch = $self->{tlsm}{ch};
 	my $crypto = build_crypto($ch);
 	my $padding = 1200 - length($crypto);

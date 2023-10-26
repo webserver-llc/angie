@@ -1090,16 +1090,11 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'invalid path');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.1');
-
 $sid = $s->new_stream({ path => "/t1.html\x02" });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'invalid path control');
-
-}
 
 # ngx_http_v2_parse_int() error handling
 

@@ -61,7 +61,7 @@ system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-pix_fmt yuv420p -g 15 -c:v libx264 '
 	. "${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";
-$t->try_run('no mp4_start_key_frame')->plan(4);
+$t->run()->plan(4);
 
 ###############################################################################
 

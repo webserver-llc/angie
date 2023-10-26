@@ -170,13 +170,7 @@ is(http_host_header('123.40.56.78:9000:80'), '123.40.56.78',
 	'double port hack');
 
 like(http_host_header("localhost\nHost: again", 1), qr/ 400 /, 'host repeat');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.1');
-
 like(http_host_header("localhost\x02", 1), qr/ 400 /, 'control');
-
-}
 
 ###############################################################################
 

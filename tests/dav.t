@@ -108,9 +108,6 @@ like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
 is(-s $t->testdir() . '/file', 10,
 	'put file extra data size');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.0');
-
 $r = http(<<EOF . '0123456789');
 PUT /file%20sp HTTP/1.1
 Host: localhost
@@ -120,8 +117,6 @@ Content-Length: 10
 EOF
 
 like($r, qr!Location: /file%20sp\x0d?$!ms, 'put file escaped');
-
-}
 
 # 201 replies contain body, response should indicate it's empty
 

@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
-	->has_daemon('openssl')->plan(7)
+	->has_daemon('openssl')->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -40,6 +40,8 @@ http {
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
     quic_retry on;
+
+    keepalive_timeout 3s;
 
     server {
         listen       127.0.0.1:%%PORT_8980_UDP%% quic;
@@ -118,6 +120,45 @@ $frames = $s->read(all => [{ type => 'CONNECTION_CLOSE' }]);
 ($frame) = grep { $_->{type} eq "CONNECTION_CLOSE" } @$frames;
 is($frame->{error}, 11, 'retry token decrypt error');
 
+}
+
+# resending client Initial packets after receiving a Retry packet
+# to simulate server Initial packet loss triggering its retransmit,
+# used to create extra nginx connections before 8f7e6d8c061e,
+# caught by CRYPTO stream mismatch among server Initial packets
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.25.3');
+
+$s = new_connection_resend();
+$sid = $s->new_stream();
+
+eval {
+	# would die on "bad inner" sanity check
+	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+};
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, 403, 'resend initial');
+
+}
+
+###############################################################################
+
+# expanded handshake version to send repetitive Initial packets
+
+sub new_connection_resend {
+	$s = Test::Nginx::HTTP3->new(8980, probe => 1);
+	$s->{socket}->sysread($s->{buf}, 65527);
+	# read token and updated connection IDs
+	(undef, undef, $s->{token}) = $s->decrypt_retry($s->{buf});
+	# apply connection IDs for new Initial secrets
+	$s->retry(probe => 1);
+	# send the second Initial packet
+	$s->initial();
+	# the rest of handshake, advancing key schedule
+	$s->handshake();
+	return $s;
 }
 
 ###############################################################################

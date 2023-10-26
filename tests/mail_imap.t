@@ -223,13 +223,7 @@ $s->read();
 
 $s->send('a01 LOGIN {18+}' . CRLF
 	. 'te\"st@example.com' . ' "se\\\\\"cret"');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.0');
-
 $s->ok('backslash in literal');
-
-}
 
 # pipelining
 
@@ -239,22 +233,13 @@ $s->read();
 $s->send('a01 INVALID COMMAND WITH ARGUMENTS' . CRLF
 	. 'a02 NOOP');
 $s->check(qr/^a01 BAD/, 'pipelined invalid command');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.21.0');
-
 $s->ok('pipelined noop after invalid command');
-
-}
 
 $s->send('a03 FOOBAR {10+}' . CRLF
 	. 'test test ' . CRLF
 	. 'a04 NOOP');
 $s->check(qr/^a03 BAD/, 'invalid with non-sync literal');
 $s->check(qr/^(a04 |$)/, 'literal not command');
-
-TODO: {
-todo_skip('not yet', 2) unless $t->has_version('1.21.0');
 
 # skipped without a fix, since with level-triggered event methods
 # this hogs cpu till the connection is closed by the backend server,
@@ -267,7 +252,5 @@ $s->send('a01 LOGIN test@example.com secret' . CRLF
 	. 'a02 LOGOUT');
 $s->ok('pipelined login');
 $s->ok('pipelined logout');
-
-}
 
 ###############################################################################

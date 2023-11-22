@@ -363,7 +363,7 @@ ngx_http_prometheus_render_metric(ngx_uint_t m,
 
     metric = ctx->metrics->elts;
 
-    vv = ngx_http_get_indexed_variable(ctx->request, metric[m].value);
+    vv = ngx_http_get_flushed_variable(ctx->request, metric[m].value);
 
     if (vv == NULL || vv->not_found || vv->len == 0) {
         return NGX_OK;
@@ -558,8 +558,6 @@ ngx_http_prometheus_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    v->not_found = 0;
-
     switch (item->type) {
 
     case NGX_DATA_INTEGER_TYPE:
@@ -596,6 +594,9 @@ ngx_http_prometheus_variable(ngx_http_request_t *r,
     default:
         return NGX_ERROR;
     }
+
+    v->valid = 1;
+    v->not_found = 0;
 
     return NGX_OK;
 }

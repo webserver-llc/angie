@@ -864,13 +864,7 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
     ngx_stream_session_t   *s;
     ngx_stream_upstream_t  *u;
 
-    c = pc->connection;
-
-    if (c == NULL || c->data == NULL) {
-        return;
-    }
-
-    s = c->data;
+    s = pc->ctx;
     u = s->upstream;
 
     if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
@@ -897,6 +891,16 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
                                     - peer->stats.downstart;
             peer->stats.downstart = 0;
         }
+    }
+
+    c = pc->connection;
+
+    if (c == NULL) {
+        /*
+         * immediate fail of establishing connection
+         * in ngx_event_connect_peer()
+         */
+        return;
     }
 
     peer->stats.sent += c->sent;

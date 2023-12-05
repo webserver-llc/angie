@@ -7,6 +7,15 @@
 
 <changes ver="1.4.0" date="">
 
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.25.3.
+</para>
+<para lang="en">
+all functionality of nginx 1.25.3.
+</para>
+</change>
+
 </changes>
 
 

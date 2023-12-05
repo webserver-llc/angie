@@ -385,7 +385,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_queue_insert_head(&kcf->cache, q);
 
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    if (u->upstream && (u->upstream->flags & NGX_HTTP_UPSTREAM_CONF)) {
+    if (u->upstream->shm_zone != NULL) {
         item->rr_peers = u->upstream->peer.data;
         (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive, 1);
     }

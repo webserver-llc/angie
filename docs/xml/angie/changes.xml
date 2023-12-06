@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+ограничение скорости отдачи MP4-файлов клиенту пропорционально битрейту
+с помощью директив "mp4_limit_rate" и "mp4_limit_rate_after", снижающее
+нагрузку на полосу пропускания.
+</para>
+<para lang="en">
+limiting the response rate of MP4 files transmission to the client
+proportionally to the bitrate using the "mp4_limit_rate" and
+"mp4_limit_rate_after" directives, which reduces the bandwidth load.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.3.
 </para>
 <para lang="en">

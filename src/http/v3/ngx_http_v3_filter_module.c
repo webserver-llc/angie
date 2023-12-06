@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -8,25 +9,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-
-
-/* static table indices */
-#define NGX_HTTP_V3_HEADER_AUTHORITY                 0
-#define NGX_HTTP_V3_HEADER_PATH_ROOT                 1
-#define NGX_HTTP_V3_HEADER_CONTENT_LENGTH_ZERO       4
-#define NGX_HTTP_V3_HEADER_DATE                      6
-#define NGX_HTTP_V3_HEADER_LAST_MODIFIED             10
-#define NGX_HTTP_V3_HEADER_LOCATION                  12
-#define NGX_HTTP_V3_HEADER_METHOD_GET                17
-#define NGX_HTTP_V3_HEADER_SCHEME_HTTP               22
-#define NGX_HTTP_V3_HEADER_SCHEME_HTTPS              23
-#define NGX_HTTP_V3_HEADER_STATUS_200                25
-#define NGX_HTTP_V3_HEADER_ACCEPT_ENCODING           31
-#define NGX_HTTP_V3_HEADER_CONTENT_TYPE_TEXT_PLAIN   53
-#define NGX_HTTP_V3_HEADER_VARY_ACCEPT_ENCODING      59
-#define NGX_HTTP_V3_HEADER_ACCEPT_LANGUAGE           72
-#define NGX_HTTP_V3_HEADER_SERVER                    92
-#define NGX_HTTP_V3_HEADER_USER_AGENT                95
 
 
 typedef struct {

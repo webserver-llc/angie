@@ -18,6 +18,11 @@ static ngx_int_t ngx_quic_handle_stateless_reset(ngx_connection_t *c,
 static void ngx_quic_input_handler(ngx_event_t *rev);
 static void ngx_quic_close_handler(ngx_event_t *ev);
 
+static void ngx_quic_dummy_handler(ngx_event_t *ev);
+static void ngx_quic_client_input_handler(ngx_event_t *rev);
+static ngx_int_t ngx_quic_client_start(ngx_connection_t *c,
+    ngx_quic_header_t *pkt);
+
 static ngx_int_t ngx_quic_handle_datagram(ngx_connection_t *c, ngx_buf_t *b,
     ngx_quic_conf_t *conf);
 static ngx_int_t ngx_quic_handle_packet(ngx_connection_t *c,
@@ -188,7 +193,15 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
     qc->streams.server.bidi.max = peer_tp->initial_max_streams_bidi;
     qc->streams.server.uni.max = peer_tp->initial_max_streams_uni;
 
+    if (qc->client) {
+        ngx_memcpy(qc->path->cid->sr_token,
+                   peer_tp->sr_token, NGX_QUIC_SR_TOKEN_LEN);
+    }
+
     ngx_memcpy(&qc->peer_tp, peer_tp, sizeof(ngx_quic_tp_t));
+
+    /* apply transport parameters to early created streams */
+    ngx_quic_streams_init_state(c);
 
     return NGX_OK;
 }
@@ -222,10 +235,339 @@ ngx_quic_run(ngx_connection_t *c, ngx_quic_conf_t *conf)
 }
 
 
+static void
+ngx_quic_dummy_handler(ngx_event_t *ev)
+{
+}
+
+
+ngx_int_t
+ngx_quic_create_client(ngx_quic_conf_t *conf, ngx_connection_t *c)
+{
+    int                     value;
+    ngx_log_t              *log;
+    ngx_quic_connection_t  *qc;
+
+#if (NGX_HAVE_IP_MTU_DISCOVER)
+
+    if (c->sockaddr->sa_family == AF_INET) {
+        value = IP_PMTUDISC_DO;
+
+        if (setsockopt(c->fd, IPPROTO_IP, IP_MTU_DISCOVER,
+                       (const void *) &value, sizeof(int))
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
+                          "setsockopt(IP_MTU_DISCOVER) "
+                          "for quic conn failed, ignored");
+        }
+    }
+
+#elif (NGX_HAVE_IP_DONTFRAG)
+
+    if (c->sockaddr->sa_family == AF_INET) {
+        value = 1;
+
+        if (setsockopt(c->fd, IPPROTO_IP, IP_DONTFRAG,
+                       (const void *) &value, sizeof(int))
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
+                          "setsockopt(IP_DONTFRAG) "
+                          "for quic conn failed, ignored");
+        }
+    }
+
+#endif
+
+#if (NGX_HAVE_INET6)
+
+#if (NGX_HAVE_IPV6_MTU_DISCOVER)
+
+    if (c->sockaddr->sa_family == AF_INET6) {
+        value = IPV6_PMTUDISC_DO;
+
+        if (setsockopt(c->fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
+                       (const void *) &value, sizeof(int))
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
+                          "setsockopt(IPV6_MTU_DISCOVER) "
+                          "for quic conn failed, ignored");
+        }
+    }
+
+#elif (NGX_HAVE_IP_DONTFRAG)
+
+    if (c->sockaddr->sa_family == AF_INET6) {
+
+        value = 1;
+
+        if (setsockopt(c->fd, IPPROTO_IPV6, IPV6_DONTFRAG,
+                       (const void *) &value, sizeof(int))
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
+                          "setsockopt(IPV6_DONTFRAG) "
+                          "for quic conn failed, ignored");
+        }
+    }
+#endif
+
+#endif
+
+    c->read->handler = ngx_quic_client_input_handler;
+    c->write->handler = ngx_quic_dummy_handler;
+
+    if (conf->active_connection_id_limit == 0) {
+        /*
+         * TODO: remove when done with testing
+         *
+         * this case exists purely for testing/coverage purposes;
+         * (RFC requires minimum value of 2, and default is 2, so no real
+         *  configurations want to set this zero)
+         */
+        return NGX_ERROR;
+    }
+
+    /*
+     * each stream calls c->listening()->handler for initialization;
+     * handler is set by the caller
+     */
+    c->listening = ngx_pcalloc(c->pool, sizeof(ngx_listening_t));
+    if (c->listening == NULL) {
+        return NGX_ERROR;
+    }
+
+    /*
+     * 'c' is a new connection to upstream and c->log is inherited from
+     * the r->connection->log (allocated from r->pool)
+     *
+     * main quic connection (this) may exist longer than client connection
+     * due to keepalive and/or non-immediate closing
+     *
+     * unlike tcp keepalive, main quic connection is alive during the
+     * time between requests, and may produce events with logging.
+     *
+     * so, use log from ngx_cycle instead of client log, which may be
+     * destroyed.
+     */
+    log = ngx_palloc(c->pool, sizeof(ngx_log_t));
+    if (log == NULL) {
+        return NGX_ERROR;
+    }
+
+    *log = *ngx_cycle->log;
+    c->log = log;
+
+    log->connection = c->number;
+
+    c->read->log = c->log;
+    c->write->log = c->log;
+    c->pool->log = c->log;
+
+    qc = ngx_quic_new_connection(c, conf, NULL);
+    if (qc == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic client initialized on c:%p", c);
+
+    return NGX_OK;
+}
+
+
+void
+ngx_quic_client_set_ssl_data(ngx_connection_t *c, void *data)
+{
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    if (qc == NULL) {
+        return;
+    }
+
+    qc->init_ssl_data = data;
+}
+
+
+void *
+ngx_quic_client_get_ssl_data(ngx_connection_t *c)
+{
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    if (qc == NULL) {
+        return NULL;
+    }
+
+    return qc->init_ssl_data;
+}
+
+
+ngx_int_t
+ngx_quic_connect(ngx_connection_t *c, ngx_quic_init_ssl_pt init_ssl, void *data)
+{
+    ngx_str_t               id;
+    ngx_quic_client_id_t   *cid;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    qc->init_ssl = init_ssl;
+    qc->init_ssl_data = data;
+
+    qc->peer_tp.max_udp_payload_size = NGX_QUIC_MAX_UDP_PAYLOAD_SIZE;
+
+    /* use initial dcid we generated on start */
+    id.data = qc->incid;
+    id.len = NGX_QUIC_SERVER_CID_LEN;
+
+    cid = ngx_quic_create_client_id(c, &id, 0, NULL);
+    if (cid == NULL) {
+        return NGX_ERROR;
+    }
+
+    qc->path = ngx_quic_new_path(c, c->sockaddr, c->socklen, cid);
+    if (qc->path == NULL) {
+        return NGX_ERROR;
+    }
+
+    qc->path->tag = NGX_QUIC_PATH_ACTIVE;
+    ngx_quic_path_dbg(c, "set active", qc->path);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic client initiating connection");
+
+    return ngx_quic_client_start(c, NULL);
+}
+
+
+static ngx_int_t
+ngx_quic_client_start(ngx_connection_t *c, ngx_quic_header_t *pkt)
+{
+    ngx_str_t               dcid;
+    ngx_queue_t            *q;
+    ngx_quic_frame_t       *f;
+    ngx_quic_send_ctx_t    *ctx;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    if (pkt == NULL) {
+        /* not a retry packet */
+        goto start;
+    }
+
+    if (pkt->token.len <= 16) {
+        /*
+         * A client MUST discard a Retry packet with a zero-length
+         * Retry Token field.
+         */
+
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "quic client bad token length");
+        return NGX_ERROR;
+    }
+
+    if (ngx_quic_verify_retry_token_integrity(c, pkt) != NGX_OK) {
+        /*
+         * A client MUST accept and process at most one Retry packet
+         * for each connection attempt.
+         */
+
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "quic client retry token integrity check failed");
+        return NGX_ERROR;
+    }
+
+    /* server responded with new id, update */
+    ngx_memcpy(qc->path->cid->id, pkt->scid.data, pkt->scid.len);
+    qc->path->cid->len = pkt->scid.len;
+    qc->server_id_known = 1;
+
+    qc->client_retry.len = pkt->token.len - 16;
+
+    qc->client_retry.data = ngx_pnalloc(c->pool,
+                                        qc->client_retry.len);
+    if (qc->client_retry.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(qc->client_retry.data, pkt->token.data,
+               qc->client_retry.len);
+
+    /* prepare for one more SID change later */
+    qc->server_id_known = 0;
+
+    /*
+     * RFC 9002  6.3  Handling Retry Packets
+     *
+     * Clients that receive a Retry packet reset congestion control and loss
+     * recovery state, including resetting any pending timers. Other connection
+     * state, in particular cryptographic handshake messages, is retained; see
+     * Section 17.2.5 of [QUIC-TRANSPORT].
+     */
+
+    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_initial);
+
+    while (!ngx_queue_empty(&ctx->sent)) {
+        q = ngx_queue_head(&ctx->sent);
+        ngx_queue_remove(q);
+
+        f = ngx_queue_data(q, ngx_quic_frame_t, queue);
+        ngx_quic_congestion_ack(c, f);
+        ngx_quic_free_frame(c, f);
+    }
+
+    ctx->send_ack = 0;
+    qc->pto_count = 0;
+
+    ngx_quic_congestion_reset(qc);
+
+    if (qc->pto.timer_set) {
+        ngx_del_timer(&qc->pto);
+    }
+
+    ngx_quic_set_lost_timer(c);
+
+    /* now we need to restart handshake from the beginning */
+
+    /* reset offset in CRYPTO frames */
+    ctx->crypto_sent = 0;
+
+    /* since SID has changed, new keys need to be generated */
+    dcid.data = pkt->scid.data;
+    dcid.len = pkt->scid.len;
+
+    ngx_quic_keys_cleanup(qc->keys);
+
+    if (ngx_quic_keys_set_initial_secret(qc->keys, &dcid, c->log) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+start:
+
+    if (ngx_quic_client_handshake(c) != NGX_OK) {
+        qc->error_reason = "handshake failed";
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic client handshake started");
+
+    return NGX_AGAIN;
+}
+
+
 static ngx_quic_connection_t *
 ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     ngx_quic_header_t *pkt)
 {
+    ngx_str_t               dcid;
     ngx_uint_t              i;
     ngx_quic_tp_t          *peer_tp;
     ngx_quic_connection_t  *qc;
@@ -235,12 +577,18 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
         return NULL;
     }
 
+    /* server connection requires a packet from client */
+    qc->client = (pkt == NULL);
+
     qc->keys = ngx_pcalloc(c->pool, sizeof(ngx_quic_keys_t));
     if (qc->keys == NULL) {
         return NULL;
     }
 
-    qc->version = pkt->version;
+    qc->keys->client = qc->client;
+
+    /* client always initiates QUIC v.1 */
+    qc->version = qc->client ? 1 : pkt->version;
 
     ngx_rbtree_init(&qc->streams.tree, &qc->streams.sentinel,
                     ngx_quic_rbtree_insert_stream);
@@ -313,27 +661,40 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     qc->streams.client.uni.max = qc->tp.initial_max_streams_uni;
     qc->streams.client.bidi.max = qc->tp.initial_max_streams_bidi;
 
-    qc->congestion.window = ngx_min(10 * qc->tp.max_udp_payload_size,
-                                    ngx_max(2 * qc->tp.max_udp_payload_size,
-                                            14720));
-    qc->congestion.ssthresh = (size_t) -1;
-    qc->congestion.recovery_start = ngx_current_msec;
+    ngx_quic_congestion_reset(qc);
 
-    if (pkt->validated && pkt->retried) {
-        qc->tp.retry_scid.len = pkt->dcid.len;
-        qc->tp.retry_scid.data = ngx_pstrdup(c->pool, &pkt->dcid);
-        if (qc->tp.retry_scid.data == NULL) {
-            return NULL;
+    if (!qc->client) {
+        if (pkt->validated && pkt->retried) {
+            qc->tp.retry_scid.len = pkt->dcid.len;
+
+            qc->tp.retry_scid.data = ngx_pstrdup(c->pool, &pkt->dcid);
+            if (qc->tp.retry_scid.data == NULL) {
+                return NULL;
+            }
         }
     }
 
-    if (ngx_quic_keys_set_initial_secret(qc->keys, &pkt->dcid, c->log)
+    if (qc->client) {
+        if (ngx_quic_create_server_id(c, qc->incid, 1) != NGX_OK) {
+            return NULL;
+        }
+
+        dcid.data = qc->incid;
+        dcid.len = NGX_QUIC_SERVER_CID_LEN;
+
+    } else {
+        dcid = pkt->dcid;
+    }
+
+    if (ngx_quic_keys_set_initial_secret(qc->keys, &dcid, c->log)
         != NGX_OK)
     {
         return NULL;
     }
 
-    qc->validated = pkt->validated;
+    if (!qc->client) {
+        qc->validated = pkt->validated;
+    }
 
     if (ngx_quic_open_sockets(c, qc, pkt) != NGX_OK) {
         ngx_quic_keys_cleanup(qc->keys);
@@ -461,10 +822,151 @@ ngx_quic_input_handler(ngx_event_t *rev)
 }
 
 
+static void
+ngx_quic_client_input_handler(ngx_event_t *rev)
+{
+    ngx_int_t               rc;
+    ngx_str_t               key;
+    ngx_buf_t              *b;
+    ngx_connection_t       *c;
+    ngx_quic_socket_t      *qsock;
+    ngx_quic_connection_t  *qc;
+
+    ssize_t                 n;
+    ngx_buf_t               dbuf;
+    static u_char           cbuf[65535];
+
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, rev->log, 0,
+                   "quic client input handler");
+
+    c = rev->data;
+    qc = ngx_quic_get_connection(c);
+
+    c->log->action = "handling quic client input";
+
+    if (rev->timedout) {
+        ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT,
+                      "quic server timed out");
+        ngx_quic_close_connection(c, NGX_DONE);
+        return;
+    }
+
+    if (c->close) {
+        c->close = 0;
+
+        if (!ngx_exiting) {
+            qc->error = NGX_QUIC_ERR_NO_ERROR;
+            qc->error_reason = "graceful shutdown";
+            ngx_quic_close_connection(c, NGX_ERROR);
+            return;
+        }
+
+        if (!qc->closing && qc->conf->shutdown) {
+            qc->conf->shutdown(c);
+        }
+
+        return;
+    }
+
+    if (!rev->ready) {
+        if (qc->closing) {
+            ngx_quic_close_connection(c, NGX_OK);
+
+        } else if (qc->shutdown) {
+            ngx_quic_shutdown_quic(c);
+        }
+
+        return;
+    }
+
+    for ( ;; ) {
+
+        ngx_memzero(&dbuf, sizeof(ngx_buf_t));
+
+        n = c->recv(c, cbuf, sizeof(cbuf));
+
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic ngx_quic_input_handler recv: fd:%d %z",
+                       c->fd, n);
+
+        if (n == NGX_ERROR) {
+            qc->error_reason = "failed read";
+            ngx_quic_close_connection(c, NGX_ERROR);
+            return;
+        }
+
+        if (n == NGX_AGAIN) {
+            break;
+        }
+
+        /*
+         * actually, since client uses connected UDP socket, there should
+         * be no different addresses of incoming packets;
+         *
+         * we only need to dispatch between different quic sockets,
+         * as client may use different DCIDs
+         */
+
+        if (ngx_quic_get_packet_dcid(c->log, cbuf, n, &key) != NGX_OK) {
+            /* broken packet, ignore */
+            continue;
+        }
+
+        qsock = ngx_quic_find_socket_by_id(c, &key);
+        if (qsock == NULL) {
+            /* client uses unknown dcid, ignore */
+            continue;
+        }
+
+        c->udp = &qsock->udp;
+
+        qsock = ngx_quic_get_socket(c);
+
+        ngx_memcpy(&qsock->sockaddr, c->sockaddr, c->socklen);
+        qsock->socklen = c->socklen;
+
+        dbuf.pos = cbuf;
+        dbuf.last = cbuf + n;
+        dbuf.start = dbuf.pos;
+        dbuf.end = cbuf + sizeof(cbuf);
+
+        c->udp->buffer = &dbuf;
+
+        b = c->udp->buffer;
+
+        rc = ngx_quic_handle_datagram(c, b, NULL);
+
+        if (rc == NGX_ERROR) {
+            ngx_quic_close_connection(c, NGX_ERROR);
+            return;
+        }
+
+        if (rc == NGX_DECLINED) {
+            continue;
+        }
+
+        /* rc == NGX_OK */
+    }
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        ngx_quic_close_connection(c, NGX_ERROR);
+        return;
+    }
+
+    qc->send_timer_set = 0;
+    ngx_add_timer(rev, qc->tp.max_idle_timeout);
+
+    ngx_quic_connstate_dbg(c);
+}
+
+
 void
 ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc)
 {
     ngx_uint_t              i;
+#if (NGX_STAT_STUB)
+    ngx_uint_t              is_client;
+#endif
     ngx_pool_t             *pool;
     ngx_quic_send_ctx_t    *ctx;
     ngx_quic_connection_t  *qc;
@@ -474,12 +976,19 @@ ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc)
     if (qc == NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
                        "quic packet rejected rc:%i, cleanup connection", rc);
+#if (NGX_STAT_STUB)
+        is_client = 0;
+#endif
         goto quic_done;
     }
 
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "quic close %s rc:%i",
-                   qc->closing ? "resumed": "initiated", rc);
+#if (NGX_STAT_STUB)
+    is_client = qc->client;
+#endif
+
+    ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic close %s rc:%i c:%p",
+                   qc->closing ? "resumed": "initiated", rc, c);
 
     if (!qc->closing) {
 
@@ -554,6 +1063,8 @@ ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc)
     }
 
     if (ngx_quic_close_streams(c, qc) == NGX_AGAIN) {
+        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic close: waiting for streams");
         return;
     }
 
@@ -578,6 +1089,8 @@ ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc)
     }
 
     if (qc->close.timer_set) {
+        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic close: waiting for timers");
         return;
     }
 
@@ -605,7 +1118,9 @@ quic_done:
     }
 
 #if (NGX_STAT_STUB)
-    (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
+    if (!is_client) {
+        (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
+    }
 #endif
 
     c->destroyed = 1;
@@ -630,10 +1145,31 @@ ngx_quic_finalize_connection(ngx_connection_t *c, ngx_uint_t err,
         return;
     }
 
-    qc->error = err;
-    qc->error_reason = reason;
-    qc->error_app = 1;
     qc->error_ftype = 0;
+
+    /* 10.2.3. Immediate Close during the Handshake
+     *
+     * Sending a CONNECTION_CLOSE of type 0x1d in an Initial or Handshake
+     * packet could expose application state or be used to alter application
+     * state. A CONNECTION_CLOSE of type 0x1d MUST be replaced by a
+     * CONNECTION_CLOSE of type 0x1c when sending the frame in Initial or
+     * Handshake packets.
+     *
+     * Endpoints MUST clear the value of the Reason Phrase field and SHOULD use
+     * the APPLICATION_ERROR code when converting to a CONNECTION_CLOSE of type
+     * 0x1c.
+     */
+
+    if (c->ssl == NULL || !c->ssl->handshaked) {
+        qc->error = NGX_QUIC_ERR_APPLICATION_ERROR;
+        qc->error_reason = "";
+        qc->error_app = 0;
+
+    } else {
+        qc->error = err;
+        qc->error_reason = reason;
+        qc->error_app = 1;
+    }
 
     ngx_post_event(&qc->close, &ngx_posted_events);
 }
@@ -674,10 +1210,13 @@ ngx_quic_handle_datagram(ngx_connection_t *c, ngx_buf_t *b,
     size_t                  size;
     u_char                 *p, *start;
     ngx_int_t               rc;
-    ngx_uint_t              good;
+    ngx_uint_t              good, is_server_packet;
     ngx_quic_path_t        *path;
     ngx_quic_header_t       pkt;
     ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+    is_server_packet = qc ? qc->client : 0;
 
     good = 0;
     path = NULL;
@@ -697,6 +1236,7 @@ ngx_quic_handle_datagram(ngx_connection_t *c, ngx_buf_t *b,
         pkt.path = path;
         pkt.flags = p[0];
         pkt.raw->pos++;
+        pkt.server = is_server_packet;
 
         rc = ngx_quic_handle_packet(c, conf, &pkt);
 
@@ -842,10 +1382,18 @@ ngx_quic_handle_packet(ngx_connection_t *c, ngx_quic_conf_t *conf,
                 }
             }
 
-            if (ngx_quic_check_csid(qc, pkt) != NGX_OK) {
-                return NGX_DECLINED;
-            }
+            if (qc->client) {
 
+                if (ngx_quic_pkt_retry(pkt->flags)) {
+                    return ngx_quic_client_start(c, pkt);
+                }
+
+            } else {
+
+                if (ngx_quic_check_csid(qc, pkt) != NGX_OK) {
+                    return NGX_DECLINED;
+                }
+            }
         }
 
         rc = ngx_quic_handle_payload(c, pkt);
@@ -997,6 +1545,14 @@ ngx_quic_handle_payload(ngx_connection_t *c, ngx_quic_header_t *pkt)
     pkt->decrypted = 1;
 
     c->log->action = "handling decrypted packet";
+
+    if (qc->client && !qc->server_id_known) {
+        /* server generated new ID, use it (only if decrypted) */
+
+        ngx_memcpy(qc->path->cid->id, pkt->scid.data, pkt->scid.len);
+        qc->path->cid->len = pkt->scid.len;
+        qc->server_id_known = 1;
+    }
 
     if (pkt->path == NULL) {
         rc = ngx_quic_set_path(c, pkt);
@@ -1383,6 +1939,19 @@ ngx_quic_handle_frames(ngx_connection_t *c, ngx_quic_header_t *pkt)
                 return NGX_ERROR;
             }
 
+            break;
+
+        case NGX_QUIC_FT_HANDSHAKE_DONE:
+            ngx_quic_streams_notify_write(c);
+            break;
+
+        case NGX_QUIC_FT_NEW_TOKEN:
+
+            if (ngx_quic_handle_new_token_frame(c, &frame.u.token)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
             break;
 
         default:

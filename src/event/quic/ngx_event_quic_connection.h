@@ -275,6 +275,13 @@ struct ngx_quic_connection_s {
     ngx_uint_t                        shutdown_code;
     const char                       *shutdown_reason;
 
+    u_char                            incid[NGX_QUIC_SERVER_CID_LEN];
+
+    ngx_str_t                         client_retry;
+    ngx_str_t                         client_new_token;
+    ngx_quic_init_ssl_pt              init_ssl;
+    void                             *init_ssl_data;
+
     unsigned                          error_app:1;
     unsigned                          send_timer_set:1;
     unsigned                          closing:1;
@@ -283,6 +290,9 @@ struct ngx_quic_connection_s {
     unsigned                          key_phase:1;
     unsigned                          validated:1;
     unsigned                          client_tp_done:1;
+    unsigned                          server_id_known:1;
+    unsigned                          client:1;
+    unsigned                          switch_keys:1;
 };
 
 

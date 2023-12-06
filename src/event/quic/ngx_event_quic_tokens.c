@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -307,3 +308,50 @@ bad_token:
 
     return NGX_DECLINED;
 }
+
+
+ngx_int_t
+ngx_quic_verify_retry_token_integrity(ngx_connection_t *c,
+    ngx_quic_header_t *pkt)
+{
+    u_char                 *p;
+    size_t                  size;
+    ngx_str_t               ad, itag, pkt_tag;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    /* integrity tag from retry packet */
+    pkt_tag.data = pkt->data + pkt->len - NGX_QUIC_TAG_LEN;
+
+    /* pseudo packet size */
+    size = pkt->len + 1 /* od len */ + 20 /* odcid */;
+
+    p = ngx_pcalloc(c->pool, size);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    ad.data = p;
+
+    *p++ = NGX_QUIC_SERVER_CID_LEN;
+    p = ngx_cpymem(p, qc->incid, NGX_QUIC_SERVER_CID_LEN);
+    p = ngx_cpymem(p, pkt->data, pkt->len - NGX_QUIC_TAG_LEN);
+
+    ad.len = p - ad.data;
+
+    /* integrity tag to calculate using pseudo packet input */
+    itag.data = ad.data + ad.len;
+    itag.len = NGX_QUIC_TAG_LEN;
+
+    if (ngx_quic_retry_seal(&ad, &itag, pkt->log) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (ngx_memcmp(pkt_tag.data, itag.data, NGX_QUIC_TAG_LEN) != 0) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+

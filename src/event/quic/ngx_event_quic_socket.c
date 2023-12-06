@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -35,10 +36,15 @@ ngx_quic_open_sockets(ngx_connection_t *c, ngx_quic_connection_t *qc,
     ngx_queue_init(&qc->client_ids);
     ngx_queue_init(&qc->free_client_ids);
 
-    qc->tp.original_dcid.len = pkt->odcid.len;
-    qc->tp.original_dcid.data = ngx_pstrdup(c->pool, &pkt->odcid);
-    if (qc->tp.original_dcid.data == NULL) {
-        return NGX_ERROR;
+    if (qc->client) {
+        qc->tp.original_dcid.len = 0;
+
+    } else {
+        qc->tp.original_dcid.len = pkt->odcid.len;
+        qc->tp.original_dcid.data = ngx_pstrdup(c->pool, &pkt->odcid);
+        if (qc->tp.original_dcid.data == NULL) {
+            return NGX_ERROR;
+        }
     }
 
     /* socket to use for further processing (id auto-generated) */
@@ -65,6 +71,10 @@ ngx_quic_open_sockets(ngx_connection_t *c, ngx_quic_connection_t *qc,
     c->udp = &qsock->udp;
 
     /* ngx_quic_get_connection(c) macro is now usable */
+
+    if (qc->client) {
+        return NGX_OK;
+    }
 
     /* we have a client identified by scid */
     cid = ngx_quic_create_client_id(c, &pkt->scid, 0, NULL);
@@ -104,7 +114,10 @@ ngx_quic_open_sockets(ngx_connection_t *c, ngx_quic_connection_t *qc,
 
 failed:
 
-    ngx_rbtree_delete(&c->listening->rbtree, &qsock->udp.node);
+    if (!qc->client) {
+        ngx_rbtree_delete(&c->listening->rbtree, &qsock->udp.node);
+    }
+
     c->udp = NULL;
 
     return NGX_ERROR;
@@ -135,7 +148,7 @@ ngx_quic_create_socket(ngx_connection_t *c, ngx_quic_connection_t *qc)
     }
 
     sock->sid.len = NGX_QUIC_SERVER_CID_LEN;
-    if (ngx_quic_create_server_id(c, sock->sid.id) != NGX_OK) {
+    if (ngx_quic_create_server_id(c, sock->sid.id, qc->client) != NGX_OK) {
         return NULL;
     }
 
@@ -155,7 +168,10 @@ ngx_quic_close_socket(ngx_connection_t *c, ngx_quic_socket_t *qsock)
     ngx_queue_remove(&qsock->queue);
     ngx_queue_insert_head(&qc->free_sockets, &qsock->queue);
 
-    ngx_rbtree_delete(&c->listening->rbtree, &qsock->udp.node);
+    if (!qc->client) {
+        ngx_rbtree_delete(&c->listening->rbtree, &qsock->udp.node);
+    }
+
     qc->nsockets--;
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -176,11 +192,13 @@ ngx_quic_listen(ngx_connection_t *c, ngx_quic_connection_t *qc,
     id.data = sid->id;
     id.len = sid->len;
 
-    qsock->udp.connection = c;
-    qsock->udp.node.key = ngx_crc32_long(id.data, id.len);
-    qsock->udp.key = id;
+    if (!qc->client) {
+        qsock->udp.connection = c;
+        qsock->udp.node.key = ngx_crc32_long(id.data, id.len);
+        qsock->udp.key = id;
 
-    ngx_rbtree_insert(&c->listening->rbtree, &qsock->udp.node);
+        ngx_rbtree_insert(&c->listening->rbtree, &qsock->udp.node);
+    }
 
     ngx_queue_insert_tail(&qc->sockets, &qsock->queue);
 
@@ -229,6 +247,37 @@ ngx_quic_find_socket(ngx_connection_t *c, uint64_t seqnum)
         qsock = ngx_queue_data(q, ngx_quic_socket_t, queue);
 
         if (qsock->sid.seqnum == seqnum) {
+            return qsock;
+        }
+    }
+
+    return NULL;
+}
+
+
+ngx_quic_socket_t *
+ngx_quic_find_socket_by_id(ngx_connection_t *c, ngx_str_t *key)
+{
+    ngx_queue_t            *q;
+    ngx_quic_socket_t      *qsock;
+    ngx_quic_connection_t  *qc;
+
+    if (key->len == 0) {
+        return NULL;
+    }
+
+    qc = ngx_quic_get_connection(c);
+
+    for (q = ngx_queue_head(&qc->sockets);
+         q != ngx_queue_sentinel(&qc->sockets);
+         q = ngx_queue_next(q))
+    {
+        qsock = ngx_queue_data(q, ngx_quic_socket_t, queue);
+
+        if (ngx_memn2cmp(key->data, qsock->sid.id,
+                         key->len, qsock->sid.len)
+            == 0)
+        {
             return qsock;
         }
     }

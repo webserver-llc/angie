@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -441,7 +442,7 @@ ngx_quic_parse_long_header_v1(ngx_quic_header_t *pkt)
 
     if (ngx_quic_pkt_in(pkt->flags)) {
 
-        if (pkt->len < NGX_QUIC_MIN_INITIAL_SIZE) {
+        if (!pkt->server && pkt->len < NGX_QUIC_MIN_INITIAL_SIZE) {
             ngx_log_error(NGX_LOG_INFO, pkt->log, 0,
                           "quic UDP datagram is too small for initial packet");
             return NGX_DECLINED;
@@ -470,6 +471,29 @@ ngx_quic_parse_long_header_v1(ngx_quic_header_t *pkt)
 
     } else if (ngx_quic_pkt_hs(pkt->flags)) {
         pkt->level = ssl_encryption_handshake;
+
+    } else if (ngx_quic_pkt_retry(pkt->flags)) {
+        pkt->level = ssl_encryption_initial;
+
+        pkt->token.len = end - p;
+
+        if (pkt->token.len < 17) {
+            ngx_log_error(NGX_LOG_INFO, pkt->log, 0,
+                          "quic retry packet too small");
+            return NGX_ERROR;
+        }
+
+        p = ngx_quic_read_bytes(p, end, pkt->token.len, &pkt->token.data);
+        if (p == NULL) {
+            ngx_log_error(NGX_LOG_INFO, pkt->log, 0,
+                          "quic packet too small to read token data");
+            return NGX_ERROR;
+        }
+
+        pkt->raw->pos = p;
+        pkt->len = p - pkt->data;
+
+        return NGX_OK;
 
     } else {
         ngx_log_error(NGX_LOG_INFO, pkt->log, 0,
@@ -619,15 +643,19 @@ static size_t
 ngx_quic_create_long_header(ngx_quic_header_t *pkt, u_char *out,
     u_char **pnp)
 {
-    size_t   rem_len;
+    size_t   rem_len, tlen;
     u_char  *p, *start;
+
+    tlen = (pkt->level != ssl_encryption_initial)
+                        ? 0
+                        : ngx_quic_varint_len(pkt->token.len) + pkt->token.len;
 
     rem_len = pkt->num_len + pkt->payload.len + NGX_QUIC_TAG_LEN;
 
     if (out == NULL) {
         return 5 + 2 + pkt->dcid.len + pkt->scid.len
                + ngx_quic_varint_len(rem_len) + pkt->num_len
-               + (pkt->level == ssl_encryption_initial ? 1 : 0);
+               + tlen;
     }
 
     p = start = out;
@@ -643,7 +671,11 @@ ngx_quic_create_long_header(ngx_quic_header_t *pkt, u_char *out,
     p = ngx_cpymem(p, pkt->scid.data, pkt->scid.len);
 
     if (pkt->level == ssl_encryption_initial) {
-        ngx_quic_build_int(&p, 0);
+        ngx_quic_build_int(&p, pkt->token.len);
+
+        if (pkt->token.len) {
+            p = ngx_cpymem(p, pkt->token.data, pkt->token.len);
+        }
     }
 
     ngx_quic_build_int(&p, rem_len);
@@ -1128,6 +1160,26 @@ ngx_quic_parse_frame(ngx_quic_header_t *pkt, u_char *start, u_char *end,
 
         break;
 
+    case NGX_QUIC_FT_HANDSHAKE_DONE:
+        break;
+
+    case NGX_QUIC_FT_NEW_TOKEN:
+
+        p = ngx_quic_parse_int(p, end, &varint);
+        if (p == NULL) {
+            goto error;
+        }
+
+        f->u.token.length = varint;
+
+        p = ngx_quic_read_bytes(p, end, f->u.token.length,
+                                &f->u.token.data);
+        if (p == NULL) {
+            goto error;
+        }
+
+        break;
+
     default:
         ngx_log_error(NGX_LOG_INFO, pkt->log, 0,
                       "quic unknown frame type 0x%xi", f->type);
@@ -1154,43 +1206,48 @@ ngx_quic_frame_allowed(ngx_quic_header_t *pkt, ngx_uint_t frame_type)
 {
     uint8_t  ptype;
 
+#define PKT_SRV  0x10
+#define PKT_CLN  0x20
+#define PKT_ANY  0x30
+
     /*
      * RFC 9000, 12.4. Frames and Frame Types: Table 3
      *
-     * Frame permissions per packet: 4 bits: IH01
+     * Frame permissions per packet: 6 bits: CSIH01
+     * Two high bits: 'allowed on client' and 'allowed on server'
      */
     static uint8_t ngx_quic_frame_masks[] = {
-         /* PADDING  */              0xF,
-         /* PING */                  0xF,
-         /* ACK */                   0xD,
-         /* ACK_ECN */               0xD,
-         /* RESET_STREAM */          0x3,
-         /* STOP_SENDING */          0x3,
-         /* CRYPTO */                0xD,
-         /* NEW_TOKEN */             0x0, /* only sent by server */
-         /* STREAM */                0x3,
-         /* STREAM1 */               0x3,
-         /* STREAM2 */               0x3,
-         /* STREAM3 */               0x3,
-         /* STREAM4 */               0x3,
-         /* STREAM5 */               0x3,
-         /* STREAM6 */               0x3,
-         /* STREAM7 */               0x3,
-         /* MAX_DATA */              0x3,
-         /* MAX_STREAM_DATA */       0x3,
-         /* MAX_STREAMS */           0x3,
-         /* MAX_STREAMS2 */          0x3,
-         /* DATA_BLOCKED */          0x3,
-         /* STREAM_DATA_BLOCKED */   0x3,
-         /* STREAMS_BLOCKED */       0x3,
-         /* STREAMS_BLOCKED2 */      0x3,
-         /* NEW_CONNECTION_ID */     0x3,
-         /* RETIRE_CONNECTION_ID */  0x3,
-         /* PATH_CHALLENGE */        0x3,
-         /* PATH_RESPONSE */         0x1,
-         /* CONNECTION_CLOSE */      0xF,
-         /* CONNECTION_CLOSE2 */     0x3,
-         /* HANDSHAKE_DONE */        0x0, /* only sent by server */
+         /* PADDING */               0xF | PKT_ANY,
+         /* PING */                  0xF | PKT_ANY,
+         /* ACK */                   0xD | PKT_ANY,
+         /* ACK_ECN */               0xD | PKT_ANY,
+         /* RESET_STREAM */          0x3 | PKT_ANY,
+         /* STOP_SENDING */          0x3 | PKT_ANY,
+         /* CRYPTO */                0xD | PKT_ANY,
+         /* NEW_TOKEN */             0x0 | PKT_SRV, /* only sent by server */
+         /* STREAM */                0x3 | PKT_ANY,
+         /* STREAM1 */               0x3 | PKT_ANY,
+         /* STREAM2 */               0x3 | PKT_ANY,
+         /* STREAM3 */               0x3 | PKT_ANY,
+         /* STREAM4 */               0x3 | PKT_ANY,
+         /* STREAM5 */               0x3 | PKT_ANY,
+         /* STREAM6 */               0x3 | PKT_ANY,
+         /* STREAM7 */               0x3 | PKT_ANY,
+         /* MAX_DATA */              0x3 | PKT_ANY,
+         /* MAX_STREAM_DATA */       0x3 | PKT_ANY,
+         /* MAX_STREAMS */           0x3 | PKT_ANY,
+         /* MAX_STREAMS2 */          0x3 | PKT_ANY,
+         /* DATA_BLOCKED */          0x3 | PKT_ANY,
+         /* STREAM_DATA_BLOCKED */   0x3 | PKT_ANY,
+         /* STREAMS_BLOCKED */       0x3 | PKT_ANY,
+         /* STREAMS_BLOCKED2 */      0x3 | PKT_ANY,
+         /* NEW_CONNECTION_ID */     0x3 | PKT_ANY,
+         /* RETIRE_CONNECTION_ID */  0x3 | PKT_ANY,
+         /* PATH_CHALLENGE */        0x3 | PKT_ANY,
+         /* PATH_RESPONSE */         0x1 | PKT_ANY,
+         /* CONNECTION_CLOSE */      0xF | PKT_ANY,
+         /* CONNECTION_CLOSE2 */     0x3 | PKT_ANY,
+         /* HANDSHAKE_DONE */        0x0 | PKT_SRV, /* only sent by server */
     };
 
     if (ngx_quic_long_pkt(pkt->flags)) {
@@ -1208,6 +1265,8 @@ ngx_quic_frame_allowed(ngx_quic_header_t *pkt, ngx_uint_t frame_type)
     } else {
         ptype = 1; /* application data */
     }
+
+    ptype |= (pkt->server ? PKT_SRV : PKT_CLN);
 
     if (ptype & ngx_quic_frame_masks[frame_type]) {
         return NGX_OK;
@@ -1645,7 +1704,10 @@ ngx_quic_parse_transport_param(u_char *p, u_char *end, uint16_t id,
         }
         break;
 
+    case NGX_QUIC_TP_ORIGINAL_DCID:
     case NGX_QUIC_TP_INITIAL_SCID:
+    case NGX_QUIC_TP_SR_TOKEN:
+    case NGX_QUIC_TP_RETRY_SCID:
 
         str.len = end - p;
         str.data = p;
@@ -1705,6 +1767,28 @@ ngx_quic_parse_transport_param(u_char *p, u_char *end, uint16_t id,
         dst->initial_scid = str;
         break;
 
+    case NGX_QUIC_TP_SR_TOKEN:
+
+        if (str.len != NGX_QUIC_SR_TOKEN_LEN) {
+            return NGX_ERROR;
+        }
+        ngx_memcpy(dst->sr_token, str.data, NGX_QUIC_SR_TOKEN_LEN);
+        break;
+
+    case NGX_QUIC_TP_ORIGINAL_DCID:
+        if (str.len > NGX_QUIC_CID_LEN_MAX) {
+            return NGX_ERROR;
+        }
+        dst->original_dcid = str;
+        break;
+
+    case NGX_QUIC_TP_RETRY_SCID:
+        if (str.len > NGX_QUIC_CID_LEN_MAX) {
+            return NGX_ERROR;
+        }
+        dst->retry_scid = str;
+        break;
+
     default:
         return NGX_ERROR;
     }
@@ -1715,7 +1799,7 @@ ngx_quic_parse_transport_param(u_char *p, u_char *end, uint16_t id,
 
 ngx_int_t
 ngx_quic_parse_transport_params(u_char *p, u_char *end, ngx_quic_tp_t *tp,
-    ngx_log_t *log)
+    ngx_log_t *log, ngx_uint_t client)
 {
     uint64_t   id, len;
     ngx_int_t  rc;
@@ -1733,10 +1817,12 @@ ngx_quic_parse_transport_params(u_char *p, u_char *end, ngx_quic_tp_t *tp,
         case NGX_QUIC_TP_PREFERRED_ADDRESS:
         case NGX_QUIC_TP_RETRY_SCID:
         case NGX_QUIC_TP_SR_TOKEN:
-            ngx_log_error(NGX_LOG_INFO, log, 0,
-                          "quic client sent forbidden transport param"
-                          " id:0x%xL", id);
-            return NGX_ERROR;
+            if (!client) {
+                ngx_log_error(NGX_LOG_INFO, log, 0,
+                              "quic client sent forbidden transport param"
+                              " id:0x%xL", id);
+                return NGX_ERROR;
+            }
         }
 
         p = ngx_quic_parse_int(p, end, &len);
@@ -1824,6 +1910,24 @@ ngx_quic_parse_transport_params(u_char *p, u_char *end, ngx_quic_tp_t *tp,
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, log, 0,
                    "quic tp initial source_connection_id len:%uz %xV",
                    tp->initial_scid.len, &tp->initial_scid);
+
+    if (client) {
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, log, 0,
+                       "quic tp stateless reset token %*xs",
+                       NGX_QUIC_SR_TOKEN_LEN, tp->sr_token);
+
+        if (tp->original_dcid.len) {
+            ngx_log_debug2(NGX_LOG_DEBUG_EVENT, log, 0,
+                           "quic tp original_dcid len:%uz %xV",
+                           tp->original_dcid.len, &tp->original_dcid);
+        }
+
+        if (tp->retry_scid.len) {
+            ngx_log_debug2(NGX_LOG_DEBUG_EVENT, log, 0,
+                           "quic tp retry_scid len:%uz %xV",
+                           tp->retry_scid.len, &tp->retry_scid);
+        }
+    }
 
     return NGX_OK;
 }
@@ -2012,7 +2116,7 @@ ngx_quic_init_transport_params(ngx_quic_tp_t *tp, ngx_quic_conf_t *qcf)
 
 ssize_t
 ngx_quic_create_transport_params(u_char *pos, u_char *end, ngx_quic_tp_t *tp,
-    size_t *clen)
+    size_t *clen, ngx_uint_t client)
 {
     u_char  *p;
     size_t   len;
@@ -2083,16 +2187,21 @@ ngx_quic_create_transport_params(u_char *pos, u_char *end, ngx_quic_tp_t *tp,
     len += ngx_quic_tp_len(NGX_QUIC_TP_ACK_DELAY_EXPONENT,
                            tp->ack_delay_exponent);
 
-    len += ngx_quic_tp_strlen(NGX_QUIC_TP_ORIGINAL_DCID, tp->original_dcid);
+    if (!client) {
+        len += ngx_quic_tp_strlen(NGX_QUIC_TP_ORIGINAL_DCID, tp->original_dcid);
+    }
+
     len += ngx_quic_tp_strlen(NGX_QUIC_TP_INITIAL_SCID, tp->initial_scid);
 
     if (tp->retry_scid.len) {
         len += ngx_quic_tp_strlen(NGX_QUIC_TP_RETRY_SCID, tp->retry_scid);
     }
 
-    len += ngx_quic_varint_len(NGX_QUIC_TP_SR_TOKEN);
-    len += ngx_quic_varint_len(NGX_QUIC_SR_TOKEN_LEN);
-    len += NGX_QUIC_SR_TOKEN_LEN;
+    if (!client) {
+        len += ngx_quic_varint_len(NGX_QUIC_TP_SR_TOKEN);
+        len += ngx_quic_varint_len(NGX_QUIC_SR_TOKEN_LEN);
+        len += NGX_QUIC_SR_TOKEN_LEN;
+    }
 
     if (pos == NULL) {
         return len;
@@ -2138,16 +2247,21 @@ ngx_quic_create_transport_params(u_char *pos, u_char *end, ngx_quic_tp_t *tp,
     ngx_quic_tp_vint(NGX_QUIC_TP_ACK_DELAY_EXPONENT,
                      tp->ack_delay_exponent);
 
-    ngx_quic_tp_str(NGX_QUIC_TP_ORIGINAL_DCID, tp->original_dcid);
+    if (!client) {
+        ngx_quic_tp_str(NGX_QUIC_TP_ORIGINAL_DCID, tp->original_dcid);
+    }
+
     ngx_quic_tp_str(NGX_QUIC_TP_INITIAL_SCID, tp->initial_scid);
 
     if (tp->retry_scid.len) {
         ngx_quic_tp_str(NGX_QUIC_TP_RETRY_SCID, tp->retry_scid);
     }
 
-    ngx_quic_build_int(&p, NGX_QUIC_TP_SR_TOKEN);
-    ngx_quic_build_int(&p, NGX_QUIC_SR_TOKEN_LEN);
-    p = ngx_cpymem(p, tp->sr_token, NGX_QUIC_SR_TOKEN_LEN);
+    if (!client) {
+        ngx_quic_build_int(&p, NGX_QUIC_TP_SR_TOKEN);
+        ngx_quic_build_int(&p, NGX_QUIC_SR_TOKEN_LEN);
+        p = ngx_cpymem(p, tp->sr_token, NGX_QUIC_SR_TOKEN_LEN);
+    }
 
     return p - pos;
 }

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -14,6 +15,12 @@
 
 #define NGX_QUIC_MAX_TOKEN_SIZE              64
     /* SHA-1(addr)=20 + sizeof(time_t) + retry(1) + odcid.len(1) + odcid */
+
+/*
+ * max size is not specified, this is arbitrary limit
+ * to match values found in the wild
+ */
+#define NGX_QUIC_MAX_NEW_TOKEN  (NGX_QUIC_MAX_TOKEN_SIZE * 2)
 
 #define NGX_QUIC_AES_256_GCM_IV_LEN          12
 #define NGX_QUIC_AES_256_GCM_TAG_LEN         16
@@ -30,5 +37,7 @@ ngx_int_t ngx_quic_new_token(ngx_log_t *log, struct sockaddr *sockaddr,
     time_t expires, ngx_uint_t is_retry);
 ngx_int_t ngx_quic_validate_token(ngx_connection_t *c,
     u_char *key, ngx_quic_header_t *pkt);
+ngx_int_t ngx_quic_verify_retry_token_integrity(ngx_connection_t *c,
+    ngx_quic_header_t *pkt);
 
 #endif /* _NGX_EVENT_QUIC_TOKENS_H_INCLUDED_ */

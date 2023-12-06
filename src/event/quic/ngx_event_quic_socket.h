@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -23,6 +24,7 @@ ngx_int_t ngx_quic_listen(ngx_connection_t *c, ngx_quic_connection_t *qc,
 void ngx_quic_close_socket(ngx_connection_t *c, ngx_quic_socket_t *qsock);
 
 ngx_quic_socket_t *ngx_quic_find_socket(ngx_connection_t *c, uint64_t seqnum);
-
+ngx_quic_socket_t *ngx_quic_find_socket_by_id(ngx_connection_t *c,
+    ngx_str_t *key);
 
 #endif /* _NGX_EVENT_QUIC_SOCKET_H_INCLUDED_ */

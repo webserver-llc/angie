@@ -208,6 +208,10 @@ ngx_quic_compat_keylog_callback(const SSL *ssl, const char *line)
     com = qc->compat;
     cipher = SSL_get_current_cipher(ssl);
 
+    if (qc->client) {
+        write = !write;
+    }
+
     if (write) {
         com->method->set_write_secret((SSL *) ssl, level, cipher, secret, n);
         com->write_level = level;

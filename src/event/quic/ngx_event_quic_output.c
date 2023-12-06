@@ -387,12 +387,13 @@ static ssize_t
 ngx_quic_send_segments(ngx_connection_t *c, u_char *buf, size_t len,
     struct sockaddr *sockaddr, socklen_t socklen, size_t segment)
 {
-    size_t           clen;
-    ssize_t          n;
-    uint16_t        *valp;
-    struct iovec     iov;
-    struct msghdr    msg;
-    struct cmsghdr  *cmsg;
+    size_t                  clen;
+    ssize_t                 n;
+    uint16_t               *valp;
+    struct iovec            iov;
+    struct msghdr           msg;
+    struct cmsghdr         *cmsg;
+    ngx_quic_connection_t  *qc;
 
 #if (NGX_HAVE_ADDRINFO_CMSG)
     char             msg_control[CMSG_SPACE(sizeof(uint16_t))
@@ -410,8 +411,13 @@ ngx_quic_send_segments(ngx_connection_t *c, u_char *buf, size_t len,
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
 
-    msg.msg_name = sockaddr;
-    msg.msg_namelen = socklen;
+    qc = ngx_quic_get_connection(c);
+
+    if (qc == NULL || !qc->client) {
+        /* TODO: *BSD: socket already connected */
+        msg.msg_name = sockaddr;
+        msg.msg_namelen = socklen;
+    }
 
     msg.msg_control = msg_control;
     msg.msg_controllen = sizeof(msg_control);
@@ -461,14 +467,35 @@ ngx_quic_get_padding_level(ngx_connection_t *c)
 
     /*
      * RFC 9000, 14.1.  Initial Datagram Size
-     *
-     * Similarly, a server MUST expand the payload of all UDP datagrams
-     * carrying ack-eliciting Initial packets to at least the smallest
-     * allowed maximum datagram size of 1200 bytes.
      */
 
     qc = ngx_quic_get_connection(c);
     ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_initial);
+
+    if (qc->client) {
+
+        /*
+         * A client MUST expand the payload of all UDP datagrams carrying
+         * Initial packets to at least the smallest allowed maximum datagram
+         * size of 1200 bytes
+         */
+
+        for (i = 0; i + 1 < NGX_QUIC_SEND_CTX_LAST; i++) {
+            ctx = &qc->send_ctx[i + 1];
+
+            if (ngx_queue_empty(&ctx->frames)) {
+                break;
+            }
+        }
+
+        return i;
+    }
+
+    /*
+     * Similarly, a server MUST expand the payload of all UDP datagrams
+     * carrying ack-eliciting Initial packets to at least the smallest
+     * allowed maximum datagram size of 1200 bytes.
+     */
 
     for (q = ngx_queue_head(&ctx->frames);
          q != ngx_queue_sentinel(&ctx->frames);
@@ -659,6 +686,11 @@ ngx_quic_init_packet(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx,
     if (ctx->level == ssl_encryption_initial) {
         pkt->flags |= NGX_QUIC_PKT_LONG | NGX_QUIC_PKT_INITIAL;
 
+        if (qc->client_retry.len) {
+            pkt->token = qc->client_retry;
+            pkt->token.len = qc->client_retry.len;
+        }
+
     } else if (ctx->level == ssl_encryption_handshake) {
         pkt->flags |= NGX_QUIC_PKT_LONG | NGX_QUIC_PKT_HANDSHAKE;
 
@@ -687,13 +719,14 @@ static ssize_t
 ngx_quic_send(ngx_connection_t *c, u_char *buf, size_t len,
     struct sockaddr *sockaddr, socklen_t socklen)
 {
-    ssize_t          n;
-    struct iovec     iov;
-    struct msghdr    msg;
+    ssize_t                 n;
+    struct iovec            iov;
+    struct msghdr           msg;
 #if (NGX_HAVE_ADDRINFO_CMSG)
-    struct cmsghdr  *cmsg;
-    char             msg_control[CMSG_SPACE(sizeof(ngx_addrinfo_t))];
+    struct cmsghdr         *cmsg;
+    char                    msg_control[CMSG_SPACE(sizeof(ngx_addrinfo_t))];
 #endif
+    ngx_quic_connection_t  *qc;
 
     ngx_memzero(&msg, sizeof(struct msghdr));
 
@@ -703,8 +736,13 @@ ngx_quic_send(ngx_connection_t *c, u_char *buf, size_t len,
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
 
-    msg.msg_name = sockaddr;
-    msg.msg_namelen = socklen;
+    qc = ngx_quic_get_connection(c);
+
+    if (qc == NULL || !qc->client) {
+        /* TODO: *BSD: socket already connected */
+        msg.msg_name = sockaddr;
+        msg.msg_namelen = socklen;
+    }
 
 #if (NGX_HAVE_ADDRINFO_CMSG)
     if (c->listening && c->listening->wildcard && c->local_sockaddr) {
@@ -913,6 +951,11 @@ ngx_quic_send_early_cc(ngx_connection_t *c, ngx_quic_header_t *inpkt,
     }
 
     ngx_memzero(&keys, sizeof(ngx_quic_keys_t));
+
+    /*
+     * ngx_quic_send_early_cc() is only called from token check, i.e. server
+     * thus keys.client = 0
+     */
 
     pkt.keys = &keys;
 
@@ -1194,6 +1237,13 @@ ngx_quic_frame_sendto(ngx_connection_t *c, ngx_quic_frame_t *frame,
 
     min = ngx_quic_path_limit(c, path, min);
 
+    if (qc->client && frame->level == ssl_encryption_initial
+        && min < NGX_QUIC_MIN_INITIAL_SIZE)
+    {
+        /* client must expand all initial packets */
+        min = NGX_QUIC_MIN_INITIAL_SIZE;
+    }
+
     min_payload = min ? ngx_quic_payload_size(&pkt, min) : 0;
 
     pad = 4 - pkt.num_len;
@@ -1245,9 +1295,26 @@ ngx_quic_frame_sendto(ngx_connection_t *c, ngx_quic_frame_t *frame,
 static size_t
 ngx_quic_path_limit(ngx_connection_t *c, ngx_quic_path_t *path, size_t size)
 {
-    off_t  max;
+    off_t                   max;
+    ngx_quic_connection_t  *qc;
 
     if (!path->validated) {
+
+        qc = ngx_quic_get_connection(c);
+
+        if (qc->client) {
+
+            /*
+             * RFC 9000  21.1.1.1. Anti-Amplification
+             *
+             *  The anti-amplification limit does not apply to clients when
+             *  establishing a new connection or when initiating connection
+             *  migration.
+             */
+
+            return size;
+        }
+
         max = path->received * 3;
         max = (path->sent >= max) ? 0 : max - path->sent;
 

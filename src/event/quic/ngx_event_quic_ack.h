@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -17,6 +18,7 @@ ngx_int_t ngx_quic_handle_ack_frame(ngx_connection_t *c,
 
 void ngx_quic_congestion_ack(ngx_connection_t *c,
     ngx_quic_frame_t *frame);
+void ngx_quic_congestion_reset(ngx_quic_connection_t *qc);
 void ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx);
 void ngx_quic_set_lost_timer(ngx_connection_t *c);
 void ngx_quic_pto_handler(ngx_event_t *ev);

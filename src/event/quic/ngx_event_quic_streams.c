@@ -13,6 +13,17 @@
 
 #define NGX_QUIC_STREAM_GONE     (void *) -1
 
+#define ngx_quic_uni_stream(id)                                               \
+    ((id) & NGX_QUIC_STREAM_UNIDIRECTIONAL)
+
+#define ngx_quic_out_stream(qc, id)                                           \
+    (((qc)->client && (((id) & NGX_QUIC_STREAM_SERVER_INITIATED) == 0))       \
+     || ((!(qc)->client) && ((id) & NGX_QUIC_STREAM_SERVER_INITIATED)))
+
+#define ngx_quic_input_stream(qc, id)                                         \
+    (((qc)->client && ((id) & NGX_QUIC_STREAM_SERVER_INITIATED))              \
+     || ((!(qc)->client) && (((id) & NGX_QUIC_STREAM_SERVER_INITIATED) == 0)))
+
 
 static ngx_int_t ngx_quic_do_reset_stream(ngx_quic_stream_t *qs,
     ngx_uint_t err);
@@ -25,6 +36,8 @@ static void ngx_quic_init_streams_handler(ngx_connection_t *c);
 static ngx_int_t ngx_quic_do_init_streams(ngx_connection_t *c);
 static ngx_quic_stream_t *ngx_quic_create_stream(ngx_connection_t *c,
     uint64_t id);
+static void ngx_quic_stream_init_state(ngx_quic_connection_t *qc,
+    ngx_quic_stream_t *qs);
 static void ngx_quic_empty_handler(ngx_event_t *ev);
 static ssize_t ngx_quic_stream_recv(ngx_connection_t *c, u_char *buf,
     size_t size);
@@ -32,6 +45,10 @@ static ssize_t ngx_quic_stream_send(ngx_connection_t *c, u_char *buf,
     size_t size);
 static ngx_chain_t *ngx_quic_stream_send_chain(ngx_connection_t *c,
     ngx_chain_t *in, off_t limit);
+static ssize_t ngx_quic_stream_recv_chain(ngx_connection_t *c,
+    ngx_chain_t *in, off_t limit);
+static void ngx_quic_copy_chain_data(ngx_chain_t *dst_chain,
+    ngx_chain_t *src_chain);
 static ngx_int_t ngx_quic_stream_flush(ngx_quic_stream_t *qs);
 static void ngx_quic_stream_cleanup_handler(void *data);
 static ngx_int_t ngx_quic_close_stream(ngx_quic_stream_t *qs);
@@ -46,61 +63,50 @@ static void ngx_quic_set_event(ngx_event_t *ev);
 ngx_connection_t *
 ngx_quic_open_stream(ngx_connection_t *c, ngx_uint_t bidi)
 {
-    uint64_t                id;
-    ngx_connection_t       *pc, *sc;
-    ngx_quic_stream_t      *qs;
-    ngx_quic_connection_t  *qc;
+    uint64_t                 id;
+    ngx_connection_t        *pc, *sc;
+    ngx_quic_stream_t       *qs;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_ctl_t   *sctl;
+    ngx_quic_stream_peer_t  *peer;
 
     pc = c->quic ? c->quic->parent : c;
     qc = ngx_quic_get_connection(pc);
 
     if (qc->closing) {
+        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic open stream failed: already closing");
         return NULL;
     }
 
-    if (bidi) {
-        if (qc->streams.server.bidi.count
-            >= qc->streams.server.bidi.max)
-        {
-            ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                           "quic too many server bidi streams:%uL",
-                           qc->streams.server.bidi.count);
-            return NULL;
-        }
+    peer = qc->client ? &qc->streams.client : &qc->streams.server;
+    sctl = bidi ? &peer->bidi : &peer->uni;
 
-        id = (qc->streams.server.bidi.count << 2)
-             | NGX_QUIC_STREAM_SERVER_INITIATED;
-
+    if (sctl->count >= sctl->max) {
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                       "quic creating server bidi stream"
-                       " streams:%uL max:%uL id:0x%xL",
-                       qc->streams.server.bidi.count,
-                       qc->streams.server.bidi.max, id);
-
-        qc->streams.server.bidi.count++;
-
-    } else {
-        if (qc->streams.server.uni.count
-            >= qc->streams.server.uni.max)
-        {
-            ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                           "quic too many server uni streams:%uL",
-                           qc->streams.server.uni.count);
-            return NULL;
-        }
-
-        id = (qc->streams.server.uni.count << 2)
-             | NGX_QUIC_STREAM_SERVER_INITIATED
-             | NGX_QUIC_STREAM_UNIDIRECTIONAL;
-
-        ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                       "quic creating server uni stream"
-                       " streams:%uL max:%uL id:0x%xL",
-                       qc->streams.server.uni.count,
-                       qc->streams.server.uni.max, id);
-
-        qc->streams.server.uni.count++;
+                       "quic too many %s %s streams:%uL",
+                       qc->client ? "client" : "server", bidi ? "bidi": "uni",
+                       sctl->count);
+        return NULL;
     }
+
+    id = (sctl->count << 2);
+
+    if (!bidi) {
+        id |= NGX_QUIC_STREAM_UNIDIRECTIONAL;
+    }
+
+    if (!qc->client) {
+        id |= NGX_QUIC_STREAM_SERVER_INITIATED;
+    }
+
+    ngx_log_debug5(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic creating %s %s stream"
+                   " streams:%uL max:%uL id:0x%xL",
+                   qc->client ? "client" : "server", bidi ? "bidi" : "uni",
+                   sctl->count, sctl->max, id);
+
+    sctl->count++;
 
     qs = ngx_quic_create_stream(pc, id);
     if (qs == NULL) {
@@ -237,6 +243,11 @@ ngx_quic_close_streams(ngx_connection_t *c, ngx_quic_connection_t *qc)
 ngx_int_t
 ngx_quic_reset_stream(ngx_connection_t *c, ngx_uint_t err)
 {
+    if (!c->quic->parent->ssl->handshaked) {
+        /* the stream was created early, do not try to send anything */
+        return NGX_OK;
+    }
+
     return ngx_quic_do_reset_stream(c->quic, err);
 }
 
@@ -290,6 +301,15 @@ ngx_quic_do_reset_stream(ngx_quic_stream_t *qs, ngx_uint_t err)
 ngx_int_t
 ngx_quic_shutdown_stream(ngx_connection_t *c, int how)
 {
+    ngx_connection_t  *pc;
+
+    pc = c->quic->parent;
+
+    if (!pc->ssl->handshaked) {
+        /* the stream was created early, do not try to send anything */
+        return NGX_OK;
+    }
+
     if (how == NGX_RDWR_SHUTDOWN || how == NGX_WRITE_SHUTDOWN) {
         if (ngx_quic_shutdown_stream_send(c) != NGX_OK) {
             return NGX_ERROR;
@@ -374,10 +394,12 @@ ngx_quic_shutdown_stream_recv(ngx_connection_t *c)
 static ngx_quic_stream_t *
 ngx_quic_get_stream(ngx_connection_t *c, uint64_t id)
 {
-    uint64_t                min_id;
-    ngx_event_t            *rev;
-    ngx_quic_stream_t      *qs;
-    ngx_quic_connection_t  *qc;
+    uint64_t                 min_id;
+    ngx_event_t             *rev;
+    ngx_quic_stream_t       *qs;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_ctl_t   *sctl;
+    ngx_quic_stream_peer_t  *peer;
 
     qc = ngx_quic_get_connection(c);
 
@@ -394,53 +416,44 @@ ngx_quic_get_stream(ngx_connection_t *c, uint64_t id)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic stream id:0x%xL is missing", id);
 
-    if (id & NGX_QUIC_STREAM_UNIDIRECTIONAL) {
+    if (ngx_quic_out_stream(qc, id)) {
+        /* stream is initiated by us, but peer is trying to use it */
 
-        if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            if ((id >> 2) < qc->streams.server.uni.count) {
-                return NGX_QUIC_STREAM_GONE;
-            }
+        peer = qc->client ? &qc->streams.client : &qc->streams.server;
 
-            qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
-            return NULL;
-        }
+        sctl = ngx_quic_uni_stream(id) ? &peer->uni : &peer->bidi;
 
-        if ((id >> 2) < qc->streams.client.uni.count) {
+        if ((id >> 2) < sctl->count) {
             return NGX_QUIC_STREAM_GONE;
         }
 
-        if ((id >> 2) >= qc->streams.client.uni.max) {
-            qc->error = NGX_QUIC_ERR_STREAM_LIMIT_ERROR;
-            return NULL;
-        }
-
-        min_id = (qc->streams.client.uni.count << 2)
-                 | NGX_QUIC_STREAM_UNIDIRECTIONAL;
-        qc->streams.client.uni.count = (id >> 2) + 1;
-
-    } else {
-
-        if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            if ((id >> 2) < qc->streams.server.bidi.count) {
-                return NGX_QUIC_STREAM_GONE;
-            }
-
-            qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
-            return NULL;
-        }
-
-        if ((id >> 2) < qc->streams.client.bidi.count) {
-            return NGX_QUIC_STREAM_GONE;
-        }
-
-        if ((id >> 2) >= qc->streams.client.bidi.max) {
-            qc->error = NGX_QUIC_ERR_STREAM_LIMIT_ERROR;
-            return NULL;
-        }
-
-        min_id = (qc->streams.client.bidi.count << 2);
-        qc->streams.client.bidi.count = (id >> 2) + 1;
+        qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
+        return NULL;
     }
+
+    peer = qc->client ? &qc->streams.server: &qc->streams.client;
+    sctl = ngx_quic_uni_stream(id) ? &peer->uni : &peer->bidi;
+
+    if ((id >> 2) < sctl->count) {
+        return NGX_QUIC_STREAM_GONE;
+    }
+
+    if ((id >> 2) >= sctl->max) {
+        qc->error = NGX_QUIC_ERR_STREAM_LIMIT_ERROR;
+        return NULL;
+    }
+
+    min_id = sctl->count << 2;
+
+    if (qc->client) {
+        min_id++;
+    }
+
+    if (ngx_quic_uni_stream(id)) {
+        min_id |= NGX_QUIC_STREAM_UNIDIRECTIONAL;
+    }
+
+    sctl->count = (id >> 2) + 1;
 
     /*
      * RFC 9000, 2.1.  Stream Types and Identifiers
@@ -504,9 +517,8 @@ ngx_quic_reject_stream(ngx_connection_t *c, uint64_t id)
 
     qc = ngx_quic_get_connection(c);
 
-    code = (id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-           ? qc->conf->stream_reject_code_uni
-           : qc->conf->stream_reject_code_bidi;
+    code = ngx_quic_uni_stream(id) ? qc->conf->stream_reject_code_uni
+                                   : qc->conf->stream_reject_code_bidi;
 
     if (code == 0) {
         return NGX_DECLINED;
@@ -555,7 +567,7 @@ ngx_quic_init_stream_handler(ngx_event_t *ev)
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0, "quic init stream");
 
-    if ((qs->id & NGX_QUIC_STREAM_UNIDIRECTIONAL) == 0) {
+    if (!ngx_quic_uni_stream(qs->id)) {
         c->write->active = 1;
         c->write->ready = 1;
     }
@@ -755,40 +767,17 @@ ngx_quic_create_stream(ngx_connection_t *c, uint64_t id)
     sc->recv = ngx_quic_stream_recv;
     sc->send = ngx_quic_stream_send;
     sc->send_chain = ngx_quic_stream_send_chain;
+    sc->recv_chain = ngx_quic_stream_recv_chain;
 
-    sc->read->log = log;
-    sc->write->log = log;
+    sc->read->log = c->log;
+    sc->write->log = c->log;
 
     sc->read->handler = ngx_quic_empty_handler;
     sc->write->handler = ngx_quic_empty_handler;
 
     log->connection = sc->number;
 
-    if (id & NGX_QUIC_STREAM_UNIDIRECTIONAL) {
-        if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            qs->send_max_data = qc->peer_tp.initial_max_stream_data_uni;
-            qs->recv_state = NGX_QUIC_STREAM_RECV_DATA_READ;
-            qs->send_state = NGX_QUIC_STREAM_SEND_READY;
-
-        } else {
-            qs->recv_max_data = qc->tp.initial_max_stream_data_uni;
-            qs->recv_state = NGX_QUIC_STREAM_RECV_RECV;
-            qs->send_state = NGX_QUIC_STREAM_SEND_DATA_RECVD;
-        }
-
-    } else {
-        if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_remote;
-            qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_local;
-
-        } else {
-            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_local;
-            qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_remote;
-        }
-
-        qs->recv_state = NGX_QUIC_STREAM_RECV_RECV;
-        qs->send_state = NGX_QUIC_STREAM_SEND_READY;
-    }
+    ngx_quic_stream_init_state(qc, qs);
 
     qs->recv_window = qs->recv_max_data;
 
@@ -807,6 +796,101 @@ ngx_quic_create_stream(ngx_connection_t *c, uint64_t id)
     ngx_rbtree_insert(&qc->streams.tree, &qs->node);
 
     return qs;
+}
+
+
+static void
+ngx_quic_stream_init_state(ngx_quic_connection_t *qc, ngx_quic_stream_t *qs)
+{
+    ngx_uint_t  out;
+
+    out = ngx_quic_out_stream(qc, qs->id);
+
+    if (ngx_quic_uni_stream(qs->id)) {
+        if (out) {
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_uni;
+            qs->recv_state = NGX_QUIC_STREAM_RECV_DATA_READ;
+            qs->send_state = NGX_QUIC_STREAM_SEND_READY;
+
+        } else {
+            qs->recv_max_data = qc->tp.initial_max_stream_data_uni;
+            qs->recv_state = NGX_QUIC_STREAM_RECV_RECV;
+            qs->send_state = NGX_QUIC_STREAM_SEND_DATA_RECVD;
+        }
+
+    } else {
+        if (out) {
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_remote;
+            qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_local;
+
+        } else {
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_local;
+            qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_remote;
+        }
+
+        qs->recv_state = NGX_QUIC_STREAM_RECV_RECV;
+        qs->send_state = NGX_QUIC_STREAM_SEND_READY;
+    }
+}
+
+
+void
+ngx_quic_streams_init_state(ngx_connection_t *c)
+{
+    ngx_rbtree_t           *tree;
+    ngx_rbtree_node_t      *node;
+    ngx_quic_stream_t      *qs;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    tree = &qc->streams.tree;
+
+    if (tree->root == tree->sentinel) {
+        return;
+    }
+
+    node = ngx_rbtree_min(tree->root, tree->sentinel);
+
+    while (node) {
+        qs = (ngx_quic_stream_t *) node;
+        node = ngx_rbtree_next(tree, node);
+
+        ngx_quic_stream_init_state(qc, qs);
+    }
+}
+
+
+void
+ngx_quic_streams_notify_write(ngx_connection_t *c)
+{
+    ngx_rbtree_t           *tree;
+    ngx_connection_t       *sc;
+    ngx_rbtree_node_t      *node;
+    ngx_quic_stream_t      *qs;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    tree = &qc->streams.tree;
+
+    if (tree->root == tree->sentinel) {
+        return;
+    }
+
+    node = ngx_rbtree_min(tree->root, tree->sentinel);
+
+    while (node) {
+        qs = (ngx_quic_stream_t *) node;
+        node = ngx_rbtree_next(tree, node);
+
+        sc = qs->connection;
+        if (sc == NULL) {
+            continue;
+        }
+
+        ngx_post_event(sc->write, &ngx_posted_events);
+    }
 }
 
 
@@ -859,6 +943,8 @@ ngx_quic_stream_recv(ngx_connection_t *c, u_char *buf, size_t size)
         || qs->recv_state == NGX_QUIC_STREAM_RECV_RESET_READ)
     {
         qs->recv_state = NGX_QUIC_STREAM_RECV_RESET_READ;
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic stream id:0x%xL bad recv state", qs->id);
         return NGX_ERROR;
     }
 
@@ -1002,6 +1088,129 @@ ngx_quic_stream_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 }
 
 
+static ssize_t
+ngx_quic_stream_recv_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
+{
+    size_t              len;
+    ngx_buf_t          *b;
+    ngx_chain_t        *cl, *out;
+    ngx_event_t        *rev;
+    ngx_connection_t   *pc;
+    ngx_quic_stream_t  *qs;
+
+    qs = c->quic;
+    pc = qs->parent;
+    rev = c->read;
+
+    if (qs->recv_state == NGX_QUIC_STREAM_RECV_RESET_RECVD
+        || qs->recv_state == NGX_QUIC_STREAM_RECV_RESET_READ)
+    {
+        qs->recv_state = NGX_QUIC_STREAM_RECV_RESET_READ;
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic stream id:0x%xL bad recv state", qs->id);
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pc->log, 0,
+                   "quic stream id:0x%xL recv chain", qs->id);
+
+    len = 0;
+    for (cl = in; cl; cl = cl->next) {
+        len += cl->buf->end - cl->buf->last;
+    }
+
+    if (limit && len > (size_t) limit) {
+        len = limit;
+    }
+
+    out = ngx_quic_read_buffer(pc, &qs->recv, len);
+    if (out == NGX_CHAIN_ERROR) {
+        return NGX_ERROR;
+    }
+
+    len = 0;
+
+    for (cl = out; cl; cl = cl->next) {
+        b = cl->buf;
+        len += b->last - b->pos;
+    }
+
+    if (len == 0) {
+        rev->ready = 0;
+
+        if (qs->recv_state == NGX_QUIC_STREAM_RECV_DATA_RECVD
+            && qs->recv_offset == qs->recv_final_size)
+        {
+            qs->recv_state = NGX_QUIC_STREAM_RECV_DATA_READ;
+        }
+
+        if (qs->recv_state == NGX_QUIC_STREAM_RECV_DATA_READ) {
+            rev->eof = 1;
+            return 0;
+        }
+
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic stream id:0x%xL recv chain() not ready", qs->id);
+        return NGX_AGAIN;
+    }
+
+    ngx_quic_copy_chain_data(in, out);
+
+    ngx_quic_free_chain(pc, out);
+
+    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic stream id:0x%xL recv chain len:%z", qs->id, len);
+
+    if (ngx_quic_update_flow(qs, qs->recv_offset + len) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return len;
+}
+
+
+static void
+ngx_quic_copy_chain_data(ngx_chain_t *dst_chain, ngx_chain_t *src_chain)
+{
+    u_char       *rpos, *wpos;
+    size_t        data_size, buf_size, len;
+    ngx_chain_t  *src, *dst;
+
+    src = src_chain;
+    dst = dst_chain;
+
+    rpos = src->buf->pos;
+    wpos = dst->buf->last;
+
+    while (src && dst) {
+
+        data_size = src->buf->last - rpos;
+        buf_size = dst->buf->end - wpos;
+
+        len = ngx_min(data_size, buf_size);
+
+        ngx_memcpy(wpos, rpos, len);
+
+        rpos += len;
+        wpos += len;
+
+        if (rpos == src->buf->last) {
+            src = src->next;
+            if (src) {
+                rpos = src->buf->pos;
+            }
+        }
+
+        if (wpos == dst->buf->end) {
+            dst = dst->next;
+            if (dst) {
+                wpos = dst->buf->last;
+            }
+        }
+    }
+}
+
+
 static ngx_int_t
 ngx_quic_stream_flush(ngx_quic_stream_t *qs)
 {
@@ -1094,7 +1303,13 @@ ngx_quic_stream_cleanup_handler(void *data)
 
     qs = c->quic;
 
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, qs->parent->log, 0,
+    /* stream log was allocated from pool, now deleted */
+    c->log = qs->parent->log;
+    c->read->log = c->log;
+    c->write->log = c->log;
+    c->pool->log = c->log;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic stream id:0x%xL cleanup", qs->id);
 
     if (ngx_quic_shutdown_stream(c, NGX_RDWR_SHUTDOWN) != NGX_OK) {
@@ -1121,9 +1336,11 @@ failed:
 static ngx_int_t
 ngx_quic_close_stream(ngx_quic_stream_t *qs)
 {
-    ngx_connection_t       *pc;
-    ngx_quic_frame_t       *frame;
-    ngx_quic_connection_t  *qc;
+    ngx_connection_t        *pc;
+    ngx_quic_frame_t        *frame;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_ctl_t   *sctl;
+    ngx_quic_stream_peer_t  *peer;
 
     pc = qs->parent;
     qc = ngx_quic_get_connection(pc);
@@ -1166,7 +1383,12 @@ ngx_quic_close_stream(ngx_quic_stream_t *qs)
         return NGX_OK;
     }
 
-    if ((qs->id & NGX_QUIC_STREAM_SERVER_INITIATED) == 0) {
+    if (ngx_quic_input_stream(qc, qs->id)) {
+
+        peer = qc->client ? &qc->streams.server : &qc->streams.client;
+
+        sctl = ngx_quic_uni_stream(qs->id) ? &peer->uni : &peer->bidi;
+
         frame = ngx_quic_alloc_frame(pc);
         if (frame == NULL) {
             return NGX_ERROR;
@@ -1175,14 +1397,8 @@ ngx_quic_close_stream(ngx_quic_stream_t *qs)
         frame->level = ssl_encryption_application;
         frame->type = NGX_QUIC_FT_MAX_STREAMS;
 
-        if (qs->id & NGX_QUIC_STREAM_UNIDIRECTIONAL) {
-            frame->u.max_streams.limit = ++qc->streams.client.uni.max;
-            frame->u.max_streams.bidi = 0;
-
-        } else {
-            frame->u.max_streams.limit = ++qc->streams.client.bidi.max;
-            frame->u.max_streams.bidi = 1;
-        }
+        frame->u.max_streams.limit = ++sctl->max;
+        frame->u.max_streams.bidi = !ngx_quic_uni_stream(qs->id);
 
         ngx_quic_queue_frame(qc, frame);
     }
@@ -1232,8 +1448,8 @@ ngx_quic_handle_stream_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     qc = ngx_quic_get_connection(c);
     f = &frame->u.stream;
 
-    if ((f->stream_id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-        && (f->stream_id & NGX_QUIC_STREAM_SERVER_INITIATED))
+    if (ngx_quic_uni_stream(f->stream_id)
+        && ngx_quic_out_stream(qc, f->stream_id))
     {
         qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
         return NGX_ERROR;
@@ -1377,9 +1593,7 @@ ngx_quic_handle_stream_data_blocked_frame(ngx_connection_t *c,
 
     qc = ngx_quic_get_connection(c);
 
-    if ((f->id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-        && (f->id & NGX_QUIC_STREAM_SERVER_INITIATED))
-    {
+    if (ngx_quic_uni_stream(f->id) && ngx_quic_out_stream(qc, f->id)) {
         qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
         return NGX_ERROR;
     }
@@ -1407,9 +1621,14 @@ ngx_quic_handle_max_stream_data_frame(ngx_connection_t *c,
 
     qc = ngx_quic_get_connection(c);
 
-    if ((f->id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-        && (f->id & NGX_QUIC_STREAM_SERVER_INITIATED) == 0)
-    {
+    /*
+     * RFC 9000, 19.10. MAX_STREAM_DATA Frames
+     *
+     *  An endpoint that receives a MAX_STREAM_DATA frame for a receive-only
+     *  stream MUST terminate the connection with error STREAM_STATE_ERROR.
+     */
+
+    if (ngx_quic_uni_stream(f->id) && ngx_quic_input_stream(qc, f->id)) {
         qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
         return NGX_ERROR;
     }
@@ -1450,9 +1669,7 @@ ngx_quic_handle_reset_stream_frame(ngx_connection_t *c,
 
     qc = ngx_quic_get_connection(c);
 
-    if ((f->id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-        && (f->id & NGX_QUIC_STREAM_SERVER_INITIATED))
-    {
+    if (ngx_quic_uni_stream(f->id) && ngx_quic_out_stream(qc, f->id)) {
         qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
         return NGX_ERROR;
     }
@@ -1519,9 +1736,14 @@ ngx_quic_handle_stop_sending_frame(ngx_connection_t *c,
 
     qc = ngx_quic_get_connection(c);
 
-    if ((f->id & NGX_QUIC_STREAM_UNIDIRECTIONAL)
-        && (f->id & NGX_QUIC_STREAM_SERVER_INITIATED) == 0)
-    {
+    /*
+     * RFC 9000,  19.5. STOP_SENDING Frames
+     *
+     *  An endpoint that receives a STOP_SENDING frame for a receive-only
+     *  stream MUST terminate the connection with error STREAM_STATE_ERROR.
+     */
+
+    if (ngx_quic_uni_stream(f->id) && ngx_quic_input_stream(qc, f->id)) {
         qc->error = NGX_QUIC_ERR_STREAM_STATE_ERROR;
         return NGX_ERROR;
     }
@@ -1554,25 +1776,19 @@ ngx_int_t
 ngx_quic_handle_max_streams_frame(ngx_connection_t *c,
     ngx_quic_header_t *pkt, ngx_quic_max_streams_frame_t *f)
 {
+    ngx_quic_stream_ctl_t  *sctl;
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
 
-    if (f->bidi) {
-        if (qc->streams.server.bidi.max < f->limit) {
-            qc->streams.server.bidi.max = f->limit;
+    sctl = f->bidi ? &qc->streams.server.bidi : &qc->streams.server.uni;
 
-            ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                           "quic max_streams_bidi:%uL", f->limit);
-        }
+    if (sctl->max < f->limit) {
+        sctl->max = f->limit;
 
-    } else {
-        if (qc->streams.server.uni.max < f->limit) {
-            qc->streams.server.uni.max = f->limit;
-
-            ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                           "quic max_streams_uni:%uL", f->limit);
-        }
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic max_streams_%s:%uL",
+                       f->bidi? "bidi": "uni", f->limit);
     }
 
     return NGX_OK;

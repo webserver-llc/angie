@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -64,6 +65,7 @@ struct ngx_quic_keys_s {
     ngx_quic_secrets_t        secrets[NGX_QUIC_ENCRYPTION_LAST];
     ngx_quic_secrets_t        next_key;
     ngx_uint_t                cipher;
+    ngx_uint_t                client;
 };
 
 
@@ -115,6 +117,7 @@ ngx_int_t ngx_quic_crypto_seal(ngx_quic_secret_t *s, ngx_str_t *out,
 void ngx_quic_crypto_cleanup(ngx_quic_secret_t *s);
 ngx_int_t ngx_quic_hkdf_expand(ngx_quic_hkdf_t *hkdf, const EVP_MD *digest,
     ngx_log_t *log);
+ngx_int_t ngx_quic_retry_seal(ngx_str_t *ad, ngx_str_t *itag, ngx_log_t *log);
 
 
 #endif /* _NGX_EVENT_QUIC_PROTECTION_H_INCLUDED_ */

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -167,6 +168,7 @@ typedef struct {
 
 typedef struct {
     uint64_t                                    length;
+    u_char                                     *data;
 } ngx_quic_new_token_frame_t;
 
 /*
@@ -336,6 +338,7 @@ typedef struct {
     unsigned                                    retried:1;
     unsigned                                    first:1;
     unsigned                                    rebound:1;
+    unsigned                                    server:1; /* is from server */
 } ngx_quic_header_t;
 
 
@@ -387,9 +390,9 @@ size_t ngx_quic_create_ack_range(u_char *p, uint64_t gap, uint64_t range);
 ngx_int_t ngx_quic_init_transport_params(ngx_quic_tp_t *tp,
     ngx_quic_conf_t *qcf);
 ngx_int_t ngx_quic_parse_transport_params(u_char *p, u_char *end,
-    ngx_quic_tp_t *tp, ngx_log_t *log);
+    ngx_quic_tp_t *tp, ngx_log_t *log, ngx_uint_t client);
 ssize_t ngx_quic_create_transport_params(u_char *p, u_char *end,
-    ngx_quic_tp_t *tp, size_t *clen);
+    ngx_quic_tp_t *tp, size_t *clen, ngx_uint_t client);
 
 void ngx_quic_dcid_encode_key(u_char *dcid, uint64_t key);
 

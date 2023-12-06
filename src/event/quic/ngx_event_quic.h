@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -30,6 +31,8 @@
 
 typedef ngx_int_t (*ngx_quic_init_pt)(ngx_connection_t *c);
 typedef void (*ngx_quic_shutdown_pt)(ngx_connection_t *c);
+
+typedef ngx_int_t (*ngx_quic_init_ssl_pt)(ngx_connection_t *c, void *data);
 
 
 typedef enum {
@@ -83,6 +86,7 @@ typedef struct {
 
     u_char                         av_token_key[NGX_QUIC_AV_KEY_LEN];
     u_char                         sr_token_key[NGX_QUIC_SR_KEY_LEN];
+    ngx_str_t                      alpn;
 } ngx_quic_conf_t;
 
 
@@ -113,6 +117,13 @@ struct ngx_quic_stream_s {
 
 void ngx_quic_recvmsg(ngx_event_t *ev);
 void ngx_quic_run(ngx_connection_t *c, ngx_quic_conf_t *conf);
+
+ngx_int_t ngx_quic_create_client(ngx_quic_conf_t *conf, ngx_connection_t *c);
+ngx_int_t ngx_quic_connect(ngx_connection_t *c, ngx_quic_init_ssl_pt init_ssl,
+    void *data);
+void ngx_quic_client_set_ssl_data(ngx_connection_t *c, void *data);
+void *ngx_quic_client_get_ssl_data(ngx_connection_t *c);
+
 ngx_connection_t *ngx_quic_open_stream(ngx_connection_t *c, ngx_uint_t bidi);
 void ngx_quic_finalize_connection(ngx_connection_t *c, ngx_uint_t err,
     const char *reason);

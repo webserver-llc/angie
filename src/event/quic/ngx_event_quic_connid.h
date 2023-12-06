@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -17,8 +18,12 @@ ngx_int_t ngx_quic_handle_retire_connection_id_frame(ngx_connection_t *c,
 ngx_int_t ngx_quic_handle_new_connection_id_frame(ngx_connection_t *c,
     ngx_quic_new_conn_id_frame_t *f);
 
+ngx_int_t ngx_quic_handle_new_token_frame(ngx_connection_t *c,
+    ngx_quic_new_token_frame_t *f);
+
 ngx_int_t ngx_quic_create_sockets(ngx_connection_t *c);
-ngx_int_t ngx_quic_create_server_id(ngx_connection_t *c, u_char *id);
+ngx_int_t ngx_quic_create_server_id(ngx_connection_t *c, u_char *id,
+    ngx_uint_t client);
 
 ngx_quic_client_id_t *ngx_quic_create_client_id(ngx_connection_t *c,
     ngx_str_t *id, uint64_t seqnum, u_char *token);

@@ -25,10 +25,14 @@ static ngx_int_t ngx_quic_send_server_id(ngx_connection_t *c,
 
 
 ngx_int_t
-ngx_quic_create_server_id(ngx_connection_t *c, u_char *id)
+ngx_quic_create_server_id(ngx_connection_t *c, u_char *id, ngx_uint_t client)
 {
     if (RAND_bytes(id, NGX_QUIC_SERVER_CID_LEN) != 1) {
         return NGX_ERROR;
+    }
+
+    if (client) {
+        return NGX_OK;
     }
 
 #if (NGX_QUIC_BPF)
@@ -199,6 +203,64 @@ done:
         qc->error_reason = "too many connection ids received";
         return NGX_ERROR;
     }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_quic_handle_new_token_frame(ngx_connection_t *c,
+    ngx_quic_new_token_frame_t *f)
+{
+    u_char                 *p;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    if (f->length == 0) {
+
+        /*
+         * A client MUST treat receipt of a NEW_TOKEN frame with an empty
+         * Token field as a connection error of type FRAME_ENCODING_ERROR.
+         */
+        qc->error = NGX_QUIC_ERR_FRAME_ENCODING_ERROR;
+        qc->error_reason = "zero length NEW_TOKEN frame";
+
+        ngx_log_error(NGX_LOG_ERR, c->log, ngx_socket_errno,
+                      "quic NEW_TOKEN frame of zero length");
+        return NGX_ERROR;
+    }
+
+    if (f->length > NGX_QUIC_MAX_NEW_TOKEN) {
+        ngx_log_error(NGX_LOG_ERR, c->log, ngx_socket_errno,
+                      "quic NEW_TOKEN frame is too big: %ui", f->length);
+        return NGX_ERROR;
+    }
+
+    p = qc->client_new_token.data;
+    if (p == NULL) {
+
+        p = ngx_pnalloc(c->pool, NGX_QUIC_MAX_NEW_TOKEN);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        qc->client_new_token.data = p;
+    }
+
+    /*
+     * currently, keep only one token, and rewrite if multiple
+     * tokens received.
+     *
+     * the token is for use in 'future connections', so it is not
+     * really used currently.
+     */
+
+    ngx_memcpy(p, f->data, f->length);
+    qc->client_new_token.len = f->length;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic new token received: %*xs", f->length, f->data);
 
     return NGX_OK;
 }

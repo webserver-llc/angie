@@ -1031,6 +1031,32 @@ sub http_get_value {
 
 ###############################################################################
 
+sub prepare_ssl($)
+{
+	my ($self) = @_;
+
+	$self->write_file('openssl.conf', <<EOF);
+[ req ]
+default_bits = 2048
+encrypt_key = no
+distinguished_name = req_distinguished_name
+[ req_distinguished_name ]
+EOF
+
+	my $d = $self->testdir();
+
+	foreach my $name ('localhost') {
+		system('openssl req -x509 -new '
+			. "-config $d/openssl.conf -subj /CN=$name/ "
+			. "-out $d/$name.crt -keyout $d/$name.key "
+			. ">>$d/openssl.out 2>&1") == 0
+			or die "Can't create certificate for $name: $!\n";
+    }
+}
+
+
+###############################################################################
+
 1;
 
 ###############################################################################

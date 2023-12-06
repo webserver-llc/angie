@@ -127,6 +127,11 @@ typedef struct {
     ngx_str_t                      ssl_crl;
     ngx_array_t                   *ssl_conf_commands;
 #endif
+
+#if (NGX_HTTP_V3)
+    ngx_str_t                      host;
+    ngx_uint_t                     host_set;
+#endif
 } ngx_http_proxy_loc_conf_t;
 
 
@@ -138,6 +143,10 @@ typedef struct {
 
     ngx_chain_t                   *free;
     ngx_chain_t                   *busy;
+
+#if (NGX_HTTP_V3)
+    ngx_str_t                      host;
+#endif
 
     unsigned                       head:1;
     unsigned                       internal_chunked:1;
@@ -988,6 +997,9 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
     u = r->upstream;
 
     if (plcf->proxy_lengths == NULL) {
+#if (NGX_HTTP_V3)
+        ctx->host = plcf->host;
+#endif
         ctx->vars = plcf->vars;
         u->schema = plcf->vars.schema;
 #if (NGX_HTTP_SSL)
@@ -1157,6 +1169,22 @@ ngx_http_proxy_eval(ngx_http_request_t *r, ngx_http_proxy_ctx_t *ctx,
     u->resolved->host = url.host;
     u->resolved->port = (in_port_t) (url.no_port ? port : url.port);
     u->resolved->no_port = url.no_port;
+
+#if (NGX_HTTP_V3)
+    if (url.family != AF_UNIX) {
+
+        if (url.no_port) {
+            ctx->host = url.host;
+
+        } else {
+            ctx->host.len = url.host.len + 1 + url.port_text.len;
+            ctx->host.data = url.host.data;
+        }
+
+    } else {
+        ngx_str_set(&ctx->host, "localhost");
+    }
+#endif
 
     return NGX_OK;
 }
@@ -3381,6 +3409,9 @@ ngx_http_proxy_create_loc_conf(ngx_conf_t *cf)
      *     conf->ssl_ciphers = { 0, NULL };
      *     conf->ssl_trusted_certificate = { 0, NULL };
      *     conf->ssl_crl = { 0, NULL };
+     *
+     *     conf->host = { 0, NULL };
+     *     conf->host_set = 0;
      */
 
     conf->upstream.store = NGX_CONF_UNSET;
@@ -3914,6 +3945,9 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         conf->upstream.upstream = prev->upstream.upstream;
         conf->location = prev->location;
         conf->vars = prev->vars;
+#if (NGX_HTTP_V3)
+        conf->host = prev->host;
+#endif
 
         conf->proxy_lengths = prev->proxy_lengths;
         conf->proxy_values = prev->proxy_values;
@@ -3960,6 +3994,10 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 #if (NGX_HTTP_CACHE)
         conf->headers_cache = prev->headers_cache;
 #endif
+
+#if (NGX_HTTP_V3)
+        conf->host_set = prev->host_set;
+#endif
     }
 
     rc = ngx_http_proxy_init_headers(cf, conf, &conf->headers,
@@ -3991,6 +4029,10 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
         prev->headers = conf->headers;
 #if (NGX_HTTP_CACHE)
         prev->headers_cache = conf->headers_cache;
+#endif
+
+#if (NGX_HTTP_V3)
+        conf->host_set = prev->host_set;
 #endif
     }
 
@@ -4043,6 +4085,14 @@ ngx_http_proxy_init_headers(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
 
         src = conf->headers_source->elts;
         for (i = 0; i < conf->headers_source->nelts; i++) {
+
+#if (NGX_HTTP_V3)
+            if (src[i].key.len == 4
+                && ngx_strncasecmp(src[i].key.data, (u_char *) "Host", 4) == 0)
+            {
+                conf->host_set = 1;
+            }
+#endif
 
             s = ngx_array_push(&headers_merged);
             if (s == NULL) {
@@ -4254,6 +4304,22 @@ ngx_http_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     plcf->vars.schema.len = add;
     plcf->vars.schema.data = url->data;
     plcf->vars.key_start = plcf->vars.schema;
+
+#if (NGX_HTTP_V3)
+    if (u.family != AF_UNIX) {
+
+        if (u.no_port) {
+            plcf->host = u.host;
+
+        } else {
+            plcf->host.len = u.host.len + 1 + u.port_text.len;
+            plcf->host.data = u.host.data;
+        }
+
+    } else {
+        ngx_str_set(&plcf->host, "localhost");
+    }
+#endif
 
     ngx_http_proxy_set_vars(&u, &plcf->vars);
 

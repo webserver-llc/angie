@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+директива "mqtt_preread" модуля "stream", позволяющая помещать имя пользователя
+и идентификатор клиента из пакета CONNECT протокола MQTT в переменные
+$mqtt_preread_username и $mqtt_preread_clientid.
+</para>
+<para lang="en">
+"mqtt_preread" directive in the "stream" module, which allows extracting
+the username and client id from the CONNECT packet of the MQTT protocol into
+the $mqtt_preread_username and $mqtt_preread_clientid variables.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 ограничение скорости отдачи MP4-файлов клиенту пропорционально битрейту
 с помощью директив "mp4_limit_rate" и "mp4_limit_rate_after", снижающее
 нагрузку на полосу пропускания.

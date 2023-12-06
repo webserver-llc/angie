@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -43,6 +44,8 @@ static ngx_msec_t ngx_quic_pcg_duration(ngx_connection_t *c);
 static void ngx_quic_persistent_congestion(ngx_connection_t *c);
 static void ngx_quic_congestion_lost(ngx_connection_t *c,
     ngx_quic_frame_t *frame);
+static ngx_int_t ngx_quic_ping_peer(ngx_connection_t *c,
+    ngx_quic_send_ctx_t *ctx);
 static void ngx_quic_lost_handler(ngx_event_t *ev);
 
 
@@ -828,7 +831,7 @@ ngx_quic_pto_handler(ngx_event_t *ev)
     ngx_msec_t              now;
     ngx_queue_t            *q;
     ngx_connection_t       *c;
-    ngx_quic_frame_t       *f, frame;
+    ngx_quic_frame_t       *f;
     ngx_quic_send_ctx_t    *ctx;
     ngx_quic_connection_t  *qc;
 
@@ -865,14 +868,7 @@ ngx_quic_pto_handler(ngx_event_t *ev)
                        "quic pto %s pto_count:%ui",
                        ngx_quic_level_name(ctx->level), qc->pto_count);
 
-        ngx_memzero(&frame, sizeof(ngx_quic_frame_t));
-
-        frame.level = ctx->level;
-        frame.type = NGX_QUIC_FT_PING;
-
-        if (ngx_quic_frame_sendto(c, &frame, 0, qc->path) != NGX_OK
-            || ngx_quic_frame_sendto(c, &frame, 0, qc->path) != NGX_OK)
-        {
+        if (ngx_quic_ping_peer(c, ctx) != NGX_OK) {
             ngx_quic_close_connection(c, NGX_ERROR);
             return;
         }
@@ -883,6 +879,50 @@ ngx_quic_pto_handler(ngx_event_t *ev)
     ngx_quic_set_lost_timer(c);
 
     ngx_quic_connstate_dbg(c);
+}
+
+
+static ngx_int_t
+ngx_quic_ping_peer(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
+{
+    ngx_uint_t              i;
+    ngx_msec_t              now;
+    ngx_quic_frame_t       *f;
+    ngx_quic_congestion_t  *cg;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    cg = &qc->congestion;
+
+    now = ngx_current_msec;
+
+    for (i = 0; i < 2; i++) {
+
+        f = ngx_quic_alloc_frame(c);
+        if (f == NULL) {
+            return NGX_ERROR;
+        }
+
+        f->first = now;
+        f->last = now;
+
+        f->level = ctx->level;
+        f->type = NGX_QUIC_FT_PING;
+        f->len = ngx_quic_create_frame(NULL, f);
+
+        if (ngx_quic_frame_sendto(c, f, 0, qc->path) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        ngx_queue_insert_tail(&ctx->sent, &f->queue);
+        cg->in_flight += f->plen;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "quic congestion send if:%uz", cg->in_flight);
+
+    return NGX_OK;
 }
 
 

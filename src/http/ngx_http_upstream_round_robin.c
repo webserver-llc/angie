@@ -622,6 +622,8 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
             goto failed;
         }
 
+        peer->checked = ngx_time();
+
         rrp->current = peer;
         ngx_http_upstream_rr_peer_ref(peers, peer);
 

@@ -42,6 +42,18 @@ all functionality of nginx 1.25.3.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+если проксируемый сервер был единственным в группе, то он мог некорректно
+учитываться как "unavailable" в API статистики даже после восстановления
+работоспособности.
+</para>
+<para lang="en">
+if a proxied server was the only one in a group, it could be incorrectly
+reported as "unavailable" in the statistics API even after recovery.
+</para>
+</change>
+
 </changes>
 
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -622,6 +623,55 @@ ngx_http_header_filter(ngx_http_request_t *r)
     out.next = NULL;
 
     return ngx_http_write_filter(r, &out);
+}
+
+
+ngx_str_t *
+ngx_http_status_line(ngx_uint_t status)
+{
+    ngx_str_t  *status_line;
+
+    if (status >= NGX_HTTP_OK
+        && status < NGX_HTTP_LAST_2XX)
+    {
+        /* 2XX */
+
+        status -= NGX_HTTP_OK;
+        status_line = &ngx_http_status_lines[status];
+
+    } else if (status >= NGX_HTTP_MOVED_PERMANENTLY
+               && status < NGX_HTTP_LAST_3XX)
+    {
+        /* 3XX */
+
+        status = status - NGX_HTTP_MOVED_PERMANENTLY
+                        + NGX_HTTP_OFF_3XX;
+
+        status_line = &ngx_http_status_lines[status];
+
+    } else if (status >= NGX_HTTP_BAD_REQUEST
+               && status < NGX_HTTP_LAST_4XX)
+    {
+        /* 4XX */
+        status = status - NGX_HTTP_BAD_REQUEST
+                        + NGX_HTTP_OFF_4XX;
+
+        status_line = &ngx_http_status_lines[status];
+
+    } else if (status >= NGX_HTTP_INTERNAL_SERVER_ERROR
+               && status < NGX_HTTP_LAST_5XX)
+    {
+        /* 5XX */
+        status = status - NGX_HTTP_INTERNAL_SERVER_ERROR
+                        + NGX_HTTP_OFF_5XX;
+
+        status_line = &ngx_http_status_lines[status];
+
+    } else {
+        return NULL;
+    }
+
+    return status_line;
 }
 
 

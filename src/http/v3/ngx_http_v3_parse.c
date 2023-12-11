@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -353,10 +354,12 @@ ngx_http_v3_parse_headers(ngx_connection_t *c, ngx_http_v3_parse_headers_t *st,
 
         case sw_verify:
 
-            rc = ngx_http_v3_check_insert_count(c, st->prefix.insert_count);
-            if (rc != NGX_OK) {
-                return rc;
-            }
+            if (c->quic != NULL) {
+                rc = ngx_http_v3_check_insert_count(c, st->prefix.insert_count);
+                if (rc != NGX_OK) {
+                    return rc;
+                }
+            } /* else: check skipped for cached response */
 
             st->state = sw_field_rep;
 
@@ -392,9 +395,12 @@ done:
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "http3 parse headers done");
 
     if (st->prefix.insert_count > 0) {
-        if (ngx_http_v3_send_ack_section(c, c->quic->id) != NGX_OK) {
-            return NGX_ERROR;
-        }
+
+        if (c->quic) {
+            if (ngx_http_v3_send_ack_section(c, c->quic->id) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        } /* skip for cached response */
 
         ngx_http_v3_ack_insert_count(c, st->prefix.insert_count);
     }
@@ -614,13 +620,15 @@ ngx_http_v3_parse_literal(ngx_connection_t *c, ngx_http_v3_parse_literal_t *st,
 
             n = st->length;
 
-            cscf = ngx_http_v3_get_module_srv_conf(c, ngx_http_core_module);
+            if (c->quic != NULL) {
+                cscf = ngx_http_v3_get_module_srv_conf(c, ngx_http_core_module);
 
-            if (n > cscf->large_client_header_buffers.size) {
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                              "client sent too large field line");
-                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
-            }
+                if (n > cscf->large_client_header_buffers.size) {
+                    ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                                  "client sent too large field line");
+                    return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+                }
+            } /* else: check skipped for cached response */
 
             if (st->huffman) {
                 n = n * 8 / 5;

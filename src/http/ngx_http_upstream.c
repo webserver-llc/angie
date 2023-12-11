@@ -192,7 +192,7 @@ static void *ngx_http_upstream_create_main_conf(ngx_conf_t *cf);
 static char *ngx_http_upstream_init_main_conf(ngx_conf_t *cf, void *conf);
 
 #if (NGX_HTTP_SSL)
-static void ngx_http_upstream_ssl_init_connection(ngx_http_request_t *,
+static void ngx_http_upstream_ssl_init_connection(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_connection_t *c);
 static void ngx_http_upstream_ssl_handshake_handler(ngx_connection_t *c);
 static void ngx_http_upstream_ssl_handshake(ngx_http_request_t *,
@@ -206,6 +206,23 @@ static ngx_int_t ngx_http_upstream_ssl_certificate(ngx_http_request_t *r,
 static ngx_int_t ngx_http_upstream_ssl_certificates(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_connection_t *c);
 #endif
+#endif
+
+#if (NGX_HTTP_V3)
+static ngx_int_t ngx_http_v3_upstream_init_connection(ngx_http_request_t *,
+    ngx_http_upstream_t *u, ngx_connection_t *c);
+static ngx_int_t ngx_http_v3_upstream_init_ssl(ngx_connection_t *c, void *data);
+static ngx_int_t ngx_http_v3_upstream_reuse_connection(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c);
+static ngx_int_t ngx_http_v3_upstream_init_h3(ngx_connection_t *c,
+    ngx_http_request_t *r);
+static void ngx_http_v3_upstream_connect_handler(ngx_event_t *ev);
+static ngx_int_t ngx_http_v3_upstream_connected(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *sc);
+static ngx_int_t ngx_http_v3_upstream_send_request(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *sc);
+static void ngx_http_quic_upstream_dummy_handler(ngx_event_t *ev);
+static void ngx_http_quic_stream_close_handler(ngx_event_t *ev);
 #endif
 
 
@@ -1646,6 +1663,20 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     c->requests++;
 
+#if (NGX_HTTP_V3)
+
+    /* this is cached main quic connection with completed handshake */
+    if (u->peer.cached && c->type == SOCK_DGRAM) {
+        if (ngx_http_v3_upstream_reuse_connection(r, u, c) != NGX_OK) {
+            ngx_http_upstream_finalize_request(r, u,
+                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return;
+    }
+
+#endif
+
     c->data = r;
 
     c->write->handler = ngx_http_upstream_handler;
@@ -1684,6 +1715,26 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
         ngx_add_timer(c->write, u->conf->connect_timeout);
         return;
     }
+
+#if (NGX_HTTP_V3)
+
+    if (u->h3) {
+        rc = ngx_http_v3_upstream_init_connection(r, u, c);
+
+        if (rc == NGX_DECLINED) {
+            ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
+            return;
+        }
+
+        if (rc != NGX_OK) {
+            ngx_http_upstream_finalize_request(r, u,
+                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        return;
+    }
+
+#endif
 
 #if (NGX_HTTP_SSL)
 
@@ -1938,6 +1989,17 @@ ngx_http_upstream_ssl_save_session(ngx_connection_t *c)
 {
     ngx_http_request_t   *r;
     ngx_http_upstream_t  *u;
+
+#if (NGX_HTTP_V3)
+    if (c->udp) {
+        /* SSL callback is called on main quic connection */
+        c = ngx_quic_client_get_ssl_data(c);
+        if (c == NULL) {
+            /* stream already closed */
+            return;
+        }
+    }
+#endif
 
     if (c->idle) {
         return;
@@ -2339,6 +2401,22 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u,
     if (!u->request_body_sent) {
         u->request_body_sent = 1;
 
+#if (NGX_HTTP_V3)
+
+        /*
+         * need to finalize QUIC stream, to notify that no more data expected
+         * otherwise, server expecting more data (although C-L is present!)
+         */
+
+        if (c->quic && !u->hq) {
+            if (ngx_quic_shutdown_stream(c, NGX_WRITE_SHUTDOWN) != NGX_OK) {
+                ngx_http_upstream_finalize_request(r, u,
+                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
+                return;
+            }
+        }
+#endif
+
         if (u->header_sent) {
             return;
         }
@@ -2477,6 +2555,9 @@ static void
 ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
     ngx_http_upstream_t *u)
 {
+#if (NGX_HTTP_V3)
+    ngx_int_t          rc;
+#endif
     ngx_connection_t  *c;
 
     c = u->peer.connection;
@@ -2488,6 +2569,42 @@ ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
         ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_TIMEOUT);
         return;
     }
+
+#if (NGX_HTTP_V3)
+
+    if (u->h3) {
+        if (!u->h3_started) {
+
+            rc = ngx_http_v3_upstream_connected(r, u, c);
+
+            if (rc == NGX_DECLINED) {
+                ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
+                return;
+            }
+
+            if (rc != NGX_OK) {
+                ngx_http_upstream_finalize_request(r, u,
+                                           NGX_HTTP_INTERNAL_SERVER_ERROR);
+                return;
+            }
+
+        } else {
+
+            if (u->header_sent && !u->conf->preserve_output) {
+                u->write_event_handler = ngx_http_upstream_dummy_handler;
+
+                (void) ngx_handle_write_event(c->write, 0);
+
+                return;
+            }
+
+            ngx_http_upstream_send_request(r, u, 1);
+        }
+
+        return;
+    }
+
+#endif
 
 #if (NGX_HTTP_SSL)
 
@@ -4626,13 +4743,57 @@ static void
 ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_uint_t no_send)
 {
-    ngx_pool_t       *pool;
-    ngx_connection_t *c;
+    ngx_pool_t        *pool;
+    ngx_connection_t  *c;
+#if (NGX_HTTP_V3)
+    ngx_connection_t  *sc;
+#endif
 
     c = u->peer.connection;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "close http upstream connection: %d", c->fd);
+
+#if (NGX_HTTP_V3)
+    if (c->type == SOCK_DGRAM || c->quic) {
+
+        if (c->quic) {
+            /* a quic stream */
+
+            sc = c;
+            c = c->quic->parent;
+
+            ngx_http_v3_upstream_close_request_stream(sc, 1);
+
+            if (u->h3_started && !u->hq) {
+                /* HTTP/3 was initialized on this stream, close gracefully */
+                ngx_http_v3_shutdown(c);
+            }
+        }
+
+        if (c->udp) {
+            /* main QUIC udp connection */
+            ngx_quic_finalize_connection(c, 0 /* NGX_QUIC_ERR_NO_ERROR */, "");
+
+        } else {
+            /*
+             * early error, we failed to create quic connection object,
+             * cleanup normal connection created by upstream
+             */
+            pool = c->pool;
+
+            ngx_close_connection(c);
+
+            if (pool) {
+                ngx_destroy_pool(pool);
+            }
+        }
+
+        u->peer.connection = NULL;
+
+        return;
+    }
+#endif
 
 #if (NGX_HTTP_SSL)
     if (c->ssl) {
@@ -6967,6 +7128,397 @@ ngx_http_upstream_bind_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 
     return NGX_CONF_OK;
 }
+
+
+#if (NGX_HTTP_V3)
+
+static ngx_int_t
+ngx_http_v3_upstream_init_connection(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c)
+{
+    ngx_int_t          rc;
+    ngx_connection_t  *sc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "http3 upstream init connection on c:%p", c);
+
+    c->sockaddr = u->peer.sockaddr;
+    c->socklen = u->peer.socklen;
+
+    c->addr_text.data = ngx_pnalloc(c->pool, u->peer.name->len);
+    if (c->addr_text.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(c->addr_text.data, u->peer.name->data, u->peer.name->len);
+
+    if (ngx_quic_create_client(&u->conf->quic, c) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    c->listening->handler = ngx_http_v3_init_client_stream;
+
+    r->connection->log->action = "QUIC handshaking to upstream";
+
+    if (ngx_http_v3_upstream_init_h3(c, r) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    sc = ngx_quic_open_stream(c, 1);
+    if (sc == NULL) {
+        return NGX_ERROR;
+    }
+
+    sc->data = r;
+
+    /*
+     * main quic connection lives own life, we will acess it via stream
+     * when required
+     */
+    u->peer.connection = sc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, sc->log, 0,
+                   "http3 client bidi stream created sc:%p", sc);
+
+    rc = ngx_quic_connect(c, ngx_http_v3_upstream_init_ssl, sc);
+
+    if (rc == NGX_AGAIN) {
+        ngx_add_timer(sc->write, u->conf->connect_timeout);
+        sc->write->handler = ngx_http_v3_upstream_connect_handler;
+        sc->read->handler = ngx_http_quic_stream_close_handler;
+
+        return NGX_OK;
+    }
+
+    if (rc != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return ngx_http_v3_upstream_connected(r, u, sc);
+}
+
+
+static ngx_int_t
+ngx_http_v3_upstream_init_ssl(ngx_connection_t *c, void *data)
+{
+    ngx_connection_t *sc = data;
+
+    ngx_str_t            *alpn;
+    ngx_http_request_t   *r;
+    ngx_http_upstream_t  *u;
+
+    if (sc == NULL) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "http3 stream cannot be reused");
+        return NGX_ERROR;
+    }
+
+    r = sc->data;
+    u = r->upstream;
+
+    /* u->peer.connection (quic stream) shares SSL object with main conn */
+    sc->ssl = c->ssl;
+
+    alpn = &u->conf->quic.alpn;
+
+    if (SSL_set_alpn_protos(c->ssl->connection, (uint8_t  *) alpn->data,
+                            alpn->len)
+        != 0)
+    {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "http3 SSL_set_alpn_protos() failed");
+        return NGX_ERROR;
+    }
+
+    if (u->conf->ssl_server_name || u->conf->ssl_verify) {
+        if (ngx_http_upstream_ssl_name(r, u, c) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    if (u->conf->ssl_certificate
+        && u->conf->ssl_certificate->value.len
+        && (u->conf->ssl_certificate->lengths
+            || u->conf->ssl_certificate_key->lengths))
+    {
+        if (ngx_http_upstream_ssl_certificate(r, u, c) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    if (u->conf->ssl_session_reuse) {
+        c->ssl->save_session = ngx_http_upstream_ssl_save_session;
+
+        if (u->peer.set_session(&u->peer, u->peer.data) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_v3_upstream_reuse_connection(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *c)
+{
+    ngx_connection_t  *sc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "http3 upstream reuse connection c:%p", c);
+
+    if (ngx_http_upstream_configure(r, u, c) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    sc = ngx_quic_open_stream(c, 1);
+    if (sc == NULL) {
+        return NGX_ERROR;
+    }
+
+    sc->data = r;
+    u->peer.connection = sc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, sc->log, 0,
+                   "http3 client bidi stream created sc:%p", sc);
+
+    return ngx_http_v3_upstream_send_request(r, u, sc);
+}
+
+
+static ngx_int_t
+ngx_http_v3_upstream_init_h3(ngx_connection_t *c, ngx_http_request_t *r)
+{
+    ngx_http_v3_session_t     *h3c;
+    ngx_http_log_ctx_t        *ctx;
+    ngx_http_connection_t     *hc;
+    ngx_http_core_srv_conf_t  *cscf;
+
+    cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+
+    hc = ngx_pcalloc(c->pool, sizeof(ngx_http_connection_t));
+    if (hc == NULL) {
+        return NGX_ERROR;
+    }
+
+    hc->ssl = 1;
+
+    c->data = hc;
+
+    /* hc->addr_conf is unused */
+    hc->conf_ctx = cscf->ctx;  /* needed for streams to get config */
+
+    ctx = ngx_palloc(c->pool, sizeof(ngx_http_log_ctx_t));
+    if (ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    ctx->connection = c;
+    ctx->request = NULL;
+    ctx->current_request = NULL;
+
+    c->log_error = NGX_ERROR_INFO;
+
+    if (ngx_http_v3_init_session(c) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    h3c = ngx_http_v3_get_session(c);
+
+    h3c->client = 1;
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_http_v3_upstream_connect_handler(ngx_event_t *ev)
+{
+    ngx_uint_t            ft_type;
+    ngx_connection_t     *c, *sc;
+    ngx_http_request_t   *r;
+    ngx_http_upstream_t  *u;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "http3 connect handler");
+
+    sc = ev->data;
+    r = sc->data;
+    c = r->connection;
+    u = r->upstream;
+
+    if (ev->timedout) {
+        ft_type = NGX_HTTP_UPSTREAM_FT_TIMEOUT;
+        ngx_connection_error(c, NGX_ETIMEDOUT, "http3 connection timed out");
+        goto next;
+    }
+
+    if (ev->error) {
+        ngx_connection_error(c, 0, "http3 connection error");
+        ft_type = NGX_HTTP_UPSTREAM_FT_ERROR;
+        goto next;
+    }
+
+    if (ev->closed) {
+        ngx_connection_error(c, 0, "http3 connection was closed");
+        ft_type = NGX_HTTP_UPSTREAM_FT_ERROR;
+        goto next;
+    }
+
+    ngx_http_set_log_request(c->log, r);
+
+    if (ngx_http_v3_upstream_connected(r, u, sc) != NGX_OK) {
+        ft_type = NGX_HTTP_UPSTREAM_FT_ERROR;
+        goto next;
+    }
+
+    ngx_http_run_posted_requests(c);
+
+    return;
+
+next:
+
+    ngx_http_upstream_next(r, u, ft_type);
+}
+
+
+static ngx_int_t
+ngx_http_v3_upstream_connected(ngx_http_request_t *r, ngx_http_upstream_t *u,
+    ngx_connection_t *sc)
+{
+    ngx_int_t          rc;
+    ngx_connection_t  *c;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, sc->log, 0, "http3 upstream connected");
+
+    if (sc->write->timer_set) {
+        /* remove connection timeout timer */
+        ngx_del_timer(sc->write);
+    }
+
+    sc->write->handler = ngx_http_quic_upstream_dummy_handler;
+
+    c = sc->quic->parent;
+
+    if (u->conf->ssl_verify) {
+
+        rc = SSL_get_verify_result(c->ssl->connection);
+
+        if (rc != X509_V_OK) {
+            ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                          "upstream SSL certificate verify error: (%l:%s)",
+                          rc, X509_verify_cert_error_string(rc));
+
+            return NGX_DECLINED;
+        }
+
+        if (ngx_ssl_check_host(c, &u->ssl_name) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                          "upstream SSL certificate does not match \"%V\"",
+                          &u->ssl_name);
+            return NGX_DECLINED;
+        }
+    }
+
+    if (!u->hq) {
+        if (ngx_http_v3_send_settings(c) != NGX_OK) {
+            /* example error: qc->closing is set */
+            return NGX_ERROR;
+        }
+    }
+
+    if (ngx_http_v3_upstream_send_request(r, u, sc) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_v3_upstream_send_request(ngx_http_request_t *r,
+    ngx_http_upstream_t *u, ngx_connection_t *sc)
+{
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, sc->log, 0,
+                   "http3 upstream send request: \"%V?%V\"", &r->uri, &r->args);
+
+    sc->sendfile = 0;
+    u->output.sendfile = 0;
+
+    sc->write->handler = ngx_http_upstream_handler;
+    sc->read->handler = ngx_http_upstream_handler;
+
+    u->writer.connection = sc;
+    u->h3_started = 1;
+
+    ngx_http_upstream_send_request(r, u, 1);
+
+    return NGX_OK;
+}
+
+
+void
+ngx_http_v3_upstream_close_request_stream(ngx_connection_t *c,
+    ngx_uint_t do_reset)
+{
+    ngx_pool_t  *pool;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                  "http3 upstream close request stream");
+
+    if (do_reset) {
+        ngx_http_v3_reset_stream(c);
+    }
+
+    c->destroyed = 1;
+
+    pool = c->pool;
+
+    ngx_quic_client_set_ssl_data(c->quic->parent, NULL);
+
+    /* will remove any c->read/write timers */
+    ngx_close_connection(c);
+
+    /* will trigger quic stream cleanup handler */
+    ngx_destroy_pool(pool);
+}
+
+
+static void
+ngx_http_quic_upstream_dummy_handler(ngx_event_t *ev)
+{
+}
+
+
+static void
+ngx_http_quic_stream_close_handler(ngx_event_t *ev)
+{
+    ngx_connection_t     *c, *sc;
+    ngx_http_request_t   *r;
+    ngx_http_upstream_t  *u;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0,
+                   "http quic stream close handler");
+
+    sc = ev->data;
+
+    if (sc->close) {
+        r = sc->data;
+        u = r->upstream;
+        c = r->connection;
+
+        /*
+         * main quic connection is closing due to some error;
+         * continue next upstream process normally; stream will
+         * be closed by ngx_http_upstream_close_peer_connection()
+         */
+
+        ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
+
+        ngx_http_run_posted_requests(c);
+    }
+}
+
+#endif
 
 
 static ngx_int_t

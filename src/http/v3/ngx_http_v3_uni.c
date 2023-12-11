@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -107,10 +108,22 @@ ngx_int_t
 ngx_http_v3_register_uni_stream(ngx_connection_t *c, uint64_t type)
 {
     ngx_int_t                  index;
+    ngx_uint_t                 encoder, decoder, control;
     ngx_http_v3_session_t     *h3c;
     ngx_http_v3_uni_stream_t  *us;
 
     h3c = ngx_http_v3_get_session(c);
+
+    if (h3c->client) {
+        encoder = NGX_HTTP_V3_STREAM_SERVER_ENCODER;
+        decoder = NGX_HTTP_V3_STREAM_SERVER_DECODER;
+        control = NGX_HTTP_V3_STREAM_SERVER_CONTROL;
+
+    } else {
+        encoder = NGX_HTTP_V3_STREAM_CLIENT_ENCODER;
+        decoder = NGX_HTTP_V3_STREAM_CLIENT_DECODER;
+        control = NGX_HTTP_V3_STREAM_CLIENT_CONTROL;
+    }
 
     switch (type) {
 
@@ -118,22 +131,21 @@ ngx_http_v3_register_uni_stream(ngx_connection_t *c, uint64_t type)
 
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                        "http3 encoder stream");
-        index = NGX_HTTP_V3_STREAM_CLIENT_ENCODER;
+        index = encoder;
         break;
 
     case NGX_HTTP_V3_STREAM_DECODER:
 
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                        "http3 decoder stream");
-        index = NGX_HTTP_V3_STREAM_CLIENT_DECODER;
+        index = decoder;
         break;
 
     case NGX_HTTP_V3_STREAM_CONTROL:
 
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
                        "http3 control stream");
-        index = NGX_HTTP_V3_STREAM_CLIENT_CONTROL;
-
+        index = control;
         break;
 
     default:
@@ -141,9 +153,9 @@ ngx_http_v3_register_uni_stream(ngx_connection_t *c, uint64_t type)
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
                        "http3 stream 0x%02xL", type);
 
-        if (h3c->known_streams[NGX_HTTP_V3_STREAM_CLIENT_ENCODER] == NULL
-            || h3c->known_streams[NGX_HTTP_V3_STREAM_CLIENT_DECODER] == NULL
-            || h3c->known_streams[NGX_HTTP_V3_STREAM_CLIENT_CONTROL] == NULL)
+        if (h3c->known_streams[encoder] == NULL
+            || h3c->known_streams[decoder] == NULL
+            || h3c->known_streams[control] == NULL)
         {
             ngx_log_error(NGX_LOG_INFO, c->log, 0, "missing mandatory stream");
             return NGX_HTTP_V3_ERR_STREAM_CREATION_ERROR;
@@ -317,21 +329,25 @@ ngx_http_v3_get_uni_stream(ngx_connection_t *c, ngx_uint_t type)
     ngx_http_v3_session_t     *h3c;
     ngx_http_v3_uni_stream_t  *us;
 
+    h3c = ngx_http_v3_get_session(c);
+
     switch (type) {
     case NGX_HTTP_V3_STREAM_ENCODER:
-        index = NGX_HTTP_V3_STREAM_SERVER_ENCODER;
+        index = h3c->client ? NGX_HTTP_V3_STREAM_CLIENT_ENCODER
+                            : NGX_HTTP_V3_STREAM_SERVER_ENCODER;
         break;
     case NGX_HTTP_V3_STREAM_DECODER:
-        index = NGX_HTTP_V3_STREAM_SERVER_DECODER;
+        index = h3c->client ? NGX_HTTP_V3_STREAM_CLIENT_DECODER
+                            : NGX_HTTP_V3_STREAM_SERVER_DECODER;
         break;
     case NGX_HTTP_V3_STREAM_CONTROL:
-        index = NGX_HTTP_V3_STREAM_SERVER_CONTROL;
+        index = h3c->client ? NGX_HTTP_V3_STREAM_CLIENT_CONTROL
+                            : NGX_HTTP_V3_STREAM_SERVER_CONTROL;
         break;
     default:
         index = -1;
     }
 
-    h3c = ngx_http_v3_get_session(c);
 
     if (index >= 0) {
         if (h3c->known_streams[index]) {
@@ -380,10 +396,13 @@ ngx_http_v3_get_uni_stream(ngx_connection_t *c, ngx_uint_t type)
 
 failed:
 
-    ngx_log_error(NGX_LOG_ERR, c->log, 0, "failed to create server stream");
+    ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                               h3c->client ? "failed to create client stream"
+                                           : "failed to create server stream");
 
     ngx_http_v3_finalize_connection(c, NGX_HTTP_V3_ERR_STREAM_CREATION_ERROR,
-                                    "failed to create server stream");
+                               h3c->client ? "failed to create client stream"
+                                           : "failed to create server stream");
     if (sc) {
         ngx_http_v3_close_uni_stream(sc);
     }

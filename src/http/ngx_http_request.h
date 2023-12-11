@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -613,6 +614,7 @@ typedef struct {
 
 #define ngx_http_ephemeral(r)  (void *) (&r->uri_start)
 
+ngx_str_t *ngx_http_status_line(ngx_uint_t status);
 
 extern ngx_http_header_t       ngx_http_headers_in[];
 extern ngx_http_header_out_t   ngx_http_headers_out[];

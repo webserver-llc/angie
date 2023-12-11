@@ -278,6 +278,10 @@ typedef struct {
 
     ngx_str_t                        module;
 
+#if (NGX_HTTP_V3)
+    ngx_quic_conf_t                  quic;
+#endif
+
     NGX_COMPAT_BEGIN(2)
     NGX_COMPAT_END
 } ngx_http_upstream_conf_t;
@@ -435,6 +439,11 @@ struct ngx_http_upstream_s {
     unsigned                         request_body_sent:1;
     unsigned                         request_body_blocked:1;
     unsigned                         header_sent:1;
+#if (NGX_HTTP_V3)
+    unsigned                         h3:1;
+    unsigned                         h3_started:1;
+    unsigned                         hq:1;
+#endif
 };
 
 
@@ -465,6 +474,10 @@ ngx_int_t ngx_http_upstream_hide_headers_hash(ngx_conf_t *cf,
     ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev,
     ngx_str_t *default_hide_headers, ngx_hash_init_t *hash);
 
+#if (NGX_HTTP_V3)
+void ngx_http_v3_upstream_close_request_stream(ngx_connection_t *c,
+    ngx_uint_t do_reset);
+#endif
 
 #define ngx_http_conf_upstream_srv_conf(uscf, module)                         \
     uscf->srv_conf[module.ctx_index]

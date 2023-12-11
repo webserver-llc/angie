@@ -275,6 +275,17 @@ found:
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get keepalive peer: using connection %p", c);
 
+#if (NGX_HTTP_V3)
+    if (c->quic) {
+        pc->connection = c->quic->parent;
+        pc->cached = 1;
+
+        ngx_http_v3_upstream_close_request_stream(c, 1);
+
+        return NGX_DONE;
+    }
+#endif
+
     c->idle = 0;
     c->sent = 0;
     c->data = NULL;
@@ -303,6 +314,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_http_upstream_keepalive_srv_conf_t   *kcf;
     ngx_http_upstream_keepalive_peer_data_t  *kp;
 
+    ngx_uint_t            requests;
     ngx_queue_t          *q;
     ngx_connection_t     *c;
     ngx_http_upstream_t  *u;
@@ -322,18 +334,35 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
                                           ngx_http_upstream_keepalive_module);
     c = pc->connection;
 
+    if (c == NULL) {
+        goto invalid;
+    }
+
     if (state & NGX_PEER_FAILED
         || c == NULL
+#if (NGX_HTTP_V3)
+        /* quic stream is done when using: ok to have EOF/write err */
+        || (c->quic == NULL && c->read->eof)
+        || (c->quic == NULL && c->write->error)
+        || c->type == SOCK_DGRAM
+#else
         || c->read->eof
+        || c->write->error
+#endif
         || c->read->error
         || c->read->timedout
-        || c->write->error
         || c->write->timedout)
     {
         goto invalid;
     }
 
-    if (c->requests >= kcf->requests) {
+#if (NGX_HTTP_V3)
+    requests = c->quic ? c->quic->parent->requests : c->requests;
+#else
+    requests = c->requests;
+#endif
+
+    if (requests >= kcf->requests) {
         goto invalid;
     }
 
@@ -489,6 +518,16 @@ close:
 static void
 ngx_http_upstream_keepalive_close(ngx_connection_t *c)
 {
+#if (NGX_HTTP_V3)
+    ngx_connection_t  *pc;
+
+    if (c->quic) {
+        pc = c->quic->parent;
+        ngx_http_v3_upstream_close_request_stream(c, 1);
+        ngx_http_v3_shutdown(pc);
+        return;
+    }
+#endif
 
 #if (NGX_HTTP_SSL)
 

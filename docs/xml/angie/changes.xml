@@ -20,6 +20,21 @@ using the "slow_start" option of the "server" directive in the "upstream" block.
 
 <change type="feature">
 <para lang="ru">
+поддержка HTTP/3-соединений с upstream-серверами в прокси-модуле HTTP,
+допускающая использование клиентами произвольных версий HTTP.
+Конфигурация осуществляется с помощью директивы "proxy_http_version"
+и набора директив "proxy_quic_" и "proxy_http3_".
+</para>
+<para lang="en">
+support for establishing HTTP/3 connections to upstream servers in the HTTP
+proxy module while allowing clients to use arbitrary HTTP versions.
+Configuration is done with the "proxy_http_version" directive
+and a set of "proxy_quic_" and "proxy_http3_" directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 директива "mqtt_preread" модуля "stream", позволяющая помещать имя пользователя
 и идентификатор клиента из пакета CONNECT протокола MQTT в переменные
 $mqtt_preread_username и $mqtt_preread_clientid.

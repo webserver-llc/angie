@@ -74,22 +74,27 @@
 #define NGX_HTTP_V3_ERR_VERSION_FALLBACK           0x110
 
 /* static table indices */
-#define NGX_HTTP_V3_HEADER_AUTHORITY                 0
-#define NGX_HTTP_V3_HEADER_PATH_ROOT                 1
-#define NGX_HTTP_V3_HEADER_CONTENT_LENGTH_ZERO       4
-#define NGX_HTTP_V3_HEADER_DATE                      6
-#define NGX_HTTP_V3_HEADER_LAST_MODIFIED             10
-#define NGX_HTTP_V3_HEADER_LOCATION                  12
-#define NGX_HTTP_V3_HEADER_METHOD_GET                17
-#define NGX_HTTP_V3_HEADER_SCHEME_HTTP               22
-#define NGX_HTTP_V3_HEADER_SCHEME_HTTPS              23
-#define NGX_HTTP_V3_HEADER_STATUS_200                25
-#define NGX_HTTP_V3_HEADER_ACCEPT_ENCODING           31
-#define NGX_HTTP_V3_HEADER_CONTENT_TYPE_TEXT_PLAIN   53
-#define NGX_HTTP_V3_HEADER_VARY_ACCEPT_ENCODING      59
-#define NGX_HTTP_V3_HEADER_ACCEPT_LANGUAGE           72
-#define NGX_HTTP_V3_HEADER_SERVER                    92
-#define NGX_HTTP_V3_HEADER_USER_AGENT                95
+#define NGX_HTTP_V3_HEADER_AUTHORITY               0
+#define NGX_HTTP_V3_HEADER_PATH_ROOT               1
+#define NGX_HTTP_V3_HEADER_CONTENT_LENGTH_ZERO     4
+#define NGX_HTTP_V3_HEADER_DATE                    6
+#define NGX_HTTP_V3_HEADER_LAST_MODIFIED           10
+#define NGX_HTTP_V3_HEADER_LOCATION                12
+#define NGX_HTTP_V3_HEADER_METHOD_DELETE           16
+#define NGX_HTTP_V3_HEADER_METHOD_GET              17
+#define NGX_HTTP_V3_HEADER_METHOD_HEAD             18
+#define NGX_HTTP_V3_HEADER_METHOD_OPTIONS          19
+#define NGX_HTTP_V3_HEADER_METHOD_POST             20
+#define NGX_HTTP_V3_HEADER_METHOD_PUT              21
+#define NGX_HTTP_V3_HEADER_SCHEME_HTTP             22
+#define NGX_HTTP_V3_HEADER_SCHEME_HTTPS            23
+#define NGX_HTTP_V3_HEADER_STATUS_200              25
+#define NGX_HTTP_V3_HEADER_ACCEPT_ENCODING         31
+#define NGX_HTTP_V3_HEADER_CONTENT_TYPE_TEXT_PLAIN 53
+#define NGX_HTTP_V3_HEADER_VARY_ACCEPT_ENCODING    59
+#define NGX_HTTP_V3_HEADER_ACCEPT_LANGUAGE         72
+#define NGX_HTTP_V3_HEADER_SERVER                  92
+#define NGX_HTTP_V3_HEADER_USER_AGENT              95
 
 
 /* QPACK errors */
@@ -158,11 +163,13 @@ struct ngx_http_v3_session_s {
 
     unsigned                      goaway:1;
     unsigned                      hq:1;
+    unsigned                      client:1;
 
     ngx_connection_t             *known_streams[NGX_HTTP_V3_MAX_KNOWN_STREAM];
 };
 
 
+void ngx_http_v3_init_client_stream(ngx_connection_t *c);
 void ngx_http_v3_init_stream(ngx_connection_t *c);
 void ngx_http_v3_reset_stream(ngx_connection_t *c);
 ngx_int_t ngx_http_v3_init_session(ngx_connection_t *c);

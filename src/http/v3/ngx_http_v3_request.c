@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -53,6 +54,28 @@ static const struct {
     { ngx_string("TRACE"),     NGX_HTTP_TRACE },
     { ngx_string("CONNECT"),   NGX_HTTP_CONNECT }
 };
+
+
+void
+ngx_http_v3_init_client_stream(ngx_connection_t *c)
+{
+    ngx_http_connection_t  *hc, *phc;
+
+    phc = ngx_http_quic_get_connection(c);
+
+    hc = ngx_pcalloc(c->pool, sizeof(ngx_http_connection_t));
+    if (hc == NULL) {
+        ngx_http_close_connection(c);
+        return;
+    }
+
+    c->data = hc;
+
+    /* server configuration used by 'client' streams */
+    hc->conf_ctx = phc->conf_ctx;
+
+    ngx_http_v3_init_stream(c);
+}
 
 
 void

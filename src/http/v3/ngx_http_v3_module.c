@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  * Copyright (C) Roman Arutyunyan
  */
@@ -11,6 +12,8 @@
 
 
 static ngx_int_t ngx_http_v3_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_v3_quic_connection_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_v3_add_variables(ngx_conf_t *cf);
 static void *ngx_http_v3_create_srv_conf(ngx_conf_t *cf);
@@ -117,6 +120,9 @@ static ngx_http_variable_t  ngx_http_v3_vars[] = {
 
     { ngx_string("http3"), NULL, ngx_http_v3_variable, 0, 0, 0 },
 
+    { ngx_string("quic_connection"), NULL, ngx_http_v3_quic_connection_variable,
+      0, 0, 0 },
+
       ngx_http_null_variable
 };
 
@@ -154,6 +160,40 @@ ngx_http_v3_variable(ngx_http_request_t *r,
     *v = ngx_http_variable_null_value;
 
     return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_v3_quic_connection_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    u_char             *p;
+    ngx_connection_t   *c;
+    ngx_quic_stream_t  *qs;
+
+    if (r->connection->quic) {
+        qs = r->connection->quic;
+
+        c = qs->parent;
+
+        p = ngx_pnalloc(r->pool, NGX_ATOMIC_T_LEN);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        v->len = ngx_sprintf(p, "%uA", c->number) - p;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = p;
+
+        return NGX_OK;
+    }
+
+    *v = ngx_http_variable_null_value;
+
+    return NGX_OK;
+
 }
 
 

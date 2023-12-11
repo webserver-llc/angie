@@ -1788,6 +1788,13 @@ sub encrypt_aead_f {
 
 sub encrypt_aead {
 	my ($self, $payload, $level) = @_;
+
+	if ($level == 0) {
+		my $padding = 1200 - length($payload);
+		$padding = 0 if $padding < 0;
+		$payload = $payload . pack("x$padding");
+	}
+
 	my $pn = ++$self->{pn}[0][$level];
 	my $ad = pack("C", $level == 3
 		? 0x40 | ($self->{key_phase} << 2)

@@ -198,10 +198,10 @@ ngx_quic_rtt_sample(ngx_connection_t *c, ngx_quic_ack_frame_t *ack,
     } else {
         qc->min_rtt = ngx_min(qc->min_rtt, latest_rtt);
 
-        ack_delay = (ack->delay << qc->ctp.ack_delay_exponent) / 1000;
+        ack_delay = (ack->delay << qc->peer_tp.ack_delay_exponent) / 1000;
 
         if (c->ssl->handshaked) {
-            ack_delay = ngx_min(ack_delay, qc->ctp.max_ack_delay);
+            ack_delay = ngx_min(ack_delay, qc->peer_tp.max_ack_delay);
         }
 
         adjusted_rtt = latest_rtt;
@@ -530,7 +530,7 @@ ngx_quic_pcg_duration(ngx_connection_t *c)
 
     duration = qc->avg_rtt;
     duration += ngx_max(4 * qc->rttvar, NGX_QUIC_TIME_GRANULARITY);
-    duration += qc->ctp.max_ack_delay;
+    duration += qc->peer_tp.max_ack_delay;
     duration *= NGX_QUIC_PERSISTENT_CONGESTION_THR;
 
     return duration;
@@ -799,7 +799,7 @@ ngx_quic_pto(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
     duration += ngx_max(4 * qc->rttvar, NGX_QUIC_TIME_GRANULARITY);
 
     if (ctx->level == ssl_encryption_application && c->ssl->handshaked) {
-        duration += qc->ctp.max_ack_delay;
+        duration += qc->peer_tp.max_ack_delay;
     }
 
     return duration;

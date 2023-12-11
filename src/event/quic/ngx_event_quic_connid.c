@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -410,7 +411,8 @@ ngx_quic_create_sockets(ngx_connection_t *c)
 
     qc = ngx_quic_get_connection(c);
 
-    n = ngx_min(NGX_QUIC_MAX_SERVER_IDS, qc->ctp.active_connection_id_limit);
+    n = ngx_min(NGX_QUIC_MAX_SERVER_IDS,
+                qc->peer_tp.active_connection_id_limit);
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic create sockets has:%ui max:%ui", qc->nsockets, n);

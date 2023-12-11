@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -218,7 +219,7 @@ struct ngx_quic_connection_s {
     uint64_t                          path_seqnum;
 
     ngx_quic_tp_t                     tp;
-    ngx_quic_tp_t                     ctp;
+    ngx_quic_tp_t                     peer_tp;
 
     ngx_quic_send_ctx_t               send_ctx[NGX_QUIC_SEND_CTX_LAST];
 
@@ -281,7 +282,7 @@ struct ngx_quic_connection_s {
 
 
 ngx_int_t ngx_quic_apply_transport_params(ngx_connection_t *c,
-    ngx_quic_tp_t *ctp);
+    ngx_quic_tp_t *peer_tp);
 void ngx_quic_discard_ctx(ngx_connection_t *c,
     enum ssl_encryption_level_t level);
 void ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc);

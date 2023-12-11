@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -171,7 +172,7 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
     size_t                  client_params_len;
     ngx_chain_t            *out;
     const uint8_t          *client_params;
-    ngx_quic_tp_t           ctp;
+    ngx_quic_tp_t           peer_tp;
     ngx_quic_frame_t       *frame;
     ngx_connection_t       *c;
     ngx_quic_send_ctx_t    *ctx;
@@ -230,9 +231,9 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
         end = p + client_params_len;
 
         /* defaults for parameters not sent by client */
-        ngx_memcpy(&ctp, &qc->ctp, sizeof(ngx_quic_tp_t));
+        ngx_memcpy(&peer_tp, &qc->peer_tp, sizeof(ngx_quic_tp_t));
 
-        if (ngx_quic_parse_transport_params(p, end, &ctp, c->log)
+        if (ngx_quic_parse_transport_params(p, end, &peer_tp, c->log)
             != NGX_OK)
         {
             qc->error = NGX_QUIC_ERR_TRANSPORT_PARAMETER_ERROR;
@@ -241,7 +242,7 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
             return 0;
         }
 
-        if (ngx_quic_apply_transport_params(c, &ctp) != NGX_OK) {
+        if (ngx_quic_apply_transport_params(c, &peer_tp) != NGX_OK) {
             return 0;
         }
 

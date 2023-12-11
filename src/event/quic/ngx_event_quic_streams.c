@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -765,7 +766,7 @@ ngx_quic_create_stream(ngx_connection_t *c, uint64_t id)
 
     if (id & NGX_QUIC_STREAM_UNIDIRECTIONAL) {
         if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            qs->send_max_data = qc->ctp.initial_max_stream_data_uni;
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_uni;
             qs->recv_state = NGX_QUIC_STREAM_RECV_DATA_READ;
             qs->send_state = NGX_QUIC_STREAM_SEND_READY;
 
@@ -777,11 +778,11 @@ ngx_quic_create_stream(ngx_connection_t *c, uint64_t id)
 
     } else {
         if (id & NGX_QUIC_STREAM_SERVER_INITIATED) {
-            qs->send_max_data = qc->ctp.initial_max_stream_data_bidi_remote;
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_remote;
             qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_local;
 
         } else {
-            qs->send_max_data = qc->ctp.initial_max_stream_data_bidi_local;
+            qs->send_max_data = qc->peer_tp.initial_max_stream_data_bidi_local;
             qs->recv_max_data = qc->tp.initial_max_stream_data_bidi_remote;
         }
 
@@ -1019,7 +1020,7 @@ ngx_quic_stream_flush(ngx_quic_stream_t *qs)
     qc = ngx_quic_get_connection(pc);
 
     if (qc->streams.send_max_data == 0) {
-        qc->streams.send_max_data = qc->ctp.initial_max_data;
+        qc->streams.send_max_data = qc->peer_tp.initial_max_data;
     }
 
     limit = ngx_min(qc->streams.send_max_data - qc->streams.send_offset,

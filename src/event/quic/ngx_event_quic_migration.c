@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -591,9 +592,9 @@ ngx_quic_discover_path_mtu(ngx_connection_t *c, ngx_quic_path_t *path)
     } else {
         path->mtud = path->mtu * 2;
 
-        if (path->mtud >= qc->ctp.max_udp_payload_size) {
-            path->mtud = qc->ctp.max_udp_payload_size;
-            path->max_mtu = qc->ctp.max_udp_payload_size;
+        if (path->mtud >= qc->peer_tp.max_udp_payload_size) {
+            path->mtud = qc->peer_tp.max_udp_payload_size;
+            path->max_mtu = qc->peer_tp.max_udp_payload_size;
         }
     }
 

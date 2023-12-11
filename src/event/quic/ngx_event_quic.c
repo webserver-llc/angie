@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -122,7 +123,7 @@ ngx_quic_connstate_dbg(ngx_connection_t *c)
 
 
 ngx_int_t
-ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
+ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
 {
     ngx_str_t               scid;
     ngx_quic_connection_t  *qc;
@@ -132,16 +133,16 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
     scid.data = qc->path->cid->id;
     scid.len = qc->path->cid->len;
 
-    if (scid.len != ctp->initial_scid.len
-        || ngx_memcmp(scid.data, ctp->initial_scid.data, scid.len) != 0)
+    if (scid.len != peer_tp->initial_scid.len
+        || ngx_memcmp(scid.data, peer_tp->initial_scid.data, scid.len) != 0)
     {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
                       "quic client initial_source_connection_id mismatch");
         return NGX_ERROR;
     }
 
-    if (ctp->max_udp_payload_size < NGX_QUIC_MIN_INITIAL_SIZE
-        || ctp->max_udp_payload_size > NGX_QUIC_MAX_UDP_PAYLOAD_SIZE)
+    if (peer_tp->max_udp_payload_size < NGX_QUIC_MIN_INITIAL_SIZE
+        || peer_tp->max_udp_payload_size > NGX_QUIC_MAX_UDP_PAYLOAD_SIZE)
     {
         qc->error = NGX_QUIC_ERR_TRANSPORT_PARAMETER_ERROR;
         qc->error_reason = "invalid maximum packet size";
@@ -151,7 +152,7 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
         return NGX_ERROR;
     }
 
-    if (ctp->active_connection_id_limit < 2) {
+    if (peer_tp->active_connection_id_limit < 2) {
         qc->error = NGX_QUIC_ERR_TRANSPORT_PARAMETER_ERROR;
         qc->error_reason = "invalid active_connection_id_limit";
 
@@ -160,7 +161,7 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
         return NGX_ERROR;
     }
 
-    if (ctp->ack_delay_exponent > 20) {
+    if (peer_tp->ack_delay_exponent > 20) {
         qc->error = NGX_QUIC_ERR_TRANSPORT_PARAMETER_ERROR;
         qc->error_reason = "invalid ack_delay_exponent";
 
@@ -169,7 +170,7 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
         return NGX_ERROR;
     }
 
-    if (ctp->max_ack_delay >= 16384) {
+    if (peer_tp->max_ack_delay >= 16384) {
         qc->error = NGX_QUIC_ERR_TRANSPORT_PARAMETER_ERROR;
         qc->error_reason = "invalid max_ack_delay";
 
@@ -178,16 +179,16 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *ctp)
         return NGX_ERROR;
     }
 
-    if (ctp->max_idle_timeout > 0
-        && ctp->max_idle_timeout < qc->tp.max_idle_timeout)
+    if (peer_tp->max_idle_timeout > 0
+        && peer_tp->max_idle_timeout < qc->tp.max_idle_timeout)
     {
-        qc->tp.max_idle_timeout = ctp->max_idle_timeout;
+        qc->tp.max_idle_timeout = peer_tp->max_idle_timeout;
     }
 
-    qc->streams.server_max_streams_bidi = ctp->initial_max_streams_bidi;
-    qc->streams.server_max_streams_uni = ctp->initial_max_streams_uni;
+    qc->streams.server_max_streams_bidi = peer_tp->initial_max_streams_bidi;
+    qc->streams.server_max_streams_uni = peer_tp->initial_max_streams_uni;
 
-    ngx_memcpy(&qc->ctp, ctp, sizeof(ngx_quic_tp_t));
+    ngx_memcpy(&qc->peer_tp, peer_tp, sizeof(ngx_quic_tp_t));
 
     return NGX_OK;
 }
@@ -226,7 +227,7 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     ngx_quic_header_t *pkt)
 {
     ngx_uint_t              i;
-    ngx_quic_tp_t          *ctp;
+    ngx_quic_tp_t          *peer_tp;
     ngx_quic_connection_t  *qc;
 
     qc = ngx_pcalloc(c->pool, sizeof(ngx_quic_connection_t));
@@ -295,13 +296,13 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
         return NULL;
     }
 
-    ctp = &qc->ctp;
+    peer_tp = &qc->peer_tp;
 
     /* defaults to be used before actual client parameters are received */
-    ctp->max_udp_payload_size = NGX_QUIC_MAX_UDP_PAYLOAD_SIZE;
-    ctp->ack_delay_exponent = NGX_QUIC_DEFAULT_ACK_DELAY_EXPONENT;
-    ctp->max_ack_delay = NGX_QUIC_DEFAULT_MAX_ACK_DELAY;
-    ctp->active_connection_id_limit = 2;
+    peer_tp->max_udp_payload_size = NGX_QUIC_MAX_UDP_PAYLOAD_SIZE;
+    peer_tp->ack_delay_exponent = NGX_QUIC_DEFAULT_ACK_DELAY_EXPONENT;
+    peer_tp->max_ack_delay = NGX_QUIC_DEFAULT_MAX_ACK_DELAY;
+    peer_tp->active_connection_id_limit = 2;
 
     ngx_queue_init(&qc->streams.uninitialized);
     ngx_queue_init(&qc->streams.free);

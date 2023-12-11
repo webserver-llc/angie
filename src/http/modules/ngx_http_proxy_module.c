@@ -6814,6 +6814,9 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
     ngx_http_proxy_ctx_t         *ctx;
     ngx_http_v3_session_t        *h3c;
     ngx_http_v3_parse_headers_t  *st;
+#if (NGX_HTTP_CACHE)
+    ngx_connection_t              stub;
+#endif
 
     u = r->upstream;
     c = u->peer.connection;
@@ -6828,8 +6831,6 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
 
 #if (NGX_HTTP_CACHE)
     if (r->cache) {
-        ngx_connection_t  stub;
-
         /* no connection here */
         h3c = NULL;
         ngx_memzero(&stub, sizeof(ngx_connection_t));

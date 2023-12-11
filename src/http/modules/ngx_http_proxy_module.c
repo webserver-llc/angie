@@ -6809,7 +6809,7 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
     u_char                       *p;
     ngx_buf_t                    *b;
     ngx_int_t                     rc;
-    ngx_connection_t             *c, stub;
+    ngx_connection_t             *c;
     ngx_http_upstream_t          *u;
     ngx_http_proxy_ctx_t         *ctx;
     ngx_http_v3_session_t        *h3c;
@@ -6828,6 +6828,8 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
 
 #if (NGX_HTTP_CACHE)
     if (r->cache) {
+        ngx_connection_t  stub;
+
         /* no connection here */
         h3c = NULL;
         ngx_memzero(&stub, sizeof(ngx_connection_t));

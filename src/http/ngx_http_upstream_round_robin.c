@@ -344,8 +344,9 @@ ngx_http_upstream_set_round_robin_peer(ngx_pool_t *pool,
         peer->max_conns = server->max_conns;
         peer->max_fails = server->max_fails;
         peer->fail_timeout = server->fail_timeout;
-
         peer->down = server->down;
+        peer->slow_start = server->slow_start;
+
         peer->server = server->name;
 
 #if (NGX_HTTP_UPSTREAM_SID)
@@ -709,7 +710,7 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
 {
     time_t                        now;
     uintptr_t                     m;
-    ngx_int_t                     total;
+    ngx_int_t                     total, effective_weight;
     ngx_uint_t                    i, n, p;
     ngx_http_upstream_rr_peer_t  *peer, *best;
 
@@ -748,10 +749,13 @@ ngx_http_upstream_get_peer(ngx_http_upstream_rr_peer_data_t *rrp)
             continue;
         }
 
-        peer->current_weight += peer->effective_weight;
-        total += peer->effective_weight;
+        effective_weight = peer->effective_weight
+                           * ngx_http_upstream_throttle_peer(peer);
 
-        if (peer->effective_weight < peer->weight) {
+        peer->current_weight += effective_weight;
+        total += effective_weight;
+
+        if (peer->effective_weight < peer->weight && !peer->slow_start) {
             peer->effective_weight++;
         }
 
@@ -810,7 +814,21 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
         peer->checked = now;
 
         if (peer->max_fails) {
-            peer->effective_weight -= peer->weight / peer->max_fails;
+
+            if (!peer->slow_start) {
+                peer->effective_weight -= peer->weight / peer->max_fails;
+
+            } else if (peer->fails < peer->max_fails) {
+
+                if (ngx_current_msec - peer->slow_time >= peer->slow_start) {
+                    peer->slow_time = ngx_current_msec - peer->slow_start;
+                }
+
+                peer->slow_time += peer->slow_start / peer->max_fails;
+
+            } else {
+                peer->slow_time = 0;
+            }
 
             if (peer->fails >= peer->max_fails && !rrp->peers->single) {
                 ngx_log_error(NGX_LOG_WARN, pc->log, 0,
@@ -831,6 +849,13 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
         /* mark peer live if check passed */
 
         if (peer->accessed < peer->checked) {
+
+            if (peer->slow_start
+                && peer->max_fails && peer->fails >= peer->max_fails)
+            {
+                peer->slow_time = ngx_current_msec;
+            }
+
             peer->fails = 0;
         }
     }

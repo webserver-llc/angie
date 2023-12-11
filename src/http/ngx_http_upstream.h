@@ -134,6 +134,7 @@ typedef struct {
 #define NGX_HTTP_UPSTREAM_DOWN          0x0010
 #define NGX_HTTP_UPSTREAM_BACKUP        0x0020
 #define NGX_HTTP_UPSTREAM_CONF          0x0040
+#define NGX_HTTP_UPSTREAM_SLOW_START    0x0080
 #define NGX_HTTP_UPSTREAM_MAX_CONNS     0x0100
 
 

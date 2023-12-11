@@ -70,7 +70,7 @@ struct ngx_stream_upstream_rr_peer_s {
     ngx_uint_t                       max_fails;
     time_t                           fail_timeout;
     ngx_msec_t                       slow_start;
-    ngx_msec_t                       start_time;
+    ngx_msec_t                       slow_time;
 
     ngx_uint_t                       down;
 
@@ -253,6 +253,25 @@ ngx_int_t ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc,
     void *data);
 void ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t state);
+
+
+static ngx_inline ngx_uint_t
+ngx_stream_upstream_throttle_peer(ngx_stream_upstream_rr_peer_t *peer)
+{
+    ngx_uint_t  factor;
+
+    if (peer->slow_time) {
+        factor = (ngx_current_msec - peer->slow_time) * 100 / peer->slow_start;
+
+        if (factor < 100) {
+            return factor;
+        }
+
+	peer->slow_time = 0;
+    }
+
+    return 100;
+}
 
 
 #endif /* _NGX_STREAM_UPSTREAM_ROUND_ROBIN_H_INCLUDED_ */

@@ -867,6 +867,7 @@ ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
     peer->max_fails = template->max_fails;
     peer->fail_timeout = template->fail_timeout;
     peer->down = template->down;
+    peer->slow_start = template->slow_start;
 
 #if (NGX_HTTP_UPSTREAM_SID)
     if (template->sid.len) {

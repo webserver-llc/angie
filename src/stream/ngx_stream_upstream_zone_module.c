@@ -801,6 +801,7 @@ ngx_stream_upstream_zone_new_peer(ngx_stream_upstream_rr_peers_t *peers,
     peer->max_fails = template->max_fails;
     peer->fail_timeout = template->fail_timeout;
     peer->down = template->down;
+    peer->slow_start = template->slow_start;
 
     return peer;
 }

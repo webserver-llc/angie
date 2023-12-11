@@ -105,7 +105,8 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
     time_t                         now;
     uintptr_t                      m;
     ngx_int_t                      rc, total;
-    ngx_uint_t                     i, n, p, many;
+    ngx_int_t                      weight, best_weight, effective_weight;
+    ngx_uint_t                     i, n, p, many, factor;
     ngx_http_upstream_rr_peer_t   *peer, *best;
     ngx_http_upstream_rr_peers_t  *peers;
 
@@ -143,6 +144,7 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
     total = 0;
 
 #if (NGX_SUPPRESS_WARN)
+    best_weight = 0;
     many = 0;
     p = 0;
 #endif
@@ -179,14 +181,17 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
          * based on round-robin
          */
 
+        weight = peer->weight * ngx_http_upstream_throttle_peer(peer);
+
         if (best == NULL
-            || peer->conns * best->weight < best->conns * peer->weight)
+            || peer->conns * best_weight < best->conns * weight)
         {
             best = peer;
+            best_weight = weight;
             many = 0;
             p = i;
 
-        } else if (peer->conns * best->weight == best->conns * peer->weight) {
+        } else if (peer->conns * best_weight == best->conns * weight) {
             many = 1;
         }
     }
@@ -217,7 +222,10 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
                 continue;
             }
 
-            if (peer->conns * best->weight != best->conns * peer->weight) {
+            factor = ngx_http_upstream_throttle_peer(peer);
+            weight = peer->weight * factor;
+
+            if (peer->conns * best_weight != best->conns * weight) {
                 continue;
             }
 
@@ -232,15 +240,18 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
                 continue;
             }
 
-            peer->current_weight += peer->effective_weight;
-            total += peer->effective_weight;
+            effective_weight = peer->effective_weight * factor;
 
-            if (peer->effective_weight < peer->weight) {
+            peer->current_weight += effective_weight;
+            total += effective_weight;
+
+            if (peer->effective_weight < peer->weight && !peer->slow_start) {
                 peer->effective_weight++;
             }
 
             if (peer->current_weight > best->current_weight) {
                 best = peer;
+                best_weight = weight;
                 p = i;
             }
         }
@@ -343,7 +354,8 @@ ngx_http_upstream_least_conn(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                   |NGX_HTTP_UPSTREAM_MAX_FAILS
                   |NGX_HTTP_UPSTREAM_FAIL_TIMEOUT
                   |NGX_HTTP_UPSTREAM_DOWN
-                  |NGX_HTTP_UPSTREAM_BACKUP;
+                  |NGX_HTTP_UPSTREAM_BACKUP
+                  |NGX_HTTP_UPSTREAM_SLOW_START;
 
     return NGX_CONF_OK;
 }

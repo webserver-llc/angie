@@ -6314,7 +6314,8 @@ ngx_http_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
                                          |NGX_HTTP_UPSTREAM_MAX_FAILS
                                          |NGX_HTTP_UPSTREAM_FAIL_TIMEOUT
                                          |NGX_HTTP_UPSTREAM_DOWN
-                                         |NGX_HTTP_UPSTREAM_BACKUP);
+                                         |NGX_HTTP_UPSTREAM_BACKUP
+                                         |NGX_HTTP_UPSTREAM_SLOW_START);
     if (uscf == NULL) {
         return NGX_CONF_ERROR;
     }
@@ -6424,6 +6425,7 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_uint_t                   resolve;
 #endif
+    ngx_msec_t                   slow_start;
     ngx_http_upstream_server_t  *us;
 
     us = ngx_array_push(uscf->servers);
@@ -6439,6 +6441,7 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     max_conns = 0;
     max_fails = 1;
     fail_timeout = 10;
+    slow_start = 0;
 #if (NGX_HTTP_UPSTREAM_ZONE)
     resolve = 0;
 #endif
@@ -6529,6 +6532,24 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
 
             us->down = 1;
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "slow_start=", 11) == 0) {
+
+            if (!(uscf->flags & NGX_HTTP_UPSTREAM_SLOW_START)) {
+                goto not_supported;
+            }
+
+            s.len = value[i].len - 11;
+            s.data = &value[i].data[11];
+
+            slow_start = ngx_parse_time(&s, 0);
+
+            if (slow_start == (ngx_msec_t) NGX_ERROR) {
+                goto invalid;
+            }
 
             continue;
         }
@@ -6675,6 +6696,7 @@ ngx_http_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     us->max_conns = max_conns;
     us->max_fails = max_fails;
     us->fail_timeout = fail_timeout;
+    us->slow_start = slow_start;
 #if (NGX_HTTP_UPSTREAM_SID)
     us->sid = sid;
 #endif

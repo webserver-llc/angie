@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+механизм плавного ввода проксируемого сервера в работу после сбоя
+с помощью опции "slow_start" директивы "server" в блоке "upstream".
+</para>
+<para lang="en">
+a mechanism for smoothly bringing the proxied server online after a failure
+using the "slow_start" option of the "server" directive in the "upstream" block.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 директива "mqtt_preread" модуля "stream", позволяющая помещать имя пользователя
 и идентификатор клиента из пакета CONNECT протокола MQTT в переменные
 $mqtt_preread_username и $mqtt_preread_clientid.

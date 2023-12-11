@@ -27,7 +27,7 @@ plan(skip_all => '127.0.0.20 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.20' );
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
-	->has_daemon('openssl')->plan(2);
+	->has_daemon('openssl')->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -105,6 +105,10 @@ $s->path_response($frame->{data});
 $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}{'x-ip'}, '127.0.0.20', 'remote addr after migration');
+
+$frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}{'x-ip'}, '127.0.0.20', 'next packets after migration');
 
 # test that $remote_addr is not truncated while in the process of migration;
 # the same but migration occurs on receiving a request stream itself,

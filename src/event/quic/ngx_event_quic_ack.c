@@ -307,6 +307,18 @@ ngx_quic_handle_ack_frame_range(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx,
         ngx_post_event(&qc->push, &ngx_posted_events);
     }
 
+    if (qc->client && ctx->level == ssl_encryption_initial) {
+        /*
+         * RFC 9002   6.2.1. Computing PTO
+         *
+         * the PTO backoff is not reset at a client that is not yet certain
+         * that the server has finished validating the client's address. That
+         * is, a client does not reset the PTO backoff factor on receiving
+         * acknowledgments in Initial packets.
+         */
+        return NGX_OK;
+    }
+
     qc->pto_count = 0;
 
     return NGX_OK;
@@ -794,6 +806,30 @@ ngx_quic_set_lost_timer(ngx_connection_t *c)
         return;
     }
 
+    /* no lost packets and no in-flight packets */
+    if (qc->client && !c->ssl->handshaked
+        && ngx_quic_keys_available(qc->keys, ssl_encryption_handshake, 1))
+    {
+        /*
+         * 6.2.2.1
+         *
+         * That is, the client MUST set the PTO timer if the client has not
+         * received an acknowledgment for any of its Handshake packets and the
+         * handshake is not confirmed (see Section 4.1.2 of [QUIC-TLS]), even
+         * if there are no packets in flight.
+         */
+
+        ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_handshake);
+
+        pto = (ngx_quic_pto(c, ctx) << qc->pto_count);
+
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                       "quic client lost timer pto:%M", pto);
+
+        qc->pto.handler = ngx_quic_pto_handler; ngx_add_timer(&qc->pto, pto);
+        return;
+    }
+
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0, "quic lost timer unset");
 }
 
@@ -840,7 +876,7 @@ void ngx_quic_lost_handler(ngx_event_t *ev)
 void
 ngx_quic_pto_handler(ngx_event_t *ev)
 {
-    ngx_uint_t              i;
+    ngx_uint_t              i, sent;
     ngx_msec_t              now;
     ngx_queue_t            *q;
     ngx_connection_t       *c;
@@ -853,6 +889,7 @@ ngx_quic_pto_handler(ngx_event_t *ev)
     c = ev->data;
     qc = ngx_quic_get_connection(c);
     now = ngx_current_msec;
+    sent = 0;
 
     for (i = 0; i < NGX_QUIC_SEND_CTX_LAST; i++) {
 
@@ -880,6 +917,31 @@ ngx_quic_pto_handler(ngx_event_t *ev)
         ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
                        "quic pto %s pto_count:%ui",
                        ngx_quic_level_name(ctx->level), qc->pto_count);
+
+        if (ngx_quic_ping_peer(c, ctx) != NGX_OK) {
+            ngx_quic_close_connection(c, NGX_ERROR);
+            return;
+        }
+
+        sent = 1;
+    }
+
+    /*
+     * RFC 9002  6.2.2.1  Before Address Validation
+     *
+     * When the PTO fires, the client MUST send a Handshake packet if it has
+     * Handshake keys, otherwise it MUST send an Initial packet in a UDP
+     * datagram with a payload of at least 1200 bytes.
+     */
+
+    if (qc->client && !c->ssl->handshaked && !sent) {
+
+        if (ngx_quic_keys_available(qc->keys, ssl_encryption_handshake, 1)) {
+            ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_handshake);
+
+        } else {
+            ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_initial);
+        }
 
         if (ngx_quic_ping_peer(c, ctx) != NGX_OK) {
             ngx_quic_close_connection(c, NGX_ERROR);

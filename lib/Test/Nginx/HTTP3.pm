@@ -259,9 +259,11 @@ sub DESTROY {
 }
 
 sub ping {
-	my ($self) = @_;
-	my $frame = "\x01\x00\x00\x00";
-	$self->{socket}->syswrite($self->encrypt_aead($frame, 3));
+	my ($self, $level, $pad) = @_;
+	$level = 3 if !defined $level;
+	$pad = 4 if !defined $pad;
+	my $frame = "\x01" . "\x00" x ($pad - 1);
+	$self->{socket}->syswrite($self->encrypt_aead($frame, $level));
 }
 
 sub reset_stream {

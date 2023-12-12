@@ -5976,7 +5976,7 @@ ngx_http_v3_create_headers_frame(ngx_http_request_t *r, ngx_buf_t *hbuf)
 
     b = ngx_create_temp_buf(r->pool, len);
     if (b == NULL) {
-        return NULL;
+        return NGX_CHAIN_ERROR;
     }
 
     b->last = (u_char *) ngx_http_v3_encode_varlen_int(b->last,
@@ -5989,7 +5989,7 @@ ngx_http_v3_create_headers_frame(ngx_http_request_t *r, ngx_buf_t *hbuf)
 
     cl = ngx_alloc_chain_link(r->pool);
     if (cl == NULL) {
-        return NULL;
+        return NGX_CHAIN_ERROR;
     }
 
     cl->buf = b;
@@ -5997,7 +5997,7 @@ ngx_http_v3_create_headers_frame(ngx_http_request_t *r, ngx_buf_t *hbuf)
 
     cl = ngx_alloc_chain_link(r->pool);
     if (cl == NULL) {
-        return NULL;
+        return NGX_CHAIN_ERROR;
     }
 
     cl->buf = hbuf;

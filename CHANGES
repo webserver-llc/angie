@@ -1,4 +1,32 @@
 
+Changes with Angie 1.4.0                                         12 Dec 2023
+
+    *) Feature: support for establishing HTTP/3 connections to upstream
+       servers in the HTTP proxy module while allowing clients to use
+       arbitrary HTTP versions. Configuration is done with the
+       "proxy_http_version" directive and a set of "proxy_quic_" and
+       "proxy_http3_" directives.
+
+    *) Feature: a mechanism for smoothly bringing the proxied server online
+       after a failure using the "slow_start" option of the "server"
+       directive in the "upstream" block.
+
+    *) Feature: "mqtt_preread" directive in the "stream" module, which
+       allows extracting the username and client id from the CONNECT packet
+       of the MQTT protocol into the $mqtt_preread_username and
+       $mqtt_preread_clientid variables.
+
+    *) Feature: limiting the response rate of MP4 files transmission to the
+       client proportionally to the bitrate using the "mp4_limit_rate" and
+       "mp4_limit_rate_after" directives, which reduces the bandwidth load.
+
+    *) Feature: all functionality of nginx 1.25.3.
+
+    *) Bugfix: if a proxied server was the only one in a group, it could be
+       incorrectly reported as "unavailable" in the statistics API even
+       after recovery.
+
+
 Changes with Angie 1.3.2                                         23 Nov 2023
 
     *) Bugfix: possible incorrect values of metrics in Prometheus output

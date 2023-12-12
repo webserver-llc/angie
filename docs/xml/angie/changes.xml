@@ -5,18 +5,7 @@
 <change_log title="Angie">
 
 
-<changes ver="1.4.0" date="">
-
-<change type="feature">
-<para lang="ru">
-механизм плавного ввода проксируемого сервера в работу после сбоя
-с помощью опции "slow_start" директивы "server" в блоке "upstream".
-</para>
-<para lang="en">
-a mechanism for smoothly bringing the proxied server online after a failure
-using the "slow_start" option of the "server" directive in the "upstream" block.
-</para>
-</change>
+<changes ver="1.4.0" date="2023-12-12">
 
 <change type="feature">
 <para lang="ru">
@@ -30,6 +19,17 @@ support for establishing HTTP/3 connections to upstream servers in the HTTP
 proxy module while allowing clients to use arbitrary HTTP versions.
 Configuration is done with the "proxy_http_version" directive
 and a set of "proxy_quic_" and "proxy_http3_" directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+механизм плавного ввода проксируемого сервера в работу после сбоя
+с помощью опции "slow_start" директивы "server" в блоке "upstream".
+</para>
+<para lang="en">
+a mechanism for smoothly bringing the proxied server online after a failure
+using the "slow_start" option of the "server" directive in the "upstream" block.
 </para>
 </change>
 

@@ -309,7 +309,7 @@ ngx_http_upstream_throttle_peer(ngx_http_upstream_rr_peer_t *peer)
             return factor;
         }
 
-	peer->slow_time = 0;
+        peer->slow_time = 0;
     }
 
     return 100;

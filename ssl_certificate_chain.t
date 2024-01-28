@@ -71,7 +71,10 @@ $t->write_file('openssl.conf', <<EOF);
 default_bits = 2048
 encrypt_key = no
 distinguished_name = req_distinguished_name
+x509_extensions = myca_extensions
 [ req_distinguished_name ]
+[ myca_extensions ]
+basicConstraints = critical,CA:TRUE
 EOF
 
 $t->write_file('ca.conf', <<EOF);

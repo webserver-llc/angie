@@ -1,4 +1,12 @@
 
+Changes with Angie 1.4.1                                         15 Feb 2024
+
+    *) Security: when using HTTP/3, a segmentation error may have occured in
+       a worker process while processing a specially crafted QUIC session
+       (CVE-2024-24989); note that Angie as of 1.4.0 is already not
+       vulnerable to CVE-2024-24990.
+
+
 Changes with Angie 1.4.0                                         12 Dec 2023
 
     *) Feature: support for establishing HTTP/3 connections to upstream

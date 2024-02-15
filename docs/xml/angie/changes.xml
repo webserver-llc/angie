@@ -10,6 +10,24 @@
 </changes>
 
 
+<changes ver="1.4.1" date="2024-02-15">
+
+<change type="security">
+<para lang="ru">
+при использовании HTTP/3 в рабочем процессе во время обработки специально
+созданной QUIC-сессии могла произойти ошибка сегментации (CVE-2024-24989); при
+этом Angie, начиная ещё с версии 1.4.0, не подвержен уязвимости CVE-2024-24990.
+</para>
+<para lang="en">
+when using HTTP/3, a segmentation error may have occured in a worker process
+while processing a specially crafted QUIC session (CVE-2024-24989); note that
+Angie as of 1.4.0 is already not vulnerable to CVE-2024-24990.
+</para>
+</change>
+
+</changes>
+
+
 <changes ver="1.4.0" date="2023-12-12">
 
 <change type="feature">

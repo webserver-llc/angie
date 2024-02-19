@@ -1154,8 +1154,10 @@ ngx_http_upstream_cache_send(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     if (rc == NGX_OK) {
 
-        if (ngx_http_upstream_process_headers(r, u) != NGX_OK) {
-            return NGX_DONE;
+        rc = ngx_http_upstream_process_headers(r, u);
+
+        if (rc != NGX_OK) {
+            return rc;
         }
 
         return ngx_http_cache_send(r);
@@ -2808,7 +2810,14 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
         }
     }
 
-    if (ngx_http_upstream_process_headers(r, u) != NGX_OK) {
+    rc = ngx_http_upstream_process_headers(r, u);
+
+    if (rc == NGX_DONE) {
+        return;
+    }
+
+    if (rc == NGX_ERROR) {
+        ngx_http_upstream_finalize_request(r, u, NGX_ERROR);
         return;
     }
 
@@ -3121,7 +3130,9 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
     if (u->headers_in.x_accel_redirect
         && !(u->conf->ignore_headers & NGX_HTTP_UPSTREAM_IGN_XA_REDIRECT))
     {
-        ngx_http_upstream_finalize_request(r, u, NGX_DECLINED);
+        if (u->cleanup) {
+            ngx_http_upstream_finalize_request(r, u, NGX_DECLINED);
+        }
 
         part = &u->headers_in.headers.part;
         h = part->elts;
@@ -3210,18 +3221,14 @@ ngx_http_upstream_process_headers(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
         if (hh) {
             if (hh->copy_handler(r, &h[i], hh->conf) != NGX_OK) {
-                ngx_http_upstream_finalize_request(r, u,
-                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
-                return NGX_DONE;
+                return NGX_ERROR;
             }
 
             continue;
         }
 
         if (ngx_http_upstream_copy_header_line(r, &h[i], 0) != NGX_OK) {
-            ngx_http_upstream_finalize_request(r, u,
-                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
-            return NGX_DONE;
+            return NGX_ERROR;
         }
     }
 

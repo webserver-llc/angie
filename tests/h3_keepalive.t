@@ -171,6 +171,8 @@ is($frame->{last_sid}, 8, 'keepalive time limit - GOAWAY last stream');
 $s = Test::Nginx::HTTP3->new();
 $sid = $s->new_stream();
 
+select undef, undef, undef, 0.1;
+
 $t->reload();
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);

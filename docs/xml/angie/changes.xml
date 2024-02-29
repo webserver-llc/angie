@@ -45,6 +45,19 @@ option.
 
 <change type="feature">
 <para lang="ru">
+теперь ключ "-V" показывает также релевантную версию nginx, что полезно для
+совместимости со сторонними утилитами, в частности certbot.
+Спасибо AdvTechnoKing.
+</para>
+<para lang="en">
+now the "-V" switch also shows the relevant version of nginx, which is useful
+for compatibility with third-party utilities, certbot in particular.
+Thanks to AdvTechnoKing.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.4.
 </para>
 <para lang="en">

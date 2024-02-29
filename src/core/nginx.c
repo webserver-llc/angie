@@ -436,6 +436,7 @@ ngx_show_version_info(void)
     }
 
     if (ngx_show_configure) {
+        ngx_write_stderr("nginx version: " NGINX_VER_BUILD NGX_LINEFEED);
 
 #ifdef NGX_COMPILER
         ngx_write_stderr("built by " NGX_COMPILER NGX_LINEFEED);

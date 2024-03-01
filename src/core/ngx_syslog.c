@@ -319,6 +319,10 @@ ngx_syslog_send(ngx_syslog_peer_t *peer, u_char *buf, size_t len)
         }
 
         peer->conn.fd = (ngx_socket_t) -1;
+
+    } else if ((size_t) n != len) {
+        ngx_log_error(NGX_LOG_CRIT, &peer->log, 0,
+                      "send() incomplete");
     }
 
     return n;

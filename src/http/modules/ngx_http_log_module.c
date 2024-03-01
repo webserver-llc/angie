@@ -254,8 +254,7 @@ static ngx_int_t
 ngx_http_log_handler(ngx_http_request_t *r)
 {
     u_char                   *line, *p;
-    size_t                    len, size;
-    ssize_t                   n;
+    size_t                    len;
     ngx_str_t                 val;
     ngx_uint_t                i, l;
     ngx_http_log_t           *log;
@@ -376,19 +375,7 @@ ngx_http_log_handler(ngx_http_request_t *r)
 
         if (log[l].syslog_peer) {
 
-            size = p - line;
-
-            n = ngx_syslog_send(log[l].syslog_peer, line, size);
-
-            if (n < 0) {
-                ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                              "send() to syslog failed");
-
-            } else if ((size_t) n != size) {
-                ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                              "send() to syslog has written only %z of %uz",
-                              n, size);
-            }
+            (void) ngx_syslog_send(log[l].syslog_peer, line, p - line);
 
             continue;
         }

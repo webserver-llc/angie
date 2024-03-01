@@ -303,6 +303,10 @@ ngx_syslog_send(ngx_syslog_peer_t *peer, u_char *buf, size_t len)
         }
     }
 
+    if (ngx_time() == peer->error_log_time) {
+        peer->conn.log_error = NGX_ERROR_DEBUG;
+    }
+
     if (ngx_send) {
         n = ngx_send(&peer->conn, buf, len);
 
@@ -311,19 +315,26 @@ ngx_syslog_send(ngx_syslog_peer_t *peer, u_char *buf, size_t len)
         n = ngx_os_io.send(&peer->conn, buf, len);
     }
 
-    if (n == NGX_ERROR) {
-
+    if (n == NGX_ERROR
+        && peer->conn.log_error != NGX_ERROR_DEBUG)
+    {
         if (ngx_close_socket(peer->conn.fd) == -1) {
             ngx_log_error(NGX_LOG_ALERT, &peer->log, ngx_socket_errno,
                           ngx_close_socket_n " failed");
         }
 
         peer->conn.fd = (ngx_socket_t) -1;
+        peer->error_log_time = ngx_time();
 
-    } else if ((size_t) n != len) {
+    } else if ((size_t) n != len
+               && peer->conn.log_error != NGX_ERROR_DEBUG)
+    {
         ngx_log_error(NGX_LOG_CRIT, &peer->log, 0,
                       "send() incomplete");
+        peer->error_log_time = ngx_time();
     }
+
+    peer->conn.log_error = NGX_ERROR_ERR;
 
     return n;
 }
@@ -334,10 +345,15 @@ ngx_syslog_init_peer(ngx_syslog_peer_t *peer)
 {
     ngx_socket_t  fd;
 
+    if (ngx_time() == peer->connect_error_time) {
+        return NGX_ERROR;
+    }
+
     fd = ngx_socket(peer->server.sockaddr->sa_family, SOCK_DGRAM, 0);
     if (fd == (ngx_socket_t) -1) {
         ngx_log_error(NGX_LOG_ALERT, &peer->log, ngx_socket_errno,
                       ngx_socket_n " failed");
+        peer->connect_error_time = ngx_time();
         return NGX_ERROR;
     }
 
@@ -355,6 +371,7 @@ ngx_syslog_init_peer(ngx_syslog_peer_t *peer)
 
     peer->conn.fd = fd;
     peer->conn.log = &peer->log;
+    peer->conn.log_error = NGX_ERROR_ERR;
 
     /* UDP sockets are always ready to write */
     peer->conn.write->ready = 1;
@@ -362,6 +379,8 @@ ngx_syslog_init_peer(ngx_syslog_peer_t *peer)
     return NGX_OK;
 
 failed:
+
+    peer->connect_error_time = ngx_time();
 
     if (ngx_close_socket(fd) == -1) {
         ngx_log_error(NGX_LOG_ALERT, &peer->log, ngx_socket_errno,

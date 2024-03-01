@@ -20,6 +20,21 @@ and allows external programs to handle it easier and reliable.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+ошибки записи в syslog теперь логгируются не чаще одного раза в секунду,
+что помогает предотвратить избыточное засорение логов подобными сообщениями
+в случаях перегрузки или сбоя syslog-сервера.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+syslog logging errors are now reported no more than once per second; this helps
+avoid flooding the logs with such messages when the syslog server is down or
+overloaded.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 при обработке закэшированных ответов с заголовком X-Accel-Redirect

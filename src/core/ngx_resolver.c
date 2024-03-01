@@ -4847,7 +4847,8 @@ ngx_tcp_connect(ngx_resolver_connection_t *rec)
                 || err == NGX_ENETDOWN
                 || err == NGX_ENETUNREACH
                 || err == NGX_EHOSTDOWN
-                || err == NGX_EHOSTUNREACH)
+                || err == NGX_EHOSTUNREACH
+                || err == NGX_ENOENT)
             {
                 level = NGX_LOG_ERR;
 

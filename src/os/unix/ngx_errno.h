@@ -57,6 +57,7 @@ typedef int               ngx_err_t;
 #define NGX_EBADF         EBADF
 #define NGX_EMSGSIZE      EMSGSIZE
 #define NGX_ERANGE        ERANGE
+#define NGX_ENOBUFS       ENOBUFS
 
 #if (NGX_HAVE_OPENAT)
 #define NGX_EMLINK        EMLINK

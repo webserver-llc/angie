@@ -58,6 +58,7 @@ typedef DWORD                      ngx_err_t;
 #define NGX_ELOOP                  0
 #define NGX_EBADF                  WSAEBADF
 #define NGX_EMSGSIZE               WSAEMSGSIZE
+#define NGX_ENOBUFS                WSAENOBUFS
 
 #define NGX_EALREADY               WSAEALREADY
 #define NGX_EINVAL                 WSAEINVAL

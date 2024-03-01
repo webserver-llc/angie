@@ -364,7 +364,7 @@ ngx_syslog_init_peer(ngx_syslog_peer_t *peer)
     }
 
     if (connect(fd, peer->server.sockaddr, peer->server.socklen) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, &peer->log, ngx_socket_errno,
+        ngx_log_error(NGX_LOG_CRIT, &peer->log, ngx_socket_errno,
                       "connect() failed");
         goto failed;
     }

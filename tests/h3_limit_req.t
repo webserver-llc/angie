@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 proxy limit_req cryptx/)
-	->has_daemon('openssl')->plan(6);
+	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -130,6 +130,14 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 200, 'request body - limit req - empty');
+
+# another request
+
+$sid = $s->new_stream({ path => '/' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
+is($frame->{headers}->{':status'}, '200', 'request body - limit req - next');
 
 # detect RESET_STREAM while request is delayed
 

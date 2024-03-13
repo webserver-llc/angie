@@ -1190,9 +1190,20 @@ ngx_quic_decrypt(ngx_quic_header_t *pkt, uint64_t *largest_pn)
          * we don't want to switch to next key if we don't have it yet;
          * the fact of being here may be caused by the header corruption
          */
-        if (key_phase != pkt->key_phase && next->ctx != NULL) {
-            secret = next;
-            pkt->key_update = 1;
+        if (key_phase != pkt->key_phase) {
+            if (next->ctx != NULL) {
+                secret = next;
+                pkt->key_update = 1;
+
+            } else {
+                /*
+                 * RFC 9001,  6.3. Timing of Receive Key Generation.
+                 *
+                 * Trial decryption to avoid timing side-channel.
+                 */
+                ngx_log_debug0(NGX_LOG_DEBUG_EVENT, pkt->log, 0,
+                               "quic next key missing");
+            }
         }
     }
 

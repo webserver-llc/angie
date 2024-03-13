@@ -1947,14 +1947,23 @@ ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
             r->request_end = new + (r->request_end - old);
         }
 
-        r->method_end = new + (r->method_end - old);
+        if (r->method_end) {
+            r->method_end = new + (r->method_end - old);
+        }
 
-        r->uri_start = new + (r->uri_start - old);
-        r->uri_end = new + (r->uri_end - old);
+        if (r->uri_start) {
+            r->uri_start = new + (r->uri_start - old);
+        }
+
+        if (r->uri_end) {
+            r->uri_end = new + (r->uri_end - old);
+        }
 
         if (r->schema_start) {
             r->schema_start = new + (r->schema_start - old);
-            r->schema_end = new + (r->schema_end - old);
+            if (r->schema_end) {
+                r->schema_end = new + (r->schema_end - old);
+            }
         }
 
         if (r->host_start) {
@@ -1962,11 +1971,6 @@ ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
             if (r->host_end) {
                 r->host_end = new + (r->host_end - old);
             }
-        }
-
-        if (r->port_start) {
-            r->port_start = new + (r->port_start - old);
-            r->port_end = new + (r->port_end - old);
         }
 
         if (r->uri_ext) {
@@ -1983,9 +1987,18 @@ ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
 
     } else {
         r->header_name_start = new;
-        r->header_name_end = new + (r->header_name_end - old);
-        r->header_start = new + (r->header_start - old);
-        r->header_end = new + (r->header_end - old);
+
+        if (r->header_name_end) {
+            r->header_name_end = new + (r->header_name_end - old);
+        }
+
+        if (r->header_start) {
+            r->header_start = new + (r->header_start - old);
+        }
+
+        if (r->header_end) {
+            r->header_end = new + (r->header_end - old);
+        }
     }
 
     r->header_in = b;
@@ -2927,6 +2940,8 @@ ngx_http_terminate_request(ngx_http_request_t *r, ngx_int_t rc)
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http terminate request count:%d", mr->count);
 
+    mr->terminated = 1;
+
     if (rc > 0 && (mr->headers_out.status == 0 || mr->connection->sent == 0)) {
         mr->headers_out.status = rc;
     }
@@ -2949,8 +2964,11 @@ ngx_http_terminate_request(ngx_http_request_t *r, ngx_int_t rc)
     if (mr->write_event_handler) {
 
         if (mr->blocked) {
+            r = r->connection->data;
+
             r->connection->error = 1;
             r->write_event_handler = ngx_http_request_finalizer;
+
             return;
         }
 

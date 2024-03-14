@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Ruslan Ermilov
  * Copyright (C) Nginx, Inc.
  */
@@ -1023,6 +1023,9 @@ ngx_api_stream_upstream_peer_state_handler(ngx_api_entry_data_t data,
 
     } else if (peer->stats.downstart != 0) {
         ngx_str_set(&state, "unavailable");
+
+    } else if (ngx_current_msec - peer->slow_time < peer->slow_start) {
+        ngx_str_set(&state, "recovering");
 
     } else {
         ngx_str_set(&state, "up");

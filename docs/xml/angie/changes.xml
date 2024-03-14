@@ -9,6 +9,18 @@
 
 <change type="feature">
 <para lang="ru">
+новый статус "recovering" у проксируемых серверов в API статистики, означающий,
+что сервер медленно восстанавливается после сбоя согласно опции "slow_start".
+</para>
+<para lang="en">
+new "recovering" state for upstream peers in the statistics API, indicating that
+a peer is slowly starting up after a failure, as suggested by the "slow_start"
+option.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.25.4.
 </para>
 <para lang="en">

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  */
 
 
@@ -247,6 +247,8 @@ ngx_http_prometheus_render(ngx_http_request_t *r)
     actx.pool = r->pool;
 
     ngx_str_set(&actx.path, "/status");
+
+    actx.epoch = 1;
 
     entry = ngx_api_root((ngx_cycle_t *) ngx_cycle);
 

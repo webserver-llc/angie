@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -242,6 +242,12 @@ ngx_http_api_args(ngx_http_request_t *r, ngx_api_ctx_t *ctx)
 
     } else {
         ctx->pretty = 1;
+    }
+
+    if (ngx_http_arg(r, (u_char *) "date", 4, &value) == NGX_OK
+        && value.len == 5 && ngx_memcmp(value.data, "epoch", 5) == 0)
+    {
+        ctx->epoch = 1;
     }
 
     return NGX_OK;

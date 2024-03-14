@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -358,6 +358,11 @@ ngx_api_time_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx)
     ngx_tm_t    tm;
     ngx_str_t   src;
     u_char      iso8601[sizeof("1970-01-01T00:00:00.000Z") - 1];
+
+    if (actx->epoch) {
+        data.num = data.tp->sec;
+        return ngx_api_number_handler(data, actx, ctx);
+    }
 
     ngx_gmtime(data.tp->sec, &tm);
 

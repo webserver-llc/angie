@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -27,6 +27,7 @@ struct ngx_api_ctx_s {
 
     unsigned                    pretty:1;
     unsigned                    config_files:1;
+    unsigned                    epoch:1;
 
     ngx_str_t                   orig_path;
     ngx_str_t                   err;

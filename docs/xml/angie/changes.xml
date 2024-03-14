@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+вывод содержащих даты метрик в формате временных меток Unix вместо ISO 8601
+для использования в Prometheus, а также в JSON API при запросе с аргументом
+"?date=epoch".
+</para>
+<para lang="en">
+output statistics metrics with dates in Epoch format instead of ISO 8601 for
+use in Prometheus and optionally in the JSON API with the "?date=epoch" request
+argument.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 новый статус "recovering" у проксируемых серверов в API статистики, означающий,
 что сервер медленно восстанавливается после сбоя согласно опции "slow_start".
 </para>

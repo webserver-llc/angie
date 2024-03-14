@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) 2023 Web Server LLC
+# (C) 2023-2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for location selection, an auto_redirect edge case.
@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(8)
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)->plan(11)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -60,7 +60,14 @@ http {
         location /cc /d/ =/e/ =/f/ /a-a/ =/f {
             rewrite ^ /a-b break;
             proxy_pass http://127.0.0.1:8080;
+            auto_redirect default;
         }
+        location /g/ { auto_redirect on; }
+        location /h/ {
+            auto_redirect off;
+            proxy_pass http://127.0.0.1:8080;
+        }
+        location /i/ { auto_redirect default; }
     }
 }
 
@@ -83,5 +90,9 @@ like(http_get('/d'), qr!301 Moved.*Location: http://localhost:$p/d/\x0d?$!ms,
 like(http_get('/e'), qr!301 Moved.*Location: http://localhost:$p/e/\x0d?$!ms,
      'auto redirect for /e/');
 like(http_get('/f'), qr/X-Location: unset/, 'no redirect for /f');
+like(http_get('/g'), qr!301 Moved.*Location: http://localhost:$p/g/\x0d?$!ms,
+     'auto_redirect on');
+like(http_get('/h'), qr/404 Not Found/, 'auto_redirect off');
+like(http_get('/i'), qr/404 Not Found/, 'auto_redirect default');
 
 ###############################################################################

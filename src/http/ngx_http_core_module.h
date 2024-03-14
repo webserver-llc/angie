@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -465,6 +465,7 @@ struct ngx_http_core_loc_conf_s {
     ngx_uint_t    server_tokens;           /* server_tokens */
     ngx_flag_t    chunked_transfer_encoding; /* chunked_transfer_encoding */
     ngx_flag_t    etag;                    /* etag */
+    ngx_uint_t    set_auto_redirect;       /* auto_redirect */
 
 #if (NGX_HTTP_GZIP)
     ngx_flag_t    gzip_vary;               /* gzip_vary */

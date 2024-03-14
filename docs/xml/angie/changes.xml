@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+настройка автоматического перенаправления для добавления слеша в конец URI
+запроса с помощью директивы "auto_redirect".
+</para>
+<para lang="en">
+configuration of automatic redirection, which adds trailing slashes to request
+URIs, with the "auto_redirect" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вывод содержащих даты метрик в формате временных меток Unix вместо ISO 8601
 для использования в Prometheus, а также в JSON API при запросе с аргументом
 "?date=epoch".

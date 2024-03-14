@@ -28,6 +28,20 @@ all functionality of nginx 1.25.4.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+если был зайдествован механизм переиспользования SSL-сессий
+("proxy_ssl_session_reuse"), то при динамическом обновлении списка
+проксируемых серверов могла происходить утечка из зоны разделяемой
+памяти ("zone"), настроенной для соответствующего блока "upstream".
+</para>
+<para lang="en">
+if the SSL session reuse mechanism "proxy_ssl_session_reuse" was used and
+the list of proxied servers was dynamically updated, a leak could occur in
+the shared memory zone configured for the corresponding "upstream" block.
+</para>
+</change>
+
 </changes>
 
 

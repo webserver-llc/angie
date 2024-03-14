@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -212,6 +212,12 @@ ngx_http_upstream_rr_peer_free_locked(ngx_http_upstream_rr_peers_t *peers,
             || peer->host->peer->sid.len == 0))
     {
         ngx_slab_free_locked(peers->shpool, peer->sid.data);
+    }
+#endif
+
+#if (NGX_HTTP_SSL)
+    if (peer->ssl_session) {
+        ngx_slab_free_locked(peers->shpool, peer->ssl_session);
     }
 #endif
 

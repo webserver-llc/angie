@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -46,7 +46,9 @@ struct ngx_data_item_s {
 ngx_data_item_t *ngx_data_new_item(ngx_pool_t *pool, ngx_uint_t type);
 ngx_data_item_t *ngx_data_new_container(ngx_pool_t *pool, ngx_uint_t type);
 
-ngx_int_t ngx_data_object_add(ngx_data_item_t *obj, ngx_str_t *name,
+ngx_int_t ngx_data_object_add(ngx_data_item_t *obj, ngx_data_item_t *name,
+    ngx_data_item_t *item);
+ngx_int_t ngx_data_object_add_str(ngx_data_item_t *obj, ngx_str_t *name,
     ngx_data_item_t *item, ngx_pool_t *pool);
 ngx_int_t ngx_data_list_add(ngx_data_item_t *list, ngx_data_item_t *item);
 
@@ -72,6 +74,9 @@ ngx_data_item_t *ngx_data_new_boolean(ngx_uint_t value, ngx_pool_t *pool);
 
 #define ngx_data_new_null(pool)                                               \
     ngx_data_new_item(pool, NGX_DATA_NULL_TYPE)
+
+
+ngx_int_t ngx_data_get_string(ngx_str_t *value, ngx_data_item_t *item);
 
 
 #endif /* _NGX_DATA_H_INCLUDED_ */

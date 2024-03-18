@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -1344,6 +1345,39 @@ ngx_decode_base64_internal(ngx_str_t *dst, ngx_str_t *src, const u_char *basis)
     dst->len = d - dst->data;
 
     return NGX_OK;
+}
+
+
+u_char *
+ngx_utf8_encode(u_char *p, uint32_t u)
+{
+    if (u < 0x80) {
+        *p++ = (u_char) (u & 0xFF);
+        return p;
+    }
+
+    if (u < 0x0800) {
+        *p++ = (u_char) (( u >> 6)          | 0xC0);
+        *p++ = (u_char) (( u        & 0x3F) | 0x80);
+        return p;
+    }
+
+    if (u < 0x10000) {
+        *p++ = (u_char) ( (u >> 12)         | 0xE0);
+        *p++ = (u_char) (((u >>  6) & 0x3F) | 0x80);
+        *p++ = (u_char) (( u        & 0x3F) | 0x80);
+        return p;
+    }
+
+    if (u < 0x110000) {
+        *p++ = (u_char) ( (u >> 18)         | 0xF0);
+        *p++ = (u_char) (((u >> 12) & 0x3F) | 0x80);
+        *p++ = (u_char) (((u >>  6) & 0x3F) | 0x80);
+        *p++ = (u_char) (( u        & 0x3F) | 0x80);
+        return p;
+    }
+
+    return NULL;
 }
 
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -180,6 +181,8 @@ off_t ngx_atoof(u_char *line, size_t n);
 time_t ngx_atotm(u_char *line, size_t n);
 ngx_int_t ngx_hextoi(u_char *line, size_t n);
 
+#define ngx_strtod(s, endptr)  strtod((char *) (s), (char **) (endptr))
+
 u_char *ngx_hex_dump(u_char *dst, u_char *src, size_t len);
 
 
@@ -191,6 +194,7 @@ void ngx_encode_base64url(ngx_str_t *dst, ngx_str_t *src);
 ngx_int_t ngx_decode_base64(ngx_str_t *dst, ngx_str_t *src);
 ngx_int_t ngx_decode_base64url(ngx_str_t *dst, ngx_str_t *src);
 
+u_char *ngx_utf8_encode(u_char *p, uint32_t u);
 uint32_t ngx_utf8_decode(u_char **p, size_t n);
 size_t ngx_utf8_length(u_char *p, size_t n);
 u_char *ngx_utf8_cpystrn(u_char *dst, u_char *src, size_t n, size_t len);

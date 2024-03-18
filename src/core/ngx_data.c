@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -59,29 +59,41 @@ ngx_data_new_item(ngx_pool_t *pool, ngx_uint_t type)
 
 
 ngx_int_t
-ngx_data_object_add(ngx_data_item_t *obj, ngx_str_t *name,
-    ngx_data_item_t *item, ngx_pool_t *pool)
+ngx_data_object_add(ngx_data_item_t *obj, ngx_data_item_t *name,
+    ngx_data_item_t *item)
 {
-    ngx_data_item_t       *str;
     ngx_data_container_t  *cont;
 
-    if (obj->type != NGX_DATA_OBJECT_TYPE) {
+    if (obj->type != NGX_DATA_OBJECT_TYPE
+        || (name->type != NGX_DATA_STR_TYPE
+            && name->type != NGX_DATA_STRING_TYPE))
+    {
         return NGX_ERROR;
     }
+
+    name->next = item;
+
+    cont = ngx_data_container(obj);
+
+    *cont->next_p = name;
+    cont->next_p = &item->next;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_data_object_add_str(ngx_data_item_t *obj, ngx_str_t *name,
+    ngx_data_item_t *item, ngx_pool_t *pool)
+{
+    ngx_data_item_t  *str;
 
     str = ngx_data_new_string(name, pool);
     if (str == NULL) {
         return NGX_ERROR;
     }
 
-    str->next = item;
-
-    cont = ngx_data_container(obj);
-
-    *cont->next_p = str;
-    cont->next_p = &item->next;
-
-    return NGX_OK;
+    return ngx_data_object_add(obj, str, item);
 }
 
 
@@ -171,4 +183,23 @@ ngx_data_new_boolean(ngx_uint_t value, ngx_pool_t *pool)
     item->data.boolean = value;
 
     return item;
+}
+
+
+ngx_int_t
+ngx_data_get_string(ngx_str_t *value, ngx_data_item_t *item)
+{
+    switch (item->type) {
+    case NGX_DATA_STR_TYPE:
+        value->len = item->data.str.length;
+        value->data = item->data.str.start;
+        return NGX_OK;
+
+    case NGX_DATA_STRING_TYPE:
+        value->len = item->data.string.length;
+        value->data = item->data.string.start;
+        return NGX_OK;
+    }
+
+    return NGX_ERROR;
 }

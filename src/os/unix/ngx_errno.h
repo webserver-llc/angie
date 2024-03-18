@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -55,6 +56,7 @@ typedef int               ngx_err_t;
 #define NGX_ELOOP         ELOOP
 #define NGX_EBADF         EBADF
 #define NGX_EMSGSIZE      EMSGSIZE
+#define NGX_ERANGE        ERANGE
 
 #if (NGX_HAVE_OPENAT)
 #define NGX_EMLINK        EMLINK

@@ -1429,7 +1429,7 @@ if [ $USE_JSON = YES ]; then
     ngx_module_incs=
     ngx_module_deps=src/core/ngx_json.h
     ngx_module_srcs=src/core/ngx_json.c
-    ngx_module_libs=
+    ngx_module_libs=-lm
     ngx_module_link=YES
     ngx_module_order=
 

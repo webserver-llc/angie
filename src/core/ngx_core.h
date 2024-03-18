@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -79,7 +79,9 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #include <ngx_rwlock.h>
 #include <ngx_shmtx.h>
 #include <ngx_data.h>
+#if (NGX_JSON)
 #include <ngx_json.h>
+#endif
 #if (NGX_API)
 #include <ngx_api.h>
 #endif

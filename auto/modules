@@ -1,5 +1,5 @@
 
-# Copyright (C) 2022-2023 Web Server LLC
+# Copyright (C) 2022-2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -630,6 +630,7 @@ if [ $HTTP = YES ]; then
 
     if [ $HTTP_API = YES ]; then
         USE_API=YES
+        USE_JSON=YES
 
         ngx_module_name=ngx_http_api_module
         ngx_module_incs=
@@ -1412,6 +1413,22 @@ if [ $USE_PCRE = YES ]; then
     ngx_module_incs=
     ngx_module_deps=src/core/ngx_regex.h
     ngx_module_srcs=src/core/ngx_regex.c
+    ngx_module_libs=
+    ngx_module_link=YES
+    ngx_module_order=
+
+    . auto/module
+fi
+
+
+if [ $USE_JSON = YES ]; then
+    have=NGX_JSON . auto/have
+
+    ngx_module_type=CORE
+    ngx_module_name=
+    ngx_module_incs=
+    ngx_module_deps=src/core/ngx_json.h
+    ngx_module_srcs=src/core/ngx_json.c
     ngx_module_libs=
     ngx_module_link=YES
     ngx_module_order=

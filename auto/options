@@ -1,5 +1,5 @@
 
-# Copyright (C) 2022-2023 Web Server LLC
+# Copyright (C) 2022-2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -145,6 +145,8 @@ NGX_ADDONS=
 NGX_ADDON_SRCS=
 NGX_ADDON_DEPS=
 DYNAMIC_ADDONS=
+
+USE_JSON=NO
 
 USE_API=NO
 

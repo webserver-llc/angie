@@ -21,7 +21,7 @@ release: export
 
 export:
 	rm -rf $(TEMP)
-	hg archive -X '.hg*' $(TEMP)/$(ANGIE)
+	hg archive -X '.hg*' -X '.git*' $(TEMP)/$(ANGIE)
 
 
 RELEASE:

@@ -51,7 +51,7 @@ http {
     ssl_certificate rsa.crt;
 
     ssl_session_cache shared:SSL:1m;
-    ssl_session_tickets off;
+    ssl_session_tickets on;
 
     add_header X-Verify x${ssl_client_verify}:${ssl_session_reused}x always;
     add_header X-SSL-Protocol $ssl_protocol always;

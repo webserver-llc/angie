@@ -26,9 +26,7 @@ my $t = Test::Nginx->new()
 	->has(qw/http http_ssl proxy uwsgi http_v2 grpc openssl:1.0.2/)
 	->has_daemon('openssl');
 
-plan(skip_all => 'no ssl_conf_command') if $t->has_module('BoringSSL');
-
-$t->write_file_expand('nginx.conf', <<'EOF')->plan(3);
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -110,7 +108,7 @@ $t->write_file('index.html', '');
 # suppress deprecation warning
 
 open OLDERR, ">&", \*STDERR; close STDERR;
-$t->run();
+$t->try_run('no ssl_conf_command')->plan(3);
 open STDERR, ">&", \*OLDERR;
 
 ###############################################################################

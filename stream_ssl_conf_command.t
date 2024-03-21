@@ -28,8 +28,6 @@ my $t = Test::Nginx->new()
 	->has(qw/socket_ssl_reused/)
 	->has_daemon('openssl');
 
-plan(skip_all => 'no ssl_conf_command') if $t->has_module('BoringSSL');
-
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -82,7 +80,7 @@ foreach my $name ('localhost', 'override') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run()->plan(3);
+$t->try_run('no ssl_conf_command')->plan(3);
 
 ###############################################################################
 

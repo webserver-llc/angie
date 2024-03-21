@@ -87,7 +87,7 @@ http {
         listen       127.0.0.1:8445 ssl;
         server_name  localhost;
 
-        ssl_ocsp_responder http://127.0.0.1:8082;
+        ssl_ocsp_responder http://127.0.0.1:8083/test;
     }
 
     server {
@@ -266,10 +266,12 @@ foreach my $name ('rsa') {
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
+$t->run_daemon(\&http_daemon, $t, port(8083));
 $t->run()->plan(15);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
+$t->waitforsocket("127.0.0.1:" . port(8083));
 
 ###############################################################################
 
@@ -473,6 +475,10 @@ sub http_daemon {
 
 		$uri = $1 if $headers =~ /^\S+\s+\/([^ ]+)\s+HTTP/i;
 		next unless $uri;
+
+		if ($port == port(8083)) {
+			next unless $uri =~ s/^test\///;
+		}
 
 		$uri =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/eg;
 		my $req = decode_base64($uri);

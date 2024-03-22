@@ -16,7 +16,6 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 

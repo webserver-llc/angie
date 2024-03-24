@@ -13,6 +13,8 @@ PCRE =		pcre2-10.39
 
 release: export
 
+	mv $(TEMP)/$(ANGIE)/docs/txt/README $(TEMP)/$(ANGIE)
+	rm $(TEMP)/$(ANGIE)/README.rst
 	rm -r $(TEMP)/$(ANGIE)/docs
 	rm -r $(TEMP)/$(ANGIE)/misc
 

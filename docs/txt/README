@@ -1,0 +1,22 @@
+Angie
+=====
+
+Angie is an efficient, powerful, and scalable web server that was forked from
+nginx to act as a drop-in replacement, so you can use existing setups without
+major changes to module layout or configuration.
+
+Documentation: https://angie.software/en/
+
+
+Troubleshooting
+---------------
+
+Community forum: https://forum.angie.software/
+Telegram channel: https://t.me/angie_support
+
+
+Development
+-----------
+
+To contribute, create a PR on GitHub: https://github.com/webserver-llc/angie/
+Contact us via GitHub Issues: https://github.com/webserver-llc/angie/issues/

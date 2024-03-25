@@ -80,7 +80,7 @@ http {
 
     server {
         listen       127.0.0.1:8080;
-        server_name  ~^(?P<name>.+)\Q.example.com\E$;
+        server_name  ~^(?P<name>[a-z]+)\Q.example.com\E$;
 
         location / {
             add_header X-Server $server_name;

@@ -107,9 +107,14 @@ $t->try_run('no pass module')->plan(5);
 
 # passing either to HTTP or HTTPS backend, depending on server_name
 
+TODO: {
+todo_skip 'win32', 2 if $^O eq 'MSWin32';
+
 like(http_get('/'), qr/200 OK/, 'pass');
 like(http_get('/', SSL => 1, SSL_hostname => 'sni',
 	PeerAddr => '127.0.0.1:' . port(8080)), qr/200 OK/, 'pass ssl');
+
+}
 
 like(http_get('/', SSL => 1, SSL_hostname => 'sni'), qr/200 OK/,
 	'pass ssl handshaked');

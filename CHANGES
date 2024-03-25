@@ -1,4 +1,34 @@
 
+Changes with Angie 1.5.0                                         27 Mar 2024
+
+    *) Feature: basic support for automatically obtaining and updating
+       certificates using the ACME protocol, configurable with the
+       "acme_client" and "acme" directives, as well as variables of the form
+       "$acme_cert_*" and "$acme_cert_key_*".
+
+    *) Feature: configuration of automatic redirection, which adds trailing
+       slashes to request URIs, with the "auto_redirect" directive.
+
+    *) Feature: output statistics metrics with dates in Epoch format instead
+       of ISO 8601 for use in Prometheus and optionally in the JSON API with
+       the "?date=epoch" request argument.
+
+    *) Feature: new "recovering" state for upstream peers in the statistics
+       API, indicating that a peer is slowly starting up after a failure, as
+       suggested by the "slow_start" option.
+
+    *) Feature: now the "-V" switch also shows the relevant version of
+       nginx, which is useful for compatibility with third-party utilities,
+       certbot in particular. Thanks to AdvTechnoKing.
+
+    *) Feature: all functionality of nginx 1.25.4.
+
+    *) Bugfix: if the SSL session reuse mechanism "proxy_ssl_session_reuse"
+       was used and the list of proxied servers was dynamically updated, a
+       leak could occur in the shared memory zone configured for the
+       corresponding "upstream" block.
+
+
 Changes with Angie 1.4.1                                         15 Feb 2024
 
     *) Security: when using HTTP/3, a segmentation error may have occured in

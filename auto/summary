@@ -79,4 +79,8 @@ if [ $HTTP_SCGI = YES ]; then
     echo "  Angie http scgi temporary files: \"$NGX_HTTP_SCGI_TEMP_PATH\""
 fi
 
+if [ $HTTP_ACME = YES ]; then
+    echo "  Angie http acme client path: \"$NGX_HTTP_ACME_CLIENT_PATH\""
+fi
+
 echo "$NGX_POST_CONF_MSG"

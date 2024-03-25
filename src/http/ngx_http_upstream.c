@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -589,6 +589,11 @@ ngx_http_upstream_init(ngx_http_request_t *r)
         return;
     }
 #endif
+
+    if (r->internal_client) {
+        ngx_http_upstream_init_request(r);
+        return;
+    }
 
     if (c->read->timer_set) {
         ngx_del_timer(c->read);

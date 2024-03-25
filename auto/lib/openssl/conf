@@ -156,6 +156,32 @@ END
                         exit 1
                 fi
             fi
+
+            if [ $HTTP_ACME = YES ]; then
+                ngx_feature="OpenSSL version for ACME support"
+                ngx_feature_name="NGX_HTTP_ACME"
+                ngx_feature_incs="#define OPENSSL_SUPPRESS_DEPRECATED
+                                  #include <openssl/ssl.h>"
+                                  #include <openssl/x509v3.h>
+                ngx_feature_test="EVP_PKEY_get0_EC_KEY(NULL);
+                                  EVP_PKEY_get0_RSA(NULL);
+                                  RSA_get0_key(NULL, NULL, NULL, NULL);
+                                  EC_POINT_get_affine_coordinates(NULL, NULL, NULL, NULL, NULL);
+                                  ECDSA_SIG_get0(NULL, NULL, NULL);
+                                  X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, NULL);
+                                  ASN1_TIME_to_tm(NULL, NULL)"
+                . auto/feature
+
+                if [ $ngx_found = no ]; then
+cat << END
+
+$0: error: your OpenSSL library is too old for ACME support.
+
+END
+                        exit 1
+                fi
+            fi
+
         fi
     fi
 

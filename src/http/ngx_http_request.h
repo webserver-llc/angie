@@ -460,6 +460,9 @@ struct ngx_http_request_s {
 
     ngx_http_cleanup_t               *cleanup;
 
+    void                            (*finalize_request)(ngx_http_request_t *r,
+                                                        ngx_int_t rc);
+
     unsigned                          count:16;
     unsigned                          subrequests:8;
     unsigned                          blocked:8;
@@ -553,6 +556,7 @@ struct ngx_http_request_s {
     unsigned                          done:1;
     unsigned                          logged:1;
     unsigned                          terminated:1;
+    unsigned                          internal_client:1;
 
     unsigned                          buffered:4;
 

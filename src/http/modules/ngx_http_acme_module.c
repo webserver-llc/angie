@@ -132,6 +132,7 @@ struct ngx_acme_client_s {
     ngx_http_acme_main_conf_t  *main_conf;
     ngx_http_conf_ctx_t        *conf_ctx;
     ngx_str_t                   name;
+    ngx_str_t                   path;
     ngx_uint_t                  enabled;
     ngx_uint_t                  cf_line;
     ngx_str_t                   cf_filename;
@@ -145,7 +146,6 @@ struct ngx_acme_client_s {
     time_t                      renew_time;
     size_t                      max_cert_size;
     size_t                      max_cert_key_size;
-    ngx_path_t                 *path;
     ngx_http_upstream_conf_t    upstream;
     ngx_uint_t                  ssl;
     ngx_acme_privkey_t          account_key;
@@ -166,11 +166,11 @@ struct ngx_http_acme_main_conf_s {
     ngx_acme_client_t          *current;
     ngx_array_t                 clients;
     ngx_event_t                 timer_event;
-    ngx_path_t                 *base_path;
     size_t                      max_key_auth_size;
     size_t                      shm_size;
     ngx_shm_zone_t             *shm_zone;
     ngx_http_acme_sh_keyauth_t *sh;
+    ngx_str_t                   path;
 };
 
 
@@ -405,22 +405,14 @@ static int ngx_str_is_ip(ngx_str_t *s);
 static ngx_uint_t ngx_dec_count(ngx_int_t i);
 
 
-static ngx_path_init_t  ngx_http_acme_base_path = {
-    ngx_string(NGX_HTTP_ACME_CLIENT_PATH), { 0, 0, 0 }
-};
-
-#if 0
-    /*
-     * Definition for a temp directory; unnecessary if we always have saving
-     * to disk disabled.
-     */
-static ngx_path_init_t  ngx_http_acme_temp_path = {
-    ngx_string("acme_temp"), { 1, 2, 0 }
-};
-#endif
-
-
 static ngx_command_t  ngx_http_acme_commands[] = {
+
+    { ngx_string("acme_client_path"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_acme_main_conf_t, path),
+      NULL },
 
     { ngx_string("acme_client"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_2MORE,
@@ -3843,6 +3835,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 {
     size_t                       shm_size, sz;
     ngx_str_t                   *s, name;
+    ngx_err_t                    err;
     ngx_uint_t                   i, j, n;
     ngx_acme_client_t           *cli;
     ngx_pool_cleanup_t          *cln;
@@ -3970,6 +3963,18 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             return NGX_ERROR;
         }
 
+        if (ngx_http_acme_full_path(cf->pool, &amcf->path, &cli->name,
+                                    &cli->path)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+        name.len = cli->name.len;
+        name.data = cli->path.data + cli->path.len - name.len;
+
+        ngx_strlow(name.data, name.data, name.len);
+
         /*
          * Assign the files that will be opened/created. The ACME client's
          * directories where they will live may not exist at this point yet.
@@ -3977,7 +3982,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_str_set(&name, "account.key");
 
-        if (ngx_http_acme_init_file(cf, &cli->path->name, &name,
+        if (ngx_http_acme_init_file(cf, &cli->path, &name,
                                     &cli->account_key.file)
             != NGX_OK)
         {
@@ -3986,7 +3991,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_str_set(&name, "private.key");
 
-        if (ngx_http_acme_init_file(cf, &cli->path->name, &name,
+        if (ngx_http_acme_init_file(cf, &cli->path, &name,
                                     &cli->private_key.file)
             != NGX_OK)
         {
@@ -4022,7 +4027,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_str_set(&name, "certificate.pem");
 
-        if (ngx_http_acme_init_file(cf, &cli->path->name, &name,
+        if (ngx_http_acme_init_file(cf, &cli->path, &name,
                                     &cli->certificate_file)
             != NGX_OK)
         {
@@ -4069,6 +4074,34 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                            "this configuration requires a server listening on "
                            "port 80 for ACME http-01 challenge");
+    }
+
+    if (ngx_create_dir(amcf->path.data, 0700) == NGX_FILE_ERROR) {
+        err = ngx_errno;
+        if (err != NGX_EEXIST) {
+            ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+                          ngx_create_dir_n " \"%s\" failed", amcf->path.data);
+            return NGX_ERROR;
+        }
+    }
+
+    for (i = 0; i < amcf->clients.nelts; i++) {
+
+        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+
+        if (!cli->enabled) {
+            continue;
+        }
+
+        if (ngx_create_dir(cli->path.data, 0700) == NGX_FILE_ERROR) {
+            err = ngx_errno;
+            if (err != NGX_EEXIST) {
+                ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+                              ngx_create_dir_n " \"%s\" failed",
+                              cli->path.data);
+                return NGX_ERROR;
+            }
+        }
     }
 
     h = ngx_array_push(&cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
@@ -5001,18 +5034,6 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
 
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
 
-    /*
-     * We use amcf->base_path in ngx_http_acme_client(),
-     * so we have to initialize it here.
-     */
-
-    if (ngx_conf_merge_path_value(cf, &amcf->base_path, NULL,
-                                  &ngx_http_acme_base_path)
-        != NGX_CONF_OK)
-    {
-        return NULL;
-    }
-
     return amcf;
 }
 
@@ -5021,6 +5042,14 @@ static char *
 ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf)
 {
     ngx_http_acme_main_conf_t *amcf = conf;
+
+    if (amcf->path.data == NULL) {
+        ngx_str_set(&amcf->path, NGX_HTTP_ACME_CLIENT_PATH);
+
+        if (ngx_conf_full_name(cf->cycle, &amcf->path, 0) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
+    }
 
     ngx_conf_init_size_value(amcf->max_key_auth_size, 2 * 1024);
 
@@ -5250,11 +5279,9 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_http_acme_main_conf_t *amcf = conf;
 
-    u_char             *p;
     ngx_url_t           u;
     ngx_str_t          *value;
     ngx_uint_t          i;
-    ngx_path_init_t     path_init;
     ngx_acme_client_t  *cli;
 
     value = cf->args->elts;
@@ -5476,28 +5503,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (cli->max_cert_key_size == NGX_CONF_UNSET_SIZE) {
         cli->max_cert_key_size = 2 * 1024;
-    }
-
-    ngx_memzero(&path_init, sizeof(ngx_path_init_t));
-    path_init.name = cli->name;
-
-    if (ngx_http_acme_full_path(cf->pool, &amcf->base_path->name,
-        &path_init.name, &path_init.name) != NGX_OK)
-    {
-        return NGX_CONF_ERROR;
-    }
-
-    /*
-     * The client IDs are case-insensitive, and we want the client
-     * subdirectories to be in lower case.
-     */
-    p = &path_init.name.data[path_init.name.len - cli->name.len];
-    ngx_strlow(p, p, cli->name.len);
-
-    if (ngx_conf_merge_path_value(cf, &cli->path, NULL, &path_init)
-       != NGX_CONF_OK)
-    {
-        return NGX_CONF_ERROR;
     }
 
     ngx_memzero(&u, sizeof(ngx_url_t));

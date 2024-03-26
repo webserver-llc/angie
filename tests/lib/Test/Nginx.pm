@@ -803,6 +803,9 @@ sub test_globals_http() {
 	$s .= "scgi_temp_path $self->{_testdir}/scgi_temp;\n"
 		if $self->has_module('scgi');
 
+	$s .= "acme_client_path $self->{_testdir}/acme_client;\n"
+		if $self->has_module('acme');
+
 	$s .= $ENV{TEST_ANGIE_GLOBALS_HTTP}
 		if $ENV{TEST_ANGIE_GLOBALS_HTTP};
 

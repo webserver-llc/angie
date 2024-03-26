@@ -51,6 +51,7 @@ types {
                                                      xlsx;
     application/vnd.openxmlformats-officedocument.wordprocessingml.document
                                                      docx;
+    application/vnd.rar                              rar;
     application/vnd.wap.wmlc                         wmlc;
     application/wasm                                 wasm;
     application/x-7z-compressed                      7z;
@@ -60,7 +61,6 @@ types {
     application/x-makeself                           run;
     application/x-perl                               pl pm;
     application/x-pilot                              prc pdb;
-    application/x-rar-compressed                     rar;
     application/x-redhat-package-manager             rpm;
     application/x-sea                                sea;
     application/x-shockwave-flash                    swf;

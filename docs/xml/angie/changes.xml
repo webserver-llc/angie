@@ -113,6 +113,21 @@ Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+в почтовом прокси-сервере ограничено максимальное количество команд в процессе
+аутентификации, задаваемое директивой "max_commands", для улучшения защиты
+против DoS-атак.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+in the Mail proxy module, the maximum number of commands during authentication,
+configured with the "max_commands" directive, is limited to better protect
+against DoS attacks.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 при запуске под systemd могли возникать ошибки "PID file ... not readable

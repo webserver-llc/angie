@@ -9,6 +9,19 @@
 
 <change type="change">
 <para lang="ru">
+теперь перед HTTP-запросом допускается не более одной пустой строки для
+улучшения защиты против DoS-атак.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+a maximum of one empty line is now allowed before an HTTP request to better
+protect against DoS attacks.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
 при чтении тела запроса с использованием HTTP/1.1 "chunked transfer encoding"
 суммарный размер игнорируемых "chunk extensions" и полей "trailer header"
 теперь ограничен директивой "client_max_body_size" для улучшения защиты против

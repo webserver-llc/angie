@@ -1852,16 +1852,6 @@ ngx_http_alloc_large_header_buffer(ngx_http_request_t *r,
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http alloc large header buffer");
 
-    if (request_line && r->state == 0) {
-
-        /* the client fills up the buffer with "\r\n" */
-
-        r->header_in->pos = r->header_in->start;
-        r->header_in->last = r->header_in->start;
-
-        return NGX_OK;
-    }
-
     old = request_line ? r->request_start : r->header_name_start;
 
     cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);

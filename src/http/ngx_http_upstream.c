@@ -2722,7 +2722,12 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     for ( ;; ) {
 
-        n = c->recv(c, u->buffer.last, u->buffer.end - u->buffer.last);
+        if (c->read->ready) {
+            n = c->recv(c, u->buffer.last, u->buffer.end - u->buffer.last);
+
+        } else {
+            n = NGX_AGAIN;
+        }
 
         if (n == NGX_AGAIN) {
 #if 0

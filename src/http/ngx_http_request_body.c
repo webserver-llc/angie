@@ -413,7 +413,7 @@ ngx_http_do_read_client_request_body(ngx_http_request_t *r)
                 break;
             }
 
-            if (rb->buf->last < rb->buf->end) {
+            if (!c->read->ready) {
                 break;
             }
         }

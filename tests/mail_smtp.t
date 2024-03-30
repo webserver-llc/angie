@@ -98,7 +98,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run()->plan(41);
+$t->run()->plan(43);
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
 
@@ -283,6 +283,28 @@ $s->ok('long pipelined rcpt to 2');
 $s->ok('long pipelined rcpt to 3');
 $s->ok('long pipelined rcpt to 4');
 $s->ok('long pipelined rset');
+
+# Pipelining longer than smtp_client_buffer, with
+# extra pipelined commands to be processed by nginx itself
+
+$s = Test::Nginx::SMTP->new(PeerAddr => '127.0.0.1:' . port(8027));
+$s->read();
+$s->send('EHLO example.com');
+$s->read();
+
+$s->send('MAIL FROM:<test@example.com> FOO=' . ('X' x 90) . CRLF
+	. 'RCPT TO:<test@example.com>' . CRLF
+	. 'RSET');
+
+$s->read();
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.25.5');
+
+$s->ok('pipelined long rcpt to');
+$s->ok('pipelined long rset');
+
+}
 
 # Connection must stay even if error returned to rcpt to command
 

@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/stream stream_ssl stream_pass stream_ssl_preread/)
+	->has(qw/stream stream_ssl stream_pass stream_ssl_preread stream_geo/)
 	->has(qw/http http_ssl sni socket_ssl_sni/)->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -64,6 +64,15 @@ stream {
         server_name  sni;
         pass         127.0.0.1:8092;
     }
+
+    geo $var {
+        default      127.0.0.1:8092;
+    }
+
+    server {
+        listen       127.0.0.1:8081;
+        pass         $var;
+    }
 }
 
 http {
@@ -101,7 +110,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no pass module')->plan(5);
+$t->try_run('no pass module')->plan(6);
 
 ###############################################################################
 
@@ -120,6 +129,9 @@ like(http_get('/', SSL => 1, SSL_hostname => 'sni'), qr/200 OK/,
 	'pass ssl handshaked');
 
 unlike(http_get('/', SSL => 1), qr/200 OK/, 'pass with preread');
+
+like(http_get('/', PeerAddr => '127.0.0.1:' . port(8081)), qr/200 OK/,
+	'pass variable');
 
 $t->stop();
 

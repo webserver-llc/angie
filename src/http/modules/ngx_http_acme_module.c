@@ -1158,7 +1158,11 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
         goto failed;
     }
 
+#ifndef OPENSSL_IS_BORINGSSL
     if (BN_bn2bin(br, p) != n) {
+#else
+    if (BN_bn2bin(br, p) != (size_t) n) {
+#endif
         ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
@@ -1176,7 +1180,11 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
         goto failed;
     }
 
+#ifndef OPENSSL_IS_BORINGSSL
     if (BN_bn2bin(bs, p) != n) {
+#else
+    if (BN_bn2bin(bs, p) != (size_t) n) {
+#endif
         ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
@@ -1769,17 +1777,35 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, u_char status_req,
         goto failed;
     }
 
+#ifndef OPENSSL_IS_BORINGSSL
     ext = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, (char *) san);
+#else
+    ext = X509V3_EXT_nconf_nid(NULL, NULL, NID_subject_alt_name, (char *) san);
+#endif
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509V3_EXT_conf_nid() failed");
+        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+#ifndef OPENSSL_IS_BORINGSSL
+                          "X509V3_EXT_conf_nid() failed");
+#else
+                          "X509V3_EXT_nconf_nid() failed");
+#endif
         goto failed;
     }
 
     sk_X509_EXTENSION_push(exts, ext);
 
+#ifndef OPENSSL_IS_BORINGSSL
     ext = X509V3_EXT_conf_nid(NULL, NULL, NID_key_usage, key_usage);
+#else
+    ext = X509V3_EXT_nconf_nid(NULL, NULL, NID_key_usage, key_usage);
+#endif
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509V3_EXT_conf_nid() failed");
+        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+#ifndef OPENSSL_IS_BORINGSSL
+                          "X509V3_EXT_conf_nid() failed");
+#else
+                          "X509V3_EXT_nconf_nid() failed");
+#endif
         goto failed;
     }
 
@@ -1787,10 +1813,18 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, u_char status_req,
 
     if (status_req) {
         /* ocsp must-staple extension */
+#ifndef OPENSSL_IS_BORINGSSL
         ext = X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, "status_request");
+#else
+        ext = X509V3_EXT_nconf_nid(NULL, NULL, NID_server_auth, "status_request");
+#endif
         if (!ext) {
             ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+#ifndef OPENSSL_IS_BORINGSSL
                           "X509V3_EXT_conf_nid() failed");
+#else
+                          "X509V3_EXT_nconf_nid() failed");
+#endif
             goto failed;
         }
 
@@ -2016,14 +2050,22 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
     t = X509_get_notAfter(x509);
 #endif
 
+#ifndef OPENSSL_IS_BORINGSSL
     if (!t || !ASN1_TIME_to_tm(t, &tm)) {
+#else
+    if (!t || !ASN1_TIME_to_time_t(t, (time_t *) &tm)) {
+#endif
         ngx_log_error(NGX_LOG_ALERT, &cli->log, 0,
                       "invalid time in certificate \"%V\"", &cli->certificate);
         rc = NGX_ERROR;
         goto failed;
     }
 
+#ifndef OPENSSL_IS_BORINGSSL
     rc = timegm(&tm);
+#else
+    rc = timegm((struct tm *) &tm);
+#endif
 
     if (ngx_time() >= rc) {
         /* expired */
@@ -2047,7 +2089,11 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
         domain = ((ngx_str_t*) cli->domains->elts)[di];
         found = 0;
 
+#ifndef OPENSSL_IS_BORINGSSL
         for (i = 0; i < sk_GENERAL_NAME_num(sans); i++) {
+#else
+        for (size_t i = 0; i < sk_GENERAL_NAME_num(sans); i++) {
+#endif
 
             name = sk_GENERAL_NAME_value(sans, i);
             if (!name) {

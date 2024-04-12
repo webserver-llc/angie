@@ -795,6 +795,10 @@ ngx_quic_create_stream(ngx_connection_t *c, uint64_t id)
 
     ngx_rbtree_insert(&qc->streams.tree, &qs->node);
 
+    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, sc->log, 0,
+                   "quic stream id:0x%xL created in connection *%uA", id,
+                   c->log->connection);
+
     return qs;
 }
 

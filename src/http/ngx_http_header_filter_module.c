@@ -70,7 +70,7 @@ static ngx_str_t ngx_http_status_lines[] = {
     /* ngx_null_string, */  /* "300 Multiple Choices" */
 
     ngx_string("301 Moved Permanently"),
-    ngx_string("302 Moved Temporarily"),
+    ngx_string("302 Found"),
     ngx_string("303 See Other"),
     ngx_string("304 Not Modified"),
     ngx_null_string,  /* "305 Use Proxy" */
@@ -86,18 +86,18 @@ static ngx_str_t ngx_http_status_lines[] = {
     ngx_string("402 Payment Required"),
     ngx_string("403 Forbidden"),
     ngx_string("404 Not Found"),
-    ngx_string("405 Not Allowed"),
+    ngx_string("405 Method Not Allowed"),
     ngx_string("406 Not Acceptable"),
     ngx_null_string,  /* "407 Proxy Authentication Required" */
-    ngx_string("408 Request Time-out"),
+    ngx_string("408 Request Timeout"),
     ngx_string("409 Conflict"),
     ngx_string("410 Gone"),
     ngx_string("411 Length Required"),
     ngx_string("412 Precondition Failed"),
     ngx_string("413 Request Entity Too Large"),
-    ngx_string("414 Request-URI Too Large"),
+    ngx_string("414 URI Too Long"),
     ngx_string("415 Unsupported Media Type"),
-    ngx_string("416 Requested Range Not Satisfiable"),
+    ngx_string("416 Range Not Satisfiable"),
     ngx_null_string,  /* "417 Expectation Failed" */
     ngx_null_string,  /* "418 unused" */
     ngx_null_string,  /* "419 unused" */
@@ -118,8 +118,8 @@ static ngx_str_t ngx_http_status_lines[] = {
     ngx_string("500 Internal Server Error"),
     ngx_string("501 Not Implemented"),
     ngx_string("502 Bad Gateway"),
-    ngx_string("503 Service Temporarily Unavailable"),
-    ngx_string("504 Gateway Time-out"),
+    ngx_string("503 Service Unavailable"),
+    ngx_string("504 Gateway Timeout"),
     ngx_string("505 HTTP Version Not Supported"),
     ngx_null_string,        /* "506 Variant Also Negotiates" */
     ngx_string("507 Insufficient Storage"),

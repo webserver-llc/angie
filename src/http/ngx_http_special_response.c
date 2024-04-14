@@ -107,9 +107,9 @@ static char ngx_http_error_400_page[] =
 
 static char ngx_http_error_401_page[] =
 "<html>" CRLF
-"<head><title>401 Authorization Required</title></head>" CRLF
+"<head><title>401 Unauthorized</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>401 Authorization Required</h1></center>" CRLF
+"<center><h1>401 Unauthorized</h1></center>" CRLF
 ;
 
 
@@ -139,9 +139,9 @@ static char ngx_http_error_404_page[] =
 
 static char ngx_http_error_405_page[] =
 "<html>" CRLF
-"<head><title>405 Not Allowed</title></head>" CRLF
+"<head><title>405 Method Not Allowed</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>405 Not Allowed</h1></center>" CRLF
+"<center><h1>405 Method Not Allowed</h1></center>" CRLF
 ;
 
 
@@ -155,9 +155,9 @@ static char ngx_http_error_406_page[] =
 
 static char ngx_http_error_408_page[] =
 "<html>" CRLF
-"<head><title>408 Request Time-out</title></head>" CRLF
+"<head><title>408 Request Timeout</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>408 Request Time-out</h1></center>" CRLF
+"<center><h1>408 Request Timeout</h1></center>" CRLF
 ;
 
 
@@ -203,9 +203,9 @@ static char ngx_http_error_413_page[] =
 
 static char ngx_http_error_414_page[] =
 "<html>" CRLF
-"<head><title>414 Request-URI Too Large</title></head>" CRLF
+"<head><title>414 URI Too Long</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>414 Request-URI Too Large</h1></center>" CRLF
+"<center><h1>414 URI Too Long</h1></center>" CRLF
 ;
 
 
@@ -219,9 +219,9 @@ static char ngx_http_error_415_page[] =
 
 static char ngx_http_error_416_page[] =
 "<html>" CRLF
-"<head><title>416 Requested Range Not Satisfiable</title></head>" CRLF
+"<head><title>416 Range Not Satisfiable</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>416 Requested Range Not Satisfiable</h1></center>" CRLF
+"<center><h1>416 Range Not Satisfiable</h1></center>" CRLF
 ;
 
 
@@ -307,17 +307,17 @@ static char ngx_http_error_502_page[] =
 
 static char ngx_http_error_503_page[] =
 "<html>" CRLF
-"<head><title>503 Service Temporarily Unavailable</title></head>" CRLF
+"<head><title>503 Service Unavailable</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>503 Service Temporarily Unavailable</h1></center>" CRLF
+"<center><h1>503 Service Unavailable</h1></center>" CRLF
 ;
 
 
 static char ngx_http_error_504_page[] =
 "<html>" CRLF
-"<head><title>504 Gateway Time-out</title></head>" CRLF
+"<head><title>504 Gateway Timeout</title></head>" CRLF
 "<body>" CRLF
-"<center><h1>504 Gateway Time-out</h1></center>" CRLF
+"<center><h1>504 Gateway Timeout</h1></center>" CRLF
 ;
 
 

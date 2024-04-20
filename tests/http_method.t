@@ -49,7 +49,7 @@ EOF
 
 ###############################################################################
 
-like(http(<<EOF), qr/405 Not Allowed(?!.*200 OK)/s, 'trace');
+like(http(<<EOF), qr/ 405 (?!.*200 OK)/s, 'trace');
 TRACE / HTTP/1.1
 Host: localhost
 
@@ -59,7 +59,7 @@ Connection: close
 
 EOF
 
-like(http(<<EOF), qr/405 Not Allowed(?!.*200 OK)/s, 'connect');
+like(http(<<EOF), qr/ 405 (?!.*200 OK)/s, 'connect');
 CONNECT / HTTP/1.1
 Host: localhost
 

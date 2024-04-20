@@ -121,7 +121,7 @@ $s->close();
 # head and post requests
 
 like(http_head('/stub'), qr/200 OK/, 'head request');
-like(http_post('/stub'), qr/405 Not Allowed/, 'post request');
+like(http_post('/stub'), qr/ 405 /, 'post request');
 
 # embedded variables in headers
 

@@ -452,6 +452,12 @@ sub build_new_stream {
 	$buf = pack("C", 1);
 	$buf .= build_int(length($input));
 	$buf .= $input;
+
+	my $split = ref $uri->{body_split} && $uri->{body_split} || [];
+	for (@$split) {
+		$buf .= pack_body($self, substr($body, 0, $_, ""));
+	}
+
 	$buf .= pack_body($self, $body) if defined $body;
 
 	$self->{streams}{$self->{last_stream}}{sent} = length($buf);
@@ -466,11 +472,18 @@ sub new_stream {
 
 sub h3_body {
 	my ($self, $body, $sid, $extra) = @_;
+	my $buf;
 
-	my $buf = pack_body($self, $body) if defined $body;
+	my $split = ref $extra->{body_split} && $extra->{body_split} || [];
+	for (@$split) {
+		$buf .= pack_body($self, substr($body, 0, $_, ""));
+	}
+
+	$buf .= pack_body($self, $body) if defined $body;
+
 	my $offset = $self->{streams}{$sid}{sent};
 
-	$self->{streams}{$sid}{sent} += length($body);
+	$self->{streams}{$sid}{sent} += length($buf);
 	$self->raw_write($self->build_stream($buf,
 		start => $extra->{body_more}, sid => $sid, offset => $offset));
 }
@@ -640,7 +653,7 @@ sub push_stream {
 sub push_decoder {
 	my ($buf, $stream) = @_;
 	my ($skip, $val) = 0;
-	my $frame = { sid => $stream, uni => 3 };
+	my $frame = { sid => $stream, uni => 3, type => '' };
 
 	if ($skip < length($buf)) {
 		my $bits = unpack("\@$skip B8", $buf);
@@ -2040,8 +2053,8 @@ sub build_stream {
 	my $stream = $extra{start} ? 0xe : 0xf;
 	my $length = $extra{length} ? $extra{length} : build_int(length($r));
 	my $offset = build_int($extra{offset} ? $extra{offset} : 0);
-	my $sid = defined $extra{sid} ? $extra{sid} : $self->{requests}++;
-	$sid = build_int(4 * $sid);
+	my $sid = defined $extra{sid} ? $extra{sid} : 4 * $self->{requests}++;
+	$sid = build_int($sid);
 	pack("C", $stream) . $sid . $offset . $length . $r;
 }
 
@@ -2087,14 +2100,14 @@ sub build_int {
 
 	} else {
 		pack("C*",
-			build_int_set->($value, 7, 3),
-			build_int_set->($value, 6, 0),
-			build_int_set->($value, 5, 0),
-			build_int_set->($value, 4, 0),
-			build_int_set->($value, 3, 0),
-			build_int_set->($value, 2, 0),
-			build_int_set->($value, 1, 0),
-			build_int_set->($value, 0, 0),
+			$build_int_set->($value, 7, 3),
+			$build_int_set->($value, 6, 0),
+			$build_int_set->($value, 5, 0),
+			$build_int_set->($value, 4, 0),
+			$build_int_set->($value, 3, 0),
+			$build_int_set->($value, 2, 0),
+			$build_int_set->($value, 1, 0),
+			$build_int_set->($value, 0, 0),
 		);
 	}
 }

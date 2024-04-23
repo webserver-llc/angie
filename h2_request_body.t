@@ -209,22 +209,22 @@ is($frame->{code}, 0, 'request body discarded - zero RST_STREAM');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body => 'TEST', headers => [
-	{ name => ':method', value => 'GET', mode => 0 },
-	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/client_max_body_size', mode => 1 },
-	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'content-length', value => '5', mode => 1 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'content-length', value => '5' }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
 
 $sid = $s->new_stream({ body => 'TEST', headers => [
-	{ name => ':method', value => 'GET', mode => 0 },
-	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => '/client_max_body_size', mode => 1 },
-	{ name => ':authority', value => 'localhost', mode => 1 },
-	{ name => 'content-length', value => '3', mode => 1 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' },
+	{ name => 'content-length', value => '3' }]});
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -324,10 +324,10 @@ is($frame->{headers}->{':status'}, 413,
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST12');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -341,10 +341,10 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST123');
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -356,10 +356,10 @@ is($frame->{headers}->{':status'}, 413,
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST12', { body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -373,10 +373,10 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST123', { body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -388,10 +388,10 @@ is($frame->{headers}->{':status'}, 413,
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST12', { body_padding => 42 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -405,10 +405,10 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST12',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST123', { body_padding => 42 });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -420,10 +420,10 @@ is($frame->{headers}->{':status'}, 413,
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST', { body_padding => 42, body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
@@ -437,10 +437,10 @@ is(read_body_file($frame->{headers}->{'x-body-file'}), 'TESTTEST',
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ body_more => 1, headers => [
-	{ name => ':method', value => 'GET', mode => 2 },
-	{ name => ':scheme', value => 'http', mode => 2 },
-	{ name => ':path', value => '/client_max_body_size', mode => 2 },
-	{ name => ':authority', value => 'localhost', mode => 2 }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':scheme', value => 'http' },
+	{ name => ':path', value => '/client_max_body_size' },
+	{ name => ':authority', value => 'localhost' }]});
 $s->h2_body('TESTTEST123', { body_padding => 42, body_split => [2] });
 $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 

@@ -189,6 +189,8 @@ sub has_module($) {
 			=> '--with-stream_mqtt_preread_module',
 		stream_pass
 			=> '(?s)^(?!.*--without-stream_pass_module)',
+		stream_rdp_preread
+			=> '--with-stream_rdp_preread_module',
 		stream_return
 			=> '(?s)^(?!.*--without-stream_return_module)',
 		stream_set

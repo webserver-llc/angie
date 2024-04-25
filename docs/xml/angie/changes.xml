@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+директива "rdp_preread" модуля "stream", включающая извлечение rdp cookie
+в переменные "$rdp_cookie", "$rdp_cookie_".
+</para>
+<para lang="en">
+the "rdp_preread" directive in the "stream" module, which allows extracting
+the rdp cookie into the "$rdp_cookie" and "$rdp_cookie_" variables.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 директива "sticky" и сопутствующие настройки в блоке "upstream" stream-модуля,
 позволяющие задать режим привязки сессий, при котором все запросы в рамках
 сессии будут направляться на один и тот же сервер.

@@ -243,7 +243,13 @@ ngx_quic_close_streams(ngx_connection_t *c, ngx_quic_connection_t *qc)
 ngx_int_t
 ngx_quic_reset_stream(ngx_connection_t *c, ngx_uint_t err)
 {
-    if (!c->quic->parent->ssl->handshaked) {
+    ngx_connection_t       *pc;
+    ngx_quic_connection_t  *qc;
+
+    pc = c->quic->parent;
+    qc = ngx_quic_get_connection(pc);
+
+    if (qc->client && !pc->ssl->handshaked) {
         /* the stream was created early, do not try to send anything */
         return NGX_OK;
     }
@@ -301,11 +307,13 @@ ngx_quic_do_reset_stream(ngx_quic_stream_t *qs, ngx_uint_t err)
 ngx_int_t
 ngx_quic_shutdown_stream(ngx_connection_t *c, int how)
 {
-    ngx_connection_t  *pc;
+    ngx_connection_t       *pc;
+    ngx_quic_connection_t  *qc;
 
     pc = c->quic->parent;
+    qc = ngx_quic_get_connection(pc);
 
-    if (!pc->ssl->handshaked) {
+    if (qc->client && !pc->ssl->handshaked) {
         /* the stream was created early, do not try to send anything */
         return NGX_OK;
     }

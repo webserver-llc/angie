@@ -79,8 +79,14 @@ $t->run();
 
 is(get("\x13\x01"), 'TLS_AES_128_GCM_SHA256', 'TLS_AES_128_GCM_SHA256');
 is(get("\x13\x02"), 'TLS_AES_256_GCM_SHA384', 'TLS_AES_256_GCM_SHA384');
+
+SKIP: {
+skip 'bad openssl/arch combination', 1 if ($t->has_feature('unix')
+    && `uname -m` =~ 'aarch64' && $t->has_feature('openssl:1.1.1g') );
+
 is(get("\x13\x03"), 'TLS_CHACHA20_POLY1305_SHA256',
 	'TLS_CHACHA20_POLY1305_SHA256');
+}
 
 # TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256
 

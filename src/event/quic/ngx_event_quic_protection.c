@@ -968,7 +968,7 @@ ngx_quic_retry_seal(ngx_str_t *ad, ngx_str_t *itag, ngx_log_t *log)
 
 
 #ifdef NGX_QUIC_DEBUG_CRYPTO
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, pkt->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, log, 0,
                    "quic retry itag len:%uz %xV", ad->len, ad);
 #endif
 

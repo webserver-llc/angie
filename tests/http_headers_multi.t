@@ -98,7 +98,7 @@ http {
             add_header X-Host $host;
             add_header X-Remote-User $remote_user;
 
-            return 204;
+            proxy_pass http://127.0.0.1:8080/backend;
         }
 
         location /d {

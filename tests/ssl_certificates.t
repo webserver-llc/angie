@@ -25,7 +25,10 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
-plan(skip_all => 'no multiple certificates') if $t->has_module('BoringSSL');
+plan(skip_all => 'no multiple certificates')
+	if $t->has_module('BoringSSL');
+plan(skip_all => 'no ECDSA support')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:0.9.8b');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

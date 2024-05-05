@@ -148,6 +148,8 @@ local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
 	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
 	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+local $TODO = 'no TLSv1.3 sessions in Net::SSLeay (LibreSSL)'
+	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER") && test_tls13();
 
 like(get('default', 8080, $s), qr/default:r/, 'session reused');
 

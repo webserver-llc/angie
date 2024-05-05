@@ -144,6 +144,8 @@ local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
 	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
+local $TODO = 'no TLSv1.3 sessions in Net::SSLeay (LibreSSL)'
+	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER") && test_tls13();
 
 is(test_reuse(8443), 1, 'tickets reused');
 is(test_reuse(8444), 1, 'tickets and cache reused');

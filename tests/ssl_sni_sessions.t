@@ -116,6 +116,8 @@ plan(skip_all => 'no TLSv1.3 sessions, old IO::Socket::SSL')
 	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
 	if $t->has_module('LibreSSL') && test_tls13();
+plan(skip_all => 'no TLSv1.3 sessions in Net::SSLeay (LibreSSL)')
+	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER") && test_tls13();
 plan(skip_all => 'no TLS 1.3 session cache in BoringSSL')
 	if $t->has_module('BoringSSL') && test_tls13();
 

@@ -75,7 +75,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run()->plan(6);
+$t->try_run('no ssl_alpn')->plan(6);
 
 ###############################################################################
 

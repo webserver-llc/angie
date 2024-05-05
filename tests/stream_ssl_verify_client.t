@@ -126,6 +126,8 @@ skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
 TODO: {
 local $TODO = 'broken TLSv1.3 CA list in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
+local $TODO = 'no TLSv1.3 CA list in Net::SSLeay (LibreSSL)'
+	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER") && test_tls13();
 
 my $ca = join ' ', get(8082, '3.example.com');
 is($ca, '/CN=2.example.com', 'no trusted sent');

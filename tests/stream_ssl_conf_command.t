@@ -102,6 +102,8 @@ $s = stream(
 );
 ok($s->socket()->get_session_reused(), 'SessionTicket');
 
+$s->socket()->close(SSL_no_shutdown => 1);
+
 $s = stream(
 	PeerAddr => '127.0.0.1:' . port(8443),
 	SSL => 1,

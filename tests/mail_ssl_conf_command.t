@@ -101,6 +101,8 @@ $s = Test::Nginx::IMAP->new(
 );
 ok($s->socket()->get_session_reused(), 'SessionTicket');
 
+$s->socket()->close(SSL_no_shutdown => 1);
+
 $s = Test::Nginx::IMAP->new(
 	SSL => 1,
 	SSL_cipher_list =>

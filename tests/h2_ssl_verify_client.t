@@ -112,6 +112,7 @@ sub get_ssl_socket {
 			Proto => 'tcp',
 			PeerAddr => '127.0.0.1',
 			PeerPort => port(8080),
+			SSL_version => 'SSLv23',
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_alpn_protocols => [ 'h2' ],
 			SSL_hostname => $sni,

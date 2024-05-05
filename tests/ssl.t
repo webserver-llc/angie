@@ -315,6 +315,7 @@ sub cert {
 
 sub get_ssl_context {
 	return IO::Socket::SSL::SSL_Context->new(
+		SSL_version => 'SSLv23',
 		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 		SSL_session_cache_size => 100
 	);

@@ -170,6 +170,7 @@ sub upgrade_connect {
 	my $s = IO::Socket::SSL->new(
 		Proto => 'tcp',
 		PeerAddr => '127.0.0.1:' . port(8080),
+		SSL_version => 'SSLv23',
 		SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 	)
 		or die "Can't connect to nginx: $!\n";

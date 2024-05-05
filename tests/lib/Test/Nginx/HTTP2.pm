@@ -548,6 +548,7 @@ sub new_socket {
 		);
 		require IO::Socket::SSL if $extra{'SSL'};
 		IO::Socket::SSL->start_SSL($s,
+			SSL_version => 'SSLv23',
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_npn_protocols => $npn ? [ $npn ] : undef,
 			SSL_alpn_protocols => $alpn ? [ $alpn ] : undef,

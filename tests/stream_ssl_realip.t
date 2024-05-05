@@ -133,6 +133,7 @@ sub pp_get {
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(8);
 		IO::Socket::SSL->start_SSL($s,
+			SSL_version => 'SSLv23',
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
 			SSL_error_trap => sub { die $_[1] }
 		);

@@ -38,6 +38,7 @@ sub new {
 			require IO::Socket::SSL;
 			IO::Socket::SSL->start_SSL(
 				$self->{_socket},
+				SSL_version => 'SSLv23',
 				SSL_verify_mode =>
 					IO::Socket::SSL::SSL_VERIFY_NONE(),
 				@_

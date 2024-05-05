@@ -152,6 +152,7 @@ sub stream_daemon_ssl {
 		eval {
 			IO::Socket::SSL->start_SSL($client,
 				SSL_server => 1,
+				SSL_version => 'SSLv23',
 				SSL_cert_file => "$d/localhost.crt",
 				SSL_key_file => "$d/localhost.key",
 				SSL_error_trap => sub { die $_[1] }

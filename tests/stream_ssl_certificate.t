@@ -108,6 +108,7 @@ distinguished_name = req_distinguished_name
 EOF
 
 my $d = $t->testdir();
+my $tr = `openssl genrsa -help 2>&1` =~ /-traditional/ ? '-traditional' : '';
 
 foreach my $name ('one', 'two') {
 	system('openssl req -x509 -new '
@@ -119,7 +120,7 @@ foreach my $name ('one', 'two') {
 
 foreach my $name ('pass') {
 	system("openssl genrsa -out $d/$name.key -passout pass:pass "
-		. "-aes128 2048 >>$d/openssl.out 2>&1") == 0
+		. "-aes128 $tr 2048 >>$d/openssl.out 2>&1") == 0
 		or die "Can't create $name key: $!\n";
 	system("openssl req -x509 -new -config $d/openssl.conf "
 		. "-subj /CN=$name/ -out $d/$name.crt -key $d/$name.key "

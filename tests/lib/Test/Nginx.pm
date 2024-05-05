@@ -150,6 +150,7 @@ sub has_module($) {
 
 	my %regex = (
 		sni	=> 'TLS SNI support enabled',
+		tickets	=> 'TLS SNI support enabled',
 		mail	=> '--with-mail((?!\S)|=dynamic)',
 		flv	=> '--with-http_flv_module',
 		perl	=> '--with-http_perl_module',

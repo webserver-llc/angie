@@ -143,7 +143,13 @@ local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 local $TODO = 'no TLSv1.3 sessions in Net::SSLeay (LibreSSL)'
 	if Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER") && test_tls13();
 
+TODO: {
+local $TODO = 'no session tickets' unless $t->has_module('tickets');
+
 is(test_reuse(8993), 1, 'tickets reused');
+
+}
+
 is(test_reuse(8994), 1, 'tickets and cache reused');
 
 TODO: {

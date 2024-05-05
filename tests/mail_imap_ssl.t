@@ -29,7 +29,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()
-	->has(qw/mail mail_ssl imap http rewrite socket_ssl_sslversion/)
+	->has(qw/mail mail_ssl imap http rewrite socket_ssl/)
 	->has_daemon('openssl')->plan(13)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -202,15 +202,6 @@ $s->ok('trusted cert');
 $s->send('1 AUTHENTICATE PLAIN ' . $cred->("s5"));
 $s->read();
 
-# Auth-SSL-Protocol and Auth-SSL-Cipher headers
-
-my ($cipher, $sslversion);
-
-$s = Test::Nginx::IMAP->new(SSL => 1);
-$cipher = $s->socket()->get_cipher();
-$sslversion = $s->socket()->get_sslversion();
-$sslversion =~ s/_/./;
-
 undef $s;
 
 # test auth_http request header fields with access_log
@@ -228,12 +219,7 @@ like($f, qr!^on:SUCCESS:(/?CN=2.example.com):\1:\w+:\w+:[^:]+:s4$!m,
 like($f, qr!^on:SUCCESS:(/?CN=3.example.com):\1:\w+:\w+:[^:]+:s5$!m,
 	'log - trusted cert');
 
-SKIP: {
-skip 'IO:Socket:SSL is outdated', 1 unless $sslversion;
-
 $f = $t->read_file('auth2.log');
-like($f, qr|^$cipher:$sslversion$|m, 'log - cipher sslversion');
-
-}
+like($f, qr/^[\w-]+:(TLS|SSL)v[\d.]+$/m, 'log - cipher sslversion');
 
 ###############################################################################

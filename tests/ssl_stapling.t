@@ -32,7 +32,12 @@ plan(skip_all => 'Net::SSLeay too old') if $@;
 eval { defined &IO::Socket::SSL::SSL_OCSP_TRY_STAPLE or die; };
 plan(skip_all => 'IO::Socket::SSL too old') if $@;
 
-plan(skip_all => 'no OCSP stapling') if $t->has_module('BoringSSL');
+plan(skip_all => 'no OCSP stapling')
+	if $t->has_module('BoringSSL');
+plan(skip_all => 'no OCSP stapling')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:0.9.8h');
+plan(skip_all => 'no OCSP stapling')
+	if not $t->has_module('sni');
 
 $t->plan(10)->write_file_expand('nginx.conf', <<'EOF');
 

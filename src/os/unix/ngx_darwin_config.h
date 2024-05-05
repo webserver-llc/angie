@@ -74,6 +74,7 @@
 
 #if (NGX_HAVE_KQUEUE)
 #include <sys/event.h>
+#define NGX_KQUEUE_UDATA_T  (void *)
 #endif
 
 

@@ -124,7 +124,17 @@
 
 
 #if (NGX_HAVE_KQUEUE)
+
 #include <sys/event.h>
+
+/* NetBSD before 10.0 incompatibly defines kevent.udata as "intptr_t" */
+
+#if (defined __NetBSD__ && __NetBSD_Version__ < 999001500)
+#define NGX_KQUEUE_UDATA_T
+#else
+#define NGX_KQUEUE_UDATA_T  (void *)
+#endif
+
 #endif
 
 

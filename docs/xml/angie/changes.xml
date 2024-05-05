@@ -254,6 +254,17 @@ the bpf module.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+Angie не собирался на NetBSD 10.0.
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+Angie could not be built on NetBSD 10.0.
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 переменная "$sent_body" содержащая тело ответа подзапроса или запроса от

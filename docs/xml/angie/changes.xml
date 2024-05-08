@@ -50,6 +50,21 @@ Thanks to Maxim Dounin (freenginx) and Bartek Nowotarski.
 
 <change type="change">
 <para lang="ru">
+запрещены имена полей заголовка HTTP/1.x без двоеточия на конце; такие
+некорректные заголовки от клиента или проксируемого сервера теперь будут
+приводить к возврату ошибки.<br/>
+Спасибо Максиму Дунину (freenginx) и Максиму Евменкину.
+</para>
+<para lang="en">
+HTTP/1.x header field names without a colon at the end are now prohibited;
+such invalid header fields from a client or a proxied server will now cause
+an error response.<br/>
+Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
 обновлены текстовые описания кодов HTTP-ответов в соответствии с RFC 9110.<br/>
 Спасибо Максиму Дунину (freenginx) и Michiel W. Beijen.
 </para>

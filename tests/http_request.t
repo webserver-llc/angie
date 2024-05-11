@@ -23,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(40)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(41)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -186,5 +186,13 @@ like(http("GET / HTTP/1.0" . CRLF . "Foo\x01: bar" . CRLF . CRLF), qr/ 400 /,
 	'header with control rejected');
 like(http("GET / HTTP/1.0" . CRLF . "Foo\t: bar" . CRLF . CRLF), qr/ 400 /,
 	'header with tab rejected');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.27.0');
+
+like(http("GET / HTTP/1.0" . CRLF . "Foo" . CRLF . CRLF), qr/ 400 /,
+	'header without colon rejected');
+
+}
 
 ###############################################################################

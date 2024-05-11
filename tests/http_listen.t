@@ -71,7 +71,7 @@ my $p2 = port(8182);
 plan(skip_all => 'no requested ranges')
 	if "$p2$p3" ne "81828183";
 
-$t->run()->plan(9);
+$t->try_run('no inet6 support')->plan(9);
 
 ###############################################################################
 

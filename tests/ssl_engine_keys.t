@@ -28,7 +28,7 @@ plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool')->plan(2);
+	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -86,8 +86,28 @@ EOF
 #
 # http://mailman.nginx.org/pipermail/nginx-devel/2014-October/006151.html
 #
-# Note that library paths may differ on different systems,
+# Note that library paths vary on different systems,
 # and may need to be adjusted.
+
+my $libsofthsm2_path;
+my @so_paths = (
+	'/usr/lib/softhsm/',    # alpine, astrase, debian, ubuntu
+	'/usr/lib64/softhsm/',  # rosachrome, rosafresh
+	'/usr/local/lib/softhsm/', # freebsd
+	'/lib64/',              # redos, almalinux, centos, oracle, rocky
+);
+for my $so_path (@so_paths) {
+	my $path = $so_path . 'libsofthsm2.so';
+	if (-e $path) {
+		$libsofthsm2_path = $path;
+		last;
+	}
+};
+
+die 'Can\'t determine libsofthsm2.so path'
+	unless $libsofthsm2_path;
+
+note("libsofthsm2_path: $libsofthsm2_path");
 
 $t->write_file('openssl.conf', <<EOF);
 openssl_conf = openssl_def
@@ -100,8 +120,8 @@ pkcs11 = pkcs11_section
 
 [pkcs11_section]
 engine_id = pkcs11
-dynamic_path = /usr/local/lib/engines/pkcs11.so
-MODULE_PATH = /usr/local/lib/softhsm/libsofthsm2.so
+#dynamic_path = /usr/local/lib/engines/pkcs11.so
+MODULE_PATH = $libsofthsm2_path
 init = 1
 PIN = 1234
 
@@ -125,20 +145,36 @@ $ENV{SOFTHSM2_CONF} = "$d/softhsm2.conf";
 $ENV{OPENSSL_CONF} = "$d/openssl.conf";
 
 foreach my $name ('localhost') {
-	system('softhsm2-util --init-token --slot 0 --label NginxZero '
+	my $cmd = 'softhsm2-util --init-token --slot 0 --label NginxZero '
 		. '--pin 1234 --so-pin 1234 '
-		. ">>$d/openssl.out 2>&1");
+		. ">>$d/openssl.out 2>&1";
 
-	system('pkcs11-tool --module=/usr/local/lib/softhsm/libsofthsm2.so '
+	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+
+	system($cmd);
+
+	$cmd = "pkcs11-tool --module=$libsofthsm2_path "
 		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
-		. ">>$d/openssl.out 2>&1");
+		. ">>$d/openssl.out 2>&1";
 
-	system('openssl req -x509 -new '
+	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+
+	system($cmd);
+
+	$cmd = 'openssl req -x509 -new '
 		. "-subj /CN=$name/ -out $d/$name.crt -text "
 		. "-engine pkcs11 -keyform engine -key id_00 "
-		. ">>$d/openssl.out 2>&1") == 0
-		or die "Can't create certificate for $name: $!\n";
+		. ">>$d/openssl.out 2>&1";
+
+	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+
+	my $openssl_call_result = system($cmd);
+
+	plan(skip_all => "Can't create certificate for $name: $!\n")
+		unless $openssl_call_result == 0;
 }
+
+$t->plan(2);
 
 $t->run();
 

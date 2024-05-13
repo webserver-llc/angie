@@ -1054,6 +1054,10 @@ ngx_create_pidfile(ngx_str_t *name, ngx_pool_t *pool, ngx_log_t *log)
         return NGX_OK;
     }
 
+    if (name->len == 0) {
+        return NGX_OK;
+    }
+
     ngx_memzero(&file, sizeof(ngx_file_t));
 
     if (ngx_test_config) {
@@ -1123,6 +1127,10 @@ ngx_delete_pidfile(ngx_cycle_t *cycle)
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
+    if (ccf->pid.len == 0) {
+        return;
+    }
+
     name = ngx_new_binary ? ccf->oldpid.data : ccf->pid.data;
 
     if (ngx_delete_file(name) == NGX_FILE_ERROR) {
@@ -1144,6 +1152,12 @@ ngx_signal_process(ngx_cycle_t *cycle, char *sig)
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "signal process started");
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+
+    if (ccf->pid.len == 0) {
+        ngx_log_error(NGX_LOG_ERR, cycle->log, 0,
+                      "no PID file configured");
+        return 1;
+    }
 
     ngx_memzero(&file, sizeof(ngx_file_t));
 

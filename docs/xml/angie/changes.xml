@@ -55,6 +55,21 @@ Thanks to Yuriy Izorkin.
 
 <change type="feature">
 <para lang="ru">
+отключение создания PID-файла с помощью параметра "off" в директиве "pid", что
+может быть полезным для неизменяемых образов и при непосредственном управлении
+менеджером процессов.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+disabling creation of the PID file with the "off" parameter of the "pid"
+directive, which might be beneficial with immutable images and direct control
+by a service manager.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 создание PID-файла теперь выполняется атомарно через промежуточный временный
 файл, что убирает мгновение, когда файл уже появился в директории, но ещё пуст,
 и позволяет внешним программам проще и надежнее с ним работать.

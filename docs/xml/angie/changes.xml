@@ -28,6 +28,19 @@ HTTP/3 connection could be prematurely closed while using 0-RTT in QUIC.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при чтении тела запроса из быстрого соединения было возможно чтение в течение
+долгого времени.
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+when reading a request body from a fast connection reading for a long time
+was possible.
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 </changes>
 
 

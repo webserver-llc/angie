@@ -14,6 +14,8 @@
 static void ngx_destroy_cycle_pools(ngx_conf_t *conf);
 static ngx_int_t ngx_init_zone_pool(ngx_cycle_t *cycle,
     ngx_shm_zone_t *shm_zone);
+static ngx_int_t ngx_pidfile_changed(ngx_str_t *name1, ngx_str_t *name2,
+    ngx_log_t *log);
 static ngx_int_t ngx_test_lockfile(u_char *file, ngx_log_t *log);
 static void ngx_clean_old_cycles(ngx_event_t *ev);
 static void ngx_shutdown_timer_handler(ngx_event_t *ev);
@@ -345,9 +347,9 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
         old_ccf = (ngx_core_conf_t *) ngx_get_conf(old_cycle->conf_ctx,
                                                    ngx_core_module);
-        if (ccf->pid.len != old_ccf->pid.len
-            || ngx_strcmp(ccf->pid.data, old_ccf->pid.data) != 0)
-        {
+
+        if (ngx_pidfile_changed(&ccf->pid, &old_ccf->pid, log)) {
+
             /* new pid file name */
 
             if (ngx_create_pidfile(&ccf->pid, conf.temp_pool, log) != NGX_OK) {
@@ -1137,6 +1139,54 @@ ngx_delete_pidfile(ngx_cycle_t *cycle)
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
                       ngx_delete_file_n " \"%s\" failed", name);
     }
+}
+
+
+static ngx_int_t
+ngx_pidfile_changed(ngx_str_t *name1, ngx_str_t *name2, ngx_log_t *log)
+{
+    u_char     *real1, *real2;
+    ngx_int_t   rc;
+
+    if (name1->len == name2->len
+        && ngx_strcmp(name1->data, name2->data) == 0)
+    {
+        return 0;
+    }
+
+    rc = 1;
+    real1 = NULL;
+    real2 = NULL;
+
+    real1 = ngx_realpath(name1->data, NULL);
+
+    if (real1 == NULL) {
+        ngx_log_debug1(NGX_LOG_DEBUG_CORE, log, ngx_errno,
+                       ngx_realpath_n " \"%s\" failed", name1->data);
+        goto done;
+    }
+
+    real2 = ngx_realpath(name2->data, NULL);
+
+    if (real2 == NULL) {
+        ngx_log_debug1(NGX_LOG_DEBUG_CORE, log, ngx_errno,
+                       ngx_realpath_n " \"%s\" failed", name2->data);
+        goto done;
+    }
+
+    rc = ngx_strcmp(real1, real2);
+
+done:
+
+    if (real1 && real1 != name1->data) {
+        ngx_free(real1);
+    }
+
+    if (real2 && real2 != name2->data) {
+        ngx_free(real2);
+    }
+
+    return rc;
 }
 
 

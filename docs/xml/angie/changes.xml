@@ -96,6 +96,23 @@ Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+теперь при переконфигурации не делается попытка пересоздать PID-файл,
+если имя в директиве "pid" изменилось, но указывает на тот же файл через
+симлинки, что, в частности, позволяет избежать проблем в системах во время
+миграции с "/var/run/angie.pid" на "/run/angie.pid".<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+now during reconfiguration no attempt to recreate the PID file is made
+if the name in the "pid" directive was changed, but points to the same file
+via symlinks; in particular, it allows to avoid issues on systems while
+migrating from "/var/run/angie.pid" to "/run/angie.pid".<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 </changes>
 
 

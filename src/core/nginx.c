@@ -369,10 +369,6 @@ main(int argc, char *const *argv)
 
 #if !(NGX_WIN32)
 
-    if (ngx_init_signals(cycle->log) != NGX_OK) {
-        return 1;
-    }
-
     if (!ngx_inherited && ccf->daemon) {
         if (ngx_daemon(cycle->log) != NGX_OK) {
             return 1;
@@ -390,6 +386,18 @@ main(int argc, char *const *argv)
     if (ngx_create_pidfile(&ccf->pid, cycle->pool, cycle->log) != NGX_OK) {
         return 1;
     }
+
+#if !(NGX_WIN32)
+
+    if (ngx_init_signals(cycle->log) != NGX_OK) {
+        return 1;
+    }
+
+    if (ngx_daemon_sync(cycle->log) != NGX_OK) {
+        return 1;
+    }
+
+#endif
 
     if (ngx_log_redirect_stderr(cycle) != NGX_OK) {
         return 1;

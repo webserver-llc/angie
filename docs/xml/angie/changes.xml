@@ -41,6 +41,18 @@ Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+теперь ACME-клиенты не игнорируют сертификаты, если они просрочены или выпущены
+для других доменных имён, а загружают их и ставят в очередь на обновление.
+</para>
+<para lang="en">
+now ACME clients do not discard certificates that were expired or issued for
+different domain names, but load and schedule them for renewal in the normal
+way.
+</para>
+</change>
+
 </changes>
 
 

@@ -1310,6 +1310,11 @@ ngx_http_acme_account_init(ngx_acme_client_t *cli, u_char **shmem)
             cli->expiry_time = rc;
             cli->renew_time = rc - cli->renew_before_expiry;
 
+        } else {
+            cli->renew_time = ngx_time();
+        }
+
+        if (rc != NGX_ERROR) {
             if (ngx_http_acme_file_load(&cli->log, &cli->certificate_file,
                                         shc->data_start, shc->len)
                 != NGX_OK)
@@ -1317,18 +1322,8 @@ ngx_http_acme_account_init(ngx_acme_client_t *cli, u_char **shmem)
                 return NGX_ERROR;
             }
 
-            ngx_log_error(NGX_LOG_NOTICE, &cli->log, 0,
-                          "valid certificate, renewal scheduled %s",
-                          strtok(ctime(&cli->renew_time), "\n"));
-
         } else {
-            cli->renew_time = ngx_time();
-
             shc->len = 0;
-
-            ngx_log_error(NGX_LOG_NOTICE, &cli->log, 0,
-                          "invalid certificate, renewal scheduled %s",
-                          strtok(ctime(&cli->renew_time), "\n"));
         }
 
     } else {
@@ -1345,11 +1340,12 @@ ngx_http_acme_account_init(ngx_acme_client_t *cli, u_char **shmem)
         }
 
         cli->renew_time = ngx_time();
-
-        ngx_log_error(NGX_LOG_NOTICE, &cli->log, 0,
-                      "no certificate, renewal scheduled %s",
-                      strtok(ctime(&cli->renew_time), "\n"));
     }
+
+    ngx_log_error(NGX_LOG_NOTICE, &cli->log, 0,
+                  "%s certificate, renewal scheduled %s",
+                  (shc->len != 0) ? ((rc > 0) ? "valid" : "invalid") : "no",
+                  strtok(ctime(&cli->renew_time), "\n"));
 
     cli->sh_cert = shc;
 
@@ -2700,6 +2696,7 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 static ngx_int_t
 ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses)
 {
+    ssize_t    n;
     ngx_fd_t   fd;
     ngx_int_t  rc;
     ngx_str_t  s, csr;
@@ -2925,7 +2922,20 @@ certificate:
         return NGX_ERROR;
     }
 
-    ngx_write_fd(fd, ses->body.data, ses->body.len);
+    n = ngx_write_fd(fd, ses->body.data, ses->body.len);
+
+    if (n == -1) {
+        ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno,
+                      ngx_write_fd_n " %i failed", (ngx_uint_t) fd);
+        return NGX_ERROR;
+    }
+
+    if ((size_t) n != ses->body.len) {
+        ngx_log_error(NGX_LOG_ALERT, ses->log, 0,
+                      ngx_write_fd_n " has written only %z of %uz to %i",
+                      n, ses->body.len, (ngx_uint_t) fd);
+        return NGX_ERROR;
+    }
 
     if (lseek(fd, 0, SEEK_SET) == -1) {
         ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno, "lseek() %i failed",

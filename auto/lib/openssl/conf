@@ -161,8 +161,8 @@ END
                 ngx_feature="OpenSSL version for ACME support"
                 ngx_feature_name="NGX_HTTP_ACME"
                 ngx_feature_incs="#define OPENSSL_SUPPRESS_DEPRECATED
-                                  #include <openssl/ssl.h>"
                                   #include <openssl/x509v3.h>
+                                  #include <openssl/ssl.h>"
                 ngx_feature_test="EVP_PKEY_get0_EC_KEY(NULL);
                                   EVP_PKEY_get0_RSA(NULL);
                                   RSA_get0_key(NULL, NULL, NULL, NULL);

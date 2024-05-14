@@ -77,6 +77,17 @@ when the number of IP addresses differed from the number of specified servers.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+механизм "slow_start" не срабатывал при проксировании TCP-соединений
+в модуле "stream".
+</para>
+<para lang="en">
+the "slow_start" mechanism did not work when proxying TCP connections
+in the "stream" module.
+</para>
+</change>
+
 </changes>
 
 

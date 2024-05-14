@@ -871,6 +871,13 @@ ngx_stream_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
         ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
         if (peer->accessed < peer->checked) {
+
+            if (peer->slow_start
+                && peer->max_fails && peer->fails >= peer->max_fails)
+            {
+                peer->slow_time = ngx_current_msec;
+            }
+
             peer->fails = 0;
         }
 

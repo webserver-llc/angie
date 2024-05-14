@@ -798,6 +798,10 @@ ngx_http_upstream_zone_preresolve(ngx_http_upstream_rr_peer_t *resolve,
                 *peerp = peer;
                 peerp = &peer->next;
 
+                if (!peer->down) {
+                    peers->tries++;
+                }
+
                 peers->number++;
                 peers->total_weight += peer->weight;
             }
@@ -1619,6 +1623,10 @@ again:
 
         *peerp = peer->next;
 
+        if (!peer->down) {
+            peers->tries--;
+        }
+
         peers->number--;
         peers->total_weight -= peer->weight;
 
@@ -1658,6 +1666,10 @@ again:
 
         *peerp = peer;
         peerp = &peer->next;
+
+        if (!peer->down) {
+            peers->tries++;
+        }
 
         peers->number++;
         peers->total_weight += peer->weight;

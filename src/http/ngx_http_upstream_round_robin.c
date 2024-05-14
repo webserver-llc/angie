@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -225,10 +225,10 @@ ngx_http_upstream_init_round_robin_peers(ngx_conf_t *cf,
         {
             n += server[i].naddrs;
             w += server[i].naddrs * server[i].weight;
-        }
 
-        if (!server[i].down) {
-            t += server[i].naddrs;
+            if (!server[i].down) {
+                t += server[i].naddrs;
+            }
         }
     }
 

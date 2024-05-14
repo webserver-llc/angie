@@ -64,6 +64,19 @@ could occur in a worker process.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+механизм "proxy_next_upstream" работал некорректно при использовании
+опции "resolve" директивы "server" в блоке "upstream", когда количество
+IP-адресов отличалось от числа заданных серверов.
+</para>
+<para lang="en">
+the "proxy_next_upstream" mechanism did not work correctly when using
+the "resolve" option of the "server" directive in the "upstream" block
+when the number of IP addresses differed from the number of specified servers.
+</para>
+</change>
+
 </changes>
 
 

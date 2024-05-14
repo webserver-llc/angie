@@ -53,6 +53,17 @@ way.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при запросе сертификата по протоколу ACME могла произойти ошибка сегментации
+в рабочем процессе.
+</para>
+<para lang="en">
+while requesting a certificate via the ACME protocol, a segmentation fault
+could occur in a worker process.
+</para>
+</change>
+
 </changes>
 
 

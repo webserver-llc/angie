@@ -2744,6 +2744,7 @@ ngx_http_post_request(ngx_http_request_t *r, ngx_http_posted_request_t *pr)
 void
 ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
 {
+    ngx_uint_t                 internal;
     ngx_connection_t          *c;
     ngx_http_request_t        *pr;
     ngx_http_core_loc_conf_t  *clcf;
@@ -2754,11 +2755,14 @@ ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
                    "http finalize request: %i, \"%V?%V\" a:%d, c:%d",
                    rc, &r->uri, &r->args, r == c->data, r->main->count);
 
+    /* r->finalize_request could free the request object */
+    internal = r->internal_client;
+
     if (r->finalize_request) {
         r->finalize_request(r, rc);
     }
 
-    if (r->internal_client) {
+    if (internal) {
         return;
     }
 

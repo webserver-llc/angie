@@ -1,4 +1,31 @@
 
+Changes with Angie 1.5.1                                         16 May 2024
+
+    *) Change: now ACME clients do not discard previously stored
+       certificates that were expired or issued for a different domain list,
+       but use them while renewing.
+
+    *) Bugfix: the "proxy_next_upstream" mechanism did not work correctly
+       when using the "resolve" option of the "server" directive in the
+       "upstream" block if the number of resolved IP addresses differed from
+       the number of specified servers.
+
+    *) Bugfix: while requesting a certificate via the ACME protocol, a
+       segmentation fault could occur in a worker process.
+
+    *) Bugfix: the "slow_start" mechanism did not work when proxying TCP
+       connections in the "stream" module.
+
+    *) Bugfix: HTTP/3 requests could result in an error if received as TLS
+       1.3 early data; the bug had appeared in 1.4.0.
+
+    *) Bugfix: HTTP/3 connection could be prematurely closed while using
+       0-RTT in QUIC.
+
+    *) Bugfix: when reading a request body from a fast connection, reading
+       for a long time was possible. Thanks to Maxim Dounin (freenginx).
+
+
 Changes with Angie 1.5.0                                         27 Mar 2024
 
     *) Feature: basic support for automatically obtaining and updating

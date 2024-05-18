@@ -45,7 +45,7 @@ mail {
 
     ssl_password_file password;
 
-    auth_http  http://127.0.0.1:8080;	# unused
+    auth_http  http://127.0.0.1:8080; # unused
 
     server {
         listen             127.0.0.1:8143;

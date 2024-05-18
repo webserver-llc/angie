@@ -339,9 +339,9 @@ sub get_ssl_shutdown {
 
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_read(8)) {
-                my $n = $s->sysread(my $buf, 16384);
-                next if !defined $n && $!{EWOULDBLOCK};
-                last;
+		my $n = $s->sysread(my $buf, 16384);
+		next if !defined $n && $!{EWOULDBLOCK};
+		last;
 	}
 	$s->blocking(1);
 

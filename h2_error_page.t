@@ -72,9 +72,9 @@ my ($sid, $frames, $frame);
 
 my $s1 = Test::Nginx::HTTP2->new();
 $sid = $s1->new_stream({ headers => [
-        { name => ':method', value => 'GET' },
-        { name => ':path', value => '/' },
-        { name => ':authority', value => 'localhost' }]});
+	{ name => ':method', value => 'GET' },
+	{ name => ':path', value => '/' },
+	{ name => ':authority', value => 'localhost' }]});
 $frames = $s1->read(all => [{ type => 'RST_STREAM' }]);
 
 ($frame) = grep { $_->{type} eq "RST_STREAM" } @$frames;

@@ -53,7 +53,7 @@ http {
                 # prepended with conf_prefix
                 auth_basic_user_file $arg_f;
                 alias %%TESTDIR%%/;
-	    }
+            }
         }
     }
 }

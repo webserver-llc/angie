@@ -191,7 +191,7 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 is($frame->{headers}->{':status'}, 400, 'request body less than content-length');
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.27.0');
 
 $sid = $s->new_stream({ body => 'TEST', headers => [
 	{ name => ':method', value => 'GET' },

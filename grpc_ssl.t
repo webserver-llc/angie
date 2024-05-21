@@ -24,9 +24,13 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive http_ssl openssl:1.0.2/)
-	->has_daemon('openssl')
-	->write_file_expand('nginx.conf', <<'EOF')->plan(38);
+	->has(qw/upstream_keepalive http_ssl/)
+	->has_daemon('openssl');
+
+plan(skip_all => 'no ALPN support in OpenSSL')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:1.0.2');
+
+$t->write_file_expand('nginx.conf', <<'EOF')->plan(38);
 
 %%TEST_GLOBALS%%
 

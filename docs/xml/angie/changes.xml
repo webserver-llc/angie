@@ -7,6 +7,17 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="feature">
+<para lang="ru">
+переменная $upstream_cache_key, содержащая используемый ключ кэширования.<br/>
+Спасибо Кириллу Коринскому и Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+the $upstream_cache_key variable that contains the cache key being used.<br/>
+Thanks to Kirill A. Korinsky and Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 если ACME-клиент не использовался в блоке "stream" в директивах "acme",

@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+директива "max_headers", ограничивающая максимальное количество полей заголовка
+в HTTP-запросе для лучшей защиты от DoS-атак.<br/>
+Спасибо Максиму Дунину (freenginx) и Максиму Евменкину.
+</para>
+<para lang="en">
+the "max_headers" directive that limits the number of HTTP request header fields
+to better protect against DoS attacks.<br/>
+Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка кросс-компиляции: система сборки теперь может использовать
 скрипт-обёртку для запуска автотестов.
 Это позволяет сконфигурировать angie без запуска тестовых программ

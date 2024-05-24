@@ -8,7 +8,6 @@
 
 use warnings;
 use strict;
-#use Data::Dumper;
 
 use Test::More;
 
@@ -23,9 +22,6 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require JSON::PP; };
-plan(skip_all => "JSON::PP not installed") if $@;
-
 # the test depends on availability of 127.0.0.0/8 subnet on targets
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
@@ -34,7 +30,8 @@ my $t = Test::Nginx->new()
 	->has_daemon("dnsmasq");
 
 # see https://trac.nginx.org/nginx/ticket/1831
-plan(skip_all => "perl >= 5.32 required") if ($t->has_module('perl') && $] < 5.032000);
+plan(skip_all => "perl >= 5.32 required")
+	if ($t->has_module('perl') && $] < 5.032000);
 
 $t->plan(14)->write_file_expand('nginx.conf', <<'EOF');
 
@@ -185,36 +182,38 @@ EOF
 
 my $dconf = $t->testdir()."/dns.conf";
 
-$t->run_daemon('dnsmasq', '-C', $tdir."/dns.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->run_daemon('dnsmasq', '-C', "$tdir/dns.conf", '-k',
+	"--log-facility=$tdir/dns.log", '-q');
+
 $t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.1');
 
 $t->run();
 
 ###############################################################################
 
-my @ports = my ($port1, $port2) = (port(8081), port(8082));
-
-my ($j, $v);
+my ($port1, $port2) = (port(8081), port(8082));
 
 # wait for nginx resolver to complete query
 for (1 .. 50) {
-    last if http_get('/') =~ qr /200 OK/;
-    select undef, undef, undef, 0.1;
+	last if http_get('/') =~ qr /200 OK/;
+	select undef, undef, undef, 0.1;
 }
 
 # expect that upstream contains addresses from 'test_hosts' file
 
-$j = get_json("/api/status/http/upstreams/u/peers/127.0.0.1:$port1");
-is($j->{'server'}, 'foo.example.com:'.$port1, 'foo.example.com is resolved');
+my $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.1:$port1");
+is($j->{server}, 'foo.example.com:' . $port1, 'foo.example.com is resolved');
 
 $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.2:$port2");
-is($j->{'server'}, 'bar.example.com:'.$port2, 'bar.example.com resolved');
+is($j->{server}, 'bar.example.com:' . $port2, 'bar.example.com resolved');
 
 $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.3:$port1");
-is($j->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 1 resolved');
+is($j->{server}, 'backup.example.com:' . $port1,
+	'backup.example.com addr 1 resolved');
 
 $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.4:$port1");
-is($j->{'server'}, 'backup.example.com:'.$port1, 'backup.example.com addr 2 resolved');
+is($j->{server}, 'backup.example.com:' . $port1,
+	'backup.example.com addr 2 resolved');
 
 
 # perform reload to trigger the codepath for pre-resolve
@@ -223,8 +222,10 @@ $t->reload('/api/status/angie/generation');
 # no need to wait for resolver, we expect cached result
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
-is($j->{"127.0.0.1:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is found after reload');
-is($j->{"127.0.0.2:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.com is found after reload');
+is($j->{"127.0.0.1:$port1"}{server}, "foo.example.com:$port1",
+	'foo.example.com is found after reload');
+is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
+	'bar.example.com is found after reload');
 
 
 # now stop DNS daemon to prevent resolving, reload nginx
@@ -234,24 +235,29 @@ $t->stop_daemons();
 $t->reload('/api/status/angie/generation');
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
-is($j->{"127.0.0.1:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is saved');
-is($j->{"127.0.0.2:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.com is saved');
+is($j->{"127.0.0.1:$port1"}{server}, "foo.example.com:$port1",
+	'foo.example.com is saved');
+is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
+	'bar.example.com is saved');
 
 
 # start DNS server with new config, addresses changed
-$t->run_daemon('dnsmasq', '-C', $tdir."/dns2.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->run_daemon('dnsmasq', '-C', "$tdir/dns2.conf", '-k',
+	"--log-facility=$tdir/dns.log", '-q');
 $t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
 
 # reload nginx to force resolve
 $t->reload('/api/status/angie/generation');
+
 # wait 3 seconds to ensure re-resolve (valid=1s)
 select undef, undef, undef, 3;
 
 # expect 127.0.0.3 is now foo instead of 'backup'
 $j = get_json("/api/status/http/upstreams/u/peers/");
-is($j->{"127.0.0.3:$port1"}->{'server'}, "foo.example.com:$port1", 'foo.example.com is new');
-is($j->{"127.0.0.4:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.com is new');
-
+is($j->{"127.0.0.3:$port1"}{server}, "foo.example.com:$port1",
+	'foo.example.com is new');
+is($j->{"127.0.0.4:$port2"}{server}, "bar.example.com:$port2",
+	'bar.example.com is new');
 
 
 # Trigger zombies paths and test for debug refcount
@@ -259,23 +265,28 @@ is($j->{"127.0.0.4:$port2"}->{'server'}, "bar.example.com:$port2", 'bar.example.
 # 1) start 2 long requests  (backend is baz.example.com)
 
 $j = get_json("/api/status/http/upstreams/u2/peers/");
-is($j->{"127.0.0.5:$port1"}->{'server'}, 'baz.example.com:'.$port1, 'baz in u2 is ok');
+is($j->{"127.0.0.5:$port1"}{server}, 'baz.example.com:' . $port1,
+	'baz in u2 is ok');
 
 
-my $s = IO::Socket::INET->new(Proto => 'tcp',
-                              PeerAddr => '127.0.0.1',
-                              PeerPort => port(8080))
-or die "cannot create socket: $!\n";
+my $s = IO::Socket::INET->new(
+	Proto    => 'tcp',
+	PeerAddr => '127.0.0.1',
+	PeerPort => port(8080)
+)
+	or die "cannot create socket: $!\n";
 
 http_start(<<EOF, socket => $s);
 GET /u2/slow HTTP/1.0
 Host: localhost
 
 EOF
-my $s2 = IO::Socket::INET->new(Proto => 'tcp',
-                                  PeerAddr => '127.0.0.1',
-                                  PeerPort => port(8080))
-or die "cannot create socket: $!\n";
+my $s2 = IO::Socket::INET->new(
+	Proto    => 'tcp',
+	PeerAddr => '127.0.0.1',
+	PeerPort => port(8080)
+)
+	or die "cannot create socket: $!\n";
 
 http_start(<<EOF, socket => $s2);
 GET /u2/slow HTTP/1.0
@@ -290,12 +301,14 @@ $j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
 is($j->{'refs'}, 2, "2 long requests to backend started, ref");
 
 # 3) now delete corresponding DNS records:
-#     - stop the DNS server
-#     - restart it with new config without baz.example.com
+#	- stop the DNS server
+#	- restart it with new config without baz.example.com
 
 $t->stop_daemons();
+
 # start DNS server with new config, addresses changed
-$t->run_daemon('dnsmasq', '-C', $tdir."/dns3.conf", '-k', "--log-facility=$tdir/dns.log", '-q');
+$t->run_daemon('dnsmasq', '-C', "$tdir/dns3.conf", '-k',
+	"--log-facility=$tdir/dns.log", '-q');
 $t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
 
 # 4) wait for resolve timer to occure (resolver_timeout is 1s for u2)
@@ -304,13 +317,10 @@ select undef, undef, undef, 2;
 $j = get_json("/api/status/http/upstreams/u2/zombies");
 is($j, 1, "zombie found after name resolver dropped used peer");
 
-my $res = http_end($s);
-my $res2 = http_end($s2);
+http_end($s);
+http_end($s2);
 
 $j = get_json("/api/status/http/upstreams/u2/peers/127.0.0.5:$port1");
-is($j->{'error'}, 'PathNotFound', "peer is deleted after resolve");
-
-
+is($j->{error}, 'PathNotFound', "peer is deleted after resolve");
 
 ###############################################################################
-

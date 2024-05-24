@@ -10,8 +10,6 @@ use warnings;
 use strict;
 
 use Test::More;
-use IO::Select;
-use Data::Dumper;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -23,9 +21,6 @@ use Test::Utils qw/ get_json /;
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
-
-eval { require JSON::PP; };
-plan(skip_all => "JSON::PP not installed") if $@;
 
 plan(skip_all => '127.0.0.3 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.3' );
@@ -231,9 +226,10 @@ $t->write_file_expand('test_hosts2', <<'EOF');
 ::1 b2.example.com
 EOF
 
-my $dconf = $t->testdir()."/dns.conf";
+my $dconf = $t->testdir() . "/dns.conf";
 
-$t->run_daemon('dnsmasq', '-C', $d."/dns.conf", '-k', "--log-facility=$d/dns.log", '-q');
+$t->run_daemon('dnsmasq', '-C', "$d/dns.conf", '-k',
+	"--log-facility=$d/dns.log", '-q');
 $t->wait_for_resolver('127.0.0.1', 5252, 'b1.example.com', '127.0.0.1');
 
 # let the dnsmasq execute;
@@ -242,7 +238,7 @@ $t->wait_for_resolver('127.0.0.1', 5252, 'b1.example.com', '127.0.0.1');
 $t->run();
 
 my @ports = my ($p1, $p2, $p3, $p4, $p5) =
-    (port(8081), port(8082), port(8083), port(8084), port(8085));
+	(port(8081), port(8082), port(8083), port(8084), port(8085));
 
 # wait for all backends to be available
 $t->waitforsocket('127.0.0.1:' . port(8081));
@@ -264,7 +260,8 @@ tc1("sticky with zone and resolve");
 
 # remove b3..b5 from DNS to trigger removal of sticky-enabled peer
 $t->stop_daemons();
-$t->run_daemon('dnsmasq', '-C', $d."/dns2.conf", '-k', "--log-facility=$d/dns.log", '-q');
+$t->run_daemon('dnsmasq', '-C', "$d/dns2.conf", '-k',
+	"--log-facility=$d/dns.log", '-q');
 $t->wait_for_resolver('127.0.0.1', 5252, 'b1.example.com', '127.0.0.1');
 
 # let angie resolve
@@ -278,171 +275,150 @@ tc2("sticky after peers removed");
 # - upstream has no sticky directive, no keepalive
 # - make 4 requests, expect 4 responses from corresponding backends, in order
 sub tc1 {
-    annotate(@_);
+	annotate(@_);
 
-    my ($backend, $cookie);
-    my %res;
-    my $j;
+	for (1 .. 4) {
+		my %res = get_sticky_reply("/tc_1", $bmap{"B$_"});
+		my $backend = $res{backend};
+		my $cookie  = $res{cookie};
 
-    for (1 .. 4) {
-        %res = get_sticky_reply("/tc_1", $bmap{"B$_"});
-        $backend = $res{"backend"};
-        $cookie = $res{"cookie"};
+		is($backend, "B$_", "backend $_ is selected by sticky");
+		is($cookie, $bmap{"B$_"}, "correct cookie is set for backend $_");
+	}
 
-        is($backend, "B$_", "backend $_ is selected by sticky");
-        is($cookie, $bmap{"B$_"}, "correct cookie is set for backend $_");
-    }
+	my $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.4:$p4");
+	is($j->{sid}, $bmap{B4}, "b4 has proper sid");
 
-    $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.4:$p4");
-    is($j->{'sid'}, $bmap{"B4"}, "b4 has proper sid");
+	$j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.5:$p5");
+	is($j->{sid}, $bmap{B5}, "b5/1 has proper sid");
 
-    $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.5:$p5");
-    is($j->{'sid'}, $bmap{"B5"}, "b5/1 has proper sid");
+	$j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.6:$p5");
+	is($j->{sid}, $bmap{B5}, "b5/2 has same sid as b5/1");
 
-    $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.6:$p5");
-    is($j->{'sid'}, $bmap{"B5"}, "b5/2 has same sid as b5/1");
+	# query b5 using id;
+	# 2 peers share same ID, sticky selects 1st found
+	# make 4 request with sticky ID and expect the same
+	# backend to be selected 4 times
+	my $initial_back;
+	for (1 .. 4) {
+		my %res = get_sticky_reply("/tc_1", $bmap{"B5"});
+		my $backend = $res{backend};
+		my $cookie  = $res{cookie};
 
-    # query b5 using id;
-    # 2 peers share same ID, sticky selects 1st found
-    # make 4 request with sticky ID and expect the same
-    # backend to be selected 4 times
-    my $initial_back;
-    for (1 .. 4) {
-        %res = get_sticky_reply("/tc_1", $bmap{"B5"});
-        $backend = $res{"backend"};
-        $cookie = $res{"cookie"};
+		if (!defined($initial_back)) {
+			$initial_back = $backend;
+			is((($backend eq "B5") or ($backend eq "B6")), 1,
+				"B5 or B6 is selected ($backend)");
 
-        if (!defined($initial_back)) {
-            $initial_back = $backend;
-            is((($backend eq "B5") or ($backend eq "B6")), 1, "B5 or B6 is selected ($backend)");
+		} else {
+			is($initial_back, $backend, "$initial_back again selected");
+		}
 
-        } else {
-            is($initial_back, $backend, "$initial_back again selected");
-        }
-
-        # cookie is always from B5
-        is($cookie, $bmap{"B5"}, "cookie is set to B5 id");
-    }
-
-    #$j = get_json("/api/status/http/upstreams/tc_1/peers/");
-    #print(Dumper($j));
+		# cookie is always from B5
+		is($cookie, $bmap{"B5"}, "cookie is set to B5 id");
+	}
 }
 
-
 sub tc2 {
-    annotate(@_);
+	annotate(@_);
 
-    my ($backend, $cookie);
-    my %res;
-    my $j;
-    my $port;
+	# no changes are expected for b1..b2
+	for (1 .. 2) {
+		my %res = get_sticky_reply("/tc_1", $bmap{"B$_"});
+		my $backend = $res{backend};
 
-    # no changes are expected for b1..b2
-    for (1 .. 2) {
-        %res = get_sticky_reply("/tc_1", $bmap{"B$_"});
-        $backend = $res{"backend"};
-        $cookie = $res{"cookie"};
+		is($backend, "B$_", "backend $_ is selected by sticky");
+	}
 
-        is($backend, "B$_", "backend $_ is selected by sticky");
-    }
-
-    # b3..b5 are gone
-    for (3 .. 5) {
-        $port = $ports[$_ - 1];
-        $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.$_:$port}}");
-        is($j->{"error"}, "PathNotFound", "b$_ removed");
-    }
+	# b3..b5 are gone
+	for (3 .. 5) {
+		my $port = $ports[$_ - 1];
+		my $j = get_json("/api/status/http/upstreams/tc_1/peers/127.0.0.$_:$port}}");
+		is($j->{error}, "PathNotFound", "b$_ removed");
+	}
 }
 
 ###############################################################################
 
 sub annotate {
-    my ($tc) = @_;
+	my ($tc) = @_;
 
-    if ($debug != 1) {
-        return;
-    }
+	if ($debug != 1) {
+		return;
+	}
 
-    my $tname = (split(/::/, (caller(1))[3]))[1];
-    print("# ***  $tname: $tc \n");
+	my $tname = (split(/::/, (caller(1))[3]))[1];
+	print("# ***  $tname: $tc \n");
 }
 
 # makes an HTTP request to passed $uri (with optional cookie)
 # returns hash with various response properties: backend, cookie, attrs, code
 sub get_sticky_reply {
+	my ($uri, $sticky_cookie, $cookie_name) = @_;
 
-    my ($uri, $sticky_cookie, $cookie_name) = @_;
+	$cookie_name //= "sticky";
 
-    my $response;
-
-    if (!defined($cookie_name)) {
-        $cookie_name = "sticky";
-    }
-
-    if (defined($sticky_cookie)) {
-        $response = http(<<EOF);
+	my $response;
+	if (defined $sticky_cookie) {
+		$response = http(<<EOF);
 GET $uri HTTP/1.1
 Host: localhost
 Connection: close
 Cookie: $cookie_name=$sticky_cookie
 
 EOF
-    } else {
-        $response = http_get($uri);
-    }
+	} else {
+		$response = http_get($uri);
+	}
 
-    my ($backend) = $response =~ /X-Backend: (B\d+)/;
-    my ($resp_cookie_name) = $response =~ /Set-Cookie: (\w+)=\w+/;
-    my ($cookie) = $response =~ /Set-Cookie: \w+=(\w+)/;
-    my ($attrs) = $response =~ /Set-Cookie: \w+=\w+; (.*)\r\n/;
-    my ($code) = $response =~ qr!HTTP/1.1 (\d\d\d)!ms;
-    my %result;
+	my ($backend) = $response =~ /X-Backend: (B\d+)/;
+	my ($resp_cookie_name) = $response =~ /Set-Cookie: (\w+)=\w+/;
+	my ($cookie) = $response =~ /Set-Cookie: \w+=(\w+)/;
+	my ($attrs) = $response =~ /Set-Cookie: \w+=\w+; (.*)\r\n/;
+	my ($code) = $response =~ qr!HTTP/1.1 (\d\d\d)!ms;
 
-    $result{"backend"} = $backend;
-    $result{"cookie"} = $cookie;
-    $result{"cookie_name"} = $resp_cookie_name;
-    $result{"attrs"} = $attrs;
-    $result{"code"} = $code;
+	my %result = (
+		backend     => $backend,
+		cookie      => $cookie,
+		cookie_name => $resp_cookie_name,
+		attrs       => $attrs,
+		code        => $code,
+	);
 
-    return %result;
+	return %result;
 }
 
 # visits all backends via /backend_NNN uri and returns
 # hash with backend <-> cookie mapping
 sub collect_cookies {
-    my ($uri_template, $secret_arg) = @_;
+	my ($uri_template, $secret_arg) = @_;
 
-    my (%backend_cookies, %result);
+	if ($debug) {
+		print("# Backend cookies [$uri_template]:\n");
+	}
 
-    my ($backend, $cookie);
+	my %backend_cookies;
+	for (1 .. 5) {
 
-    if ($debug) {
-        print("# Backend cookies [$uri_template]:\n");
-    }
+		my $url;
+		if (!defined($secret_arg)) {
+			$url = " $uri_template$_/good";
+		} else {
+			$url = " $uri_template$_/good?$secret_arg";
+		}
 
-    my $url;
+		my %result = get_sticky_reply($url);
 
-    for (1 .. 5) {
+		my $backend = $result{backend};
+		my $cookie  = $result{cookie};
 
-        if (!defined($secret_arg)) {
-            $url = " $uri_template$_/good";
-        } else {
-            $url = " $uri_template$_/good?$secret_arg";
-        }
+		if ($debug) {
+			print("#	$backend <=> $cookie\n");
+		}
+		$backend_cookies{$backend} = $cookie;
+	}
 
-        %result = get_sticky_reply($url);
-
-        $backend = $result{"backend"};
-        $cookie = $result{"cookie"};
-
-        if ($debug) {
-            print("#    $backend <=> $cookie\n");
-        }
-        $backend_cookies{$backend} = $cookie;
-    }
-
-    return %backend_cookies;
+	return %backend_cookies;
 }
 
 ###############################################################################
-

@@ -1026,11 +1026,11 @@ sub http_gzip_like {
 }
 
 sub http_get_value {
-    my ($uri) = @_;
-    my $response = http_get($uri);
-    my ($headers, $body) = split /\n\r/, $response, 2;
-    $body =~ s/^\s+|\s+$//g;
-    return $body;
+	my ($uri) = @_;
+	my $response = http_get($uri);
+	my ($headers, $body) = split /\n\r/, $response, 2;
+	$body =~ s/^\s+|\s+$//g;
+	return $body;
 }
 
 ###############################################################################
@@ -1055,7 +1055,7 @@ EOF
 			. "-out $d/$name.crt -keyout $d/$name.key "
 			. ">>$d/openssl.out 2>&1") == 0
 			or die "Can't create certificate for $name: $!\n";
-    }
+	}
 }
 
 

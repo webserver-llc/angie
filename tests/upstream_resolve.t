@@ -116,7 +116,7 @@ no-dhcp-interface=
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts
 EOF
 
@@ -129,7 +129,7 @@ no-dhcp-interface=
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts2
 # return NXDOMAIN for this
 address=/backup.example.com/
@@ -146,7 +146,7 @@ server=/example.com/
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts3
 # return NXDOMAIN for this
 address=/backup.example.com/

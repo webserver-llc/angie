@@ -104,7 +104,7 @@ no-dhcp-interface=
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts
 
 # SRV records
@@ -129,7 +129,7 @@ no-dhcp-interface=
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts2
 
 # return NXDOMAIN for this
@@ -154,7 +154,7 @@ no-dhcp-interface=
 no-hosts
 # do not read /etc/resolv.conf
 no-resolv
-# take records from this fil
+# take records from this file
 addn-hosts=%%TESTDIR%%/test_hosts2
 
 # return NXDOMAIN for this

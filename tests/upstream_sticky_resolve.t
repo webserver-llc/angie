@@ -17,6 +17,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT http_end /;
+use Test::Utils qw/ get_json /;
 
 ###############################################################################
 
@@ -445,16 +446,3 @@ sub collect_cookies {
 
 ###############################################################################
 
-sub get_json {
-    my ($uri) = @_;
-    my $response = http_get($uri);
-    my ($headers,$body) =  split /\n\r/, $response, 2;
-    #print($body);
-    my $json;
-    eval { $json = JSON::PP::decode_json($body) };
-    if ($@) {
-        return undef;
-    }
-
-    return $json;
-}

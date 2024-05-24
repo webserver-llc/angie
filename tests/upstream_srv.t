@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/http_start http_get http_end port/;
+use Test::Utils qw/get_json/;
 
 ###############################################################################
 
@@ -221,20 +222,6 @@ is(%$j, 0, "example.com disappeared");
 
 
 ###############################################################################
-
-sub get_json {
-    my ($uri) = @_;
-    my $response = http_get($uri);
-    my ($headers,$body) =  split /\n\r/, $response, 2;
-    #print($body);
-    my $json;
-    eval { $json = JSON::PP::decode_json($body) };
-    if ($@) {
-        return undef;
-    }
-
-    return $json;
-}
 
 sub http_start_uri {
     my ($uri) = @_;

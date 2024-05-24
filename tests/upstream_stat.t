@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/get_json/;
 
 ###############################################################################
 
@@ -301,20 +302,6 @@ if (defined $j->{'200'}) {
 is($v, 1, '1 request total to consistent hash upstream');
 
 ###############################################################################
-
-sub get_json {
-    my ($uri) = @_;
-    my $response = http_get($uri);
-    my ($headers,$body) =  split /\n\r/, $response, 2;
-    #print($body);
-    my $json;
-    eval { $json = JSON::PP::decode_json($body) };
-    if ($@) {
-        return undef;
-    }
-
-    return $json;
-}
 
 # used to increase coverage and try various API endpoints
 # tests that response is valid JSON

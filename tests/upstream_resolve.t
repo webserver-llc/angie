@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) 2023 Web Server LLC
+# (C) 2023-2024 Web Server LLC
 
 # Tests for upstream re-resolve.
 
@@ -33,7 +33,7 @@ my $t = Test::Nginx->new()
 plan(skip_all => "perl >= 5.32 required")
 	if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(14)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(18)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -65,6 +65,44 @@ http {
         resolver_timeout 1s;
     }
 
+
+    # verify tries - multiple servers
+    upstream u3 {
+        zone z 1m;
+
+        server multi.example.com:%%PORT_8081%% resolve;
+
+        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver_timeout 1s;
+    }
+
+    # verify tries - regular servers
+    upstream u4 {
+        zone z 1m;
+
+        server bar.example.com:%%PORT_8081%% resolve;
+        server qux.example.com:%%PORT_8081%% resolve;
+
+        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver_timeout 1s;
+    }
+
+    server {
+        listen       127.0.0.2:%%PORT_8081%%;
+
+        location / {
+            return 404;
+        }
+    }
+
+    server {
+        listen       127.0.0.6:%%PORT_8081%%;
+
+        location / {
+            return 200 "goodreply";
+        }
+    }
+
     server {
         listen       127.0.0.1:%%PORT_8080%%;
         server_name  localhost;
@@ -75,6 +113,18 @@ http {
 
         location /u2 {
             proxy_pass http://u2/;
+        }
+
+        location /u3 {
+            add_header  "X-Upstream-Status" "US=$upstream_status";
+            proxy_next_upstream http_404;
+            proxy_pass http://u3/;
+        }
+
+        location /u4 {
+            add_header  "X-Upstream-Status" "US=$upstream_status";
+            proxy_next_upstream http_404;
+            proxy_pass http://u4/;
         }
 
         location /api/ {
@@ -158,10 +208,13 @@ $t->write_file_expand('test_hosts', <<'EOF');
 127.0.0.3  backup.example.com
 127.0.0.4  backup.example.com
 127.0.0.5  baz.example.com
+127.0.0.6  qux.example.com
 ::1 foo.example.com
 ::1 bar.example.com
 ::1 backup.example.com
 ::1 baz.example.com
+127.0.0.2  multi.example.com
+127.0.0.6  multi.example.com
 EOF
 
 $t->write_file_expand('test_hosts2', <<'EOF');
@@ -215,6 +268,20 @@ $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.4:$port1");
 is($j->{server}, 'backup.example.com:' . $port1,
 	'backup.example.com addr 2 resolved');
 
+# verify tries - multiple
+# u3: multi.example.com:8081
+#       127.0.0.2	404
+#       127.0.0.6	200
+like(http_get("/u3"), qr/X-Upstream-Status: US=404, 200/, 'multiple - request 1');
+like(http_get("/u3"), qr/X-Upstream-Status: US=200/, 'multiple - request 2');
+
+# verify tries - regular
+# u4: bar.example.com:8081
+#       127.0.0.2	404
+#     qux.example.com:8081
+#       127.0.0.6	200
+like(http_get("/u4"), qr/X-Upstream-Status: US=404, 200/, 'regular - request 1');
+like(http_get("/u4"), qr/X-Upstream-Status: US=200/, 'regular - request 2');
 
 # perform reload to trigger the codepath for pre-resolve
 $t->reload('/api/status/angie/generation');

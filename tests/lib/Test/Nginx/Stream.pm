@@ -64,7 +64,7 @@ sub new {
 
 			my $s = $self->{_socket};
 			log_in("ssl cipher: " . $s->get_cipher());
-			log_in("ssl cert: " . $s->peer_certificate('issuer'));
+			log_in("ssl cert: " . $s->peer_certificate('subject'));
 		}
 
 		alarm(0);

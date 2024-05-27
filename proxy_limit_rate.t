@@ -22,7 +22,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive/)->plan(4);
+my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive/)->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -54,6 +54,13 @@ http {
             add_trailer X-Msec $msec;
         }
 
+        location /unlimited {
+            proxy_pass http://127.0.0.1:8080/data;
+            proxy_limit_rate 0;
+            add_header  X-Msec $msec;
+            add_trailer X-Msec $msec;
+        }
+
         location /keepalive {
             proxy_http_version 1.1;
             proxy_set_header Connection "";
@@ -76,6 +83,13 @@ my ($body, $t1, $t2) = get('/');
 
 cmp_ok($t2 - $t1, '>=', 1, 'proxy_limit_rate');
 is($body, 'X' x 40000, 'response body');
+
+# unlimited
+
+($body, $t1, $t2) = get('/unlimited');
+
+is($t2 - $t1, 0, 'proxy_limit_rate unlimited');
+is($body, 'X' x 40000, 'response body unlimited');
 
 # in case keepalive connection was saved with the delayed flag,
 # the read timer used to be a delay timer in the next request

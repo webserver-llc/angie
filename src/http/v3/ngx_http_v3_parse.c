@@ -818,6 +818,7 @@ ngx_http_v3_parse_field_lri(ngx_connection_t *c,
 
             st->literal.length = st->pint.value;
             if (st->literal.length == 0) {
+                st->value.data = (u_char *) "";
                 goto done;
             }
 
@@ -940,6 +941,7 @@ ngx_http_v3_parse_field_l(ngx_connection_t *c,
 
             st->literal.length = st->pint.value;
             if (st->literal.length == 0) {
+                st->value.data = (u_char *) "";
                 goto done;
             }
 
@@ -1080,6 +1082,7 @@ ngx_http_v3_parse_field_lpbi(ngx_connection_t *c,
 
             st->literal.length = st->pint.value;
             if (st->literal.length == 0) {
+                st->value.data = (u_char *) "";
                 goto done;
             }
 

@@ -1,4 +1,13 @@
 
+Changes with Angie 1.5.2                                         31 May 2024
+
+    *) Security: when using HTTP/3, processing of a specially crafted QUIC
+       session could cause a worker process crash, worker process memory
+       disclosure on systems with MTU larger than 4096 bytes, or have other
+       impact (CVE-2024-32760, CVE-2024-31079, CVE-2024-35200,
+       CVE-2024-34161); the fix has been ported from nginx 1.26.1.
+
+
 Changes with Angie 1.5.1                                         16 May 2024
 
     *) Change: now ACME clients do not discard previously stored

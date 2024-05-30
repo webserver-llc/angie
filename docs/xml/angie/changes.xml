@@ -7,6 +7,23 @@
 
 <changes ver="1.5.2" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании HTTP/3 обработка специально созданной QUIC-сессии могла
+приводить к падению рабочего процесса, отправке клиенту содержимого памяти
+рабочего процесса на системах с MTU больше 4096 байт и иметь другие последствия
+(CVE-2024-32760, CVE-2024-31079, CVE-2024-35200, CVE-2024-34161);
+исправление портировано из nginx 1.26.1.
+</para>
+<para lang="en">
+when using HTTP/3, processing of a specially crafted QUIC session could
+cause a worker process crash, worker process memory disclosure on systems
+with MTU larger than 4096 bytes, or have other impact (CVE-2024-32760,
+CVE-2024-31079, CVE-2024-35200, CVE-2024-34161);
+the fix has been ported from nginx 1.26.1.
+</para>
+</change>
+
 </changes>
 
 

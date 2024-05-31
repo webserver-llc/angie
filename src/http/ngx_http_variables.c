@@ -953,9 +953,7 @@ ngx_http_variable_unknown_header(ngx_http_request_t *r,
     ngx_table_elt_t  *header, *h, **ph;
 
     ph = &h;
-#if (NGX_SUPPRESS_WARN)
     len = 0;
-#endif
 
     header = part->elts;
 

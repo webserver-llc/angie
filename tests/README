@@ -44,6 +44,10 @@ TEST_ANGIE_UNSAFE
 
     Run unsafe tests.
 
+TEST_ANGIE_VALGRIND
+
+    Run Angie under Valgrind during tests.
+
 TEST_ANGIE_GLOBALS
 
     Sets additional directives in main context.

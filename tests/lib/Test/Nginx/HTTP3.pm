@@ -1374,7 +1374,7 @@ sub parse_frames {
 	my $offset = 0;
 
 	while ($offset < length($buf)) {
-		my ($tlen, $type) = parse_int(substr($buf, $offset));
+		my ($tlen, $type) = parse_int(substr($buf, $offset, 8));
 		$offset += $tlen;
 		next if $type == 0;
 		my $frame = { type => $type };

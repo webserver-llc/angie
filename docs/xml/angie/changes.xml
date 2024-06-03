@@ -27,6 +27,19 @@ the statistics API now includes information on ACME clients.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка методов аутентификации XOAUTH2 и OAUTHBEARER
+в почтовом прокси-сервере.<br/>
+Спасибо Rob Mueller и Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+XOAUTH2 and OAUTHBEARER authentication mechanisms support
+in the mail proxy module.<br/>
+Thanks to Rob Mueller and Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 если ACME-клиент не использовался в блоке "stream" в директивах "acme",

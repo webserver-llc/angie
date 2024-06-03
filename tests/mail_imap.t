@@ -96,7 +96,7 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
-$t->run()->plan(31);
+$t->run()->plan(32);
 
 $t->waitforsocket('127.0.0.1:' . port(8144));
 
@@ -200,6 +200,23 @@ $s->read();
 
 $s->send('1 AUTHENTICATE EXTERNAL ' . encode_base64('test@example.com', ''));
 $s->ok('auth external with username');
+
+# auth external after failed plain
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.27.1');
+
+$s = Test::Nginx::IMAP->new();
+$s->read();
+
+$s->send('1 AUTHENTICATE PLAIN '
+	. encode_base64("\0test\@example.com\0bad", ''));
+$s->read();
+
+$s->send('1 AUTHENTICATE EXTERNAL ' . encode_base64('test@example.com', ''));
+$s->ok('auth external after plain');
+
+}
 
 # quoted strings
 

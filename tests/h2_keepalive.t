@@ -39,27 +39,30 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2 sndbuf=1m;
+        listen       127.0.0.1:8080 sndbuf=1m;
         server_name  localhost;
 
+        http2 on;
         keepalive_requests 2;
 
         location / { }
     }
 
     server {
-        listen       127.0.0.1:8081 http2;
+        listen       127.0.0.1:8081;
         server_name  localhost;
 
+        http2 on;
         keepalive_timeout 0;
 
         location / { }
     }
 
     server {
-        listen       127.0.0.1:8082 http2;
+        listen       127.0.0.1:8082;
         server_name  localhost;
 
+        http2 on;
         keepalive_time 1s;
 
         add_header X-Conn $connection_requests:$connection_time;
@@ -73,11 +76,7 @@ EOF
 $t->write_file('index.html', 'SEE-THAT' x 50000);
 $t->write_file('t.html', 'SEE-THAT');
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

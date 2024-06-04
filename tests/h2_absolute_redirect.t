@@ -36,10 +36,11 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    http2 on;
     absolute_redirect off;
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  on;
 
         absolute_redirect on;
@@ -75,7 +76,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  off;
 
         location / { }
@@ -107,11 +108,7 @@ EOF
 mkdir($t->testdir() . '/dir');
 mkdir($t->testdir() . '/dir sp');
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run()->plan(23);
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

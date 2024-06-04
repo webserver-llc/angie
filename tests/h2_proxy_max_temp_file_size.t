@@ -38,8 +38,10 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  localhost;
+
+        http2 on;
 
         proxy_buffer_size 4k;
         proxy_buffers 8 4k;
@@ -66,12 +68,7 @@ http {
 EOF
 
 $t->write_file('1', 'X' x (1024 * 1024));
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

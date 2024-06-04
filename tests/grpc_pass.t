@@ -63,9 +63,11 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 http2;
-        listen       127.0.0.1:8082 http2 ssl;
+        listen       127.0.0.1:8081;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
+
+        http2 on;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -98,11 +100,7 @@ foreach my $name ('localhost') {
 
 $t->run_daemon(\&dns_daemon, port(8982), $t);
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run()->plan(5);
-open STDERR, ">&", \*OLDERR;
 
 $t->waitforfile($t->testdir . '/' . port(8982));
 

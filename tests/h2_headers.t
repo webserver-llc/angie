@@ -37,11 +37,12 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         listen       127.0.0.1:8081;
-        listen       127.0.0.1:8082 http2 sndbuf=128;
+        listen       127.0.0.1:8082 sndbuf=128;
         server_name  localhost;
 
+        http2 on;
         large_client_header_buffers 2 64k;
 
         location / {
@@ -89,31 +90,35 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8084 http2;
+        listen       127.0.0.1:8084;
         server_name  localhost;
 
+        http2 on;
         large_client_header_buffers 4 512;
     }
 
     server {
-        listen       127.0.0.1:8085 http2;
+        listen       127.0.0.1:8085;
         server_name  localhost;
 
+        http2 on;
         large_client_header_buffers 1 512;
     }
 
     server {
-        listen       127.0.0.1:8086 http2;
+        listen       127.0.0.1:8086;
         server_name  localhost;
 
+        http2 on;
         underscores_in_headers on;
         add_header X-Sent-Foo $http_x_foo always;
     }
 
     server {
-        listen       127.0.0.1:8087 http2;
+        listen       127.0.0.1:8087;
         server_name  localhost;
 
+        http2 on;
         ignore_invalid_headers off;
         add_header X-Sent-Foo $http_x_foo always;
     }
@@ -123,11 +128,7 @@ EOF
 
 $t->run_daemon(\&http_daemon);
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 $t->waitforsocket('127.0.0.1:' . port(8083));
 

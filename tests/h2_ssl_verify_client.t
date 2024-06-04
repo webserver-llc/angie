@@ -38,6 +38,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    http2 on;
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
 
@@ -46,7 +47,7 @@ http {
     add_header X-Verify $ssl_client_verify;
 
     server {
-        listen       127.0.0.1:8080 ssl http2;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
         ssl_client_certificate client.crt;
@@ -55,7 +56,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080 ssl http2;
+        listen       127.0.0.1:8080 ssl;
         server_name  example.com;
 
         location / { }
@@ -84,9 +85,7 @@ foreach my $name ('localhost', 'client') {
 
 $t->write_file('t', 'SEE-THIS');
 
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 my $s = get_ssl_socket();
 plan(skip_all => 'no alpn') unless $s->alpn_selected();

@@ -297,14 +297,8 @@ $s->send('MAIL FROM:<test@example.com> FOO=' . ('X' x 90) . CRLF
 	. 'RSET');
 
 $s->read();
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.5');
-
 $s->ok('pipelined long rcpt to');
 $s->ok('pipelined long rset');
-
-}
 
 # Connection must stay even if error returned to rcpt to command
 

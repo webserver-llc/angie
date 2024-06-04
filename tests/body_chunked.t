@@ -179,9 +179,6 @@ like(
 	qr/ 200 /, 'chunk extensions'
 );
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.5');
-
 like(
 	http(
 		'GET /large HTTP/1.1' . CRLF
@@ -193,8 +190,6 @@ like(
 	),
 	qr/ 413 /, 'too many chunk extensions'
 );
-
-}
 
 like(
 	http(
@@ -208,9 +203,6 @@ like(
 	qr/ 200 /, 'trailers'
 );
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.5');
-
 like(
 	http(
 		'GET /large HTTP/1.1' . CRLF
@@ -222,8 +214,6 @@ like(
 	),
 	qr/ 413 /, 'too many trailers'
 );
-
-}
 
 # proxy_next_upstream
 

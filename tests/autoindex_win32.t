@@ -76,9 +76,6 @@ my $r = http_get('/');
 like($r, qr!href="test-file"!ms, 'file');
 like($r, qr!href="test-dir/"!ms, 'directory');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.4');
-
 like($r, qr!href="test-file-(%d0%bc%d0%b8){3}"!msi, 'utf file link');
 like($r, qr!test-file-(\xd0\xbc\xd0\xb8){3}</a>!ms, 'utf file name');
 
@@ -91,8 +88,6 @@ like($r, qr!Index of /test-dir-(\xd0\xbc\xd0\xb8){3}/!msi, 'utf subdir index');
 
 like($r, qr!href="test-subfile-(%d0%bc%d0%b8){3}"!msi, 'utf subdir link');
 like($r, qr!test-subfile-(\xd0\xbc\xd0\xb8){3}</a>!msi, 'utf subdir name');
-
-}
 
 ###############################################################################
 

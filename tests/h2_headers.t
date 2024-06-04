@@ -959,13 +959,8 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 isnt($frame->{headers}->{'x-referer'}, 'see-this', 'newline in request header');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.4');
-
-is($frame->{headers}->{':status'}, 400, 'newline in request header - bad request');
-
-}
+is($frame->{headers}->{':status'}, 400,
+	'newline in request header - bad request');
 
 # invalid header name as seen with underscore should not lead to ignoring rest
 
@@ -983,9 +978,6 @@ $frames = $s->read(all => [{ type => 'HEADERS' }]);
 is($frame->{headers}->{'x-referer'}, 'see-this', 'after invalid header name');
 
 # other invalid header name characters as seen with ':'
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.4');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [
@@ -1023,8 +1015,6 @@ $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 400, 'control in header name');
-
-}
 
 # header name with underscore - underscores_in_headers on
 

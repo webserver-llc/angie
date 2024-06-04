@@ -24,7 +24,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 socket_ssl_alpn/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -108,7 +109,7 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', '');
-$t->try_run('no http2')->plan(11);
+$t->try_run();
 
 ###############################################################################
 

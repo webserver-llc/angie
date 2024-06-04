@@ -91,10 +91,6 @@ like(http(CRLF . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 200 /,
 	'empty line ignored');
 like(http(LF . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 200 /,
 	'empty line with just LF ignored');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.5');
-
 like(http(CR . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 400 /,
 	'empty line with just CR rejected');
 like(http(CRLF . CRLF . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 400 /,
@@ -103,8 +99,6 @@ like(http(LF . LF . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 400 /,
 	'multiple LFs rejected');
 like(http(CR . CR . "GET / HTTP/1.0" . CRLF . CRLF), qr/ 400 /,
 	'multiple CRs rejected');
-
-}
 
 # method
 

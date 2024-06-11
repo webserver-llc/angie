@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) 2022 Web Server LLC
+# (C) 2022-2024 Web Server LLC
 
 # Tests for upstream module with sticky feature.
 
@@ -27,7 +27,7 @@ my $debug = 1; # set to 1 to enable
 
 my $t = Test::Nginx->new()->has(qw/http ssl proxy rewrite upstream_least_conn/)
 	->has(qw/upstream_ip_hash upstream_hash upstream_random/)
-	->has(qw/upstream_sticky/)->plan(109);
+	->has(qw/upstream_sticky/)->plan(115);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -259,6 +259,14 @@ http {
         sticky route $arg_route;
     }
 
+    upstream tc_13secret {
+        server 127.0.0.1:%%PORT_8081%% sid=a;
+        server 127.0.0.1:%%PORT_8082%% sid=bb;
+
+        sticky route $arg_route;
+        sticky_secret hidden$arg_secret;
+    }
+
     upstream tc_14 {
         server 127.0.0.1:%%PORT_8081%% down;
         server 127.0.0.1:%%PORT_8082%%;
@@ -428,6 +436,7 @@ http {
         location /tc_11 { proxy_pass http://tc_11; }
         location /tc_12 { proxy_pass http://tc_12; }
         location /tc_13 { proxy_pass http://tc_13; }
+        location /tc_13secret { proxy_pass http://tc_13secret; }
         location /tc_14 { proxy_pass http://tc_14; }
         location /tc_15 { proxy_pass http://tc_15; }
         location /tc_16 { proxy_pass http://tc_16; }
@@ -568,14 +577,16 @@ $t->waitforsocket('127.0.0.1:' . port(9085));
 ###############################################################################
 
 # prepare for testing: get sticky cookies for all backends
-
 my %bmap = collect_cookies("/backend_");
 my %smap = collect_cookies("/sbackend_", "foo=bazz");
 my %rmap = collect_cookies("/rbackend_");
 my %sslmap = collect_cookies("/sslbackend_");
 
-###############################################################################
+my %rs_map= ();
+$rs_map{B1} = '2d8ba3f2e6f2ce67dab723dcd0a5febd'; # f('a', 'secret_arg')
+$rs_map{B2} = 'bc98dccc7f3f72d40edc838eca39cb15'; # f('bb', 'secret_arg')
 
+###############################################################################
 tc1("rr regression");
 tc2("Sticky cookie basic with rr");
 tc3("Sticky cookie basic with least_conn");
@@ -589,6 +600,7 @@ tc10("Sticky with keepalive and LB (post)");
 tc11("Sticky cookie secret");
 tc12("Sticky cookie with route");
 tc13("Sticky route basic");
+tc13secret("Sticky route basic with secret");
 tc14("Sticky strict with rr");
 tc15("Sticky strict with hash");
 tc16("Sticky strict with ip_hash");
@@ -750,6 +762,14 @@ sub tc13 {
 
     verify_rr('/tc_13', 2, 4);
     verify_route_upstream("/tc_13", \%rmap);
+}
+
+# ensure backends are selected by $arg_route + secret
+sub tc13secret {
+    annotate(@_);
+
+    verify_rr('/tc_13secret', 2, 4);
+    verify_route_upstream("/tc_13secret", \%rs_map, "bar");
 }
 
 # testcases 14..18 - verify 'sticky strict' with various balancers
@@ -984,10 +1004,10 @@ sub verify_sticky_upstream {
 
 # verify that both backends in upstream are sticked via route
 sub verify_route_upstream {
-    my ($uri, $bmap) = @_;
+    my ($uri, $bmap, $secret) = @_;
 
-    verify_sticky_route($uri, $bmap->{"B2"}, "B2");
-    verify_sticky_route($uri, $bmap->{"B1"}, "B1");
+    verify_sticky_route($uri, $bmap->{"B2"}, "B2", $secret);
+    verify_sticky_route($uri, $bmap->{"B1"}, "B1", $secret);
 }
 
 
@@ -1015,7 +1035,7 @@ sub verify_sticky_cookie {
 # perform: send request to $uri 4 times with route for $backend
 # verify:  same backend is returned all times
 sub verify_sticky_route {
-    my ($uri, $route, $backend) = @_;
+    my ($uri, $route, $backend, $secret) = @_;
 
     my $n = 4;
     my %res;
@@ -1024,15 +1044,21 @@ sub verify_sticky_route {
     my $expected = ($backend) x $n;
     my $actual;
 
+    if (defined($secret)) {
+        $secret = "&secret=$secret";
+    } else {
+        $secret = '';
+    }
+
     for (1..$n) {
-        %res = get_sticky_reply($uri."?route=$route");
+        %res = get_sticky_reply($uri."?route=$route$secret");
         $actual .= $res{"backend"};
         if (defined($res{"cookie"})) {
             $cookies .= $res{"cookie"};
         }
     }
 
-    is($expected, $actual, "request to $uri and backend $backend is sticky");
+    is($actual, $expected, "request to $uri and backend $backend is sticky");
     is($cookies, "", "no cookies set in route mode");
 }
 

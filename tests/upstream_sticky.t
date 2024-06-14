@@ -17,6 +17,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT http_end /;
+use Test::Utils qw/ annotate /;
 
 ###############################################################################
 
@@ -902,17 +903,6 @@ sub tc25 {
 }
 
 ###############################################################################
-
-sub annotate {
-    my ($tc) = @_;
-
-    if ($debug != 1) {
-        return;
-    }
-
-    my $tname = (split(/::/, (caller(1))[3]))[1];
-    print("# ***  $tname: $tc \n");
-}
 
 # makes an HTTP request to passed $uri (with optional cookie)
 # returns hash with various response properties: backend, cookie, attrs, code

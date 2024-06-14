@@ -11,12 +11,13 @@ use strict;
 
 use parent qw/ Exporter /;
 use Test::More;
-use Test::Nginx qw/ http http_get /;
+use Test::Nginx qw/ http http_get port /;
 
 eval { require JSON; };
 plan(skip_all => "JSON is not installed") if $@;
 
-our @EXPORT_OK = qw/ get_json put_json delete_json patch_json /;
+our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
+	getconn /;
 
 sub _parse_response {
 	my $response = shift;
@@ -102,6 +103,27 @@ Content-Length: $clen
 
 $body
 EOF
+}
+
+sub annotate {
+	my ($tc) = @_;
+
+	my $tname = (split(/::/, (caller(1))[3]))[1];
+	note("# ***  $tname: $tc \n");
+}
+
+# opens connection to a specified host and port
+sub getconn {
+	my ($host, $port) = @_;
+
+	my $s = IO::Socket::INET->new(
+		Proto    => 'tcp',
+		PeerPort => $port // port(8080),
+		PeerHost => $host // '127.0.0.1'
+	)
+		or die "Can't connect to nginx: $!\n";
+
+	return $s;
 }
 
 1;

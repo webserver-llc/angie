@@ -13,6 +13,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/ getconn /;
 
 use IPC::Open3;
 
@@ -147,7 +148,7 @@ like(ntls_get($ps, '-cipher aRSA'), qr/^proto=TLSv(\d|\.)+,/m, 'NTLS on, RSA');
 
 like(ntls_get($ps, '-cipher aECDSA'), qr/^proto=TLSv(\d|\.)+,/m, 'NTLS on, ECDSA');
 
-like(http_get('/', socket => getconn('127.0.0.1:' . $px)), qr/^proto=NTLSv(\d|\.)+,cipher=ECC-SM2-SM4-CBC-SM3$/m,
+like(http_get('/', socket => getconn('127.0.0.1', $px)), qr/^proto=NTLSv(\d|\.)+,cipher=ECC-SM2-SM4-CBC-SM3$/m,
 	'NTLS proxy, ECC-SM2-SM4-CBC-SM3');
 
 
@@ -393,16 +394,5 @@ EOF
 
 	system("cat $d/${type}_sign.crt $d/${type}_enc.crt "
 		. ">$d/${type}_sign_enc.crt");
-}
-
-sub getconn {
-	my $peer = shift;
-	my $s = IO::Socket::INET->new(
-		Proto => 'tcp',
-		PeerAddr => $peer
-	)
-		or die "Can't connect to nginx: $!\n";
-
-	return $s;
 }
 

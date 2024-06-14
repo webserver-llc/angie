@@ -2,6 +2,7 @@ package Test::Nginx::Stream;
 
 # (C) Andrey Zelenkov
 # (C) Nginx, Inc.
+# (C) 2024 Web Server LLC
 
 # Module for nginx stream tests.
 
@@ -11,7 +12,7 @@ use warnings;
 use strict;
 
 use base qw/ Exporter /;
-our @EXPORT_OK = qw/ stream dgram /;
+our @EXPORT_OK = qw/ stream dgram sequential_daemon /;
 
 use Test::More qw//;
 use IO::Select;
@@ -167,6 +168,44 @@ sub socket {
 }
 
 ###############################################################################
+
+sub sequential_daemon {
+	my $port  = shift;
+	my $proto = shift // 'tcp';
+
+	my $server = IO::Socket::INET->new(
+		Proto     => $proto,
+		LocalAddr => '127.0.0.1',
+		LocalPort => $port,
+		Listen    => 5,
+		Reuse     => 1
+	)
+		or die "Can't create listening socket: $!\n";
+
+	local $SIG{PIPE} = 'IGNORE';
+
+	while (my $client = $server->accept()) {
+		$client->autoflush(1);
+
+		my $client_port = $client->sockport();
+		log2c("(new connection to $client_port)");
+
+		$client->sysread(my $buffer, 65536) or next;
+		log2i("|| << $client_port $buffer");
+
+		$buffer = $client->sockport();
+		log2o("|| >> $client_port $buffer");
+
+		$client->syswrite($buffer);
+
+		$client->shutdown(SHUT_WR);
+		log2c("(connection to $client_port closed)")
+	}
+}
+
+sub log2i { Test::Nginx::log_core('|| <<', @_); }
+sub log2o { Test::Nginx::log_core('|| >>', @_); }
+sub log2c { Test::Nginx::log_core('||', @_); }
 
 1;
 

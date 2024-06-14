@@ -25,8 +25,6 @@ select STDOUT; $| = 1;
 plan(skip_all => '127.0.0.3 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.3' );
 
-my $debug = 1; # set to 1 to enable
-
 my $t = Test::Nginx->new()
 	->has(qw/http proxy rewrite upstream_sticky/)->plan(24);
 
@@ -382,9 +380,7 @@ EOF
 sub collect_cookies {
 	my ($uri_template, $secret_arg) = @_;
 
-	if ($debug) {
-		print("# Backend cookies [$uri_template]:\n");
-	}
+	note("# Backend cookies [$uri_template]:\n");
 
 	my %backend_cookies;
 	for (1 .. 5) {
@@ -401,9 +397,8 @@ sub collect_cookies {
 		my $backend = $result{backend};
 		my $cookie  = $result{cookie};
 
-		if ($debug) {
-			print("#	$backend <=> $cookie\n");
-		}
+		note("#	$backend <=> $cookie\n");
+
 		$backend_cookies{$backend} = $cookie;
 	}
 

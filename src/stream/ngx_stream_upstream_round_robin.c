@@ -24,7 +24,7 @@ static ngx_inline ngx_int_t ngx_stream_upstream_set_round_robin_peer(
 static ngx_stream_upstream_rr_peer_t *ngx_stream_upstream_get_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp);
 static void ngx_stream_upstream_notify_round_robin_peer(
-    ngx_peer_connection_t *pc, void *data, ngx_uint_t state);
+    ngx_peer_connection_t *pc, void *data, ngx_uint_t type);
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
 static void ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
     ngx_stream_upstream_rr_peer_t *peer, ngx_uint_t state);

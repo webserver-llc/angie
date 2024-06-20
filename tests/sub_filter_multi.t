@@ -244,7 +244,7 @@ http {
         listen       127.0.0.1:8081;
 
         limit_rate 4;
-        limit_rate_after 160;
+        limit_rate_after 170;
 
         location / {
             return 200 $arg_a;

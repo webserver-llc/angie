@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -119,5 +120,7 @@ have=NGX_GROUP value="\"$NGX_GROUP\"" . auto/define
 if [ ".$NGX_BUILD" != "." ]; then
     have=NGX_BUILD value="\"$NGX_BUILD\"" . auto/define
 fi
+
+. auto/build_info
 
 . auto/summary

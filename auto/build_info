@@ -1,0 +1,46 @@
+
+# Copyright (C) 2024 Web Server LLC
+
+echo $ngx_n "collecting build environment information...$ngx_c"
+
+$CC -include $NGX_AUTO_CONFIG_H -E -dM - < /dev/null >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+cat <<EOF >> $NGX_MODULES_C
+void
+ngx_show_build_info()
+{
+    ngx_write_stderr("environment information was disabled during build\n");
+}
+EOF
+
+    echo "skipped, no support found in selected CC"
+
+else
+
+cat <<EOF >> $NGX_MODULES_C
+void
+ngx_show_build_info()
+{
+EOF
+
+$CC -include $NGX_AUTO_CONFIG_H -E -dM - < /dev/null                          \
+    | grep NGX                                                                \
+    | sed 's/#define //g;s/"/\\"/g;s/NGX_HAVE_//g;s/NGX_//g'                  \
+    | sort                                                                    \
+    | awk '
+    {
+        printf("    ngx_write_stderr(\"%s\" \": \"\"", $1);
+        for (i = 2; i <= NF; i++) {
+            printf("%s", $i);
+            if (i != NF && NF > 2) {
+                printf(" ");
+            }
+        }
+        printf("\"\"\\n\");\n");
+    }' >> $NGX_MODULES_C
+
+echo "}
+" >> $NGX_MODULES_C
+
+    echo " ok"
+fi

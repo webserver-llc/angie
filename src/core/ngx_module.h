@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Maxim Dounin
  * Copyright (C) Nginx, Inc.
@@ -292,5 +293,6 @@ extern ngx_uint_t     ngx_max_module;
 
 extern char          *ngx_module_names[];
 
+extern void ngx_show_build_info();
 
 #endif /* _NGX_MODULE_H_INCLUDED_ */

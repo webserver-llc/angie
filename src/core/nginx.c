@@ -186,6 +186,7 @@ static ngx_uint_t   ngx_show_help;
 static ngx_uint_t   ngx_show_version;
 static ngx_uint_t   ngx_show_configure;
 static ngx_uint_t   ngx_show_builtin_modules;
+static ngx_uint_t   ngx_show_build_env;
 static u_char      *ngx_prefix;
 static u_char      *ngx_error_log;
 static u_char      *ngx_conf_file;
@@ -230,6 +231,14 @@ main(int argc, char *const *argv)
 
     if (ngx_show_builtin_modules && !ngx_show_loaded_modules) {
         ngx_show_builtin_modules_info();
+
+        if (!ngx_test_config) {
+            return 0;
+        }
+    }
+
+    if (ngx_show_build_env) {
+        ngx_show_build_info();
 
         if (!ngx_test_config) {
             return 0;
@@ -449,6 +458,9 @@ ngx_show_version_info(void)
                                ")" NGX_LINEFEED
             "  -g directives : set global directives out of configuration "
                                "file" NGX_LINEFEED NGX_LINEFEED
+
+            "  --build-env   : show build environment and exit" NGX_LINEFEED
+                               NGX_LINEFEED
         );
     }
 
@@ -920,6 +932,11 @@ ngx_get_options(int argc, char *const *argv)
                     ngx_show_version = 1;
                     ngx_show_help = 1;
                     return NGX_OK;
+                }
+
+                if (ngx_strcmp(p, "build-env") == 0) {
+                    ngx_show_build_env = 1;
+                    goto next;
                 }
 
                 ngx_log_stderr(0, "invalid option: \"%s\"", argv[i]);

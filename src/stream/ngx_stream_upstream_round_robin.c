@@ -9,6 +9,9 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
+#if (NGX_STREAM_UPSTREAM_SID)
+#include <ngx_md5.h>
+#endif
 
 
 #define ngx_stream_upstream_tries(p) ((p)->tries                              \
@@ -353,6 +356,25 @@ ngx_stream_upstream_set_round_robin_peer(ngx_pool_t *pool,
 
         peer->server = server->name;
 
+#if (NGX_STREAM_UPSTREAM_SID)
+
+        if (peer->name.len == 0 && server->sid.len == 0) {
+            /* template peer without assigned ID */
+            peer->sid.len = 0;
+
+        } else if (server->sid.len) {
+            peer->sid = server->sid;
+
+        } else {
+            peer->sid.data = ngx_pnalloc(pool, NGX_STREAM_UPSTREAM_SID_LEN);
+            if (peer->sid.data == NULL) {
+                return NGX_ERROR;
+            }
+
+            ngx_stream_upstream_rr_peer_init_sid(peer);
+        }
+#endif
+
     } else {
         peer->weight = 1;
         peer->effective_weight = 1;
@@ -627,6 +649,9 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     pc->sockaddr = peer->sockaddr;
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
+#if (NGX_STREAM_UPSTREAM_SID)
+    pc->sid = peer->sid;
+#endif
 
     peer->conns++;
 
@@ -939,6 +964,26 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
 
     peer->stats.sent += c->sent;
     peer->stats.received += u->received;
+}
+
+#endif
+
+#if (NGX_STREAM_UPSTREAM_SID)
+
+void
+ngx_stream_upstream_rr_peer_init_sid(ngx_stream_upstream_rr_peer_t *peer)
+{
+    ngx_md5_t  md5;
+    u_char     hash[16];
+
+    /* generated server ID is the MD5 hash of a printable socket address */
+
+    ngx_md5_init(&md5);
+    ngx_md5_update(&md5, peer->name.data, peer->name.len);
+    ngx_md5_final(hash, &md5);
+
+    ngx_hex_dump(peer->sid.data, hash, 16);
+    peer->sid.len = NGX_STREAM_UPSTREAM_SID_LEN;
 }
 
 #endif

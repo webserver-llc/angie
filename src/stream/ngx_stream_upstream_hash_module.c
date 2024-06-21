@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -283,6 +283,9 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
     pc->sockaddr = peer->sockaddr;
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
+#if (NGX_STREAM_UPSTREAM_SID)
+    pc->sid = peer->sid;
+#endif
 
     peer->conns++;
 
@@ -694,6 +697,9 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
     pc->sockaddr = best->sockaddr;
     pc->socklen = best->socklen;
     pc->name = &best->name;
+#if (NGX_STREAM_UPSTREAM_SID)
+    pc->sid = best->sid;
+#endif
 
     best->conns++;
 

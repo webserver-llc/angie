@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -9,6 +9,12 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
+
+
+#if (NGX_STREAM_UPSTREAM_STICKY)
+static ngx_int_t ngx_stream_upstream_sticky_status_variable(
+    ngx_stream_session_t *s, ngx_stream_variable_value_t *v, uintptr_t data);
+#endif
 
 
 static ngx_int_t ngx_stream_upstream_add_variables(ngx_conf_t *cf);
@@ -123,6 +129,14 @@ static ngx_stream_variable_t  ngx_stream_upstream_vars[] = {
     { ngx_string("upstream_bytes_received"), NULL,
       ngx_stream_upstream_bytes_variable, 1,
       NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+#if (NGX_STREAM_UPSTREAM_STICKY)
+
+    { ngx_string("upstream_sticky_status"), NULL,
+      ngx_stream_upstream_sticky_status_variable, 0,
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+#endif
 
       ngx_stream_null_variable
 };
@@ -322,6 +336,79 @@ ngx_stream_upstream_response_time_variable(ngx_stream_session_t *s,
 }
 
 
+#if (NGX_STREAM_UPSTREAM_STICKY)
+
+static ngx_str_t  ngx_stream_upstream_sticky_status[4] = {
+    ngx_string(""),
+    ngx_string("NEW"),    /* NGX_STREAM_UPSTREAM_STICKY_STATUS_NEW */
+    ngx_string("HIT"),    /* NGX_STREAM_UPSTREAM_STICKY_STATUS_HIT */
+    ngx_string("MISS")    /* NGX_STREAM_UPSTREAM_STICKY_STATUS_MISS */
+};
+
+
+static ngx_int_t
+ngx_stream_upstream_sticky_status_variable(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    u_char                       *p;
+    size_t                        len;
+    ngx_uint_t                    i;
+    ngx_stream_upstream_state_t  *state;
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    if (s->upstream_states == NULL || s->upstream_states->nelts == 0) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    len = s->upstream_states->nelts * (sizeof("miss") - 1 + 2);
+
+    p = ngx_pnalloc(s->connection->pool, len);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->data = p;
+
+    i = 0;
+    state = s->upstream_states->elts;
+
+    for ( ;; ) {
+        p = ngx_sprintf(p, "%V",
+                   &ngx_stream_upstream_sticky_status[state[i].sticky_status]);
+
+        if (++i == s->upstream_states->nelts) {
+            break;
+        }
+
+        if (state[i].peer) {
+            *p++ = ',';
+            *p++ = ' ';
+
+        } else {
+            *p++ = ' ';
+            *p++ = ':';
+            *p++ = ' ';
+
+            if (++i == s->upstream_states->nelts) {
+                break;
+            }
+
+            continue;
+        }
+    }
+
+    v->len = p - v->data;
+
+    return NGX_OK;
+}
+
+#endif
+
+
 static char *
 ngx_stream_upstream(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 {
@@ -435,6 +522,9 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     time_t                         fail_timeout;
     ngx_str_t                     *value, s;
+#if (NGX_STREAM_UPSTREAM_SID)
+    ngx_str_t                      sid;
+#endif
     ngx_url_t                      u;
     ngx_int_t                      weight, max_conns, max_fails;
     ngx_uint_t                     i;
@@ -460,6 +550,9 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     slow_start = 0;
 #if (NGX_STREAM_UPSTREAM_ZONE)
     resolve = 0;
+#endif
+#if (NGX_STREAM_UPSTREAM_SID)
+    sid.len = 0;
 #endif
 
     for (i = 2; i < cf->args->nelts; i++) {
@@ -587,6 +680,36 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 #endif
 
+#if (NGX_STREAM_UPSTREAM_SID)
+
+        if (ngx_strncmp(value[i].data, "sid=", 4) == 0) {
+
+            value[i].len -= 4;
+            value[i].data += 4;
+
+            if (value[i].len == 0) {
+                goto invalid;
+            }
+
+            sid.len = value[i].len;
+
+            if (sid.len > NGX_STREAM_UPSTREAM_SID_LEN) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "sid is too long");
+                return NGX_CONF_ERROR;
+            }
+
+            sid.data = ngx_pnalloc(cf->pool, sid.len);
+            if (sid.data == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            ngx_memcpy(sid.data, value[i].data, sid.len);
+
+            continue;
+        }
+
+#endif
+
         goto invalid;
     }
 
@@ -690,6 +813,9 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     us->max_fails = max_fails;
     us->fail_timeout = fail_timeout;
     us->slow_start = slow_start;
+#if (NGX_STREAM_UPSTREAM_SID)
+    us->sid = sid;
+#endif
 
     return NGX_CONF_OK;
 

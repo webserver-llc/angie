@@ -137,6 +137,7 @@ STREAM_UPSTREAM_HASH=YES
 STREAM_UPSTREAM_LEAST_CONN=YES
 STREAM_UPSTREAM_RANDOM=YES
 STREAM_UPSTREAM_ZONE=YES
+STREAM_UPSTREAM_STICKY=YES
 STREAM_SSL_PREREAD=NO
 STREAM_MQTT_PREREAD=NO
 
@@ -364,6 +365,8 @@ use the \"--with-mail_ssl_module\" option instead"
                                          STREAM_UPSTREAM_RANDOM=NO  ;;
         --without-stream_upstream_zone_module)
                                          STREAM_UPSTREAM_ZONE=NO    ;;
+        --without-stream_upstream_sticky_module)
+                                         STREAM_UPSTREAM_STICKY=NO  ;;
 
         --with-google_perftools_module)  NGX_GOOGLE_PERFTOOLS=YES   ;;
         --with-cpp_test_module)          NGX_CPP_TEST=YES           ;;
@@ -593,6 +596,8 @@ cat << END
                                      disable ngx_stream_upstream_random_module
   --without-stream_upstream_zone_module
                                      disable ngx_stream_upstream_zone_module
+  --without-stream_upstream_sticky_module
+                                     disable ngx_stream_upstream_sticky_module
 
   --with-google_perftools_module     enable ngx_google_perftools_module
   --with-cpp_test_module             enable ngx_cpp_test_module

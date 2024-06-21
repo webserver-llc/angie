@@ -7,6 +7,19 @@
 
 <changes ver="1.6.0" date="">
 
+<change type="feature">
+<para lang="ru">
+директива "sticky" и сопутствующие настройки в блоке "upstream" stream-модуля,
+позволяющие задать режим привязки сессий, при котором все запросы в рамках
+сессии будут направляться на один и тот же сервер.
+</para>
+<para lang="en">
+the "sticky" directive and related options in the stream module "upstream"
+block, that allow to configure sticky sessions mode, where all requests of
+the session are routed to the same server.
+</para>
+</change>
+
 </changes>
 
 

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -2079,6 +2079,9 @@ ngx_stream_proxy_next_upstream(ngx_stream_session_t *s)
     if (u->peer.sockaddr) {
         u->peer.free(&u->peer, u->peer.data, NGX_PEER_FAILED);
         u->peer.sockaddr = NULL;
+#if (NGX_STREAM_UPSTREAM_SID)
+        u->peer.sid.len = 0;
+#endif
     }
 
     pscf = ngx_stream_get_module_srv_conf(s, ngx_stream_proxy_module);
@@ -2162,6 +2165,9 @@ ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc)
 
         u->peer.free(&u->peer, u->peer.data, state);
         u->peer.sockaddr = NULL;
+#if (NGX_STREAM_UPSTREAM_SID)
+        u->peer.sid.len = 0;
+#endif
     }
 
     if (pc) {

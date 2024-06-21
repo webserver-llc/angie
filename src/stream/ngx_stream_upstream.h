@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -29,6 +29,11 @@
 
 #define NGX_STREAM_UPSTREAM_NOTIFY_CONNECT     0x1
 
+/* zero indicates no sticky */
+#define NGX_STREAM_UPSTREAM_STICKY_STATUS_NEW  1
+#define NGX_STREAM_UPSTREAM_STICKY_STATUS_HIT  2
+#define NGX_STREAM_UPSTREAM_STICKY_STATUS_MISS 3
+
 
 typedef struct {
     ngx_array_t                        upstreams;
@@ -54,6 +59,9 @@ typedef struct {
 
 typedef struct {
     ngx_str_t                          name;
+#if (NGX_STREAM_UPSTREAM_SID)
+    ngx_str_t                          sid;
+#endif
     ngx_addr_t                        *addrs;
     ngx_uint_t                         naddrs;
     ngx_uint_t                         weight;
@@ -104,6 +112,9 @@ typedef struct {
     ngx_msec_t                         first_byte_time;
     off_t                              bytes_sent;
     off_t                              bytes_received;
+#if (NGX_STREAM_UPSTREAM_STICKY)
+    ngx_uint_t                         sticky_status;
+#endif
 
     ngx_str_t                         *peer;
 } ngx_stream_upstream_state_t;

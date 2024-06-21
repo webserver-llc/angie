@@ -62,6 +62,10 @@ static ngx_int_t ngx_api_stream_upstream_peer_downstart_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 static ngx_int_t ngx_api_stream_upstream_peer_selected_last_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+#if (NGX_STREAM_UPSTREAM_SID)
+static ngx_int_t ngx_api_stream_upstream_peer_sid_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+#endif
 
 #endif
 
@@ -213,6 +217,13 @@ static ngx_api_entry_t  ngx_api_stream_upstream_peer_entries[] = {
         .handler   = ngx_api_object_handler,
         .data.ents = ngx_api_stream_upstream_peer_health_entries
     },
+
+#if (NGX_STREAM_UPSTREAM_SID)
+    {
+        .name      = ngx_string("sid"),
+        .handler   = ngx_api_stream_upstream_peer_sid_handler,
+    },
+#endif
 
 #if (NGX_DEBUG)
     {
@@ -581,6 +592,9 @@ ngx_stream_upstream_zone_copy_peer(ngx_stream_upstream_rr_peers_t *peers,
         dst->name.data = NULL;
         dst->server.data = NULL;
         dst->host = NULL;
+#if (NGX_STREAM_UPSTREAM_SID)
+        dst->sid.data = NULL;
+#endif
     }
 
     dst->sockaddr = ngx_slab_calloc_locked(pool, sizeof(ngx_sockaddr_t));
@@ -596,6 +610,18 @@ ngx_stream_upstream_zone_copy_peer(ngx_stream_upstream_rr_peers_t *peers,
     if (src) {
         ngx_memcpy(dst->sockaddr, src->sockaddr, src->socklen);
         ngx_memcpy(dst->name.data, src->name.data, src->name.len);
+
+#if (NGX_STREAM_UPSTREAM_SID)
+        if (src->sid.len) {
+            dst->sid.data = ngx_slab_alloc_locked(pool,
+                                                  NGX_STREAM_UPSTREAM_SID_LEN);
+            if (dst->sid.data == NULL) {
+                goto failed;
+            }
+
+            ngx_memcpy(dst->sid.data, src->sid.data, src->sid.len);
+        }
+#endif
 
         dst->server.data = ngx_slab_alloc_locked(pool, src->server.len);
         if (dst->server.data == NULL) {
@@ -653,6 +679,12 @@ failed:
     if (dst->server.data) {
         ngx_slab_free_locked(pool, dst->server.data);
     }
+
+#if (NGX_STREAM_UPSTREAM_SID)
+    if (dst->sid.data) {
+        ngx_slab_free_locked(pool, dst->sid.data);
+    }
+#endif
 
     if (dst->name.data) {
         ngx_slab_free_locked(pool, dst->name.data);
@@ -806,6 +838,22 @@ ngx_stream_upstream_zone_new_peer(ngx_stream_upstream_rr_peers_t *peers,
     peer->fail_timeout = template->fail_timeout;
     peer->down = template->down;
     peer->slow_start = template->slow_start;
+
+#if (NGX_STREAM_UPSTREAM_SID)
+    if (template->sid.len) {
+        peer->sid = template->sid;
+
+    } else {
+        peer->sid.data = ngx_slab_alloc(peers->shpool,
+                                        NGX_STREAM_UPSTREAM_SID_LEN);
+        if (peer->sid.data == NULL) {
+            ngx_stream_upstream_rr_peer_free(peers, peer);
+            return NULL;
+        }
+
+        ngx_stream_upstream_rr_peer_init_sid(peer);
+    }
+#endif
 
     return peer;
 }
@@ -1120,6 +1168,25 @@ ngx_api_stream_upstream_peer_selected_last_handler(ngx_api_entry_data_t data,
 
     return ngx_api_time_handler(data, actx, ctx);
 }
+
+#if (NGX_STREAM_UPSTREAM_SID)
+
+static ngx_int_t
+ngx_api_stream_upstream_peer_sid_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_stream_upstream_rr_peer_t *peer = ctx;
+
+    if (peer->sid.len) {
+        data.str = &peer->sid;
+
+        return ngx_api_string_handler(data, actx, ctx);
+    }
+
+    return NGX_DECLINED;
+}
+
+#endif
 
 #endif
 

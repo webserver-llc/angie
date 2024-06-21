@@ -15,6 +15,9 @@
 #include <ngx_stream.h>
 
 
+#define NGX_STREAM_UPSTREAM_SID_LEN   32
+
+
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
 
 typedef struct {
@@ -73,6 +76,10 @@ struct ngx_stream_upstream_rr_peer_s {
     ngx_msec_t                       slow_time;
 
     ngx_uint_t                       down;
+
+#if (NGX_STREAM_UPSTREAM_SID)
+    ngx_str_t                        sid;
+#endif
 
     void                            *ssl_session;
     int                              ssl_session_len;
@@ -185,6 +192,16 @@ ngx_stream_upstream_rr_peer_free_locked(ngx_stream_upstream_rr_peers_t *peers,
         ngx_slab_free_locked(peers->shpool, peer->server.data);
     }
 
+#if (NGX_STREAM_UPSTREAM_SID)
+    if (peer->sid.data
+        && (peer->host == NULL
+            || peer->host->peer == peer
+            || peer->host->peer->sid.len == 0))
+    {
+        ngx_slab_free_locked(peers->shpool, peer->sid.data);
+    }
+#endif
+
 #if (NGX_STREAM_SSL)
     if (peer->ssl_session) {
         ngx_slab_free_locked(peers->shpool, peer->ssl_session);
@@ -259,6 +276,10 @@ ngx_int_t ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc,
     void *data);
 void ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t state);
+
+#if (NGX_STREAM_UPSTREAM_SID)
+void ngx_stream_upstream_rr_peer_init_sid(ngx_stream_upstream_rr_peer_t *peer);
+#endif
 
 
 static ngx_inline ngx_uint_t

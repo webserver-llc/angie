@@ -17,6 +17,7 @@ static ngx_int_t ngx_init_zone_pool(ngx_cycle_t *cycle,
 static ngx_int_t ngx_test_lockfile(u_char *file, ngx_log_t *log);
 static void ngx_clean_old_cycles(ngx_event_t *ev);
 static void ngx_shutdown_timer_handler(ngx_event_t *ev);
+static void ngx_show_loaded_modules_info(ngx_cycle_t *cycle);
 
 
 volatile ngx_cycle_t  *ngx_cycle;
@@ -29,6 +30,7 @@ static ngx_event_t     ngx_shutdown_event;
 ngx_uint_t             ngx_test_config;
 ngx_uint_t             ngx_dump_config;
 ngx_uint_t             ngx_quiet_mode;
+ngx_uint_t             ngx_show_loaded_modules;
 
 
 /* STUB NAME */
@@ -293,6 +295,13 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         environ = senv;
         ngx_destroy_cycle_pools(&conf);
         return NULL;
+    }
+
+    if (ngx_show_loaded_modules) {
+        ngx_show_loaded_modules_info(cycle);
+        if (!ngx_test_config) {
+            exit(0);
+        }
     }
 
     if (ngx_test_config && !ngx_quiet_mode) {
@@ -1487,5 +1496,17 @@ ngx_shutdown_timer_handler(ngx_event_t *ev)
         c[i].error = 1;
 
         c[i].read->handler(c[i].read);
+    }
+}
+
+
+static void
+ngx_show_loaded_modules_info(ngx_cycle_t *cycle)
+{
+    ngx_uint_t  i;
+
+    for (i = 0; i < cycle->modules_n; i++) {
+        ngx_write_stderr(cycle->modules[i]->name);
+        ngx_write_stderr(NGX_LINEFEED);
     }
 }

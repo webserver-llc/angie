@@ -20,6 +20,17 @@ the session are routed to the same server.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+ключи командной строки "-m" и "-M" для отображения списка встроенных
+и загруженных модулей.
+</para>
+<para lang="en">
+command line options "-m" and "-M" to display list of built-in and loaded
+modules.
+</para>
+</change>
+
 </changes>
 
 

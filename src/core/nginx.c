@@ -12,6 +12,7 @@
 
 
 static void ngx_show_version_info(void);
+static void ngx_show_builtin_modules_info();
 static ngx_int_t ngx_add_inherited_sockets(ngx_cycle_t *cycle);
 static void ngx_cleanup_environment(void *data);
 static void ngx_cleanup_environment_variable(void *data);
@@ -184,6 +185,7 @@ ngx_module_t  ngx_core_module = {
 static ngx_uint_t   ngx_show_help;
 static ngx_uint_t   ngx_show_version;
 static ngx_uint_t   ngx_show_configure;
+static ngx_uint_t   ngx_show_builtin_modules;
 static u_char      *ngx_prefix;
 static u_char      *ngx_error_log;
 static u_char      *ngx_conf_file;
@@ -220,6 +222,14 @@ main(int argc, char *const *argv)
 
     if (ngx_show_version) {
         ngx_show_version_info();
+
+        if (!ngx_test_config) {
+            return 0;
+        }
+    }
+
+    if (ngx_show_builtin_modules && !ngx_show_loaded_modules) {
+        ngx_show_builtin_modules_info();
 
         if (!ngx_test_config) {
             return 0;
@@ -405,13 +415,16 @@ ngx_show_version_info(void)
     if (ngx_show_help) {
         ngx_write_stderr(NGX_LINEFEED);
         ngx_write_stderr(
-            "Usage: angie [-?hvVtTq] [-s signal] [-p prefix]" NGX_LINEFEED
+            "Usage: angie [-?hvVtTqmM] [-s signal] [-p prefix]" NGX_LINEFEED
             "             [-e filename] [-c filename] [-g directives]"
                           NGX_LINEFEED NGX_LINEFEED
             "Options:" NGX_LINEFEED
             "  -?,-h,--help  : this help" NGX_LINEFEED
             "  -v            : show version and exit" NGX_LINEFEED
             "  -V            : show version and configure options then exit"
+                               NGX_LINEFEED
+            "  -m            : show built-in modules and exit" NGX_LINEFEED
+            "  -M            : show built-in and loaded modules then exit"
                                NGX_LINEFEED
             "  -t            : test configuration and exit" NGX_LINEFEED
             "  -T            : test configuration, dump it and exit"
@@ -463,6 +476,18 @@ ngx_show_version_info(void)
 #endif
 
         ngx_write_stderr("configure arguments:" NGX_CONFIGURE NGX_LINEFEED);
+    }
+}
+
+
+static void
+ngx_show_builtin_modules_info()
+{
+    ngx_uint_t  i;
+
+    for (i = 0; ngx_modules[i]; i++) {
+        ngx_write_stderr(ngx_module_names[i]);
+        ngx_write_stderr(NGX_LINEFEED);
     }
 }
 
@@ -915,6 +940,14 @@ ngx_get_options(int argc, char *const *argv)
                 ngx_show_configure = 1;
                 break;
 
+            case 'm':
+                ngx_show_builtin_modules = 1;
+                break;
+
+            case 'M':
+                ngx_show_loaded_modules = 1;
+                break;
+
             case 't':
                 ngx_test_config = 1;
                 break;
@@ -1029,6 +1062,7 @@ invalid_option:
 
     ngx_show_help = 1;
     ngx_show_version = 0;
+    ngx_show_configure = 0;
 
     ngx_show_version_info();
 

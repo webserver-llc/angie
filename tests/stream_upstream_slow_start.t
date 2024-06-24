@@ -84,12 +84,12 @@ is($r->{state}, "up", "backend 1 is good on start");
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "up", "backend 2 is good on start");
 
-is(many(30, port(8090)), "$p1: 20, $p2: 10", 'weighted');
+is_deeply(many(30, port(8090)), {$p1 => 20, $p2 => 10}, 'weighted');
 
 # fail the peer
 $t->stop_daemons();
 
-is(many(30, port(8090)), "", 'down');
+is_deeply(many(30, port(8090)), {}, 'down');
 
 # ensure it is now unavailable
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p1");
@@ -115,7 +115,7 @@ is($r->{state}, "recovering", "backend 1 is recovering");
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "up", "backend 2 is up");
 
-is(many(30, port(8090)), "$p2: 30", 'p2 only');
+is_deeply(many(30, port(8090)), {$p2 => 30}, 'p2 only');
 
 # let the slow start to complete
 select undef, undef, undef, 3;
@@ -123,7 +123,7 @@ select undef, undef, undef, 3;
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p1");
 is($r->{state}, "up", "backend 1 is up again");
 
-is(many(30, port(8090)), "$p1: 20, $p2: 10", 'weighted again');
+is_deeply(many(30, port(8090)), {$p1 => 20, $p2 => 10}, 'weighted again');
 
 ###############################################################################
 
@@ -139,6 +139,6 @@ sub many {
 		}
 	}
 
-	return join ', ', map { $_ . ": " . $ports{$_} } sort keys %ports;
+	return \%ports;
 }
 

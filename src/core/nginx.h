@@ -9,8 +9,8 @@
 #define _NGINX_H_INCLUDED_
 
 
-#define nginx_version      1025004
-#define NGINX_VERSION      "1.25.4"
+#define nginx_version      1027000
+#define NGINX_VERSION      "1.27.0"
 #define NGINX_VER          "nginx/" NGINX_VERSION
 
 #ifdef NGX_BUILD

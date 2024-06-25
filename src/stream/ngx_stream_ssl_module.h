@@ -19,10 +19,10 @@ typedef struct {
     ngx_msec_t       handshake_timeout;
 
     ngx_flag_t       prefer_server_ciphers;
+    ngx_flag_t       reject_handshake;
 
     ngx_ssl_t        ssl;
 
-    ngx_uint_t       listen;
     ngx_uint_t       protocols;
 
     ngx_uint_t       verify;
@@ -62,7 +62,7 @@ typedef struct {
     ngx_flag_t       ntls;
 #endif
 
-} ngx_stream_ssl_conf_t;
+} ngx_stream_ssl_srv_conf_t;
 
 
 extern ngx_module_t  ngx_stream_ssl_module;
@@ -71,7 +71,7 @@ extern ngx_module_t  ngx_stream_ssl_module;
 char *ngx_stream_ssl_certificate_slot(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 ngx_int_t ngx_stream_ssl_compile_certificates(ngx_conf_t *cf,
-    ngx_stream_ssl_conf_t *conf);
+    ngx_stream_ssl_srv_conf_t *conf);
 #endif
 
 #endif /* _NGX_STREAM_SSL_H_INCLUDED_ */

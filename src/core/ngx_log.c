@@ -76,8 +76,9 @@ struct ngx_log_filter_s {
 
 static u_char *ngx_log_create_message(ngx_log_t *log, ngx_log_params_t *lp,
     const char *fmt, va_list args);
+static ngx_int_t ngx_log_check_rate(ngx_log_t *log, ngx_uint_t level);
 static char *ngx_error_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log);
+static char *ngx_log_set_params(ngx_conf_t *cf, ngx_log_t *log);
 static void ngx_log_insert(ngx_log_t *log, ngx_log_t *new_log);
 
 static char *ngx_log_add_filter(ngx_conf_t *cf, ngx_log_t *log,
@@ -331,6 +332,12 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, const char *filename,
             goto next;
         }
 
+        if (log->limit && !debug_connection) {
+            if (ngx_log_check_rate(log, level) == NGX_BUSY) {
+                goto next;
+            }
+        }
+
         if (log->writer) {
             log->writer(log, level, errstr, p - errstr);
             goto next;
@@ -454,6 +461,69 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
     }
 
     return buf;
+}
+
+
+static ngx_int_t
+ngx_log_check_rate(ngx_log_t *log, ngx_uint_t level)
+{
+    ngx_log_t          temp_log;
+    ngx_int_t          excess, changed, burst;
+    ngx_atomic_int_t   ms;
+    ngx_atomic_uint_t  now, last;
+
+    now = ngx_current_msec;
+
+    last = log->limit->last;
+    excess = log->limit->excess;
+
+    ms = (ngx_atomic_int_t) (now - last);
+
+    if (ms < -60000) {
+        ms = 1;
+
+    } else if (ms < 0) {
+        ms = 0;
+    }
+
+    changed = excess - log->limit->rate * ms / 1000 + 1000;
+
+    if (changed < 0) {
+        changed = 0;
+    }
+
+    burst = (log->log_level - level + 1) * log->limit->rate;
+
+    if (changed > burst) {
+        if (excess <= burst) {
+
+            ngx_atomic_fetch_add(&log->limit->excess, 1000);
+
+            /* log message to this log only */
+
+            temp_log = *log;
+            temp_log.connection = 0;
+            temp_log.handler = NULL;
+            temp_log.limit = NULL;
+            temp_log.next = NULL;
+
+            ngx_log_error(level, &temp_log, 0,
+                          "too many log messages, limiting");
+        }
+
+        return NGX_BUSY;
+    }
+
+    if (ms > 0
+        && ngx_atomic_cmp_set(&log->limit->last, last, now))
+    {
+        ngx_atomic_fetch_add(&log->limit->excess, changed - excess);
+
+    } else {
+        ngx_atomic_fetch_add(&log->limit->excess, 1000);
+    }
+
+    return NGX_OK;
 }
 
 
@@ -759,7 +829,7 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
         }
     }
 
-    rv = ngx_log_set_levels(cf, new_log);
+    rv = ngx_log_set_params(cf, new_log);
 
     if (rv != NGX_CONF_OK) {
         return rv;
@@ -788,15 +858,18 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
 
 
 static char *
-ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log)
+ngx_log_set_params(ngx_conf_t *cf, ngx_log_t *log)
 {
     char        *rv;
+    size_t       len;
+    ngx_int_t    rate;
     ngx_uint_t   i, n, d, level_set;
     ngx_str_t   *value;
 
     value = cf->args->elts;
 
     level_set = 0;
+    rate = 1000;
 
     for (i = 2; i < cf->args->nelts; i++) {
 
@@ -847,8 +920,33 @@ ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log)
             }
         }
 
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "invalid log level \"%V\"", &value[i]);
+        if (ngx_strncmp(value[i].data, "rate=", 5) == 0) {
+
+            len = value[i].len;
+
+            if (ngx_strncmp(value[i].data + len - 3, "m/s", 3) == 0) {
+                len -= 3;
+            }
+
+            rate = ngx_atoi(value[i].data + 5, len - 5);
+            if (rate < 0) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "invalid rate \"%V\"", &value[i]);
+                return NGX_CONF_ERROR;
+            }
+
+            continue;
+        }
+
+        if (log->log_level) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "invalid parameter \"%V\"", &value[i]);
+
+        } else {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "invalid log level \"%V\"", &value[i]);
+        }
+
         return NGX_CONF_ERROR;
 
     next:
@@ -862,6 +960,17 @@ ngx_log_set_levels(ngx_conf_t *cf, ngx_log_t *log)
 
     if (!level_set) {
         log->log_level = NGX_LOG_ERR;
+    }
+
+    if (rate > 0
+        && log->log_level < NGX_LOG_DEBUG)
+    {
+        log->limit = ngx_pcalloc(cf->pool, sizeof(ngx_log_limit_t));
+        if (log->limit == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        log->limit->rate = rate * 1000;
     }
 
     return NGX_CONF_OK;

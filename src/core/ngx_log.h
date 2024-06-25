@@ -94,6 +94,13 @@ typedef void (*ngx_log_writer_pt) (ngx_log_t *log, ngx_uint_t level,
     u_char *buf, size_t len);
 
 
+typedef struct {
+    ngx_uint_t           rate;
+    ngx_atomic_t         excess;
+    ngx_atomic_t         last;
+} ngx_log_limit_t;
+
+
 struct ngx_log_s {
     ngx_uint_t           log_level;
     ngx_open_file_t     *file;
@@ -113,6 +120,8 @@ struct ngx_log_s {
      */
 
     char                *action;
+
+    ngx_log_limit_t     *limit;
 
     ngx_log_t           *next;
 

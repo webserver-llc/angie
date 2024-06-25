@@ -210,6 +210,7 @@ struct ngx_connection_s {
 #define ngx_set_connection_log(c, l)                                         \
                                                                              \
     c->log->file = l->file;                                                  \
+    c->log->limit = l->limit;                                                \
     c->log->next = l->next;                                                  \
     c->log->writer = l->writer;                                              \
     c->log->wdata = l->wdata;                                                \

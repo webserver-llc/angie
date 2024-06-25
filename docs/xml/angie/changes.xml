@@ -70,6 +70,23 @@ the key was truncated.
 
 <change type="feature">
 <para lang="ru">
+теперь максимальная частота логгирования ошибок может быть ограничена
+с помощью параметра rate директивы error_log;
+по умолчанию используется ограничение в 1000 сообщений в секунду.
+<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+now maximum error logging rate can be limited
+with the "rate" parameter of the "error_log" directive;
+by default the limit is 1000 messages per second.
+<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 улучшена совместимость с ACME-серверами, не полностью соответствующими
 спецификации протокола, в частности с SSL.com.
 </para>

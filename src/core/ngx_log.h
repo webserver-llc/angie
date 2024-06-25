@@ -100,8 +100,6 @@ struct ngx_log_s {
 
     ngx_atomic_uint_t    connection;
 
-    time_t               disk_full_time;
-
     ngx_log_handler_pt   handler;
     void                *data;
 

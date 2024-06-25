@@ -91,6 +91,8 @@ struct ngx_open_file_s {
     ngx_fd_t              fd;
     ngx_str_t             name;
 
+    time_t                disk_full_time;
+
     void                (*flush)(ngx_open_file_t *file, ngx_log_t *log);
     void                 *data;
 };

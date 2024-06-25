@@ -1007,6 +1007,7 @@ ngx_conf_open_file(ngx_cycle_t *cycle, ngx_str_t *name)
         file->name = *name;
     }
 
+    file->disk_full_time = 0;
     file->flush = NULL;
     file->data = NULL;
 

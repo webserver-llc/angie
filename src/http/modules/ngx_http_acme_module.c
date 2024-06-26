@@ -122,7 +122,6 @@ typedef struct ngx_http_acme_srv_conf_s    ngx_http_acme_srv_conf_t;
 typedef struct ngx_http_acme_session_s     ngx_http_acme_session_t;
 typedef struct ngx_http_acme_sh_keyauth_s  ngx_http_acme_sh_keyauth_t;
 typedef struct ngx_http_acme_sh_cert_s     ngx_http_acme_sh_cert_t;
-typedef struct ngx_http_acme_sh_key_s      ngx_http_acme_sh_key_t;
 
 
 struct ngx_acme_client_s {
@@ -142,15 +141,14 @@ struct ngx_acme_client_s {
     time_t                      expiry_time;
     time_t                      renew_time;
     size_t                      max_cert_size;
-    size_t                      max_cert_key_size;
     ngx_uint_t                  ssl;
     ngx_acme_privkey_t          account_key;
     ngx_acme_privkey_t          private_key;
+    u_char                     *private_key_data;
     ngx_file_t                  certificate_file;
     size_t                      certificate_file_size;
     ngx_http_acme_session_t    *session;
     ngx_http_acme_sh_cert_t    *sh_cert;
-    ngx_http_acme_sh_key_t     *sh_cert_key;
 };
 
 
@@ -160,6 +158,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_acme_client_t          *current;
     /* event ident must be after 3 pointers as in ngx_connection_t */
     ngx_int_t                   dummy;
+    ngx_pool_t                 *pool;
     ngx_log_t                   log;
     ngx_http_log_ctx_t          log_ctx;
     ngx_array_t                 clients;
@@ -292,13 +291,10 @@ static ngx_int_t ngx_http_acme_init_worker(ngx_cycle_t *cycle);
 static void ngx_http_acme_dummy_cleanup(void *data);
 static void *ngx_http_acme_get_ctx(ngx_http_request_t *r);
 static ngx_int_t ngx_http_acme_set_ctx(ngx_http_request_t *r, void *data);
-static ngx_int_t ngx_http_acme_init_accounts(ngx_http_acme_main_conf_t *amcf);
-static ngx_int_t ngx_http_acme_account_init(ngx_acme_client_t *cli,
-     u_char **shmem);
 static ngx_int_t ngx_http_acme_file_load(ngx_log_t *log,
     ngx_file_t *open_file, u_char *buf, size_t size);
-static ngx_int_t ngx_http_acme_key_init(ngx_acme_client_t *cli,
-    ngx_acme_privkey_t *key);
+static ngx_int_t ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
+    ngx_str_t *filename, ngx_acme_privkey_t *key);
 static ngx_int_t ngx_http_acme_key_gen(ngx_acme_client_t *cli,
     ngx_acme_privkey_t *key);
 static ngx_int_t ngx_http_acme_key_load(ngx_acme_client_t *cli,
@@ -1197,161 +1193,6 @@ failed:
 
 
 static ngx_int_t
-ngx_http_acme_init_accounts(ngx_http_acme_main_conf_t *amcf)
-{
-    size_t              len;
-    u_char             *p;
-    ngx_uint_t          i;
-    ngx_acme_client_t  *cli;
-
-    p = (u_char *) amcf->sh;
-    len = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
-
-    ngx_memzero(p, len);
-    p += len;
-
-    for (i = 0; i < amcf->clients.nelts; i++) {
-
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
-
-        if (!cli->enabled) {
-            continue;
-        }
-
-        if (ngx_http_acme_account_init(cli, &p) != NGX_OK) {
-            return NGX_ERROR;
-        }
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_acme_account_init(ngx_acme_client_t *cli, u_char **shmem)
-{
-    u_char                   *p;
-    u_short                   size;
-    ngx_int_t                 rc;
-    ngx_http_acme_sh_key_t   *shk;
-    ngx_http_acme_sh_cert_t  *shc;
-
-    /*
-     * CertBot's parameters for new ACME account keys.
-     * TODO Do we want this configurable?
-     */
-    cli->account_key.type = NGX_KT_RSA;
-    cli->account_key.bits = 2048;
-
-    rc = ngx_http_acme_key_init(cli, &cli->account_key);
-
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_EMERG, cli->log, 0,
-                      "failed to initialize account key for ACME client \"%V\"",
-                      &cli->name);
-
-        return NGX_ERROR;
-    }
-
-    size = cli->private_key.file_size;
-
-    rc = ngx_http_acme_key_init(cli, &cli->private_key);
-
-    if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_EMERG, cli->log, 0,
-                      "failed to initialize private key for ACME client \"%V\"",
-                      &cli->name);
-
-        return NGX_ERROR;
-    }
-
-    if (size == 0) {
-        if (cli->private_key.file_size > cli->max_cert_key_size) {
-            ngx_log_error(NGX_LOG_EMERG, cli->log, 0,
-                          "file \"%s\" is too large to fit in shared memory",
-                          cli->private_key.file.name.data);
-
-            return NGX_ERROR;
-        }
-
-        size = cli->max_cert_key_size;
-    }
-
-    p = *shmem;
-    shk = (ngx_http_acme_sh_key_t *) p;
-    shk->len = cli->private_key.file_size;
-
-    if (ngx_http_acme_file_load(cli->log, &cli->private_key.file,
-                                shk->data_start, shk->len)
-        != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    cli->sh_cert_key = shk;
-
-    size += sizeof(ngx_http_acme_sh_key_t);
-
-    p += ngx_align(size, NGX_ALIGNMENT);
-
-    shc = (ngx_http_acme_sh_cert_t *) p;
-    shc->lock = 0;
-    shc->len = cli->certificate_file_size;
-
-    if (shc->len != 0) {
-        rc = ngx_http_acme_cert_validity(cli);
-
-        if (rc > 0) {
-            cli->expiry_time = rc;
-            cli->renew_time = rc - cli->renew_before_expiry;
-
-        } else {
-            cli->renew_time = ngx_time();
-        }
-
-        if (rc != NGX_ERROR) {
-            if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
-                                        shc->data_start, shc->len)
-                != NGX_OK)
-            {
-                return NGX_ERROR;
-            }
-
-        } else {
-            shc->len = 0;
-        }
-
-    } else {
-        if (cli->certificate_file.fd == NGX_INVALID_FILE) {
-            cli->certificate_file.fd = ngx_open_file(
-                                               cli->certificate_file.name.data,
-                                               NGX_FILE_RDWR,
-                                               NGX_FILE_CREATE_OR_OPEN,
-                                               NGX_FILE_DEFAULT_ACCESS);
-
-            if (cli->certificate_file.fd == NGX_INVALID_FILE) {
-                return NGX_ERROR;
-            }
-        }
-
-        cli->renew_time = ngx_time();
-    }
-
-    ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                  "%s certificate, renewal scheduled %s, ACME client: %V",
-                  (shc->len != 0) ? ((rc > 0) ? "valid" : "invalid") : "no",
-                  strtok(ctime(&cli->renew_time), "\n"), &cli->name);
-
-    cli->sh_cert = shc;
-
-    p += sizeof(ngx_http_acme_sh_cert_t) + cli->max_cert_size;
-    *shmem = p;
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
 ngx_http_acme_file_load(ngx_log_t *log, ngx_file_t *file, u_char *buf,
     size_t size)
 {
@@ -1371,26 +1212,34 @@ ngx_http_acme_file_load(ngx_log_t *log, ngx_file_t *file, u_char *buf,
 
 
 static ngx_int_t
-ngx_http_acme_key_init(ngx_acme_client_t *cli, ngx_acme_privkey_t *key)
+ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
+    ngx_str_t *filename, ngx_acme_privkey_t *key)
 {
-    ngx_uint_t       retry;
-    ngx_file_info_t  fi;
+    ngx_file_t       *file;
+    ngx_uint_t        retry;
+    ngx_file_info_t   fi;
 
-    if (key->file.fd == NGX_INVALID_FILE) {
-        key->file.fd = ngx_open_file(key->file.name.data, NGX_FILE_RDWR,
-                                     NGX_FILE_CREATE_OR_OPEN,
-                                     NGX_FILE_OWNER_ACCESS);
+    file = &key->file;
 
-        if (key->file.fd == NGX_INVALID_FILE) {
+    if (ngx_http_acme_init_file(cf, &cli->path, filename, file) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (file->fd == NGX_INVALID_FILE) {
+        file->fd = ngx_open_file(file->name.data, NGX_FILE_RDWR,
+                                NGX_FILE_CREATE_OR_OPEN,
+                                NGX_FILE_OWNER_ACCESS);
+
+        if (file->fd == NGX_INVALID_FILE) {
             return NGX_ERROR;
         }
     }
 
     for (retry = 1; /* void */ ; retry--) {
 
-        if (ngx_fd_info(key->file.fd, &fi) == NGX_FILE_ERROR) {
+        if (ngx_fd_info(file->fd, &fi) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
-                          ngx_fd_info_n " \"%s\" failed", key->file.name.data);
+                          ngx_fd_info_n " \"%s\" failed", file->name.data);
 
             return NGX_ERROR;
         }
@@ -1407,7 +1256,7 @@ ngx_http_acme_key_init(ngx_acme_client_t *cli, ngx_acme_privkey_t *key)
     }
 
     ngx_log_error(NGX_LOG_ALERT, cli->log, 0, "zero size of key file \"%s\"",
-                  key->file.name.data);
+                  file->name.data);
 
     return NGX_ERROR;
 }
@@ -2905,16 +2754,16 @@ certificate:
     ngx_rwlock_wlock(&ses->client->sh_cert->lock);
 
     if (ngx_http_acme_file_load(ses->log, &ses->client->certificate_file,
-                                ses->client->sh_cert->data_start,
+                                ses->client->sh_cert->data_start + 5,
                                 ses->body.len)
         != NGX_OK)
     {
-        ses->client->sh_cert->len = 0;
+        ses->client->sh_cert->len = 5; /* 5 = size of "data:" prefix */
         ngx_rwlock_unlock(&ses->client->sh_cert->lock);
         return NGX_ERROR;
     }
 
-    ses->client->sh_cert->len = ses->body.len;
+    ses->client->sh_cert->len = ses->body.len + 5;
 
     ngx_rwlock_unlock(&ses->client->sh_cert->lock);
 
@@ -3193,7 +3042,7 @@ ngx_http_acme_share_key_auth(ngx_http_acme_session_t *ses, ngx_str_t *key_auth,
         ngx_log_error(NGX_LOG_CRIT, ses->log, 0,
                       "key authorization string received from ACME server "
                       "is too long to fit in shared memory, use "
-                      "acme_max_key_auth_size with a value of at least %uz",
+                      "max_key_auth_size with a value of at least %uz",
                       key_auth->len);
         return NGX_ERROR;
 
@@ -3837,6 +3686,34 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         }
     }
 
+    n = 0;
+
+    if (cmcf->ports != NULL) {
+        port = cmcf->ports->elts;
+        for (i = 0; i < cmcf->ports->nelts; i++) {
+
+            if (port[i].port == 80) {
+                n = 1;
+                break;
+            }
+        }
+    }
+
+    if (!n) {
+        ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                           "this configuration requires a server listening on "
+                           "port 80 for ACME http-01 challenge");
+    }
+
+    if (ngx_create_dir(amcf->path.data, 0700) == NGX_FILE_ERROR) {
+        err = ngx_errno;
+        if (err != NGX_EEXIST) {
+            ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+                          ngx_create_dir_n " \"%s\" failed", amcf->path.data);
+            return NGX_ERROR;
+        }
+    }
+
     shm_size = 0;
 
     cln = ngx_pool_cleanup_add(cf->pool, 0);
@@ -3897,15 +3774,19 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_strlow(name.data, name.data, name.len);
 
-        /*
-         * Assign the files that will be opened/created. The ACME client's
-         * directories where they will live may not exist at this point yet.
-         */
+        if (ngx_create_dir(cli->path.data, 0700) == NGX_FILE_ERROR) {
+            err = ngx_errno;
+            if (err != NGX_EEXIST) {
+                ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+                              ngx_create_dir_n " \"%s\" failed",
+                              cli->path.data);
+                return NGX_ERROR;
+            }
+        }
 
         ngx_str_set(&name, "account.key");
 
-        if (ngx_http_acme_init_file(cf, &cli->path, &name,
-                                    &cli->account_key.file)
+        if (ngx_http_acme_key_init(cf, cli, &name, &cli->account_key)
             != NGX_OK)
         {
             return NGX_ERROR;
@@ -3913,39 +3794,28 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_str_set(&name, "private.key");
 
-        if (ngx_http_acme_init_file(cf, &cli->path, &name,
-                                    &cli->private_key.file)
+        if (ngx_http_acme_key_init(cf, cli, &name, &cli->private_key)
             != NGX_OK)
         {
             return NGX_ERROR;
         }
 
-        /*
-         * The private key file may already exist at this point. If it does,
-         * it won't change anymore, so we can safely use its size to allocate
-         * shared memory for it. If the file does not exist, we cannot know its
-         * size in advance, so we will use the max_cert_key_size value.
-         *
-         * We could have created the private key file right here, but then we
-         * would need its containing directory created first.
-         */
-
-        cli->private_key.file_size = ngx_http_acme_file_size(
-                                                 &cli->private_key.file);
-
-        if (cli->private_key.file_size > NGX_ACME_MAX_SH_FILE) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "size of file \"%V\" exceeds %d bytes",
-                               &cli->private_key.file.name,
-                               NGX_ACME_MAX_SH_FILE);
+        cli->private_key_data = ngx_pnalloc(cli->main_conf->pool,
+                                            cli->private_key.file_size + 5);
+                                            /* 5 = size of "data:" prefix */
+        if (cli->private_key_data == NULL) {
             return NGX_ERROR;
         }
 
-        sz = sizeof(ngx_http_acme_sh_key_t)
-             + (cli->private_key.file_size
-               ? cli->private_key.file_size : cli->max_cert_key_size);
+        ngx_memcpy(cli->private_key_data, "data:", 5);
 
-        shm_size += ngx_align(sz, NGX_ALIGNMENT);
+        if (ngx_http_acme_file_load(cli->log, &cli->private_key.file,
+                                    cli->private_key_data + 5,
+                                    cli->private_key.file_size)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
 
         ngx_str_set(&name, "certificate.pem");
 
@@ -3972,54 +3842,10 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             cli->max_cert_size = cli->certificate_file_size;
         }
 
-        shm_size += sizeof(ngx_http_acme_sh_cert_t) + cli->max_cert_size;
-    }
+        /* 5 = size of "data:" prefix */
+        sz = sizeof(ngx_http_acme_sh_cert_t) + cli->max_cert_size + 5;
 
-    n = 0;
-
-    if (cmcf->ports != NULL) {
-        port = cmcf->ports->elts;
-        for (i = 0; i < cmcf->ports->nelts; i++) {
-
-            if (port[i].port == 80) {
-                n = 1;
-                break;
-            }
-        }
-    }
-
-    if (!n) {
-        ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                           "this configuration requires a server listening on "
-                           "port 80 for ACME http-01 challenge");
-    }
-
-    if (ngx_create_dir(amcf->path.data, 0700) == NGX_FILE_ERROR) {
-        err = ngx_errno;
-        if (err != NGX_EEXIST) {
-            ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
-                          ngx_create_dir_n " \"%s\" failed", amcf->path.data);
-            return NGX_ERROR;
-        }
-    }
-
-    for (i = 0; i < amcf->clients.nelts; i++) {
-
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
-
-        if (!cli->enabled) {
-            continue;
-        }
-
-        if (ngx_create_dir(cli->path.data, 0700) == NGX_FILE_ERROR) {
-            err = ngx_errno;
-            if (err != NGX_EEXIST) {
-                ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
-                              ngx_create_dir_n " \"%s\" failed",
-                              cli->path.data);
-                return NGX_ERROR;
-            }
-        }
+        shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
 
     h = ngx_array_push(&cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
@@ -4029,7 +3855,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
     *h = ngx_acme_http_challenge_handler;
 
-    shm_size += sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
+    sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
+
+    shm_size += ngx_align(sz, NGX_ALIGNMENT);
 
     ngx_str_set(&name, "acme_shm");
 
@@ -4136,7 +3964,6 @@ static ngx_int_t
 ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
     ngx_file_t *file)
 {
-    ngx_memzero(file, sizeof(ngx_file_t));
     file->log = cf->log;
 
     if (ngx_http_acme_full_path(cf->pool, path, filename, &file->name)
@@ -4154,6 +3981,12 @@ ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 {
+    size_t                      sz;
+    u_char                     *p;
+    ngx_int_t                   rc;
+    ngx_uint_t                  i;
+    ngx_acme_client_t          *cli;
+    ngx_http_acme_sh_cert_t    *shc;
     ngx_http_acme_main_conf_t  *amcf;
 
     if (shm_zone->shm.exists) {
@@ -4161,21 +3994,86 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         return NGX_ERROR;
     }
 
-    amcf = shm_zone->data;
-    amcf->sh = (ngx_http_acme_sh_keyauth_t *) shm_zone->shm.addr;
+    rc = NGX_ERROR;
 
-    /*
-     * At this point, all the necessary file descriptors have been created.
-     * We can create some of the files if they don't exist yet, and do other
-     * initialization.
-     */
+    amcf = shm_zone->data;
 
     ngx_memcpy(&amcf->log, amcf->clcf->error_log, sizeof(ngx_log_t));
     amcf->log.data = &amcf->log_ctx;
     amcf->log.handler = ngx_http_acme_log_error;
 
-    if (ngx_http_acme_init_accounts(amcf) != NGX_OK) {
-        return NGX_ERROR;
+    amcf->sh = (ngx_http_acme_sh_keyauth_t *) shm_zone->shm.addr;
+    p = (u_char *) amcf->sh;
+    sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
+
+    ngx_memzero(p, sz);
+    p += ngx_align(sz, NGX_ALIGNMENT);
+
+    for (i = 0; i < amcf->clients.nelts; i++) {
+
+        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+
+        if (!cli->enabled) {
+            continue;
+        }
+
+        shc = (ngx_http_acme_sh_cert_t *) p;
+        shc->lock = 0;
+        shc->len = cli->certificate_file_size + 5;
+        /* 5 = size of "data:" prefix */
+
+        ngx_memcpy(shc->data_start, "data:", 5);
+
+        if (shc->len != 5) {
+            rc = ngx_http_acme_cert_validity(cli);
+
+            if (rc > 0) {
+                cli->expiry_time = rc;
+                cli->renew_time = rc - cli->renew_before_expiry;
+
+            } else {
+                cli->renew_time = ngx_time();
+            }
+
+            if (rc != NGX_ERROR) {
+                if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
+                                            shc->data_start + 5,
+                                            cli->certificate_file_size)
+                    != NGX_OK)
+                {
+                    return NGX_ERROR;
+                }
+
+            } else {
+                shc->len = 5;
+            }
+
+        } else {
+            if (cli->certificate_file.fd == NGX_INVALID_FILE) {
+                cli->certificate_file.fd = ngx_open_file(
+                                                   cli->certificate_file.name.data,
+                                                   NGX_FILE_RDWR,
+                                                   NGX_FILE_CREATE_OR_OPEN,
+                                                   NGX_FILE_DEFAULT_ACCESS);
+
+                if (cli->certificate_file.fd == NGX_INVALID_FILE) {
+                    return NGX_ERROR;
+                }
+            }
+
+            cli->renew_time = ngx_time();
+        }
+
+        ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
+                      "%s certificate, renewal scheduled %s, ACME client: %V",
+                      (shc->len != 5) ? ((rc > 0) ? "valid" : "invalid") : "no",
+                      strtok(ctime(&cli->renew_time), "\n"), &cli->name);
+
+        cli->sh_cert = shc;
+
+        sz = sizeof(ngx_http_acme_sh_cert_t) + cli->max_cert_size + 5;
+
+        p += ngx_align(sz, NGX_ALIGNMENT);
     }
 
     return NGX_OK;
@@ -4543,6 +4441,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    amcf->pool = cf->pool;
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
 
     return amcf;
@@ -4684,17 +4583,15 @@ ngx_http_acme_cert_variable(ngx_http_request_t *r,
 
     ngx_rwlock_rlock(&cli->sh_cert->lock);
 
-    if (cli->sh_cert->len == 0) {
+    if (cli->sh_cert->len == 5) { /* 5 = size of "data:" prefix */
         v->not_found = 1;
 
     } else {
-        v->len = cli->sh_cert->len + 5 /* 5 == sizeof("data:") - 1 */;
+        v->len = cli->sh_cert->len;
 
         v->data = ngx_pnalloc(r->pool, v->len);
         if (v->data != NULL) {
-            ngx_memcpy(v->data, "data:", 5);
-            ngx_memcpy(v->data + 5, cli->sh_cert->data_start,
-                    cli->sh_cert->len);
+            ngx_memcpy(v->data, cli->sh_cert->data_start, cli->sh_cert->len);
         }
     }
 
@@ -4747,14 +4644,8 @@ ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    v->len = cli->sh_cert_key->len + 5 /* 5 == sizeof("data:") - 1 */;
-
-    v->data = ngx_pnalloc(r->pool, v->len);
-    if (v->data != NULL) {
-        ngx_memcpy(v->data, "data:", 5);
-        ngx_memcpy(v->data + 5, cli->sh_cert_key->data_start,
-                   cli->sh_cert_key->len);
-    }
+    v->len = cli->private_key.file_size + 5 /* 5 = size of "data:" prefix */;
+    v->data = cli->private_key_data;
 
     return v->data != NULL ? NGX_OK : NGX_ERROR;
 }
@@ -4927,20 +4818,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
-        if (ngx_strncmp(value[i].data, "max_cert_key_size=", 18) == 0) {
-
-            value[i].data += 18;
-            value[i].len -= 18;
-
-            cli->max_cert_key_size = ngx_parse_size(&value[i]);
-
-            if (cli->max_cert_key_size == (size_t) NGX_ERROR) {
-                return "has an invalid \"max_cert_key_size\" value";
-            }
-
-            continue;
-        }
-
         if (ngx_strncmp(value[i].data, "max_key_auth_size=", 18) == 0) {
 
             value[i].data += 18;
@@ -4987,6 +4864,13 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     /*
+     * CertBot's parameters for new ACME account keys.
+     * TODO Do we want this configurable?
+     */
+    cli->account_key.type = NGX_KT_RSA;
+    cli->account_key.bits = 2048;
+
+    /*
      * Sanity check. Note that some of the key types we support may not
      * be supported by certificate authorities (and vice versa). For example,
      * Let's Encrypt at the time of this writing "accepts only RSA keys that
@@ -5010,10 +4894,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (cli->max_cert_size == NGX_CONF_UNSET_SIZE) {
         cli->max_cert_size = 8 * 1024;
-    }
-
-    if (cli->max_cert_key_size == NGX_CONF_UNSET_SIZE) {
-        cli->max_cert_key_size = 2 * 1024;
     }
 
     ngx_memzero(&u, sizeof(ngx_url_t));
@@ -5353,7 +5233,6 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     cli->renew_before_expiry = NGX_CONF_UNSET;
     cli->retry_after_error = NGX_CONF_UNSET;
     cli->max_cert_size = NGX_CONF_UNSET_SIZE;
-    cli->max_cert_key_size = NGX_CONF_UNSET_SIZE;
 
     cli->domains = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
     if (cli->domains == NULL) {

@@ -40,6 +40,28 @@ all functionality of nginx 1.27.0.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+в конфигурациях с несколькими директивами error_log ACME-клиенты могли
+выводить сообщения в несоответствующие логи.
+</para>
+<para lang="en">
+in configurations with multiple error_log directives, ACME clients could
+log messages to incorrect logs.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+запрос сертификата по протоколу ACME мог завершаться ошибкой "[alert]
+getsockname() failed (9: Bad file descriptor)" в некоторых конфигурациях.
+</para>
+<para lang="en">
+certificate request via the ACME protocol could result in "[alert]
+getsockname() failed (9: Bad file descriptor)" errors on some configurations.
+</para>
+</change>
+
 </changes>
 
 

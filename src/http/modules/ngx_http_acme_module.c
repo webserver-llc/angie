@@ -184,7 +184,7 @@ struct ngx_http_acme_main_conf_s {
 
 
 struct ngx_http_acme_srv_conf_s {
-    ngx_acme_client_t          *client;
+    ngx_array_t                 clients;
 };
 
 
@@ -3655,7 +3655,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_str_t                   *s, name;
     ngx_err_t                    err;
     ngx_uint_t                   i, j, n;
-    ngx_acme_client_t           *cli;
+    ngx_acme_client_t           *cli, **clients;
     ngx_pool_cleanup_t          *cln;
     ngx_http_handler_pt         *h;
     ngx_http_variable_t         *v;
@@ -3686,51 +3686,56 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         cscf = cscfp[i];
         ascf = cscf->ctx->srv_conf[ngx_http_acme_module.ctx_index];
 
-        cli = ascf->client;
-        if (!cli || !cli->enabled) {
-            continue;
-        }
+        clients = ascf->clients.elts;
 
-        if (cli->server.len == 0) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "ACME client \"%V\" is not defined but "
-                               "referenced in %V:%ui", &cli->name,
-                               &cli->cf_filename, cli->cf_line);
-            return NGX_ERROR;
-        }
+        for (j = 0; j < ascf->clients.nelts; j++) {
 
-        sn = cscf->server_names.elts;
-
-        for (j  = 0; j < cscf->server_names.nelts; j++) {
-            s = &sn[j].name;
-
-            if (!s->len) {
-                /* may contain an empty server_name */
+            cli = clients[j];
+            if (!cli->enabled) {
                 continue;
             }
 
-            if (
-#if (NGX_PCRE)
-                sn[j].regex ||
-#endif
-                   ngx_strlchr(s->data, s->data + s->len, '*')
-                || ngx_strlchr(s->data, s->data + s->len, ':')
-                || ngx_strlchr(s->data, s->data + s->len, '/')
-                || ngx_str_is_ip(s))
-            {
-                ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                                   "unsupported domain format \"%V\" used by "
-                                   "ACME client \"%V\", ignored", s,
-                                   &cli->name);
-                continue;
-            }
-
-            s = ngx_array_push(cli->domains);
-            if (s == NULL) {
+            if (cli->server.len == 0) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "ACME client \"%V\" is not defined but "
+                                   "referenced in %V:%ui", &cli->name,
+                                   &cli->cf_filename, cli->cf_line);
                 return NGX_ERROR;
             }
 
-            *s = sn[j].name;
+            sn = cscf->server_names.elts;
+
+            for (n = 0; n < cscf->server_names.nelts; n++) {
+                s = &sn[n].name;
+
+                if (!s->len) {
+                    /* may contain an empty server_name */
+                    continue;
+                }
+
+                if (
+#if (NGX_PCRE)
+                    sn[n].regex ||
+#endif
+                       ngx_strlchr(s->data, s->data + s->len, '*')
+                    || ngx_strlchr(s->data, s->data + s->len, ':')
+                    || ngx_strlchr(s->data, s->data + s->len, '/')
+                    || ngx_str_is_ip(s))
+                {
+                    ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                                       "unsupported domain format \"%V\" used by "
+                                       "ACME client \"%V\", ignored", s,
+                                       &cli->name);
+                    continue;
+                }
+
+                s = ngx_array_push(cli->domains);
+                if (s == NULL) {
+                    return NGX_ERROR;
+                }
+
+                *s = sn[n].name;
+            }
         }
     }
 
@@ -4544,6 +4549,12 @@ ngx_http_acme_create_srv_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    if (ngx_array_init(&ascf->clients, cf->pool, 4, sizeof(ngx_acme_client_t *))
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
     return ascf;
 }
 
@@ -5109,23 +5120,34 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_http_acme_srv_conf_t *ascf = conf;
 
-    ngx_str_t  *value;
+    ngx_str_t          *value;
+    ngx_uint_t          i;
+    ngx_acme_client_t  *cli, **clients;
 
     value = cf->args->elts;
 
-    if (ascf->client != NULL) {
-        return "is duplicate";
-    }
-
-    ascf->client = ngx_acme_client_add(cf, &value[1]);
-    if (ascf->client == NULL) {
+    cli = ngx_acme_client_add(cf, &value[1]);
+    if (cli == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    if (ascf->client->cf_line == 0) {
-        ascf->client->cf_line = cf->conf_file->line;
-        ascf->client->cf_filename = cf->conf_file->file.name;
+    clients = ascf->clients.elts;
+
+    for (i = 0; i < ascf->clients.nelts; i++) {
+        if (cli == clients[i]) {
+            ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                               "duplicate \"acme %V\" directive", &cli->name);
+
+            return NGX_CONF_ERROR;
+        }
     }
+
+    clients = ngx_array_push(&ascf->clients);
+    if (clients == NULL) {
+        return NULL;
+    }
+
+    *clients = cli;
 
     return NGX_CONF_OK;
 }

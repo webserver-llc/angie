@@ -71,6 +71,18 @@ support for BoringSSL in the ACME module.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+возможность указать несколько директив "acme" в одном блоке "server", что
+позволяет настраивать получение сертификатов сразу двух типов в рамках
+данного виртуального сервера.
+</para>
+<para lang="en">
+support for multiple acme directives in a server block allowing to
+obtain different types of certificates for a single domain.
+</para>
+</change>
+
 </changes>
 
 

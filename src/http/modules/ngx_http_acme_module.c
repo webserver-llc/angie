@@ -355,17 +355,15 @@ static ngx_int_t ngx_http_acme_merge_conf_ctx(ngx_conf_t *cf,
     ngx_http_acme_main_conf_t *amcf);
 static void ngx_http_acme_merge_conf_ctx_fix(ngx_conf_t *cf,
     ngx_module_t *module, ngx_http_conf_ctx_t *ctx);
-
-static ngx_int_t ngx_http_acme_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_http_acme_cert_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_acme_server_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
-
 static ngx_acme_client_t *ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name);
-
+static ngx_int_t ngx_http_acme_add_client_var(ngx_conf_t *cf,
+    ngx_acme_client_t *cli, ngx_http_variable_t *var);
 static ngx_data_item_t *ngx_data_object_find(ngx_data_item_t *obj,
     ngx_str_t *name);
 static ngx_data_item_t *ngx_data_object_vget_value(ngx_data_item_t *obj,
@@ -415,7 +413,7 @@ static ngx_command_t  ngx_http_acme_commands[] = {
 
 
 static ngx_http_module_t  ngx_http_acme_module_ctx = {
-    ngx_http_acme_preconfiguration,        /* preconfiguration */
+    NULL,                                  /* preconfiguration */
     ngx_http_acme_postconfiguration,       /* postconfiguration */
 
     ngx_http_acme_create_main_conf,        /* create main configuration */
@@ -448,13 +446,10 @@ ngx_module_t  ngx_http_acme_module = {
 static ngx_http_variable_t  ngx_http_acme_vars[] = {
 
     { ngx_string("acme_cert_"), NULL, ngx_http_acme_cert_variable,
-      0, NGX_HTTP_VAR_PREFIX, 0 },
+      0, 0, 0 },
 
     { ngx_string("acme_cert_key_"), NULL, ngx_http_acme_cert_key_variable,
-      0, NGX_HTTP_VAR_PREFIX, 0 },
-
-    { ngx_string("acme_server"), NULL, ngx_http_acme_server_variable,
-      0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+      0, 0, 0 },
 
     ngx_http_null_variable
 };
@@ -3611,6 +3606,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_acme_client_t           *cli;
     ngx_pool_cleanup_t          *cln;
     ngx_http_handler_pt         *h;
+    ngx_http_variable_t         *v;
     ngx_http_conf_port_t        *port;
     ngx_http_server_name_t      *sn;
     ngx_http_acme_srv_conf_t    *ascf;
@@ -3848,13 +3844,6 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
 
-    h = ngx_array_push(&cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
-
-    *h = ngx_acme_http_challenge_handler;
-
     sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
 
     shm_size += ngx_align(sz, NGX_ALIGNMENT);
@@ -3870,6 +3859,23 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     amcf->shm_zone->data = amcf;
     amcf->shm_zone->noslab = 1;
     amcf->shm_zone->noreuse = 1;
+
+    h = ngx_array_push(&cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    *h = ngx_acme_http_challenge_handler;
+
+    ngx_str_set(&name, "acme_server");
+
+    v = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+    if (v == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->get_handler = ngx_http_acme_server_variable;
+    v->data = (uintptr_t) amcf;
 
     ngx_http_next_header_filter = ngx_http_top_header_filter;
     ngx_http_top_header_filter = ngx_http_acme_header_filter;
@@ -4520,62 +4526,14 @@ ngx_http_acme_set_ctx(ngx_http_request_t *r, void *data)
 
 
 static ngx_int_t
-ngx_http_acme_preconfiguration(ngx_conf_t *cf)
-{
-    ngx_http_variable_t  *var, *v;
-
-    for (v = ngx_http_acme_vars; v->name.len; v++) {
-        var = ngx_http_add_variable(cf, &v->name, v->flags);
-        if (var == NULL) {
-            return NGX_ERROR;
-        }
-
-        var->get_handler = v->get_handler;
-        var->data = v->data;
-    }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
 ngx_http_acme_cert_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t name = *(ngx_str_t *) data;
-
-    ngx_uint_t                  i;
-    ngx_acme_client_t          *cli;
-    ngx_http_acme_main_conf_t  *amcf;
-
-    name.data += sizeof("acme_cert_") - 1;
-    name.len -= sizeof("acme_cert_") - 1;
+    ngx_acme_client_t *cli = (ngx_acme_client_t *) data;
 
     v->valid = 1;
     v->no_cacheable = 0;
-    v->not_found = 1;
-
-    cli = NULL;
-    amcf = ngx_http_get_module_main_conf(r, ngx_http_acme_module);
-
-    if (amcf->ctx == NULL) {
-        return NGX_OK;
-    }
-
-    for (i = 0; i < amcf->clients.nelts; i++) {
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
-
-        if (!cli->enabled) {
-            continue;
-        }
-
-        if (cli->name.len == name.len
-            && ngx_strncasecmp(cli->name.data, name.data, name.len) == 0)
-        {
-            v->not_found = 0;
-            break;
-        }
-    }
+    v->not_found = !cli->enabled;
 
     if (v->not_found) {
         return NGX_OK;
@@ -4605,40 +4563,11 @@ static ngx_int_t
 ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_str_t name = *(ngx_str_t *) data;
-
-    ngx_uint_t                  i;
-    ngx_acme_client_t          *cli;
-    ngx_http_acme_main_conf_t  *amcf;
-
-    name.data += sizeof("acme_cert_key_") - 1;
-    name.len -= sizeof("acme_cert_key_") - 1;
+    ngx_acme_client_t *cli = (ngx_acme_client_t *) data;
 
     v->valid = 1;
     v->no_cacheable = 0;
-    v->not_found = 1;
-
-    cli = NULL;
-    amcf = ngx_http_get_module_main_conf(r, ngx_http_acme_module);
-
-    if (amcf->ctx == NULL) {
-        return NGX_OK;
-    }
-
-    for (i = 0; i < amcf->clients.nelts; i++) {
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
-
-        if (!cli->enabled) {
-            continue;
-        }
-
-        if (cli->name.len == name.len
-            && ngx_strncasecmp(cli->name.data, name.data, name.len) == 0)
-        {
-            v->not_found = 0;
-            break;
-        }
-    }
+    v->not_found = !cli->enabled;
 
     if (v->not_found) {
         return NGX_OK;
@@ -4647,7 +4576,7 @@ ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
     v->len = cli->private_key.file_size + 5 /* 5 = size of "data:" prefix */;
     v->data = cli->private_key_data;
 
-    return v->data != NULL ? NGX_OK : NGX_ERROR;
+    return NGX_OK;
 }
 
 
@@ -4655,11 +4584,10 @@ static ngx_int_t
 ngx_http_acme_server_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_http_acme_main_conf_t  *amcf;
-
-    amcf = ngx_http_get_module_main_conf(r, ngx_http_acme_module);
+    ngx_http_acme_main_conf_t  *amcf = (ngx_http_acme_main_conf_t  *) data;
 
     v->valid = 1;
+    v->no_cacheable = 0;
     v->not_found = !amcf->acme_server_var.len;
 
     if (!v->not_found) {
@@ -4682,15 +4610,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_acme_client_t  *cli;
 
     value = cf->args->elts;
-
-    /* sanity */
-    if (!value[1].len) {
-        return "has an empty name";
-    }
-
-    if (!value[2].len) {
-        return "has an empty server URL";
-    }
 
     cli = ngx_acme_client_add(cf, &value[1]);
     if (cli == NULL) {
@@ -5170,10 +5089,6 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    if (!value[1].len) {
-        return "has an empty name";
-    }
-
     if (ascf->client != NULL) {
         return "is duplicate";
     }
@@ -5197,7 +5112,13 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 {
     ngx_uint_t                  i;
     ngx_acme_client_t          *cli;
+    ngx_http_variable_t        *v;
     ngx_http_acme_main_conf_t  *amcf;
+
+    if (name->len == 0) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "invalid ACME client name");
+        return NULL;
+    }
 
     amcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_acme_module);
 
@@ -5241,7 +5162,42 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 
     cli->main_conf = amcf;
 
+    for (v = ngx_http_acme_vars; v->name.len; v++) {
+        if (ngx_http_acme_add_client_var(cf, cli, v) != NGX_OK) {
+            return NULL;
+        }
+    }
+
     return cli;
+}
+
+
+static ngx_int_t
+ngx_http_acme_add_client_var(ngx_conf_t *cf, ngx_acme_client_t *cli,
+    ngx_http_variable_t *var)
+{
+    ngx_str_t             name;
+    ngx_http_variable_t  *v;
+
+    name.len = var->name.len + cli->name.len;
+
+    name.data = ngx_pnalloc(cf->pool, name.len);
+    if (name.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_snprintf(name.data, name.len, "%V%V", &var->name, &cli->name);
+
+    v = ngx_http_add_variable(cf, &name, var->flags);
+
+    if (v == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->get_handler = var->get_handler;
+    v->data = (uintptr_t) cli;
+
+    return NGX_OK;
 }
 
 

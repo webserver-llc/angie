@@ -279,6 +279,7 @@ static ngx_http_acme_session_t *ngx_http_acme_create_session(
 static void ngx_http_acme_destroy_session(ngx_http_acme_session_t **ses);
 static ngx_int_t ngx_http_acme_postconfiguration(ngx_conf_t *cf);
 static void ngx_http_acme_fds_close(void *data);
+static ngx_int_t ngx_http_acme_header_filter(ngx_http_request_t *r);
 static size_t ngx_http_acme_file_size(ngx_file_t *file);
 static ngx_int_t ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path,
     ngx_str_t *filename, ngx_file_t *file);
@@ -461,6 +462,9 @@ static ngx_http_variable_t  ngx_http_acme_vars[] = {
 
     ngx_http_null_variable
 };
+
+
+static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 
 
 static u_char *
@@ -2303,11 +2307,6 @@ ngx_http_acme_response_handler(ngx_http_acme_session_t *ses,
         return NGX_ERROR;
     }
 
-    if (r->out == NULL) {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "ACME server data error");
-        return NGX_ERROR;
-    }
-
     ses->status_code = r->headers_out.status;
 
     if (ngx_clone_table_elt(ses->pool, &ses->location,
@@ -3476,26 +3475,10 @@ ngx_http_acme_read_handler(ngx_event_t *ev)
 static ngx_chain_t *
 ngx_http_acme_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 {
-    ngx_buf_t                *b;
-    ngx_chain_t              *cn;
-    ngx_http_acme_session_t  *ses;
-
-    ses = ngx_container_of(c, ngx_http_acme_session_t, connection);
-
-    b = ngx_create_temp_buf(c->pool, ses->client->max_cert_size);
-    if (b == NULL) {
-        return NGX_CHAIN_ERROR;
-    }
-
-    cn = ngx_alloc_chain_link(c->pool);
-    if (cn == NULL) {
-        return NGX_CHAIN_ERROR;
-    }
-
-    cn->buf = b;
-    cn->next = NULL;
-
-    return cn;
+    /* can't happen */
+    ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                  "internal error: send_chain stub called");
+    return NGX_CHAIN_ERROR;
 }
 
 
@@ -4060,6 +4043,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     amcf->shm_zone->noslab = 1;
     amcf->shm_zone->noreuse = 1;
 
+    ngx_http_next_header_filter = ngx_http_top_header_filter;
+    ngx_http_top_header_filter = ngx_http_acme_header_filter;
+
     return NGX_OK;
 }
 
@@ -4092,6 +4078,37 @@ ngx_http_acme_fds_close(void *data)
             (void) ngx_close_file(cli->certificate_file.fd);
         }
     }
+}
+
+
+static ngx_int_t
+ngx_http_acme_header_filter(ngx_http_request_t *r)
+{
+    ngx_buf_t                *b;
+    ngx_http_acme_session_t  *ses;
+
+    if (r->finalize_request != ngx_http_acme_finalize_request) {
+        return ngx_http_next_header_filter(r);
+    }
+
+    ses = ngx_container_of(r->connection, ngx_http_acme_session_t, connection);
+
+    b = ngx_create_temp_buf(r->pool, ses->client->max_cert_size);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    b->last_buf = 1;
+
+    r->out = ngx_alloc_chain_link(r->pool);
+    if (r->out == NULL) {
+        return NGX_ERROR;
+    }
+
+    r->out->buf = b;
+    r->out->next = NULL;
+
+    return NGX_OK;
 }
 
 
@@ -5123,7 +5140,6 @@ static ngx_int_t
 ngx_http_acme_add_proxy_pass(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 {
     static const ngx_str_t proxy_pass = ngx_string("proxy_pass $acme_server; "
-                                                   "postpone_output 0; "
                                                    "access_log off;");
 
     char             *rv;

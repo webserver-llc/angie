@@ -2,6 +2,7 @@
 
 # (C) Maxim Dounin
 # (C) Andrey Zelenkov
+# (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
 # Tests for server_name selection.
@@ -13,12 +14,11 @@ use strict;
 
 use Test::More;
 
-use Socket qw/ CRLF /;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Nginx::Stream qw/ stream /;
 
 ###############################################################################
 
@@ -27,7 +27,9 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(20)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)
+	->has(qw/stream stream_ssl stream_return sni socket_ssl_sni/)
+	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -37,74 +39,54 @@ daemon off;
 events {
 }
 
-http {
-    %%TEST_GLOBALS_HTTP%%
+stream {
+    %%TEST_GLOBALS_STREAM%%
 
     server_names_hash_bucket_size 64;
 
+    ssl_certificate_key localhost.key;
+    ssl_certificate localhost.crt;
+
     server {
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
 
-        location / {
-            add_header X-Server $server_name;
-        }
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  "";
-
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  www.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  ~^EXAMPLE\.COM$;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  ~^(?P<name>[a-z]+)\Q.example.com\E$;
 
-        location / {
-            add_header X-Server $server_name;
-            add_header X-Match  $name;
-        }
+        return $name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  "~^(?P<name>www\p{N}+)\.example\.com$";
 
-        location / {
-            add_header X-Server $server_name;
-            add_header X-Match  $name;
-        }
+        return $name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  many.example.com many2.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
@@ -112,66 +94,70 @@ http {
         server_name  many3.example.com;
         server_name  many4.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  *.wc.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  *.pref.wc.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  wc2.example.*;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  wc2.example.com.*;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 
     server {
         listen       127.0.0.1:8080;
         server_name  .dot.example.com;
 
-        location / {
-            add_header X-Server $server_name;
-        }
+        return $server_name;
     }
 }
 
 EOF
 
-$t->write_file('index.html', '');
-$t->run();
+$t->write_file('openssl.conf', <<EOF);
+[ req ]
+default_bits = 2048
+encrypt_key = no
+distinguished_name = req_distinguished_name
+[ req_distinguished_name ]
+EOF
+
+my $d = $t->testdir();
+
+foreach my $name ('localhost') {
+	system('openssl req -x509 -new '
+		. "-config $d/openssl.conf -subj /CN=$name/ "
+		. "-out $d/$name.crt -keyout $d/$name.key "
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't create certificate for $name: $!\n";
+}
+
+$t->try_run('no server_name')->plan(19);
 
 ###############################################################################
 
 is(get_server('xxx'), 'localhost', 'default');
-is(get_server(), undef, 'empty');
 
 is(get_server('www.example.com'), 'www.example.com',
 	'www.example.com');
@@ -220,23 +206,21 @@ is(get_server('dot.example.com'), 'dot.example.com',
 ###############################################################################
 
 sub get_server {
-	get(@_) =~ /X-Server: (.+)\x0d/m;
-	return $1;
+	my ($host) = @_;
+
+	my $s = stream(
+		PeerAddr => '127.0.0.1:' . port(8080),
+		SSL => 1,
+		SSL_hostname => $host
+	);
+
+	log_in("ssl sni: $host") if defined $host;
+
+	return $s->read();
 }
 
 sub get_match {
-	get(@_) =~ /X-Match: (.+)\x0d/m;
-	return $1;
-}
-
-sub get {
-	my ($host) = @_;
-
-	my $str = 'GET / HTTP/1.0' . CRLF .
-		(defined $host ? "Host: $host" . CRLF : '') .
-		CRLF;
-
-	return http($str);
+	&get_server;
 }
 
 ###############################################################################

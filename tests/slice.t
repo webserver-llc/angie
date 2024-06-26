@@ -114,7 +114,7 @@ http {
         location / {
             if ($http_range = "") {
                 set $limit_rate 100;
-	    }
+            }
         }
     }
 }

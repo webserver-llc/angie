@@ -106,7 +106,6 @@ like($r, qr/X-ALPN: ALPN1-ALPN1\x0d?$/m, 'ALPN');
 like($r, qr/X-AUTHORITY: localhost-localhost\x0d?$/m, 'AUTHORITY');
 like($r, qr/X-TLV-CRC32C: 4321\x0d?$/m, 'CRC32C');
 like($r, qr/X-UNIQUE-ID: UNIQQ-UNIQQ\x0d?$/m, 'UNIQUE_ID');
-like($r, qr/X-SSL-BINARY: true/, 'SSL_BINARY');
 like($r, qr/X-SSL-VERIFY: 255\x0d?$/m, 'SSL_VERIFY');
 like($r, qr/X-SSL-VERSION: TLSv1.2-TLSv1.2\x0d?$/m, 'SSL_VERSION');
 like($r, qr/X-SSL-CN: example.com-example.com\x0d?$/m, 'SSL_CN');
@@ -116,6 +115,13 @@ like($r, qr/X-SSL-KEY-ALG: RSA512-RSA512\x0d?$/m, 'SSL_KEY_ALG');
 like($r, qr/X-NETNS: NETNS-NETNS\x0d?$/m, 'NETNS');
 like($r, qr/X-TLV-CUSTOM: 12345\x0d?$/m, 'custom');
 like($r, qr/X-TLV-X: -\x0d?$/m, 'non-existent');
+
+SKIP: {
+skip 'no PCRE', 1 unless $t->has_module('rewrite');
+
+like($r, qr/X-SSL-BINARY: true/, 'SSL_BINARY');
+
+}
 
 ###############################################################################
 

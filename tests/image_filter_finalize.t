@@ -146,6 +146,7 @@ like(http_get('/time.log'), qr!/t3:.*, [1-9]\.!, 'upstream response time');
 # "readv() failed (9: Bad file descriptor) while reading upstream"
 
 $t->todo_alerts() if $t->read_file('nginx.conf') =~ /aio_write on/
-	and $t->read_file('nginx.conf') =~ /aio threads/;
+	and $t->read_file('nginx.conf') =~ /aio threads/
+	and !$t->has_version('1.25.4');
 
 ###############################################################################

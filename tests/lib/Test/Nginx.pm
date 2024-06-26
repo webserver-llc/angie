@@ -187,6 +187,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-stream_map_module)',
 		stream_mqtt_preread
 			=> '--with-stream_mqtt_preread_module',
+		stream_pass
+			=> '(?s)^(?!.*--without-stream_pass_module)',
 		stream_return
 			=> '(?s)^(?!.*--without-stream_return_module)',
 		stream_set

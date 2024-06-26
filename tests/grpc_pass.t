@@ -112,7 +112,9 @@ like(http_get('/basic'), qr/200 OK/, 'no scheme');
 like(http_get('/grpc'), qr/200 OK/, 'grpc scheme');
 
 SKIP: {
-skip 'OpenSSL too old', 1 unless $t->has_feature('openssl:1.0.2');
+skip 'OpenSSL too old', 1
+	if $t->has_module('OpenSSL')
+	and not $t->has_feature('openssl:1.0.2');
 
 like(http_get('/grpcs'), qr/200 OK/, 'grpcs scheme');
 

@@ -91,25 +91,25 @@ EOF
 
 my $libsofthsm2_path;
 my @so_paths = (
-	'/usr/lib/softhsm/',    # alpine, astrase, debian, ubuntu
-	'/usr/lib64/softhsm/',  # rosachrome, rosafresh
-	'/usr/local/lib/softhsm/', # freebsd
-	'/lib64/',              # redos, almalinux, centos, oracle, rocky
+	'/usr/lib/softhsm',		# Debian-based
+	'/usr/lib64/softhsm/',		# rosachrome, rosafresh
+	'/usr/local/lib/softhsm',	# FreeBSD
+	'/opt/local/lib/softhsm',	# MacPorts
+	'/lib64',			# RHEL-based
+	split /:/, $ENV{TEST_ANGIE_SOFTHSM} || ''
 );
+
 for my $so_path (@so_paths) {
-	my $path = $so_path . 'libsofthsm2.so';
-	if (-e $path) {
-		$libsofthsm2_path = $path;
+	$so_path .= '/libsofthsm2.so';
+	if (-e $so_path) {
+		$libsofthsm2_path = $so_path;
 		last;
 	}
 };
 
-die 'Can\'t determine libsofthsm2.so path'
-	unless $libsofthsm2_path;
+plan(skip_all => "libsofthsm2.so not found") unless $libsofthsm2_path;
 
-note("libsofthsm2_path: $libsofthsm2_path");
-
-$t->write_file('openssl.conf', <<EOF);
+my $openssl_conf = <<EOF;
 openssl_conf = openssl_def
 
 [openssl_def]
@@ -120,7 +120,7 @@ pkcs11 = pkcs11_section
 
 [pkcs11_section]
 engine_id = pkcs11
-#dynamic_path = /usr/local/lib/engines/pkcs11.so
+dynamic_path = /usr/local/lib/engines/pkcs11.so
 MODULE_PATH = $libsofthsm2_path
 init = 1
 PIN = 1234
@@ -131,6 +131,9 @@ encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
 EOF
+
+$openssl_conf =~ s|^(?=dynamic_path)|# |m if $^O ne 'freebsd';
+$t->write_file('openssl.conf', $openssl_conf);
 
 my $d = $t->testdir();
 
@@ -168,15 +171,11 @@ foreach my $name ('localhost') {
 
 	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
 
-	my $openssl_call_result = system($cmd);
-
-	plan(skip_all => "Can't create certificate for $name: $!\n")
-		unless $openssl_call_result == 0;
+	system($cmd) == 0
+		or plan(skip_all => "missing engine");
 }
 
-$t->plan(2);
-
-$t->run();
+$t->run()->plan(2);
 
 $t->write_file('index.html', '');
 

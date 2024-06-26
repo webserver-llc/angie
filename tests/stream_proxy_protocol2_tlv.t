@@ -24,7 +24,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return map/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return stream_map/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -105,7 +105,13 @@ like($r, qr/ssl-cn:example.com\x0d?$/m, 'SSL_CN');
 like($r, qr/ssl-cipher:AES256-SHA\x0d?$/m, 'SSL_CIPHER');
 like($r, qr/ssl-sig-alg:SHA1\x0d?$/m, 'SSL_SIG_ALG');
 like($r, qr/ssl-key-alg:RSA512\x0d?$/m, 'SSL_KEY_ALG');
+
+SKIP: {
+skip 'no PCRE', 1 unless $t->has_module('rewrite');
+
 like($r, qr/ssl-binary:true/, 'SSL_BINARY');
+
+}
 
 }
 

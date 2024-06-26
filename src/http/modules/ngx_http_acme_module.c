@@ -42,6 +42,12 @@
 #define ngx_container_of(ptr, type, member) \
     ((type *) ((u_char *)(ptr) - offsetof(type, member)))
 
+#define ngx_http_acme_get_core_loc_conf(amcf) \
+    (amcf)->ctx->loc_conf[ngx_http_core_module.ctx_index]
+
+#define ngx_http_acme_get_main_conf() \
+    ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_acme_module)
+
 #if (NGX_DEBUG)
 
 /*
@@ -94,7 +100,8 @@
         ses->delay_expire = ngx_time() + sec;                                 \
         NGX_FIBER_REMEMBER(ses->fiber##_state);                               \
         if (ngx_time() < ses->delay_expire) {                                 \
-            ngx_add_timer(&ses->client->main_conf->timer_event, 10);          \
+            ngx_http_acme_main_conf_t *__amcf = ngx_http_acme_get_main_conf();\
+            ngx_add_timer(&__amcf->timer_event, 10);                          \
             return NGX_AGAIN;                                                 \
         }                                                                     \
     } while (0)
@@ -126,7 +133,6 @@ typedef struct ngx_http_acme_sh_cert_s     ngx_http_acme_sh_cert_t;
 
 struct ngx_acme_client_s {
     ngx_log_t                  *log;
-    ngx_http_acme_main_conf_t  *main_conf;
     ngx_str_t                   name;
     ngx_str_t                   path;
     ngx_uint_t                  enabled;
@@ -154,18 +160,15 @@ struct ngx_acme_client_s {
 
 struct ngx_http_acme_main_conf_s {
     ngx_http_conf_ctx_t        *ctx;
-    ngx_http_core_loc_conf_t   *clcf;
     ngx_acme_client_t          *current;
+    ngx_shm_zone_t             *shm_zone;
     /* event ident must be after 3 pointers as in ngx_connection_t */
     ngx_int_t                   dummy;
-    ngx_pool_t                 *pool;
     ngx_log_t                   log;
     ngx_http_log_ctx_t          log_ctx;
     ngx_array_t                 clients;
     ngx_event_t                 timer_event;
     size_t                      max_key_auth_size;
-    size_t                      shm_size;
-    ngx_shm_zone_t             *shm_zone;
     ngx_http_acme_sh_keyauth_t *sh;
     ngx_str_t                   path;
     ngx_str_t                   acme_server_var;
@@ -288,9 +291,6 @@ static char *ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf);
 static void *ngx_http_acme_create_srv_conf(ngx_conf_t *cf);
 
 static ngx_int_t ngx_http_acme_init_worker(ngx_cycle_t *cycle);
-static void ngx_http_acme_dummy_cleanup(void *data);
-static void *ngx_http_acme_get_ctx(ngx_http_request_t *r);
-static ngx_int_t ngx_http_acme_set_ctx(ngx_http_request_t *r, void *data);
 static ngx_int_t ngx_http_acme_file_load(ngx_log_t *log,
     ngx_file_t *open_file, u_char *buf, size_t size);
 static ngx_int_t ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
@@ -2092,10 +2092,11 @@ ngx_http_acme_send_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
 {
     ngx_int_t                   rc;
     ngx_http_request_t         *r;
+    ngx_http_core_loc_conf_t   *clcf;
     ngx_http_acme_main_conf_t  *amcf;
 
     rc = NGX_OK;
-    amcf = ses->client->main_conf;
+    amcf = ngx_http_acme_get_main_conf();
 
     NGX_ACME_BEGIN(send_request);
 
@@ -2115,7 +2116,9 @@ ngx_http_acme_send_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
 
     DBG_HTTP((ses->client, "--- send request"));
 
-    ngx_http_acme_finalize_request(r, amcf->clcf->handler(r));
+    clcf = ngx_http_acme_get_core_loc_conf(amcf);
+
+    ngx_http_acme_finalize_request(r, clcf->handler(r));
 
     NGX_ACME_YIELD(send_request);
 
@@ -3031,7 +3034,7 @@ ngx_http_acme_share_key_auth(ngx_http_acme_session_t *ses, ngx_str_t *key_auth,
 {
     ngx_http_acme_main_conf_t  *amcf;
 
-    amcf = ses->client->main_conf;
+    amcf = ngx_http_acme_get_main_conf();
 
     if (key_auth->len > amcf->max_key_auth_size) {
         ngx_log_error(NGX_LOG_CRIT, ses->log, 0,
@@ -3058,8 +3061,10 @@ ngx_http_acme_share_key_auth(ngx_http_acme_session_t *ses, ngx_str_t *key_auth,
 static ngx_int_t
 ngx_acme_http_challenge_handler(ngx_http_request_t *r)
 {
-    static ngx_str_t content_type = ngx_string("application/octet-stream");
-    static ngx_str_t wellknown    = ngx_string("/.well-known/acme-challenge/");
+    static const ngx_str_t content_type =
+                                         ngx_string("application/octet-stream");
+    static const ngx_str_t wellknown =
+                                     ngx_string("/.well-known/acme-challenge/");
 
     ngx_int_t     rc;
     ngx_log_t    *log;
@@ -3320,7 +3325,7 @@ static ngx_chain_t *
 ngx_http_acme_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 {
     /* can't happen */
-    ngx_log_error(NGX_LOG_ERR, c->log, 0,
+    ngx_log_error(NGX_LOG_ALERT, c->log, 0,
                   "internal error: send_chain stub called");
     return NGX_CHAIN_ERROR;
 }
@@ -3330,19 +3335,21 @@ static ngx_http_request_t *
 ngx_http_acme_init_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
     ngx_str_t *url, ngx_str_t *body)
 {
-    u_char                 *p;
-    size_t                  len;
-    ngx_buf_t              *b;
-    ngx_str_t               uri;
-    ngx_chain_t            *cl;
-    ngx_connection_t       *c;
-    ngx_http_request_t     *r;
-    ngx_http_connection_t   hc;
+    u_char                     *p;
+    size_t                      len;
+    ngx_buf_t                  *b;
+    ngx_str_t                   uri;
+    ngx_chain_t                *cl;
+    ngx_connection_t           *c;
+    ngx_http_request_t         *r;
+    ngx_http_connection_t       hc;
+    ngx_http_acme_main_conf_t  *amcf;
 
     c = &ses->connection;
+    amcf = ngx_http_acme_get_main_conf();
 
     ngx_memzero(&hc, sizeof(ngx_http_connection_t));
-    hc.conf_ctx = ses->client->main_conf->ctx;
+    hc.conf_ctx = amcf->ctx;
 
     c->data = &hc;
 
@@ -3363,9 +3370,7 @@ ngx_http_acme_init_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
 
     c->data = r;
 
-    if (ngx_http_acme_set_ctx(r, ses) != NGX_OK) {
-        goto failed;
-    }
+    ngx_http_set_ctx(r, ses, ngx_http_acme_module);
 
     if (method == NGX_HTTP_POST && body)  {
         r->request_body = ngx_pcalloc(r->pool, sizeof(ngx_http_request_body_t));
@@ -3484,7 +3489,7 @@ ngx_http_acme_add_header(ngx_http_request_t *r, char *name, char *value)
 #if (NGX_DEBUG)
     ngx_http_acme_session_t    *ses;
 
-    ses = ngx_http_acme_get_ctx(r);
+    ses = ngx_http_get_module_ctx(r, ngx_http_acme_module);
 
     DBG_HTTP((ses->client, "req header: \"%s: %s\"", name, value));
 #endif
@@ -3525,10 +3530,11 @@ ngx_http_acme_add_header(ngx_http_request_t *r, char *name, char *value)
 static void
 ngx_http_acme_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
 {
-    ngx_connection_t         *c;
-    ngx_http_acme_session_t  *ses;
+    ngx_connection_t           *c;
+    ngx_http_acme_session_t    *ses;
+    ngx_http_acme_main_conf_t  *amcf;
 
-    ses = ngx_http_acme_get_ctx(r);
+    ses = ngx_http_get_module_ctx(r, ngx_http_acme_module);
 
     DBG_HTTP((ses->client, "request completed: %i", rc));
 
@@ -3546,7 +3552,9 @@ ngx_http_acme_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
 
     ngx_http_acme_response_handler(ses, r, rc);
 
-    ngx_add_timer(&ses->client->main_conf->timer_event, 10);
+    amcf = ngx_http_acme_get_main_conf();
+
+    ngx_add_timer(&amcf->timer_event, 10);
 
     c = r->connection;
 
@@ -3611,7 +3619,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_http_server_name_t      *sn;
     ngx_http_acme_srv_conf_t    *ascf;
     ngx_http_core_srv_conf_t   **cscfp, *cscf;
-    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_core_loc_conf_t    *clcf, *pclcf;
     ngx_http_acme_main_conf_t   *amcf;
     ngx_http_core_main_conf_t   *cmcf;
 
@@ -3721,11 +3729,12 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     cln->data = &amcf->clients;
 
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    pclcf = ngx_http_acme_get_core_loc_conf(amcf);
 
-    amcf->clcf->resolver = clcf->resolver;
+    pclcf->resolver = clcf->resolver;
 
     if (clcf->error_log != NULL) {
-        amcf->clcf->error_log = clcf->error_log;
+        pclcf->error_log = clcf->error_log;
     }
 
     for (i = 0; i < amcf->clients.nelts; i++) {
@@ -3796,7 +3805,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             return NGX_ERROR;
         }
 
-        cli->private_key_data = ngx_pnalloc(cli->main_conf->pool,
+        cli->private_key_data = ngx_pnalloc(cf->pool,
                                             cli->private_key.file_size + 5);
                                             /* 5 = size of "data:" prefix */
         if (cli->private_key_data == NULL) {
@@ -3867,7 +3876,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
     *h = ngx_acme_http_challenge_handler;
 
-    ngx_str_set(&name, "acme_server");
+    ngx_str_set(&name, "__acme_server");
 
     v = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
     if (v == NULL) {
@@ -3875,7 +3884,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     }
 
     v->get_handler = ngx_http_acme_server_variable;
-    v->data = (uintptr_t) amcf;
+    v->data = (uintptr_t) &amcf->acme_server_var;
 
     ngx_http_next_header_filter = ngx_http_top_header_filter;
     ngx_http_top_header_filter = ngx_http_acme_header_filter;
@@ -3921,11 +3930,11 @@ ngx_http_acme_header_filter(ngx_http_request_t *r)
     ngx_buf_t                *b;
     ngx_http_acme_session_t  *ses;
 
-    if (r->finalize_request != ngx_http_acme_finalize_request) {
+    ses = ngx_http_get_module_ctx(r, ngx_http_acme_module);
+
+    if (ses == NULL) {
         return ngx_http_next_header_filter(r);
     }
-
-    ses = ngx_container_of(r->connection, ngx_http_acme_session_t, connection);
 
     b = ngx_create_temp_buf(r->pool, ses->client->max_cert_size);
     if (b == NULL) {
@@ -3993,6 +4002,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
     ngx_uint_t                  i;
     ngx_acme_client_t          *cli;
     ngx_http_acme_sh_cert_t    *shc;
+    ngx_http_core_loc_conf_t   *pclcf;
     ngx_http_acme_main_conf_t  *amcf;
 
     if (shm_zone->shm.exists) {
@@ -4004,7 +4014,9 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
     amcf = shm_zone->data;
 
-    ngx_memcpy(&amcf->log, amcf->clcf->error_log, sizeof(ngx_log_t));
+    pclcf = ngx_http_acme_get_core_loc_conf(amcf);
+
+    ngx_memcpy(&amcf->log, pclcf->error_log, sizeof(ngx_log_t));
     amcf->log.data = &amcf->log_ctx;
     amcf->log.handler = ngx_http_acme_log_error;
 
@@ -4123,9 +4135,13 @@ ngx_http_acme_create_session(ngx_acme_client_t *cli)
 static void
 ngx_http_acme_destroy_session(ngx_http_acme_session_t **ses)
 {
+    ngx_http_acme_main_conf_t *amcf = ngx_http_acme_get_main_conf();
+
     DBG_MEM(((*ses)->client, "destroy session pool: %p", (*ses)->pool));
 
-    ngx_str_null(&(*ses)->client->main_conf->acme_server_var);
+    amcf = ngx_http_acme_get_main_conf();
+
+    ngx_str_null(&amcf->acme_server_var);
 
     ngx_destroy_pool((*ses)->pool);
 
@@ -4224,7 +4240,7 @@ static int
 ngx_http_extract_header(ngx_pool_t *pool, ngx_list_t *headers, char *name,
     ngx_str_t *value)
 {
-    size_t   len;
+    size_t            len;
     ngx_uint_t        i;
     ngx_list_part_t  *part;
     ngx_table_elt_t  *header;
@@ -4447,7 +4463,6 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    amcf->pool = cf->pool;
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
 
     return amcf;
@@ -4484,44 +4499,6 @@ ngx_http_acme_create_srv_conf(ngx_conf_t *cf)
     }
 
     return ascf;
-}
-
-
-static void
-ngx_http_acme_dummy_cleanup(void *data)
-{
-}
-
-
-static void *
-ngx_http_acme_get_ctx(ngx_http_request_t *r)
-{
-    ngx_pool_cleanup_t  *cln;
-
-    for (cln = r->pool->cleanup; cln; cln = cln->next) {
-        if (cln->handler == ngx_http_acme_dummy_cleanup) {
-            return cln->data;
-        }
-    }
-
-    return NULL;
-}
-
-
-static ngx_int_t
-ngx_http_acme_set_ctx(ngx_http_request_t *r, void *data)
-{
-    ngx_pool_cleanup_t  *cln;
-
-    cln = ngx_pool_cleanup_add(r->pool, 0);
-    if (cln == NULL) {
-        return NGX_ERROR;
-    }
-
-    cln->handler = ngx_http_acme_dummy_cleanup;
-    cln->data = data;
-
-    return NGX_OK;
 }
 
 
@@ -4584,16 +4561,19 @@ static ngx_int_t
 ngx_http_acme_server_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_http_acme_main_conf_t  *amcf = (ngx_http_acme_main_conf_t  *) data;
+    ngx_str_t  *acme_server_var = (ngx_str_t *) data;
+
+    if (acme_server_var->len == 0) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                      "internal error: ACME server variable not set");
+        return NGX_ERROR;
+    }
 
     v->valid = 1;
     v->no_cacheable = 0;
-    v->not_found = !amcf->acme_server_var.len;
-
-    if (!v->not_found) {
-        v->data = amcf->acme_server_var.data;
-        v->len = amcf->acme_server_var.len;
-    }
+    v->not_found = 0;
+    v->data = acme_server_var->data;
+    v->len = acme_server_var->len;
 
     return NGX_OK;
 }
@@ -4872,8 +4852,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_http_acme_add_proxy_pass(cf, amcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
-
-        amcf->clcf = amcf->ctx->loc_conf[ngx_http_core_module.ctx_index];
     }
 
     return NGX_CONF_OK;
@@ -4938,7 +4916,7 @@ ngx_http_acme_create_conf_ctx(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 static ngx_int_t
 ngx_http_acme_add_proxy_pass(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 {
-    static const ngx_str_t proxy_pass = ngx_string("proxy_pass $acme_server; "
+    static const ngx_str_t proxy_pass = ngx_string("proxy_pass $__acme_server; "
                                                    "access_log off;");
 
     char             *rv;
@@ -5159,8 +5137,6 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     if (cli->domains == NULL) {
         return NULL;
     }
-
-    cli->main_conf = amcf;
 
     for (v = ngx_http_acme_vars; v->name.len; v++) {
         if (ngx_http_acme_add_client_var(cf, cli, v) != NGX_OK) {

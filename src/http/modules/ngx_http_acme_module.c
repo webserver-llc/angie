@@ -48,6 +48,14 @@
 #define ngx_http_acme_get_main_conf() \
     ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_acme_module)
 
+#ifndef OPENSSL_IS_BORINGSSL
+#define X509V3_EXT_conf_nid_f   X509V3_EXT_conf_nid
+#define X509V3_EXT_conf_nid_n   "X509V3_EXT_conf_nid()"
+#else
+#define X509V3_EXT_conf_nid_f   X509V3_EXT_nconf_nid
+#define X509V3_EXT_conf_nid_n   "X509V3_EXT_nconf_nid()"
+#endif
+
 #if (NGX_DEBUG)
 
 /*
@@ -303,12 +311,14 @@ static void ngx_http_acme_key_free(ngx_acme_privkey_t *key);
 static ngx_int_t ngx_http_acme_load_keys(ngx_acme_client_t *cli);
 static void ngx_http_acme_free_keys(ngx_acme_client_t *cli);
 static ngx_int_t ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses,
-    u_char status_req, ngx_acme_privkey_t *key, ngx_str_t *csr);
+    ngx_acme_privkey_t *key, ngx_str_t *csr);
 static ngx_int_t ngx_http_acme_identifiers(ngx_http_acme_session_t *ses,
     ngx_str_t *identifiers);
 static ngx_int_t ngx_http_acme_jwk_thumbprint(ngx_http_acme_session_t *ses,
     ngx_acme_privkey_t *key, ngx_str_t *thumbprint);
-static ngx_int_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli);
+static time_t ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time,
+    ngx_log_t *log);
+static time_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli);
 static ngx_int_t ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *name,
     ngx_str_t *filename, ngx_str_t *full_path);
 static ngx_int_t ngx_http_acme_init_connection(ngx_http_acme_session_t *ses);
@@ -1108,7 +1118,7 @@ static ngx_int_t
 ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
     ngx_str_t *sig)
 {
-    int            n;
+    size_t         n;
     u_char        *new_sig, *p;
     ngx_int_t      rc;
     ECDSA_SIG     *s;
@@ -1144,12 +1154,12 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
         goto failed;
     }
 
-    if (BN_bn2bin(br, p) != n) {
+    if ((size_t) BN_bn2bin(br, p) != n) {
         ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
 
-    if (n >= (int) hash_size) {
+    if (n >= hash_size) {
         ngx_memcpy(new_sig, p + n - hash_size, hash_size);
     } else {
         ngx_memcpy(new_sig + hash_size - n, p, n);
@@ -1162,12 +1172,12 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
         goto failed;
     }
 
-    if (BN_bn2bin(bs, p) != n) {
+    if ((size_t) BN_bn2bin(bs, p) != n) {
         ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
 
-    if (n >= (int) hash_size) {
+    if (n >= hash_size) {
         ngx_memcpy(new_sig + hash_size, p + n - hash_size, hash_size);
     } else {
         ngx_memcpy(new_sig + hash_size * 2 - n, p, n);
@@ -1495,8 +1505,8 @@ ngx_http_acme_free_keys(ngx_acme_client_t *cli)
 
 
 static ngx_int_t
-ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, u_char status_req,
-    ngx_acme_privkey_t *key, ngx_str_t *csr)
+ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
+    ngx_str_t *csr)
 {
     int                        csr_size;
     size_t                     len;
@@ -1605,33 +1615,23 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, u_char status_req,
         goto failed;
     }
 
-    ext = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, (char *) san);
+    ext = X509V3_EXT_conf_nid_f(NULL, NULL, NID_subject_alt_name, (char *) san);
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509V3_EXT_conf_nid() failed");
+        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+                      X509V3_EXT_conf_nid_n " failed");
         goto failed;
     }
 
     sk_X509_EXTENSION_push(exts, ext);
 
-    ext = X509V3_EXT_conf_nid(NULL, NULL, NID_key_usage, key_usage);
+    ext = X509V3_EXT_conf_nid_f(NULL, NULL, NID_key_usage, key_usage);
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509V3_EXT_conf_nid() failed");
+        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+                      X509V3_EXT_conf_nid_n " failed");
         goto failed;
     }
 
     sk_X509_EXTENSION_push(exts, ext);
-
-    if (status_req) {
-        /* ocsp must-staple extension */
-        ext = X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, "status_request");
-        if (!ext) {
-            ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
-                          "X509V3_EXT_conf_nid() failed");
-            goto failed;
-        }
-
-        sk_X509_EXTENSION_push(exts, ext);
-    }
 
     if (!X509_REQ_add_extensions(crq, exts)) {
         ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
@@ -1796,21 +1796,71 @@ failed:
 }
 
 
+static time_t
+ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time, ngx_log_t *log)
+{
+    /*
+     * TODO This is a slightly modified version of the function
+     * ngx_ssl_parse_time defined statically in ngx_event_openssl.c.
+     * Should we make it global?
+     */
+    BIO     *bio;
+    char    *value;
+    size_t   len;
+    time_t   time;
+
+    /*
+     * Some OpenSSL versions don't provide a way to convert ASN1_TIME
+     * into time_t.  To do this portably, we use ASN1_TIME_print(),
+     * which uses the "MMM DD HH:MM:SS YYYY [GMT]" format (e.g.,
+     * "Feb  3 00:55:52 2015 GMT"), and parse the result.
+     */
+
+    bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "BIO_new() failed");
+        return NGX_ERROR;
+    }
+
+    /* fake weekday prepended to match C asctime() format */
+
+    BIO_write(bio, "Tue ", sizeof("Tue ") - 1);
+
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+    ASN1_TIME_print(bio, asn1time);
+#else
+    ASN1_TIME_print(bio, (ASN1_TIME *) asn1time);
+#endif
+
+    len = BIO_get_mem_data(bio, &value);
+
+    time = ngx_parse_http_time((u_char *) value, len);
+
+    BIO_free(bio);
+
+    return time;
+}
+
+
 /*
  * Return values:
  * + expiry time of the certificate if the certificate is valid;
  * + NGX_DECLINED if the certificate is invalid (e.g. expired);
  * + NGX_ERROR if an OpenSSL or system error occurred.
  */
-static ngx_int_t
+static time_t
 ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
 {
     int               type, i, found;
+#ifndef OPENSSL_IS_BORINGSSL
+    int               j;
+#else
+    size_t            j;
+#endif
     BIO              *bio;
     X509             *x509;
     u_char           *s;
-    struct tm         tm;
-    ngx_int_t         rc;
+    time_t            rc;
     ngx_uint_t        di;
     ngx_str_t         domain;
     X509_NAME        *subj_name;
@@ -1845,23 +1895,20 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
         return NGX_ERROR;
     }
 
-    ngx_memzero(&tm, sizeof(struct tm));
-
 #if OPENSSL_VERSION_NUMBER > 0x10100000L
     t = X509_get0_notAfter(x509);
 #else
-    t = X509_get_notAfter(x509);
+    t = (const ASN1_TIME *) X509_get_notAfter(x509);
 #endif
 
-    if (!t || !ASN1_TIME_to_tm(t, &tm)) {
+    rc = ngx_http_acme_parse_ssl_time(t, cli->log);
+
+    if (rc == (time_t) NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
-                      "invalid time in certificate \"%V\"",
+                      "couldn't extract time from certificate \"%V\"",
                       &cli->certificate_file.name);
-        rc = NGX_ERROR;
         goto failed;
     }
-
-    rc = timegm(&tm);
 
     if (ngx_time() >= rc) {
         /* expired */
@@ -1886,9 +1933,9 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
         domain = ((ngx_str_t*) cli->domains->elts)[di];
         found = 0;
 
-        for (i = 0; i < sk_GENERAL_NAME_num(sans); i++) {
+        for (j = 0; j < sk_GENERAL_NAME_num(sans) && !found; j++) {
 
-            name = sk_GENERAL_NAME_value(sans, i);
+            name = sk_GENERAL_NAME_value(sans, j);
             if (!name) {
                 continue;
             }
@@ -1913,10 +1960,6 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
                     }
                     OPENSSL_free(s);
                 }
-            }
-
-            if (found) {
-                break;
             }
         }
 
@@ -2001,6 +2044,7 @@ ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_run(ngx_http_acme_session_t *ses)
 {
+    time_t     t;
     ngx_int_t  rc;
 
     /*
@@ -2043,20 +2087,20 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
         goto failed;
     }
 
-    rc = ngx_http_acme_cert_validity(ses->client);
+    t = ngx_http_acme_cert_validity(ses->client);
 
-    if (rc > 0) {
-        ses->client->expiry_time = rc;
-        ses->client->renew_time = rc - ses->client->renew_before_expiry;
+    if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
+        ses->client->expiry_time = t;
+        ses->client->renew_time = t - ses->client->renew_before_expiry;
 
-        rc = ngx_time();
+        t = ngx_time();
 
-        if (ses->client->renew_time <= rc) {
+        if (ses->client->renew_time <= t) {
             ngx_log_error(NGX_LOG_WARN, ses->log, 0,
                           "certificate's validity period is shorter than "
                           "renew_before_expiry time");
             /* TODO find a better solution? */
-            ses->client->renew_time = rc + (ses->client->expiry_time - rc) / 2;
+            ses->client->renew_time = t + (ses->client->expiry_time - t) / 2;
         }
 
         rc = NGX_OK;
@@ -2615,7 +2659,7 @@ finalize:
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
-    rc = ngx_http_acme_csr_gen(ses, 0, &ses->client->private_key, &csr);
+    rc = ngx_http_acme_csr_gen(ses, &ses->client->private_key, &csr);
 
     if (rc != NGX_OK) {
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
@@ -3996,9 +4040,10 @@ ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 {
+    char                       *s;
     size_t                      sz;
     u_char                     *p;
-    ngx_int_t                   rc;
+    time_t                      t;
     ngx_uint_t                  i;
     ngx_acme_client_t          *cli;
     ngx_http_acme_sh_cert_t    *shc;
@@ -4009,8 +4054,6 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         /* Angie doesn't support Windows, so this probably can't happen... */
         return NGX_ERROR;
     }
-
-    rc = NGX_ERROR;
 
     amcf = shm_zone->data;
 
@@ -4043,17 +4086,19 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         ngx_memcpy(shc->data_start, "data:", 5);
 
         if (shc->len != 5) {
-            rc = ngx_http_acme_cert_validity(cli);
+            t = ngx_http_acme_cert_validity(cli);
 
-            if (rc > 0) {
-                cli->expiry_time = rc;
-                cli->renew_time = rc - cli->renew_before_expiry;
+            if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
+                s = "valid";
+                cli->expiry_time = t;
+                cli->renew_time = t - cli->renew_before_expiry;
 
             } else {
+                s = "invalid";
                 cli->renew_time = ngx_time();
             }
 
-            if (rc != NGX_ERROR) {
+            if (t != (time_t) NGX_ERROR) {
                 if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
                                             shc->data_start + 5,
                                             cli->certificate_file_size)
@@ -4063,6 +4108,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                 }
 
             } else {
+                s = "couldn't parse";
                 shc->len = 5;
             }
 
@@ -4079,13 +4125,13 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                 }
             }
 
+            s = "no";
             cli->renew_time = ngx_time();
         }
 
         ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
                       "%s certificate, renewal scheduled %s, ACME client: %V",
-                      (shc->len != 5) ? ((rc > 0) ? "valid" : "invalid") : "no",
-                      strtok(ctime(&cli->renew_time), "\n"), &cli->name);
+                      s, strtok(ctime(&cli->renew_time), "\n"), &cli->name);
 
         cli->sh_cert = shc;
 

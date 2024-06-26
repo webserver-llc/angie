@@ -62,6 +62,15 @@ getsockname() failed (9: Bad file descriptor)" errors on some configurations.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка BoringSSL в модуле ACME.
+</para>
+<para lang="en">
+support for BoringSSL in the ACME module.
+</para>
+</change>
+
 </changes>
 
 

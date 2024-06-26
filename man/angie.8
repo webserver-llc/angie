@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (C) 2022 Web Server LLC
+.\" Copyright (C) 2022-2024 Web Server LLC
 .\" Copyright (C) 2010, 2019 Sergey A. Osokin
 .\" Copyright (C) Nginx, Inc.
 .\" All rights reserved.
@@ -26,20 +26,21 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd September 17, 2022
+.Dd June 26, 2024
 .Dt ANGIE 8
 .Os
 .Sh NAME
 .Nm Angie
 .Nd "HTTP and reverse proxy server, mail proxy server"
 .Sh SYNOPSIS
-.Nm
-.Op Fl ?hqTtVv
+.Nm angie
+.Op Fl ?hqTtVvmM
 .Op Fl c Ar file
 .Op Fl e Ar file
 .Op Fl g Ar directives
 .Op Fl p Ar prefix
 .Op Fl s Ar signal
+.Op Fl Fl build-env
 .Sh DESCRIPTION
 .Nm
 is an HTTP and reverse proxy server, a mail proxy server, and a generic
@@ -89,6 +90,10 @@ The following table shows the corresponding system signals:
 .It Cm reload
 .Dv SIGHUP
 .El
+.It Fl m
+show built-in modules and exit
+.It Fl M
+show built-in and loaded modules then exit
 .It Fl T
 Same as
 .Fl t ,
@@ -108,6 +113,8 @@ script parameters.
 Print the
 .Nm
 version.
+.It Fl Fl build-env
+show build environment and exit
 .El
 .Sh SIGNALS
 The master process of

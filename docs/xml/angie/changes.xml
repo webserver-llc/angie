@@ -9,25 +9,42 @@
 
 <change type="feature">
 <para lang="ru">
-директива "rdp_preread" модуля "stream", включающая извлечение rdp cookie
-в переменные "$rdp_cookie", "$rdp_cookie_".
+директива "sticky" и сопутствующие настройки в блоке "upstream" stream-модуля,
+позволяющие задать режим привязки сессий, при котором все соединения в рамках
+сессии будут направляться на один и тот же сервер.
 </para>
 <para lang="en">
-the "rdp_preread" directive in the "stream" module, which allows extracting
-the rdp cookie into the "$rdp_cookie" and "$rdp_cookie_" variables.
+the "sticky" directive and related options in the "stream" module's "upstream"
+block, which allow to configure sticky sessions mode where all connections in
+the session are routed to the same server.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-директива "sticky" и сопутствующие настройки в блоке "upstream" stream-модуля,
-позволяющие задать режим привязки сессий, при котором все запросы в рамках
-сессии будут направляться на один и тот же сервер.
+извлечение значений Cookie из RDP-соединений с помощью директивы "rdp_preread"
+stream-модуля в переменные "$rdp_cookie" и "$rdp_cookie_NAME", что позволяет
+логгировать и привязывать RDP-сеансы клиентов к одним и тем же серверам при
+балансировке нагрузки.
 </para>
 <para lang="en">
-the "sticky" directive and related options in the stream module "upstream"
-block, that allow to configure sticky sessions mode, where all requests of
-the session are routed to the same server.
+extraction of Cookie values from RDP connections using the "rdp_preread"
+directive in the "stream" module into "$rdp_cookie" и "$rdp_cookie_NAME"
+variables, which allows to log and stick RDP client sessions to particular
+servers while load balancing.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+возможность указать несколько директив "acme" в одном блоке "server",
+что позволяет настраивать получение сертификатов сразу двух типов в рамках
+данного виртуального сервера.
+</para>
+<para lang="en">
+support for multiple "acme" directives in a "server" block, which allows
+to configure obtaining two types of certificates at once for that virtual
+server.
 </para>
 </change>
 
@@ -37,39 +54,7 @@ the session are routed to the same server.
 и загруженных модулей.
 </para>
 <para lang="en">
-command line options "-m" and "-M" to display list of built-in and loaded
-modules.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-вся функциональность nginx 1.27.0.
-</para>
-<para lang="en">
-all functionality of nginx 1.27.0.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-в конфигурациях с несколькими директивами error_log ACME-клиенты могли
-выводить сообщения в несоответствующие логи.
-</para>
-<para lang="en">
-in configurations with multiple error_log directives, ACME clients could
-log messages to incorrect logs.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-запрос сертификата по протоколу ACME мог завершаться ошибкой "[alert]
-getsockname() failed (9: Bad file descriptor)" в некоторых конфигурациях.
-</para>
-<para lang="en">
-certificate request via the ACME protocol could result in "[alert]
-getsockname() failed (9: Bad file descriptor)" errors on some configurations.
+command line options "-m" and "-M" to list built-in and loaded modules.
 </para>
 </change>
 
@@ -84,13 +69,50 @@ support for BoringSSL in the ACME module.
 
 <change type="feature">
 <para lang="ru">
-возможность указать несколько директив "acme" в одном блоке "server", что
-позволяет настраивать получение сертификатов сразу двух типов в рамках
-данного виртуального сервера.
+вся функциональность nginx 1.27.0, включая поддержку виртуальных серверов в
+модуле "stream" и директиву "pass", позволяющую передавать принятые соединения
+на обработку в другие слушающие сокеты, в том числе модулей HTTP и Mail.
 </para>
 <para lang="en">
-support for multiple acme directives in a server block allowing to
-obtain different types of certificates for a single domain.
+all functionality of nginx 1.27.0, including support for virtual servers in
+the "stream" module and the "pass" directive, which allows to pass accepted
+connections for handling to another listening sockets, including HTTP and Mail
+modules.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+запрос сертификата по протоколу ACME мог завершаться ошибкой в некоторых
+конфигурациях с сообщением в логе вида "[alert] getsockname() failed
+(9: Bad file descriptor)".
+</para>
+<para lang="en">
+certificate request via the ACME protocol could result in error on some
+configurations with a log message like "[alert] getsockname() failed
+(9: Bad file descriptor)".
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+запрос сертификата с большим количеством доменных имен по протоколу ACME
+мог завершаться ошибкой с сообщением в логе вида "[error] JSON parser error".
+</para>
+<para lang="en">
+certificate request with large number of domain names via the ACME protocol
+could result in error with a log message like "[error] JSON parser error".
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+ACME-клиенты в конфигурациях с несколькими директивами "error_log" могли
+выводить сообщения в несоответствующие логи.
+</para>
+<para lang="en">
+ACME clients in configurations with multiple "error_log" directives could
+log messages to irrelevant logs.
 </para>
 </change>
 

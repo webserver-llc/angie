@@ -124,31 +124,8 @@ like($log, qr/bad cookie/, 'packet cookie 2');
 ###############################################################################
 
 sub send_packet {
-	my ($data, $port) = @_;
-
-	my $s = stream('127.0.0.1:' . $port);
-
-	my ($r, $c);
-
-	my $i = 0;
-	my $l = length($data);
-
-	while ($l > 0) {
-		$r = int(rand($l)) + 1;
-		$c = substr($data, $i, $r);
-		$s->write($c);
-		$l -= $r;
-		$i += $r;
-	}
-
-	$data = '';
-	while (1) {
-		my $buf = $s->read();
-		last unless length($buf);
-		$data .= $buf;
-	}
-
-	return $data;
+	my ($bytes, $port) = @_;
+	return stream('127.0.0.1:' . $port)->io($bytes);
 }
 
 ###############################################################################

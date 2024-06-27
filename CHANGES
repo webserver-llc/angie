@@ -1,4 +1,42 @@
 
+Changes with Angie 1.6.0                                         28 Jun 2024
+
+    *) Feature: the "sticky" directive and related options in the "stream"
+       module's "upstream" block, which allow to configure sticky sessions
+       mode where all connections in the session are routed to the same
+       server.
+
+    *) Feature: extraction of Cookie values from RDP connections using the
+       "rdp_preread" directive in the "stream" module into "$rdp_cookie" и
+       "$rdp_cookie_NAME" variables, which allows to log and stick RDP
+       client sessions to particular servers while load balancing.
+
+    *) Feature: support for multiple "acme" directives in a "server" block,
+       which allows to configure obtaining two types of certificates at once
+       for that virtual server.
+
+    *) Feature: command line options "-m" and "-M" to list built-in and
+       loaded modules.
+
+    *) Feature: support for BoringSSL in the ACME module.
+
+    *) Feature: all functionality of nginx 1.27.0, including support for
+       virtual servers in the "stream" module and the "pass" directive,
+       which allows to pass accepted connections for handling to another
+       listening sockets, including HTTP and Mail modules.
+
+    *) Bugfix: certificate request via the ACME protocol could result in
+       error on some configurations with a log message like "[alert]
+       getsockname() failed (9: Bad file descriptor)".
+
+    *) Bugfix: certificate request with large number of domain names via the
+       ACME protocol could result in error with a log message like "[error]
+       JSON parser error".
+
+    *) Bugfix: ACME clients in configurations with multiple "error_log"
+       directives could log messages to irrelevant logs.
+
+
 Changes with Angie 1.5.2                                         31 May 2024
 
     *) Security: when using HTTP/3, processing of a specially crafted QUIC

@@ -26,7 +26,9 @@ eval { require JSON::PP; };
 plan(skip_all => "JSON::PP not installed") if $@;
 
 my $t = Test::Nginx->new()
-	->has(qw/stream stream_ssl http ssl stream_upstream_zone/)->plan(13)
+	->has(qw/stream stream_ssl stream_ssl_preread stream_upstream_zone/)
+	->has(qw/http ssl/)
+	->plan(13)
 	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');
 

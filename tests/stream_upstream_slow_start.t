@@ -104,8 +104,8 @@ $t->run_daemon(\&sequential_daemon, port(8082));
 
 select undef, undef, undef, 3;
 
-stream('127.0.0.1:' . 8090)->io('.');
-stream('127.0.0.1:' . 8090)->io('.');
+stream('127.0.0.1:' . port(8090))->io('.');
+stream('127.0.0.1:' . port(8090))->io('.');
 
 # expect peer to be in 'recovery' state due to slow start
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p1");

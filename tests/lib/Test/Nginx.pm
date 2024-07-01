@@ -1,6 +1,6 @@
 package Test::Nginx;
 
-# (C) 2022 Web Server LLC
+# (C) 2022-2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Generic module for Angie tests.
@@ -387,6 +387,12 @@ sub run(;$) {
 	if (defined $conf) {
 		my $c = `cat $conf`;
 		$self->write_file_expand('nginx.conf', $c);
+	}
+
+	if ($ENV{TEST_ANGIE_CATCONF}) {
+		Test::More::diag('------------------------------------------');
+		Test::More::diag($self->read_file('nginx.conf'));
+		Test::More::diag('------------------------------------------');
 	}
 
 	my $pid = fork();

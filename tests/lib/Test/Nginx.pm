@@ -481,6 +481,31 @@ sub dump_config() {
 	return qx/$command 2>&1/;
 }
 
+# nginx -t
+# returns exit code and message
+sub test_config() {
+	my ($self) = @_;
+
+	my $testdir = $self->{_testdir};
+
+	my @globals = $self->{_test_globals} ?
+		() : ('-g', "pid $testdir/nginx.pid; "
+		. "error_log $testdir/error.log;");
+	my $command = "$NGINX -t -p $testdir/ -c nginx.conf "
+		. "-e test_config_error.log " . join(' ', @globals);
+
+	my $res = system("$command > $testdir/test_config.log 2>&1");
+	my $exit_code = $? >> 8;
+
+	my $message = $self->read_file('test_config.log');
+
+	# nginx -t creates an empty pid file
+	# we need to delete it before starting nginx
+	unlink "$testdir/nginx.pid";
+
+	return ($exit_code, $message);
+}
+
 sub waitforfile($;$) {
 	my ($self, $file, $pid) = @_;
 	my $exited;

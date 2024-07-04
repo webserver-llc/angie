@@ -138,6 +138,26 @@ struct ngx_stream_upstream_rr_peers_s {
 };
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_stream_upstream_rr_peer_t   *peer;
+    ngx_stream_upstream_rr_peers_t  *peers;
+    ngx_stream_upstream_srv_conf_t  *uscf;
+    ngx_uint_t                       backup;  /* unsigned  backup:1; */
+} ngx_api_stream_upstream_peers_ctx_t;
+
+
+ngx_int_t ngx_api_stream_upstream_peer_struct_int_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_stream_upstream_peer_struct_int64_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_stream_upstream_peer_struct_msec_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+
+#endif
+
+
 #if (NGX_STREAM_UPSTREAM_ZONE)
 
 #define ngx_stream_upstream_rr_peers_rlock(peers)                             \

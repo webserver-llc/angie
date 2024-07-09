@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  */
 
 
@@ -8,8 +8,8 @@
 #define _ANGIE_H_INCLUDED_
 
 
-#define angie_version      1006000
-#define ANGIE_VERSION      "1.6.0"
+#define angie_version      1007000
+#define ANGIE_VERSION      "1.7.0"
 #define ANGIE_VER          "Angie/" ANGIE_VERSION
 
 #ifdef NGX_BUILD

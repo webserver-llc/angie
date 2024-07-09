@@ -4045,7 +4045,7 @@ ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 {
-    char                       *s;
+    char                       *s, *s2;
     size_t                      sz;
     u_char                     *p;
     time_t                      t;
@@ -4134,9 +4134,13 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
             cli->renew_time = ngx_time();
         }
 
+        s2 = (cli->renew_time > ngx_time())
+             ? strtok(ctime(&cli->renew_time), "\n")
+             : "now";
+
         ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
                       "%s certificate, renewal scheduled %s, ACME client: %V",
-                      s, strtok(ctime(&cli->renew_time), "\n"), &cli->name);
+                      s, s2, &cli->name);
 
         cli->sh_cert = shc;
 

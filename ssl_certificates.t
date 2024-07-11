@@ -43,8 +43,6 @@ http {
     ssl_certificate rsa.crt;
     ssl_ciphers DEFAULT:ECCdraft;
 
-    add_header X-SSL-Protocol $ssl_protocol;
-
     server {
         listen       127.0.0.1:8443 ssl;
         server_name  localhost;
@@ -85,27 +83,14 @@ foreach my $name ('ec', 'rsa') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->write_file('index.html', '');
-
 $t->run()->plan(2);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
-
 like(cert('RSA'), qr/CN=rsa/, 'ssl cert RSA');
-
-}
-
 like(cert('ECDSA'), qr/CN=ec/, 'ssl cert ECDSA');
 
 ###############################################################################
-
-sub test_tls13 {
-	return http_get('/', SSL => 1) =~ /TLSv1.3/;
-}
 
 sub cert {
 	my $s = get_socket(@_) || return;
@@ -128,8 +113,8 @@ sub get_socket {
 			or die("Failed to set sigalgs");
 	};
 
-	return http_get(
-		'/', start => 1,
+	return http(
+		'', start => 1,
 		SSL => 1,
 		SSL_cipher_list => $type,
 		SSL_create_ctx_callback => $ctx_cb

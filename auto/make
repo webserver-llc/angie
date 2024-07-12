@@ -1,6 +1,94 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
+
+
+dirsep()
+{
+    if [ "$ngx_dirsep" = "/" ]; then
+        res="$@"
+        return
+    fi
+
+    res=$(echo "$@" | sed -e "s/\//$ngx_regex_dirsep/g")
+}
+
+
+fmt_link()
+{
+    dirsep "$@"
+    res="$ngx_long_cont$res"
+}
+
+
+fmt_list()
+{
+    first="$1"
+    shift
+    last=
+
+    for i in $@; do
+        last="$last$prefix$i"
+    done
+
+    dirsep "$first$last"
+}
+
+
+fmt_incs()
+{
+    prefix="$ngx_cont$ngx_include_opt" fmt_list "$@"
+}
+
+
+fmt_deps()
+{
+    prefix="$ngx_cont" fmt_list "$@"
+}
+
+
+fmt_objs()
+{
+    prefix="$ngx_long_cont" fmt_list "$@"
+}
+
+
+src2obj()
+{
+    res=
+    case $1 in
+        *.c)   res="${1%.c}.$ngx_objext" ;;
+        *.cc)  res="${1%.cc}.$ngx_objext" ;;
+        *.cpp) res="${1%.cpp}.$ngx_objext";;
+        *.S)   res="${1%.S}.$ngx_objext" ;;
+        *)     res="$1" ;;
+    esac
+
+    res="$NGX_OBJS$ngx_dirsep$res"
+}
+
+
+srcs2objs()
+{
+    res=
+
+    for i in $@; do
+        case $i in
+            *.c)   i="${i%.c}.$ngx_objext" ;;
+            *.cc)  i="${i%.cc}.$ngx_objext" ;;
+            *.cpp) i="${i%.cpp}.$ngx_objext";;
+            *.S)   i="${i%.S}.$ngx_objext" ;;
+            *)     i="$i" ;;
+        esac
+
+        if [ -n "$res" ]; then
+            res="$res $NGX_OBJS/$i"
+        else
+            res="$NGX_OBJS/$i"
+        fi
+    done
+}
 
 
 echo "creating $NGX_MAKEFILE"
@@ -15,8 +103,8 @@ mkdir -p $NGX_OBJS/src/core $NGX_OBJS/src/event $NGX_OBJS/src/event/modules \
          $NGX_OBJS/src/misc
 
 
-ngx_objs_dir=$NGX_OBJS$ngx_regex_dirsep
-ngx_use_pch=`echo $NGX_USE_PCH | sed -e "s/\//$ngx_regex_dirsep/g"`
+dirsep "$NGX_USE_PCH"
+ngx_use_pch=$res
 
 
 cat << END                                                     > $NGX_MAKEFILE
@@ -38,9 +126,8 @@ fi
 
 # ALL_INCS, required by the addons and by OpenWatcom C precompiled headers
 
-ngx_incs=`echo $CORE_INCS $NGX_OBJS $HTTP_INCS $MAIL_INCS $STREAM_INCS\
-    | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
-          -e "s/\//$ngx_regex_dirsep/g"`
+fmt_incs $CORE_INCS $NGX_OBJS $HTTP_INCS $MAIL_INCS $STREAM_INCS
+ngx_incs=$res
 
 cat << END                                                    >> $NGX_MAKEFILE
 
@@ -54,13 +141,11 @@ ngx_all_srcs="$CORE_SRCS"
 
 # the core dependencies and include paths
 
-ngx_deps=`echo $CORE_DEPS $NGX_AUTO_CONFIG_H $NGX_PCH \
-    | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-          -e "s/\//$ngx_regex_dirsep/g"`
+fmt_deps $CORE_DEPS $NGX_AUTO_CONFIG_H $NGX_PCH
+ngx_deps=$res
 
-ngx_incs=`echo $CORE_INCS $NGX_OBJS \
-    | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
-          -e "s/\//$ngx_regex_dirsep/g"`
+fmt_incs $CORE_INCS $NGX_OBJS
+ngx_incs=$res
 
 cat << END                                                    >> $NGX_MAKEFILE
 
@@ -78,13 +163,11 @@ if [ $HTTP = YES ]; then
 
     ngx_all_srcs="$ngx_all_srcs $HTTP_SRCS"
 
-    ngx_deps=`echo $HTTP_DEPS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_deps $HTTP_DEPS
+    ngx_deps=$res
 
-    ngx_incs=`echo $HTTP_INCS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_incs $HTTP_INCS
+    ngx_incs=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -106,13 +189,11 @@ if [ $MAIL != NO ]; then
         ngx_all_srcs="$ngx_all_srcs $MAIL_SRCS"
     fi
 
-    ngx_deps=`echo $MAIL_DEPS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_deps $MAIL_DEPS
+    ngx_deps=$res
 
-    ngx_incs=`echo $MAIL_INCS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_incs $MAIL_INCS
+    ngx_incs=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -134,13 +215,11 @@ if [ $STREAM != NO ]; then
         ngx_all_srcs="$ngx_all_srcs $STREAM_SRCS"
     fi
 
-    ngx_deps=`echo $STREAM_DEPS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_deps $STREAM_DEPS
+    ngx_deps=$res
 
-    ngx_incs=`echo $STREAM_INCS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_incs $STREAM_INCS
+    ngx_incs=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -170,7 +249,8 @@ fi
 
 # angie
 
-ngx_all_srcs=`echo $ngx_all_srcs | sed -e "s/\//$ngx_regex_dirsep/g"`
+dirsep $ngx_all_srcs
+ngx_all_srcs=$res
 
 for ngx_src in $NGX_ADDON_SRCS
 do
@@ -178,49 +258,45 @@ do
 
     test -d $NGX_OBJS/$ngx_obj || mkdir -p $NGX_OBJS/$ngx_obj
 
-    ngx_obj=`echo $ngx_obj/\`basename $ngx_src\` \
-        | sed -e "s/\//$ngx_regex_dirsep/g"`
+    dirsep $ngx_obj/`basename $ngx_src`; ngx_obj=$res
 
     ngx_all_srcs="$ngx_all_srcs $ngx_obj"
 done
 
-ngx_all_objs=`echo $ngx_all_srcs \
-    | sed -e "s#\([^ ]*\.\)cpp#$NGX_OBJS\/\1$ngx_objext#g" \
-          -e "s#\([^ ]*\.\)cc#$NGX_OBJS\/\1$ngx_objext#g" \
-          -e "s#\([^ ]*\.\)c#$NGX_OBJS\/\1$ngx_objext#g" \
-          -e "s#\([^ ]*\.\)S#$NGX_OBJS\/\1$ngx_objext#g"`
+srcs2objs $ngx_all_srcs
+ngx_all_objs=$res
 
-ngx_modules_c=`echo $NGX_MODULES_C | sed -e "s/\//$ngx_regex_dirsep/g"`
+dirsep $NGX_MODULES_C
+ngx_modules_c=$res
 
-ngx_modules_obj=`echo $ngx_modules_c | sed -e "s/\(.*\.\)c/\1$ngx_objext/"`
+ngx_modules_obj=${ngx_modules_c%.c}.$ngx_objext
 
 
 if test -n "$NGX_RES"; then
    ngx_res=$NGX_RES
 else
    ngx_res="$NGX_RC $NGX_ICONS"
-   ngx_rcc=`echo $NGX_RCC | sed -e "s/\//$ngx_regex_dirsep/g"`
+   dirsep $NGX_RCC
+   ngx_rcc=$res
 fi
 
-ngx_deps=`echo $ngx_all_objs $ngx_modules_obj $ngx_res $LINK_DEPS \
-    | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-          -e "s/\//$ngx_regex_dirsep/g"`
+fmt_deps $ngx_all_objs $ngx_modules_obj $ngx_res $LINK_DEPS
+ngx_deps=$res
 
-ngx_objs=`echo $ngx_all_objs $ngx_modules_obj \
-    | sed -e "s/  *\([^ ][^ ]*\)/$ngx_long_regex_cont\1/g" \
-          -e "s/\//$ngx_regex_dirsep/g"`
+fmt_objs $ngx_all_objs $ngx_modules_obj
+ngx_objs=$res
 
 ngx_libs=
 if test -n "$NGX_LD_OPT$CORE_LIBS"; then
-    ngx_libs=`echo $NGX_LD_OPT $CORE_LIBS \
-        | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`
+    fmt_link $NGX_LD_OPT $CORE_LIBS
+    ngx_libs=$res
 fi
 
-ngx_link=${CORE_LINK:+`echo $CORE_LINK \
-    | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`}
+fmt_link $CORE_LINK
+ngx_link=${CORE_LINK:+$res}
 
-ngx_main_link=${MAIN_LINK:+`echo $MAIN_LINK \
-    | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`}
+fmt_link $MAIN_LINK
+ngx_main_link=${MAIN_LINK:+$res}
 
 
 cat << END                                                    >> $NGX_MAKEFILE
@@ -258,12 +334,8 @@ END
 
 for ngx_src in $CORE_SRCS
 do
-    ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
-    ngx_obj=`echo $ngx_src \
-        | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-              -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-              -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-              -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+    dirsep $ngx_src; ngx_src=$res
+    src2obj $ngx_src; ngx_obj=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -289,12 +361,8 @@ if [ $HTTP = YES ]; then
 
     for ngx_source in $HTTP_SRCS
     do
-        ngx_src=`echo $ngx_source | sed -e "s/\//$ngx_regex_dirsep/g"`
-        ngx_obj=`echo $ngx_src \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+        dirsep $ngx_source; ngx_src=$res
+        src2obj $ngx_src; ngx_obj=$res
 
         if [ $ngx_source = src/http/modules/perl/ngx_http_perl_module.c ]; then
 
@@ -331,12 +399,8 @@ if [ $MAIL = YES ]; then
 
     for ngx_src in $MAIL_SRCS
     do
-        ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
-        ngx_obj=`echo $ngx_src \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+        dirsep $ngx_src; ngx_src=$res
+        src2obj $ngx_src; ngx_obj=$res
 
         cat << END                                            >> $NGX_MAKEFILE
 
@@ -361,12 +425,8 @@ if [ $STREAM = YES ]; then
 
     for ngx_src in $STREAM_SRCS
     do
-        ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
-        ngx_obj=`echo $ngx_src \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+        dirsep $ngx_src; ngx_src=$res
+        src2obj $ngx_src; ngx_obj=$res
 
         cat << END                                            >> $NGX_MAKEFILE
 
@@ -387,12 +447,8 @@ if test -n "$MISC_SRCS"; then
 
     for ngx_src in $MISC_SRCS
     do
-        ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
-        ngx_obj=`echo $ngx_src \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+        dirsep $ngx_src; ngx_src=$res
+        src2obj $ngx_src; ngx_obj=$res
 
         cat << END                                            >> $NGX_MAKEFILE
 
@@ -415,16 +471,9 @@ if test -n "$NGX_ADDON_SRCS"; then
     do
         ngx_obj="addon/`basename \`dirname $ngx_src\``"
 
-        ngx_obj=`echo $ngx_obj/\`basename $ngx_src\` \
-            | sed -e "s/\//$ngx_regex_dirsep/g"`
-
-        ngx_obj=`echo $ngx_obj \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
-
-        ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
+        dirsep $ngx_obj/`basename $ngx_src`; ngx_obj=$res
+        src2obj $ngx_obj; ngx_obj=$res
+        dirsep $ngx_src; ngx_src=$res
 
         cat << END                                            >> $NGX_MAKEFILE
 
@@ -454,9 +503,8 @@ fi
 
 if test -n "$NGX_RES"; then
 
-    ngx_res=`echo "$NGX_RES:	$NGX_RC $NGX_ICONS" \
-                 | sed -e "s/\//$ngx_regex_dirsep/g"`
-    ngx_rcc=`echo $NGX_RCC | sed -e "s/\//$ngx_regex_dirsep/g"`
+    dirsep "$NGX_RES:	$NGX_RC $NGX_ICONS"; ngx_res=$res
+    dirsep $NGX_RCC; ngx_rcc=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -474,11 +522,12 @@ if test -n "$NGX_PCH"; then
     echo "#include <ngx_config.h>" > $NGX_OBJS/ngx_pch.c
 
     ngx_pch="src/core/ngx_config.h $OS_CONFIG $NGX_OBJS/ngx_auto_config.h"
-    ngx_pch=`echo "$NGX_PCH:	$ngx_pch" | sed -e "s/\//$ngx_regex_dirsep/g"`
+    dirsep "$NGX_PCH:	$ngx_pch"
+    ngx_pch=$res
 
     ngx_src="\$(CC) \$(CFLAGS) $NGX_BUILD_PCH $ngx_compile_opt \$(ALL_INCS)"
     ngx_src="$ngx_src $ngx_objout$NGX_OBJS/ngx_pch.obj $NGX_OBJS/ngx_pch.c"
-    ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
+    dirsep $ngx_src; ngx_src=$res
 
     cat << END                                                >> $NGX_MAKEFILE
 
@@ -563,10 +612,9 @@ END
 
 END
 
-    ngx_modules_c=`echo $ngx_modules_c | sed -e "s/\//$ngx_regex_dirsep/g"`
+    dirsep $ngx_modules_c; ngx_modules_c=$res
 
-    ngx_modules_obj=`echo $ngx_modules_c \
-        | sed -e "s/\(.*\.\)c/\1$ngx_objext/"`
+    ngx_modules_obj=${ngx_modules_c%.c}.$ngx_objext
 
     ngx_module_objs=
     for ngx_src in $ngx_module_srcs $ngx_module_shrd
@@ -585,19 +633,14 @@ END
         ngx_module_objs="$ngx_module_objs $ngx_obj"
     done
 
-    ngx_module_objs=`echo $ngx_module_objs \
-        | sed -e "s#\([^ ]*\.\)cpp#$NGX_OBJS\/\1$ngx_objext#g" \
-              -e "s#\([^ ]*\.\)cc#$NGX_OBJS\/\1$ngx_objext#g" \
-              -e "s#\([^ ]*\.\)c#$NGX_OBJS\/\1$ngx_objext#g" \
-              -e "s#\([^ ]*\.\)S#$NGX_OBJS\/\1$ngx_objext#g"`
+    srcs2objs $ngx_module_objs
+    ngx_module_objs=$res
 
-    ngx_deps=`echo $ngx_module_objs $ngx_modules_obj $LINK_DEPS \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_deps $ngx_module_objs $ngx_modules_obj $LINK_DEPS
+    ngx_deps=$res
 
-    ngx_objs=`echo $ngx_module_objs $ngx_modules_obj \
-        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_long_regex_cont\1/g" \
-              -e "s/\//$ngx_regex_dirsep/g"`
+    fmt_objs $ngx_module_objs $ngx_modules_obj
+    ngx_objs=$res
 
     ngx_obj=$NGX_OBJS$ngx_dirsep$ngx_module$ngx_modext
 
@@ -607,15 +650,15 @@ END
 
     ngx_libs=
     if test -n "$NGX_LD_OPT$ngx_module_libs"; then
-        ngx_libs=`echo $NGX_LD_OPT $ngx_module_libs \
-            | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`
+        fmt_link $NGX_LD_OPT $ngx_module_libs
+        ngx_libs=$res
     fi
 
-    ngx_link=${CORE_LINK:+`echo $CORE_LINK \
-        | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`}
+    fmt_link $CORE_LINK
+    ngx_link=${CORE_LINK:+$res}
 
-    ngx_module_link=${MODULE_LINK:+`echo $MODULE_LINK \
-        | sed -e "s/\//$ngx_regex_dirsep/g" -e "s/^/$ngx_long_regex_cont/"`}
+    fmt_link $MODULE_LINK
+    ngx_module_link=${MODULE_LINK:+$res}
 
 
     cat << END                                            >> $NGX_MAKEFILE
@@ -635,22 +678,16 @@ END
     do
         case "$ngx_source" in
             src/*)
-                ngx_obj=`echo $ngx_source | sed -e "s/\//$ngx_regex_dirsep/g"`
+                dirsep $ngx_source; ngx_obj=$res
                 ;;
             *)
                 ngx_obj="addon/`basename \`dirname $ngx_source\``"
-                ngx_obj=`echo $ngx_obj/\`basename $ngx_source\` \
-                    | sed -e "s/\//$ngx_regex_dirsep/g"`
+                dirsep $ngx_obj/`basename $ngx_source`; ngx_obj=$res
                 ;;
         esac
 
-        ngx_obj=`echo $ngx_obj \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
-
-        ngx_src=`echo $ngx_source | sed -e "s/\//$ngx_regex_dirsep/g"`
+        src2obj $ngx_obj; ngx_obj=$res
+        dirsep $ngx_source; ngx_src=$res
 
         if [ $ngx_source = src/http/modules/perl/ngx_http_perl_module.c ]; then
 

@@ -75,13 +75,8 @@ if [ -x $NGX_AUTOTEST ]; then
                 echo " found"
                 ngx_found=yes
 
-                cat << END >> $NGX_AUTO_CONFIG_H
+                have="$ngx_feature_name" value="$($NGX_AUTOTEST)" . auto/define
 
-#ifndef $ngx_feature_name
-#define $ngx_feature_name  `$NGX_AUTOTEST`
-#endif
-
-END
             else
                 echo " found but is not working"
             fi

@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -33,8 +34,10 @@ int main(void) {
 END
 
 
-ngx_test="$CC $CC_TEST_FLAGS $CC_AUX_FLAGS \
-          -o $NGX_AUTOTEST $NGX_AUTOTEST.c $NGX_LD_OPT $ngx_feature_libs"
+ngx_test="($CC -c $CC_TEST_FLAGS $CC_AUX_FLAGS \
+           -o $NGX_AUTOTEST.o $NGX_AUTOTEST.c && \
+           $CC $CC_TEST_FLAGS $CC_AUX_FLAGS \
+           -o $NGX_AUTOTEST $NGX_AUTOTEST.o $NGX_LD_OPT $ngx_feature_libs)"
 
 eval "$ngx_test >> $NGX_AUTOCONF_ERR 2>&1"
 

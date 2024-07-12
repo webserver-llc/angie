@@ -28,7 +28,8 @@ int main(void) {
 END
 
 
-ngx_test="$CC -o $NGX_AUTOTEST $NGX_AUTOTEST.c"
+ngx_test="($CC -c -o $NGX_AUTOTEST.o $NGX_AUTOTEST.c && \
+           $CC -o $NGX_AUTOTEST $NGX_AUTOTEST.o)"
 
 eval "$ngx_test >> $NGX_AUTOCONF_ERR 2>&1"
 

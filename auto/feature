@@ -40,8 +40,10 @@ int main(void) {
 END
 
 
-ngx_test="$CC $CC_TEST_FLAGS $CC_AUX_FLAGS $ngx_feature_inc_path \
-          -o $NGX_AUTOTEST $NGX_AUTOTEST.c $NGX_TEST_LD_OPT $ngx_feature_libs"
+ngx_test="($CC -c $CC_TEST_FLAGS $CC_AUX_FLAGS $ngx_feature_inc_path \
+           -o $NGX_AUTOTEST.o $NGX_AUTOTEST.c && \
+           $CC $CC_TEST_FLAGS $CC_AUX_FLAGS \
+           -o $NGX_AUTOTEST $NGX_AUTOTEST.o $NGX_TEST_LD_OPT $ngx_feature_libs)"
 
 ngx_feature_inc_path=
 

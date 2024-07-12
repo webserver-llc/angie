@@ -1,5 +1,5 @@
 
-# Copyright (C) 2022 Web Server LLC
+# Copyright (C) 2022-2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -34,6 +34,26 @@ ngx_spacer=
 
 ngx_long_regex_cont=$ngx_regex_cont
 ngx_long_cont=$ngx_cont
+
+
+if [ "$NGX_PLATFORM" != win32 ]; then
+
+    ngx_feature="C compiler"
+    ngx_feature_name=
+    ngx_feature_run=yes
+    ngx_feature_incs=
+    ngx_feature_path=
+    ngx_feature_libs=
+    ngx_feature_test=
+    . auto/feature
+
+    if [ $ngx_found = no ]; then
+        echo
+        echo $0: error: C compiler $CC is not found
+        echo
+        exit 1
+    fi
+fi
 
 . auto/cc/name
 

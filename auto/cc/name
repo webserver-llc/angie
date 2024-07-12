@@ -1,27 +1,7 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
-
-
-if [ "$NGX_PLATFORM" != win32 ]; then
-
-    ngx_feature="C compiler"
-    ngx_feature_name=
-    ngx_feature_run=yes
-    ngx_feature_incs=
-    ngx_feature_path=
-    ngx_feature_libs=
-    ngx_feature_test=
-    . auto/feature
-
-    if [ $ngx_found = no ]; then
-        echo
-        echo $0: error: C compiler $CC is not found
-        echo
-        exit 1
-    fi
-
-fi
 
 
 if [ "$CC" = cl ]; then

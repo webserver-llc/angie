@@ -1,0 +1,29 @@
+
+# Copyright (C) 2024 Web Server LLC
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+
+
+if check_cache "kernel version" "os"; then
+    return
+fi
+
+# Linux kernel version
+
+version=$((`uname -r \
+    | sed -n -e 's/^\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/ \
+                                                 \1*256*256+\2*256+\3/p' \
+             -e 's/^\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1*256*256+\2*256/p'`))
+
+version=${version:-0}
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "version=\"$version\""
+
+cache_output_end

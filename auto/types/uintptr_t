@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "uintptr_t type" "uintptr_t"; then
+    return
+fi
+
 echo $ngx_n "checking for uintptr_t ...$ngx_c"
 
 cat << END >> $NGX_AUTOCONF_ERR
@@ -51,3 +55,23 @@ if [ $found = no ]; then
     echo "typedef $found  uintptr_t;"                   >> $NGX_AUTO_CONFIG_H
     echo "typedef $found  intptr_t;" | sed -e 's/u//g'  >> $NGX_AUTO_CONFIG_H
 fi
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+
+if [ $found = yes ]; then
+    cache_output_end
+    return
+fi
+
+sfound=$(echo $found | sed -e 's/u//g')
+
+echo "echo \"typedef $found  uintptr_t;\" >> \$NGX_AUTO_CONFIG_H"
+echo "echo \"typedef $sfound  intptr_t;\" >> \$NGX_AUTO_CONFIG_H"
+
+cache_output_end

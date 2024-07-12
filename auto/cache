@@ -1,0 +1,74 @@
+
+# Copyright (C) 2024 Web Server LLC
+
+
+if [ $NGX_FEATURE_CACHE = YES ]; then
+    NGX_FC_PATH=$NGX_OBJS
+
+elif [ $NGX_FEATURE_CACHE != NO ]; then
+
+    NGX_FC_PATH=${NGX_FEATURE_CACHE}
+    mkdir -p $NGX_FC_PATH
+fi
+
+
+# tries to load cache for current autotest environment
+check_cache()
+{
+    if [ $NGX_FEATURE_CACHE = NO ]; then
+        return 1
+    fi
+
+    # remove chars non-suitable for filename and limit length to 64
+
+    OPTIND=1
+    ngx_uniq=
+    N=0
+
+    while getopts ":" opt "-$1"; do
+        case "$OPTARG" in
+            [A-Za-z0-9])
+                ngx_uniq=${ngx_uniq}$OPTARG
+                ;;
+            *)
+                ngx_uniq=${ngx_uniq}_
+                ;;
+        esac
+
+        N=$(($N + 1))
+
+        if [ $N -gt 64 ]; then
+            break
+        fi
+    done
+
+    NGX_AUTOTEST_CACHE=$NGX_FC_PATH/$2.$ngx_uniq.cache
+
+    if [ -f $NGX_AUTOTEST_CACHE ]; then
+
+        . $NGX_AUTOTEST_CACHE
+
+        if [ $ngx_found = yes ]; then
+            echo "using cached $1 ... found"
+        else
+            echo "using cached $1 ... not found"
+        fi
+
+        return 0
+
+    else
+        return 1
+    fi
+}
+
+
+cache_output_start()
+{
+    exec 3>&1 1>$NGX_AUTOTEST_CACHE
+}
+
+
+cache_output_end()
+{
+    exec 1>&3 3>&-
+}

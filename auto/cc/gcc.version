@@ -1,0 +1,33 @@
+
+# Copyright (C) 2024 Web Server LLC
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+
+
+if check_cache "gcc version" "cc"; then
+    return
+fi
+
+# gcc 2.7.2.3, 2.8.1, 2.95.4, egcs-1.1.2
+#     3.0.4, 3.1.1, 3.2.3, 3.3.2, 3.3.3, 3.3.4, 3.4.0, 3.4.2
+#     4.0.0, 4.0.1, 4.1.0
+
+
+NGX_GCC_VER=`$CC -v 2>&1 | grep 'gcc version' 2>&1 \
+                         | sed -e 's/^.* version \(.*\)/\1/'`
+
+echo " + gcc version: $NGX_GCC_VER"
+
+have=NGX_COMPILER value="\"gcc $NGX_GCC_VER\"" . auto/define
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "NGX_GCC_VER=\"$NGX_GCC_VER\""
+echo 'have=NGX_COMPILER value="\"gcc $NGX_GCC_VER\"" . auto/define'
+
+cache_output_end

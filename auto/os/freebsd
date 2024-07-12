@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -12,17 +13,7 @@ CORE_SRCS="$UNIX_SRCS $FREEBSD_SRCS"
 ngx_spacer='
 '
 
-
-# __FreeBSD_version and sysctl kern.osreldate are the best ways
-# to determine whether some capability exists and is safe to use.
-# __FreeBSD_version is used for the testing of the build environment.
-# sysctl kern.osreldate is used for the testing of the kernel capabilities.
-
-version=`grep "#define __FreeBSD_version" /usr/include/osreldate.h \
-         | sed -e 's/^.* \(.*\)$/\1/'`
-
-osreldate=`/sbin/sysctl -n kern.osreldate`
-
+. auto/os/freebsd.version
 
 # setproctitle() in libutil
 

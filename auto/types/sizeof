@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "$ngx_type" "sizeof"; then
+    return
+fi
+
 echo $ngx_n "checking for $ngx_type size ...$ngx_c"
 
 cat << END >> $NGX_AUTOCONF_ERR
@@ -77,3 +81,16 @@ esac
 
 rm -rf $NGX_AUTOTEST*
 
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "ngx_size=$ngx_size"
+echo "ngx_max_value=$ngx_max_value"
+echo "ngx_max_len='$ngx_max_len'"
+
+cache_output_end

@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -15,16 +16,7 @@ ngx_spacer='
 cc_aux_flags="$CC_AUX_FLAGS"
 CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
 
-
-# Linux kernel version
-
-version=$((`uname -r \
-    | sed -n -e 's/^\([0-9][0-9]*\)\.\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/ \
-                                                 \1*256*256+\2*256+\3/p' \
-             -e 's/^\([0-9][0-9]*\)\.\([0-9][0-9]*\).*/\1*256*256+\2*256/p'`))
-
-version=${version:-0}
-
+. auto/os/linux.kernel_version
 
 # posix_fadvise64() had been implemented in 2.5.60
 

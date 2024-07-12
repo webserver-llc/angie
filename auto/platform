@@ -1,0 +1,39 @@
+
+# Copyright (C) 2024 Web Server LLC
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+
+
+if check_cache "OS info" "os"; then
+    return
+fi
+
+echo "checking for OS"
+
+NGX_SYSTEM=`uname -s 2>/dev/null`
+NGX_RELEASE=`uname -r 2>/dev/null`
+NGX_MACHINE=`uname -m 2>/dev/null`
+
+echo " + $NGX_SYSTEM $NGX_RELEASE $NGX_MACHINE"
+
+NGX_PLATFORM="$NGX_SYSTEM:$NGX_RELEASE:$NGX_MACHINE";
+
+case "$NGX_SYSTEM" in
+    MINGW32_* | MINGW64_* | MSYS_*)
+        NGX_PLATFORM=win32
+    ;;
+esac
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "NGX_SYSTEM=\"$NGX_SYSTEM\""
+echo "NGX_RELEASE=\"$NGX_RELEASE\""
+echo "NGX_MACHINE=\"$NGX_MACHINE\""
+echo "NGX_PLATFORM=\"$NGX_PLATFORM\""
+
+cache_output_end

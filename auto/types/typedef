@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "$ngx_type" "typedef"; then
+    return
+fi
+
 echo $ngx_n "checking for $ngx_type ...$ngx_c"
 
 cat << END >> $NGX_AUTOCONF_ERR
@@ -83,3 +87,17 @@ fi
 if [ $ngx_found != yes ]; then
     echo "typedef $ngx_found  $ngx_type;"   >> $NGX_AUTO_CONFIG_H
 fi
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+
+if [ $ngx_found != yes ]; then
+    echo "echo \"typedef $ngx_found  $ngx_type;\" >> \$NGX_AUTO_CONFIG_H"
+fi
+
+cache_output_end

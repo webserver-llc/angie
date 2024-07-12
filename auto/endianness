@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "little endian" "endianness"; then
+    return
+fi
+
 echo $ngx_n "checking for system byte ordering ...$ngx_c"
 
 cat << END >> $NGX_AUTOCONF_ERR
@@ -13,6 +17,7 @@ checking for system byte ordering
 
 END
 
+ngx_found=no
 
 cat << END > $NGX_AUTOTEST.c
 
@@ -38,6 +43,7 @@ if [ -x $NGX_AUTOTEST ]; then
     if $NGX_AUTOTEST >/dev/null 2>&1; then
         echo " little endian"
         have=NGX_HAVE_LITTLE_ENDIAN . auto/have
+        ngx_found=yes
     else
         echo " big endian"
     fi
@@ -51,3 +57,17 @@ else
     echo "$0: error: cannot detect system byte ordering"
     exit 1
 fi
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=$ngx_found"
+
+if [ $ngx_found = yes ]; then
+    echo "have=NGX_HAVE_LITTLE_ENDIAN . auto/have"
+fi
+
+cache_output_end

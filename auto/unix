@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -6,24 +7,7 @@
 NGX_USER=${NGX_USER:-nobody}
 
 if [ -z "$NGX_GROUP" ]; then
-    if [ $NGX_USER = nobody ]; then
-        if grep nobody /etc/group 2>&1 >/dev/null; then
-            echo "checking for nobody group ... found"
-            NGX_GROUP=nobody
-        else
-            echo "checking for nobody group ... not found"
-
-            if grep nogroup /etc/group 2>&1 >/dev/null; then
-                echo "checking for nogroup group ... found"
-                NGX_GROUP=nogroup
-            else
-                echo "checking for nogroup group ... not found"
-                NGX_GROUP=nobody
-            fi
-        fi
-    else
-        NGX_GROUP=$NGX_USER
-    fi
+    . auto/unix.group
 fi
 
 

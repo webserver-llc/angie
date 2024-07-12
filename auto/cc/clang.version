@@ -1,0 +1,28 @@
+
+# Copyright (C) 2024 Web Server LLC
+# Copyright (C) Nginx, Inc.
+
+
+if check_cache "clang version" "cc"; then
+    return
+fi
+
+NGX_CLANG_VER=`$CC -v 2>&1 | grep 'version' 2>&1 \
+                           | sed -n -e 's/^.*clang version \(.*\)/\1/p' \
+                                    -e 's/^.*LLVM version \(.*\)/\1/p'`
+
+echo " + clang version: $NGX_CLANG_VER"
+
+have=NGX_COMPILER value="\"clang $NGX_CLANG_VER\"" . auto/define
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "NGX_CLANG_VER=\"$NGX_CLANG_VER\""
+echo 'have=NGX_COMPILER value="\"clang $NGX_CLANG_VER\"" . auto/define'
+
+cache_output_end

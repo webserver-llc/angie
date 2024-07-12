@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "compiler name" "cc"; then
+    return
+fi
+
 if [ "$CC" = cl ]; then
     NGX_CC_NAME=msvc
     echo " + using Microsoft Visual C++ compiler"
@@ -48,3 +52,14 @@ else
     NGX_CC_NAME=unknown
 
 fi
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "NGX_CC_NAME=$NGX_CC_NAME"
+
+cache_output_end

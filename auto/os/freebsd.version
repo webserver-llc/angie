@@ -1,0 +1,31 @@
+
+# Copyright (C) 2024 Web Server LLC
+# Copyright (C) Igor Sysoev
+# Copyright (C) Nginx, Inc.
+
+
+if check_cache "freebsd version" "os"; then
+    return
+fi
+
+# __FreeBSD_version and sysctl kern.osreldate are the best ways
+# to determine whether some capability exists and is safe to use.
+# __FreeBSD_version is used for the testing of the build environment.
+# sysctl kern.osreldate is used for the testing of the kernel capabilities.
+
+version=`grep "#define __FreeBSD_version" /usr/include/osreldate.h \
+         | sed -e 's/^.* \(.*\)$/\1/'`
+
+osreldate=`/sbin/sysctl -n kern.osreldate`
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=yes"
+echo "version=\"$version\""
+echo "osreldate=\"$osreldate\""
+
+cache_output_end

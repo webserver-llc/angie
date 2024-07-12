@@ -4,6 +4,10 @@
 # Copyright (C) Nginx, Inc.
 
 
+if check_cache "$ngx_include" "include"; then
+    return
+fi
+
 echo $ngx_n "checking for $ngx_include ...$ngx_c"
 
 cat << END >> $NGX_AUTOCONF_ERR
@@ -57,3 +61,18 @@ else
 fi
 
 rm -rf $NGX_AUTOTEST*
+
+if [ $NGX_FEATURE_CACHE = NO ]; then
+    return
+fi
+
+cache_output_start
+
+echo "ngx_found=$ngx_found"
+
+if [ $ngx_found = yes ]; then
+    echo "have=NGX_HAVE_$ngx_name . auto/have_headers"
+    echo "NGX_INCLUDE_$ngx_name='#include <$ngx_include>'"
+fi
+
+cache_output_end

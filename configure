@@ -11,6 +11,7 @@ export LC_ALL
 . auto/options
 . auto/init
 . auto/utils
+. auto/cache
 . auto/sources
 
 test -d $NGX_OBJS || mkdir -p $NGX_OBJS
@@ -27,21 +28,7 @@ fi
 
 
 if test -z "$NGX_PLATFORM"; then
-    echo "checking for OS"
-
-    NGX_SYSTEM=`uname -s 2>/dev/null`
-    NGX_RELEASE=`uname -r 2>/dev/null`
-    NGX_MACHINE=`uname -m 2>/dev/null`
-
-    echo " + $NGX_SYSTEM $NGX_RELEASE $NGX_MACHINE"
-
-    NGX_PLATFORM="$NGX_SYSTEM:$NGX_RELEASE:$NGX_MACHINE";
-
-    case "$NGX_SYSTEM" in
-        MINGW32_* | MINGW64_* | MSYS_*)
-            NGX_PLATFORM=win32
-        ;;
-    esac
+    . auto/platform
 
 else
     echo "building for $NGX_PLATFORM"

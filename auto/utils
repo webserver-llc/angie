@@ -1,0 +1,33 @@
+
+# Copyright (C) 2024 Web Server LLC
+
+
+name2macro()
+{
+    case "$1" in
+        *[a-z/.]*)
+            ;;
+        *)
+            res=$1
+            return
+            ;;
+    esac
+
+    OPTIND=1
+    res=
+
+    while getopts ":" opt "-$1"; do
+        r=
+        case "$OPTARG" in
+            "a") r="A" ;; "b") r="B" ;; "c") r="C" ;; "d") r="D" ;;
+            "e") r="E" ;; "f") r="F" ;; "g") r="G" ;; "h") r="H" ;;
+            "i") r="I" ;; "j") r="J" ;; "k") r="K" ;; "l") r="L" ;;
+            "m") r="M" ;; "n") r="N" ;; "o") r="O" ;; "p") r="P" ;;
+            "q") r="Q" ;; "r") r="R" ;; "s") r="S" ;; "t") r="T" ;;
+            "u") r="U" ;; "v") r="V" ;; "w") r="W" ;; "x") r="X" ;;
+            "y") r="Y" ;; "z") r="Z" ;; "/") r="_" ;; ".") r="_" ;;
+              *) r="${OPTARG}" ;;
+        esac
+        res="$res$r"
+    done
+}

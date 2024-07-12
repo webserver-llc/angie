@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -37,9 +38,8 @@ if [ -x $NGX_AUTOTEST ]; then
 
     echo " found"
 
-    ngx_name=`echo $ngx_include \
-              | tr abcdefghijklmnopqrstuvwxyz/. ABCDEFGHIJKLMNOPQRSTUVWXYZ__`
-
+    name2macro "$ngx_include"
+    ngx_name="$res"
 
     have=NGX_HAVE_$ngx_name . auto/have_headers
 

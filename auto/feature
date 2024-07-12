@@ -1,4 +1,5 @@
 
+# Copyright (C) 2024 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -15,8 +16,8 @@ END
 ngx_found=no
 
 if test -n "$ngx_feature_name"; then
-    ngx_have_feature=`echo $ngx_feature_name \
-                   | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+    name2macro "$ngx_feature_name"
+    ngx_have_feature="$res"
 fi
 
 if test -n "$ngx_feature_path"; then

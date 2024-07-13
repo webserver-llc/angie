@@ -33,7 +33,7 @@ Features
 --------
 
 On top of all the capabilities of
-`nginx 1.25.4 <https://nginx.org/en/CHANGES>`_,
+`nginx 1.27.0 <https://nginx.org/en/CHANGES>`_,
 **Angie** adds a number of its own advantages, including these:
 
 - Supporting `HTTP/3
@@ -46,8 +46,8 @@ On top of all the capabilities of
 - Automatic HTTPS provisions TLS certificates using built-in `ACME
   <https://angie.software/en/configuration/modules/http_acme/>`_ support.
 
-- Simplifying configuration: the location directive can define several matching
-  expressions at once, which enables `combining
+- Simplifying configuration: the `location` directive can define several
+  matching expressions at once, which enables `combining
   <https://angie.software/en/configuration/modules/http_core/#combined-locations>`_
   blocks with shared settings.
 
@@ -80,8 +80,8 @@ On top of all the capabilities of
   mode, which directs all requests within one session to the same proxied
   server.
 
-- Recommissioning upstream servers after a failure smoothly using the slow_start
-  option of the `server
+- Recommissioning upstream servers after a failure smoothly using the
+  `slow_start` option of the `server
   <https://angie.software/en/configuration/modules/http_upstream/#u-server>`_
   directive.
 
@@ -92,7 +92,12 @@ On top of all the capabilities of
 - Extending authorization and balancing capabilities for the MQTT protocol with
   the `mqtt_preread
   <https://angie.software/en/configuration/modules/stream_mqtt_preread/#s-mqtt-preread>`_
-  directive under stream.
+  directive under `stream`.
+
+- Informing balancing decisions with RDP protocol's session cookies via the
+  `rdp_preread
+  <https://angie.software/en/configuration/modules/stream_rdp_preread/#rdp-preread>`_
+  directive under `stream`.
 
 - Pre-built `binary packages
   <https://angie.software/en/installation/#install-thirdpartymodules>`_ for many

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -160,14 +161,23 @@ like($b, qr/^(\d+ 1 2) \1 (?!\1)(\d+ 1 2) \2 (?!\2)\d+ 1 2$/, 'slow backend');
 
 $s = dgram('127.0.0.1:' . port(8985));
 $s->write('1') for 1 .. 5;
-$b = join ' ', map { $s->read() } (1 .. 10);
 
-SKIP: {
-skip 'session could early terminate', 1 unless $ENV{TEST_ANGIE_UNSAFE};
+my @parts = map { $s->read() } (1 .. 10);
 
-like($b, qr/^(\d+ 1) \1 (?!\1)(\d+ 1) \2 (?!\2)\d+ 1$/, 'requests - responses');
+my $res = {};
+for (my $i = 0; $i < scalar @parts; $i++) {
+	my $part = $parts[$i];
 
+	if ($i % 2 == 0) {
+		$res->{$part} //= 0;
+	} else {
+		$res->{$parts[$i-1]} += $part;
+	}
 }
+
+$b = join ' ', sort values %$res;
+
+is($b, '1 2 2', 'requests - responses');
 
 $t->stop();
 

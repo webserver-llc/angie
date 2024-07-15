@@ -22,9 +22,9 @@ use Test::Utils qw/ annotate /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http ssl proxy rewrite upstream_least_conn/)
-	->has(qw/upstream_ip_hash upstream_hash upstream_random/)
-	->has(qw/upstream_sticky/)->plan(115);
+my $t = Test::Nginx->new()->has(qw/http http_ssl proxy rewrite/)
+	->has(qw/upstream_least_conn upstream_ip_hash upstream_hash/)
+	->has(qw/upstream_random upstream_sticky/)->plan(115);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

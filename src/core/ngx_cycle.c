@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -280,10 +280,6 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
     conf.log = log;
     conf.module_type = NGX_CORE_MODULE;
     conf.cmd_type = NGX_MAIN_CONF;
-
-#if 0
-    log->log_level = NGX_LOG_DEBUG_ALL;
-#endif
 
     if (ngx_conf_param(&conf) != NGX_CONF_OK) {
         environ = senv;

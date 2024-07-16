@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -315,13 +316,13 @@ ngx_log_errno(u_char *buf, u_char *last, ngx_err_t err)
 
 
 ngx_log_t *
-ngx_log_init(u_char *prefix, u_char *error_log)
+ngx_log_init(u_char *prefix, u_char *error_log, ngx_uint_t level)
 {
     u_char  *p, *name;
     size_t   nlen, plen;
 
     ngx_log.file = &ngx_log_file;
-    ngx_log.log_level = NGX_LOG_NOTICE;
+    ngx_log.log_level = level ? level : NGX_LOG_NOTICE;
 
     if (error_log == NULL) {
         error_log = (u_char *) NGX_ERROR_LOG_PATH;
@@ -472,6 +473,21 @@ ngx_log_get_file_log(ngx_log_t *head)
     }
 
     return NULL;
+}
+
+
+ngx_int_t
+ngx_log_get_level(u_char *level)
+{
+    ngx_uint_t  n;
+
+    for (n = 1; n <= NGX_LOG_DEBUG; n++) {
+        if (ngx_strcmp(level, err_levels[n].data) == 0) {
+            return (n == NGX_LOG_DEBUG) ? NGX_LOG_DEBUG_ALL : n;
+        }
+    }
+
+    return NGX_ERROR;
 }
 
 

@@ -189,6 +189,7 @@ static ngx_uint_t   ngx_show_builtin_modules;
 static ngx_uint_t   ngx_show_build_env;
 static u_char      *ngx_prefix;
 static u_char      *ngx_error_log;
+static ngx_uint_t   ngx_error_log_level;
 static u_char      *ngx_conf_file;
 static u_char      *ngx_conf_params;
 static char        *ngx_signal;
@@ -256,7 +257,7 @@ main(int argc, char *const *argv)
     ngx_pid = ngx_getpid();
     ngx_parent = ngx_getppid();
 
-    log = ngx_log_init(ngx_prefix, ngx_error_log);
+    log = ngx_log_init(ngx_prefix, ngx_error_log, ngx_error_log_level);
     if (log == NULL) {
         return 1;
     }
@@ -426,6 +427,8 @@ ngx_show_version_info(void)
         ngx_write_stderr(
             "Usage: angie [-?hvVtTqmM] [-s signal] [-p prefix]" NGX_LINEFEED
             "             [-e filename] [-c filename] [-g directives]"
+                          NGX_LINEFEED
+            "             [--help] [--build-env] [--log-level=level]"
                           NGX_LINEFEED NGX_LINEFEED
             "Options:" NGX_LINEFEED
             "  -?,-h,--help  : this help" NGX_LINEFEED
@@ -459,8 +462,9 @@ ngx_show_version_info(void)
             "  -g directives : set global directives out of configuration "
                                "file" NGX_LINEFEED NGX_LINEFEED
 
-            "  --build-env   : show build environment and exit" NGX_LINEFEED
-                               NGX_LINEFEED
+            "  --build-env       : show build environment and exit" NGX_LINEFEED
+            "  --log-level=level : set initial error log level (default: "
+                                   "notice)" NGX_LINEFEED NGX_LINEFEED
         );
     }
 
@@ -901,7 +905,7 @@ static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {
     u_char     *p;
-    ngx_int_t   i;
+    ngx_int_t   i, l;
 
     for (i = 1; i < argc; i++) {
 
@@ -937,6 +941,20 @@ ngx_get_options(int argc, char *const *argv)
                 if (ngx_strcmp(p, "build-env") == 0) {
                     ngx_show_build_env = 1;
                     goto next;
+                }
+
+                if (ngx_strncmp(p, "log-level=", 10) == 0) {
+                    p += 10;
+
+                    l = ngx_log_get_level(p);
+
+                    if (l != NGX_ERROR) {
+                        ngx_error_log_level = l;
+                        goto next;
+                    }
+
+                    ngx_log_stderr(0, "invalid log level: \"%s\"", p);
+                    goto invalid_option;
                 }
 
                 ngx_log_stderr(0, "invalid option: \"%s\"", argv[i]);

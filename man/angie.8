@@ -26,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd June 26, 2024
+.Dd July 10, 2024
 .Dt ANGIE 8
 .Os
 .Sh NAME
@@ -40,7 +40,9 @@
 .Op Fl g Ar directives
 .Op Fl p Ar prefix
 .Op Fl s Ar signal
+.Op Fl Fl help
 .Op Fl Fl build-env
+.Op Fl Fl log-level Ns = Ns Ar level
 .Sh DESCRIPTION
 .Nm
 is an HTTP and reverse proxy server, a mail proxy server, and a generic
@@ -50,7 +52,7 @@ configuration, and low resource consumption.
 .Pp
 The options are as follows:
 .Bl -tag -width ".Fl d Ar directives"
-.It Fl ?\& , h
+.It Fl ?\& , h, Fl Fl help
 Print help.
 .It Fl c Ar file
 Use an alternative configuration
@@ -115,6 +117,9 @@ Print the
 version.
 .It Fl Fl build-env
 Show build environment and exit.
+.It Fl Fl log-level Ns = Ns Ar level
+Set initial error log
+.Ar level .
 .El
 .Sh SIGNALS
 The master process of

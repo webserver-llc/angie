@@ -403,7 +403,7 @@ sub run(;$) {
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
 		exec($NGINX, '-p', "$testdir/", '-c', 'nginx.conf',
-			'-e', 'error.log', @globals)
+			'-e', 'error.log', '--log-level=debug', @globals)
 			or die "Unable to exec(): $!\n";
 	}
 

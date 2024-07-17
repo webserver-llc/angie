@@ -387,7 +387,7 @@ main(int argc, char *const *argv)
 
 #endif
 
-    if (ngx_create_pidfile(&ccf->pid, cycle->log) != NGX_OK) {
+    if (ngx_create_pidfile(&ccf->pid, cycle->pool, cycle->log) != NGX_OK) {
         return 1;
     }
 

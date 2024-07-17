@@ -7,6 +7,19 @@
 
 <changes ver="1.7.0" date="">
 
+<change type="feature">
+<para lang="ru">
+создание PID-файла теперь выполняется атомарно через промежуточный временный
+файл, что убирает мгновение, когда файл уже появился в директории, но ещё пуст,
+и позволяет внешним программам проще и надежнее с ним работать.
+</para>
+<para lang="en">
+creation of the PID file made atomic via an intermediate temporary file, which
+removes a moment when the file is already in the directory but still empty,
+and allows external programs to handle it easier and reliable.
+</para>
+</change>
+
 </changes>
 
 

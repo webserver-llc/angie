@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022-2023 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -133,7 +133,7 @@ typedef struct {
 
 
 ngx_cycle_t *ngx_init_cycle(ngx_cycle_t *old_cycle);
-ngx_int_t ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log);
+ngx_int_t ngx_create_pidfile(ngx_str_t *name, ngx_pool_t *pool, ngx_log_t *log);
 void ngx_delete_pidfile(ngx_cycle_t *cycle);
 ngx_int_t ngx_signal_process(ngx_cycle_t *cycle, char *sig);
 void ngx_reopen_files(ngx_cycle_t *cycle, ngx_uid_t user);

@@ -332,7 +332,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
     if (ngx_test_config) {
 
-        if (ngx_create_pidfile(&ccf->pid, log) != NGX_OK) {
+        if (ngx_create_pidfile(&ccf->pid, conf.temp_pool, log) != NGX_OK) {
             goto failed;
         }
 
@@ -350,7 +350,7 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
         {
             /* new pid file name */
 
-            if (ngx_create_pidfile(&ccf->pid, log) != NGX_OK) {
+            if (ngx_create_pidfile(&ccf->pid, conf.temp_pool, log) != NGX_OK) {
                 goto failed;
             }
 
@@ -1040,7 +1040,7 @@ ngx_init_zone_pool(ngx_cycle_t *cycle, ngx_shm_zone_t *zn)
 
 
 ngx_int_t
-ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
+ngx_create_pidfile(ngx_str_t *name, ngx_pool_t *pool, ngx_log_t *log)
 {
     size_t      len;
     ngx_int_t   rc;
@@ -1048,16 +1048,33 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
     ngx_file_t  file;
     u_char      pid[NGX_INT64_LEN + 2];
 
+    static u_char  tmp[] = ".tmp";
+
     if (ngx_process > NGX_PROCESS_MASTER) {
         return NGX_OK;
     }
 
     ngx_memzero(&file, sizeof(ngx_file_t));
 
-    file.name = *name;
-    file.log = log;
+    if (ngx_test_config) {
+        create = NGX_FILE_CREATE_OR_OPEN;
+        file.name = *name;
 
-    create = ngx_test_config ? NGX_FILE_CREATE_OR_OPEN : NGX_FILE_TRUNCATE;
+    } else {
+        create = NGX_FILE_TRUNCATE;
+
+        file.name.len = name->len + sizeof(tmp);
+
+        file.name.data = ngx_pnalloc(pool, file.name.len);
+        if (file.name.data == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(ngx_cpymem(file.name.data, name->data, name->len),
+                   tmp, sizeof(tmp));
+    }
+
+    file.log = log;
 
     file.fd = ngx_open_file(file.name.data, NGX_FILE_RDWR,
                             create, NGX_FILE_DEFAULT_ACCESS);
@@ -1083,7 +1100,18 @@ ngx_create_pidfile(ngx_str_t *name, ngx_log_t *log)
                       ngx_close_file_n " \"%s\" failed", file.name.data);
     }
 
-    return rc;
+    if (ngx_test_config || rc == NGX_ERROR) {
+        return rc;
+    }
+
+    if (ngx_rename_file(file.name.data, name->data) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_EMERG, log, ngx_errno,
+                      ngx_rename_file_n " %s to %s failed",
+                      file.name.data, name->data);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
 }
 
 

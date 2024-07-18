@@ -4665,6 +4665,10 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+    /*
+     * Make sure that cf_line and cf_filename store the position where this
+     * client was defined, in case it was referenced before.
+     */
     cli->cf_line = cf->conf_file->line;
     cli->cf_filename = cf->conf_file->file.name;
     cli->server = value[2];
@@ -5191,24 +5195,25 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 
     ngx_memzero(cli, sizeof(ngx_acme_client_t));
 
-    cli->account_key.file.fd = NGX_INVALID_FILE;
-    cli->private_key.file.fd = NGX_INVALID_FILE;
-    cli->certificate_file.fd = NGX_INVALID_FILE;
-
     cli->log = cf->log;
-
     cli->name = *name;
     cli->enabled = NGX_CONF_UNSET_UINT;
-    cli->private_key.type = NGX_KT_UNSUPPORTED;
-    cli->private_key.bits = NGX_CONF_UNSET;
-    cli->renew_before_expiry = NGX_CONF_UNSET;
-    cli->retry_after_error = NGX_CONF_UNSET;
-    cli->max_cert_size = NGX_CONF_UNSET_SIZE;
+    cli->cf_line = cf->conf_file->line;
+    cli->cf_filename = cf->conf_file->file.name;
 
     cli->domains = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
     if (cli->domains == NULL) {
         return NULL;
     }
+
+    cli->renew_before_expiry = NGX_CONF_UNSET;
+    cli->retry_after_error = NGX_CONF_UNSET;
+    cli->max_cert_size = NGX_CONF_UNSET_SIZE;
+    cli->account_key.file.fd = NGX_INVALID_FILE;
+    cli->private_key.file.fd = NGX_INVALID_FILE;
+    cli->private_key.type = NGX_KT_UNSUPPORTED;
+    cli->private_key.bits = NGX_CONF_UNSET;
+    cli->certificate_file.fd = NGX_INVALID_FILE;
 
     for (v = ngx_http_acme_vars; v->name.len; v++) {
         if (ngx_http_acme_add_client_var(cf, cli, v) != NGX_OK) {

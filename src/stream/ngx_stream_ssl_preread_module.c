@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Nginx, Inc.
  */
 
@@ -538,6 +539,10 @@ ngx_stream_ssl_preread_servername(ngx_stream_session_t *s,
     if (rc == NGX_DECLINED) {
         return NGX_OK;
     }
+
+#if (NGX_API)
+    ngx_stream_stats_fix(s, cscf);
+#endif
 
     s->srv_conf = cscf->ctx->srv_conf;
 

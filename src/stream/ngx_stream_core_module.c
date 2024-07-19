@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -647,6 +647,37 @@ ngx_stream_find_virtual_server(ngx_stream_session_t *s,
 
     return NGX_DECLINED;
 }
+
+
+#if (NGX_API)
+
+void
+ngx_stream_stats_fix(ngx_stream_session_t *s, ngx_stream_core_srv_conf_t *cscf)
+{
+    ngx_stream_server_stats_t   *stats;
+    ngx_stream_core_srv_conf_t  *ocscf;
+
+    ocscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
+
+    if (cscf->server_zone != ocscf->server_zone) {
+        if (ocscf->server_zone) {
+            stats = ocscf->server_zone->stats;
+
+            (void) ngx_atomic_fetch_add(&stats->processing, -1);
+            (void) ngx_atomic_fetch_add(&stats->connections, -1);
+        }
+
+        if (cscf->server_zone) {
+            stats = cscf->server_zone->stats;
+
+            (void) ngx_atomic_fetch_add(&stats->processing, 1);
+            s->stat_processing = 1;
+            (void) ngx_atomic_fetch_add(&stats->connections, 1);
+        }
+    }
+}
+
+#endif
 
 
 static ngx_int_t

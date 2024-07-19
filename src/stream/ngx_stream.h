@@ -124,6 +124,7 @@ typedef struct {
     ngx_atomic_t                   connections;
     ngx_atomic_t                   sessions[6];
     ngx_atomic_t                   discarded;
+    ngx_atomic_t                   passed;
     ngx_atomic_t                   received;
     ngx_atomic_t                   sent;
 #if (NGX_STREAM_SSL)

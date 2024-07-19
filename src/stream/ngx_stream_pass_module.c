@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -146,6 +147,22 @@ ngx_stream_pass_handler(ngx_stream_session_t *s)
         if (ngx_stream_pass_match(&ls[i], addr) != NGX_OK) {
             continue;
         }
+
+#if (NGX_API)
+        {
+        ngx_stream_server_stats_t   *stats;
+        ngx_stream_core_srv_conf_t  *cscf;
+
+        cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
+
+        if (cscf->server_zone) {
+            stats = cscf->server_zone->stats;
+
+            (void) ngx_atomic_fetch_add(&stats->processing, -1);
+            (void) ngx_atomic_fetch_add(&stats->passed, 1);
+        }
+        }
+#endif
 
         c->listening = &ls[i];
 

@@ -20,13 +20,26 @@ Thanks to Maxim Dounin (freenginx) and Jiří Setnička.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+счётчик "passed" в зоне API статистики, задаваемой директивой "status_zone"
+модуля "stream", для подсчёта соединений, переданных на обработку в другие
+слушающие сокеты при помощи директив "pass".
+</para>
+<para lang="en">
+the "passed" counter in the statistics API zone, specified by the "status_zone"
+directive of the "stream" module, to count connections passed for handling
+to other listening sockets using the "pass" directives.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
-при использовании виртуальных серверов в модуле "stream"
+при использовании виртуальных серверов или директивы "pass" в модуле "stream"
 соединения могли учитываться некорректно в API статистики.
 </para>
 <para lang="en">
-when using virtual servers in the "stream" module,
+when using virtual servers or the "pass" directives in the "stream" module,
 connections could be accounted incorrectly in the statistics API.
 </para>
 </change>

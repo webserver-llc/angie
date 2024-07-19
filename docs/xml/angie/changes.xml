@@ -20,6 +20,17 @@ Thanks to Maxim Dounin (freenginx) and Jiří Setnička.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при использовании виртуальных серверов в модуле "stream"
+соединения могли учитываться некорректно в API статистики.
+</para>
+<para lang="en">
+when using virtual servers in the "stream" module,
+connections could be accounted incorrectly in the statistics API.
+</para>
+</change>
+
 </changes>
 
 

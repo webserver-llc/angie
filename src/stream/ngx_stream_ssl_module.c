@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -586,6 +586,10 @@ ngx_stream_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
     if (rc == NGX_DECLINED) {
         goto done;
     }
+
+#if (NGX_API)
+    ngx_stream_stats_fix(s, cscf);
+#endif
 
     s->srv_conf = cscf->ctx->srv_conf;
 

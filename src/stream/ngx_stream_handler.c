@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -85,6 +85,12 @@ static ngx_api_entry_t  ngx_api_stream_server_zone_connections_entries[] = {
         .name      = ngx_string("discarded"),
         .handler   = ngx_api_struct_atomic_handler,
         .data.off  = offsetof(ngx_stream_server_stats_t, discarded)
+    },
+
+    {
+        .name      = ngx_string("passed"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_stream_server_stats_t, passed)
     },
 
     ngx_api_null_entry

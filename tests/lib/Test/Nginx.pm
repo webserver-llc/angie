@@ -93,7 +93,16 @@ sub DESTROY {
 	if ($ENV{TEST_ANGIE_CATLOG}) {
 		system("cat $self->{_testdir}/error.log");
 	}
-	if (not $ENV{TEST_ANGIE_LEAVE}) {
+
+	my $leave = defined $ENV{TEST_ANGIE_LEAVE} ? $ENV{TEST_ANGIE_LEAVE} : 0;
+	if ($leave eq 'onfail') {
+		my $tests_passed = grep { $_ } (Test::More->builder->summary);
+
+		$leave = 0 if Test::More->builder->is_passing
+			&& $tests_passed == Test::More->builder->expected_tests;
+	}
+
+	if (!$leave) {
 		eval { rmtree($self->{_testdir}); };
 	}
 }

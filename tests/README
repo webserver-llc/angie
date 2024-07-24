@@ -29,8 +29,12 @@ TEST_ANGIE_VERBOSE
 
 TEST_ANGIE_LEAVE
 
-    If set, temporary directory with configs and logs won't be deleted on test
-    completion.  Useful for debugging.
+    Specifies whether a temporary directory with configs and logs should be
+    saved after the test is completed or not.  Useful for debugging.
+    Possible values:
+    - 0 or not set: never save temporary directory;
+    - 1: always save temporary directory;
+    - onfail: save temporary directory only for failed tests.
 
 TEST_ANGIE_CATLOG
 

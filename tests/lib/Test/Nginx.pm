@@ -399,6 +399,11 @@ sub run(;$) {
 	die "Unable to fork(): $!\n" unless defined $pid;
 
 	if ($pid == 0) {
+		# nginx main process and its workers will have the same process group
+		# this will give us the ability to kill them simultaneously
+		# using kill '-KILL', $pgrp
+		setpgrp;
+
 		my @globals = $self->{_test_globals} ?
 			() : ('-g', "pid $testdir/nginx.pid; "
 			. "error_log $testdir/error.log debug;");
@@ -409,8 +414,15 @@ sub run(;$) {
 
 	# wait for nginx to start
 
-	$self->waitforfile("$testdir/nginx.pid", $pid)
-		or die "Can't start nginx";
+	my $nginx_started = $self->waitforfile("$testdir/nginx.pid", $pid);
+	unless ($nginx_started) {
+
+		# try to kill pid to prevent tests from hanging
+		$self->_stop_pid($pid, 1)
+			unless defined $nginx_started;
+
+		die "Can't start nginx";
+	}
 
 	for (1 .. 50) {
 		last if $^O ne 'MSWin32';
@@ -513,12 +525,15 @@ sub waitforfile($;$) {
 	# wait for file to appear
 	# or specified process to exit
 
-	for (1 .. 50) {
+	for (1 .. 200) {
 		return 1 if -e $file;
 		return 0 if $exited;
 		$exited = waitpid($pid, WNOHANG) != 0 if $pid;
 		select undef, undef, undef, 0.1;
 	}
+
+	my $tname = (caller(1))[1];
+	Test::More::diag("$tname:\t$file was not created after 20 seconds");
 
 	return undef;
 }
@@ -602,6 +617,45 @@ sub reload() {
 	return $self;
 }
 
+sub _stop_pid {
+	my ($self, $pid, $force) = @_;
+
+	my $exited;
+
+	unless ($force) {
+
+		# let's try graceful shutdown first
+		kill 'QUIT', $pid;
+
+		for (1 .. 900) {
+			$exited = waitpid($pid, WNOHANG) != 0;
+			last if $exited;
+			select undef, undef, undef, 0.1;
+		}
+	}
+
+	# then try fast shutdown
+	if (!$exited) {
+		kill 'TERM', $pid;
+
+		for (1 .. 900) {
+			$exited = waitpid($pid, WNOHANG) != 0;
+			last if $exited;
+			select undef, undef, undef, 0.1;
+		}
+	}
+
+	# last try: brutal kill
+	# this will kill the master process and all its worker processes
+	if (!$exited) {
+		kill '-KILL', getpgrp($pid);
+
+		waitpid($pid, 0);
+	}
+
+	return $self;
+}
+
 sub stop() {
 	my ($self) = @_;
 
@@ -609,43 +663,7 @@ sub stop() {
 
 	my $pid = $self->read_file('nginx.pid');
 
-	if ($^O eq 'MSWin32') {
-		my $testdir = $self->{_testdir};
-		my @globals = $self->{_test_globals} ?
-			() : ('-g', "pid $testdir/nginx.pid; "
-			. "error_log $testdir/error.log debug;");
-		system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-			'-s', 'quit', '-e', 'error.log', @globals) == 0
-			or die "system() failed: $?\n";
-
-	} else {
-		kill 'QUIT', $pid;
-	}
-
-	my $exited;
-
-	for (1 .. 900) {
-		$exited = waitpid($pid, WNOHANG) != 0;
-		last if $exited;
-		select undef, undef, undef, 0.1;
-	}
-
-	if (!$exited) {
-		if ($^O eq 'MSWin32') {
-			my $testdir = $self->{_testdir};
-			my @globals = $self->{_test_globals} ?
-				() : ('-g', "pid $testdir/nginx.pid; "
-				. "error_log $testdir/error.log debug;");
-			system($NGINX, '-p', $testdir, '-c', "nginx.conf",
-				'-s', 'stop', '-e', 'error.log', @globals) == 0
-				or die "system() failed: $?\n";
-
-		} else {
-			kill 'TERM', $pid;
-		}
-
-		waitpid($pid, 0);
-	}
+	$self->_stop_pid($pid);
 
 	$self->{_started} = 0;
 
@@ -1094,7 +1112,6 @@ EOF
 			or die "Can't create certificate for $name: $!\n";
 	}
 }
-
 
 ###############################################################################
 

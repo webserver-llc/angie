@@ -42,6 +42,7 @@ sub new {
 
 	$self->{_pid} = $$;
 	$self->{_alerts} = 1;
+	$self->{_errors_to_skip} = {};
 
 	$self->{_testdir} = tempdir(
 		'angie-test-XXXXXXXXXX',
@@ -81,6 +82,27 @@ sub DESTROY {
 		}
 
 		Test::More::is(join("\n", @alerts), '', 'no alerts');
+	}
+
+	if (Test::More->builder->expected_tests) {
+		foreach my $level (qw(crit emerg)) {
+			my $errors_re = join('|',
+				@{ $self->{_errors_to_skip}{$level} // [] });
+
+			my @errors = $self->read_file('error.log') =~ /.+\[$level\].+/gm;
+
+			if (length $errors_re && scalar @errors) {
+				Test::More::ok(
+					! (grep { $_ !~ qr/$errors_re/ } @errors),
+					"no unexpected $level errors")
+				or Test::More::diag("all $level errors: "
+					. join("\n", @errors));
+			} else {
+				my $errors = join("\n", @errors);
+				Test::More::ok($errors eq '', "no $level errors")
+					or Test::More::diag("all $level errors: $errors");
+			}
+		}
 	}
 
 	if (Test::More->builder->expected_tests) {
@@ -375,7 +397,7 @@ sub try_run($$) {
 sub plan($) {
 	my ($self, $plan) = @_;
 
-	Test::More::plan(tests => $plan + 2);
+	Test::More::plan(tests => $plan + 4);
 
 	return $self;
 }
@@ -384,6 +406,15 @@ sub todo_alerts() {
 	my ($self) = @_;
 
 	$self->{_alerts} = 0;
+
+	return $self;
+}
+
+sub skip_errors_check {
+	my ($self, $level, @pattern) = @_;
+
+	$self->{_errors_to_skip}{$level} //= [];
+	push @{ $self->{_errors_to_skip}{$level} }, @pattern;
 
 	return $self;
 }

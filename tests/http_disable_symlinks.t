@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Andrey Belov
 
 # Tests for disable_symlinks directive.
@@ -24,6 +25,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite symlink/)
+	->skip_errors_check('crit', 'Too many levels of symbolic links',
+		'Symbolic link loop', 'Too many links')
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

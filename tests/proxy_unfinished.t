@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for http proxy and prematurely closed connections.  Incomplete
@@ -31,7 +32,9 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache sub/)->plan(15);
+my $t = Test::Nginx->new()->has(qw/http proxy cache sub/)->plan(15)
+	->skip_errors_check('crit',
+		quotemeta('0000000007" failed (13: Permission denied)'));
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

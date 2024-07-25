@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -70,6 +71,9 @@ $t->run();
 ###############################################################################
 
 my $d = $t->testdir;
+
+$t->skip_errors_check('emerg',
+	quotemeta("open() \"$d/inc.conf\" failed (2: No such file or directory)"));
 
 my $dump = $t->dump_config();
 like($dump, qr!^# configuration file $d/nginx.conf:$!m, 'nginx.conf found');

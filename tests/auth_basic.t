@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for auth basic module.
@@ -77,6 +78,11 @@ $t->write_file(
 	'sha2:' . '{SHA}_____Mm5Pz8GgiULbPgzG37mj9g=' . "\n" .
 	'sha3:' . '{SHA}Zm9vCg==' . "\n"
 );
+
+my $d = $t->testdir();
+
+$t->skip_errors_check('crit',
+	quotemeta("pread() \"$d/\" failed (21: Is a directory)"));
 
 $t->run();
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -123,6 +124,13 @@ EOF
 my $d = $t->testdir();
 
 mkdir "$d/dir";
+
+$t->skip_errors_check('crit',
+	quotemeta(
+		"open() \"$d/dir/cache_lru\" failed (2: No such file or directory)"),
+	quotemeta(
+		"open() \"$d/dir/cache_once\" failed (2: No such file or directory)"),
+);
 
 $t->run();
 

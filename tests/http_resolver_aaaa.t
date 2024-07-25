@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,7 +23,11 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite/)
+	->skip_errors_check('crit', 'Invalid argument');
+
+$t->skip_errors_check('crit', "Can't assign requested address")
+	if $^O eq 'freebsd';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

@@ -22,6 +22,7 @@ our %EXPORT_TAGS = (
 
 ###############################################################################
 
+use File::Basename qw/ basename /;
 use File::Path qw/ rmtree /;
 use File::Spec qw//;
 use File::Temp qw/ tempdir /;
@@ -44,8 +45,11 @@ sub new {
 	$self->{_alerts} = 1;
 	$self->{_errors_to_skip} = {};
 
+	my $tname = (caller(0))[1];
+	my $basename = basename($tname, '.t');
+
 	$self->{_testdir} = tempdir(
-		'angie-test-XXXXXXXXXX',
+		"angie-test-$basename-XXXXXXXXXX",
 		TMPDIR => 1
 	)
 		or die "Can't create temp directory: $!\n";

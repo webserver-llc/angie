@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::More;
+use Test::Most;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -33,7 +33,7 @@ my $t = Test::Nginx->new()
 plan(skip_all => "perl >= 5.32 required")
 	if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(18)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(16)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -272,16 +272,29 @@ is($j->{server}, 'backup.example.com:' . $port1,
 # u3: multi.example.com:8081
 #       127.0.0.2	404
 #       127.0.0.6	200
-like(http_get("/u3"), qr/X-Upstream-Status: US=404, 200/, 'multiple - request 1');
-like(http_get("/u3"), qr/X-Upstream-Status: US=200/, 'multiple - request 2');
+my $upstream_status_re = qr/X-Upstream-Status: US=([^\n\r]+)/;
+my ($upstream_status_1) = http_get("/u3") =~ $upstream_status_re;
+my ($upstream_status_2) = http_get("/u3") =~ $upstream_status_re;
+
+# the order is not significant
+cmp_bag(
+	[$upstream_status_1, $upstream_status_2], ['404, 200', '200'],
+	'multiple - request 1 and 2'
+);
 
 # verify tries - regular
 # u4: bar.example.com:8081
 #       127.0.0.2	404
 #     qux.example.com:8081
 #       127.0.0.6	200
-like(http_get("/u4"), qr/X-Upstream-Status: US=404, 200/, 'regular - request 1');
-like(http_get("/u4"), qr/X-Upstream-Status: US=200/, 'regular - request 2');
+($upstream_status_1) = http_get("/u4") =~ $upstream_status_re;
+($upstream_status_2) = http_get("/u4") =~ $upstream_status_re;
+
+# the order is not significant
+cmp_bag(
+	[$upstream_status_1, $upstream_status_2], ['404, 200', '200'],
+	'regular - request 1 and 2'
+);
 
 # perform reload to trigger the codepath for pre-resolve
 $t->reload('/api/status/angie/generation');

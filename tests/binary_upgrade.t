@@ -1,16 +1,18 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
-# Tests for binary upgrade.
+# Tests for binary upgrade - upgrading an executable file on the fly.
 
 ###############################################################################
 
 use warnings;
 use strict;
+use feature 'state';
 
-use Test::More;
+use Test::Most;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -22,10 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'can leave orphaned process group')
-	unless $ENV{TEST_ANGIE_UNSAFE};
-
-my $t = Test::Nginx->new(qr/http unix/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/http unix/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -50,50 +49,148 @@ $t->run();
 
 ###############################################################################
 
-my $pid = $t->read_file('nginx.pid');
-ok($pid, 'master pid');
+my @checked_crit_errors;
 
-TODO: {
+subtest 'upgrade followed by termination of the old master process' => sub {
+	my $pid = $t->read_file('nginx.pid');
+	chomp($pid);
 
-local $TODO = 'not yet';
+	# upgrade the executable on the fly
+	upgrade_test($t, $pid)
+		or return;
 
-kill 'USR2', $pid;
+	# terminate old master process
+	kill 'QUIT', $pid;
 
-for (1 .. 30) {
-	last if -e "$d/nginx.pid" && -e "$d/nginx.pid.oldbin";
-	select undef, undef, undef, 0.2
-}
+	for (1 .. 150) {
+		last if ! -e "$d/nginx.pid.oldbin";
+		select undef, undef, undef, 0.2;
+	}
 
-isnt($t->read_file('nginx.pid'), $pid, 'master pid changed');
+	ok(!-e "$d/nginx.pid.oldbin", 'old master pid deleted');
+	ok(-e "$d/nginx.pid", 'new pid exists');
 
-kill 'QUIT', $pid;
+	isnt($t->read_file('nginx.pid'), $pid, 'master pid changed');
 
-for (1 .. 30) {
-	last if ! -e "$d/nginx.pid.oldbin";
-	select undef, undef, undef, 0.2
-}
+	ok(-e "$d/unix.sock", 'unix socket exists on old master shutdown');
+};
 
-ok(-e "$d/unix.sock", 'unix socket exists on old master shutdown');
+my $is_previous_subtest_failed = !(Test::More->builder->summary)[-1];
+subtest 'upgrade followed by termination of the new master process' => sub {
 
-# unix socket on new master termination
+	# it may be dangerous to continue if previous subtest failed
+	return
+		if $is_previous_subtest_failed;
 
-$pid = $t->read_file('nginx.pid');
+	my $pid = $t->read_file('nginx.pid');
+	chomp($pid);
 
-kill 'USR2', $pid;
+	# upgrade the executable on the fly
+	upgrade_test($t, $pid)
+		or return;
 
-for (1 .. 30) {
-	last if -e "$d/nginx.pid" && -e "$d/nginx.pid.oldbin";
-	select undef, undef, undef, 0.2
-}
+	$pid = $t->read_file('nginx.pid');
+	chomp($pid);
 
-kill 'TERM', $t->read_file('nginx.pid');
+	# terminate new master process
+	kill 'TERM', $pid;
 
-for (1 .. 30) {
-	last if ! -e "$d/nginx.pid.oldbin";
-	select undef, undef, undef, 0.2
-}
+	for (1 .. 150) {
+		last if ! -e "$d/nginx.pid.oldbin";
+		select undef, undef, undef, 0.2
+	}
 
-ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
+	ok(!-e "$d/nginx.pid.oldbin", 'renamed pid deleted');
+	ok(-e "$d/nginx.pid", 'new pid exists');
 
-}
+	isnt($t->read_file('nginx.pid'), $pid, 'master pid changed');
+
+	ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
+};
+
+$t->skip_errors_check('crit', @checked_crit_errors);
+
 ###############################################################################
+
+sub upgrade_test {
+	my ($t, $pid) = @_;
+
+	ok($pid, 'master pid file is not empty')
+		or return;
+
+	# upgrade the executable on the fly
+	kill 'USR2', $pid;
+
+	# try to send second USR2 signal on master pid
+	second_USR2_signal_test($t, $pid)
+		or return;
+
+	my $d = $t->testdir();
+
+	for (1 .. 150) {
+		last if -e "$d/nginx.pid" && -e "$d/nginx.pid.oldbin";
+		select undef, undef, undef, 0.2;
+	}
+
+	ok(-e "$d/nginx.pid.oldbin", 'old master pid exists')
+		or return;
+	ok(-e "$d/nginx.pid", 'new master pid exists')
+		or return;
+
+	isnt($t->read_file('nginx.pid'), $pid, 'master pid changed')
+		or return;
+}
+
+sub second_USR2_signal_test {
+	my ($t, $pid) = @_;
+
+	# second USR2 signal on master pid should be ignored and an error logged
+	my $found = 0;
+	for (1 .. 100) {
+		my $errors = read_error_log($t);
+		$found = grep { $_ =~ /changing binary/ } @{ $errors };
+		last if $found;
+		select undef, undef, undef, 0.01;
+	}
+
+	kill 'USR2', $pid;
+	select undef, undef, undef, 0.1;
+
+	my $errors = [grep { $_ =~ /\[crit\]/} @{ read_error_log($t) } ];
+
+	my $expected_error = "$pid#\\d+: the changing binary signal is ignored: "
+		. "you should shutdown or terminate before either old or new "
+		. "binary's process";
+
+	push @checked_crit_errors, $expected_error;
+
+	cmp_deeply($errors, [re($expected_error)], 'second USR2 is ignored')
+		or return;
+}
+
+# reads only new lines from error.log file
+sub read_error_log {
+	my $t = shift;
+
+	state $error_log_fh;
+
+	my $test_dir = $t->testdir();
+
+	unless (defined $error_log_fh) {
+		open($error_log_fh, '<', $test_dir . '/error.log')
+			or die "Can't open $test_dir/error.log: $!";
+	}
+
+	seek($error_log_fh, 0, 1);
+
+	my @error_log;
+	for my $line (<$error_log_fh>) {
+		chomp $line;
+		next if $line =~ /\[debug\]/;
+		push @error_log, $line;
+	}
+
+	return \@error_log;
+}
+
+1;

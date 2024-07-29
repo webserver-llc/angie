@@ -44,6 +44,17 @@ connections could be accounted incorrectly in the statistics API.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+на конфигурациях с 5 ACME-клиентами и более могли происходить падения рабочих
+процессов; проблема появилась в 1.6.0.
+</para>
+<para lang="en">
+worker processes could crash on configurations with 5 ACME clients or more;
+the bug had appeared in 1.6.0.
+</para>
+</change>
+
 </changes>
 
 

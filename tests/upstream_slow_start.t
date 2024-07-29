@@ -15,7 +15,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/get_json getconn/;
+use Test::Utils qw/get_json hash_like/;
 
 ###############################################################################
 
@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 		->has(qw/http proxy rewrite http_api upstream_zone/)
-		->plan(11);
+		->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -91,12 +91,12 @@ is($r->{state}, "up", "backend 1 is good on start");
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "up", "backend 2 is good on start");
 
-is_deeply(many(30, port(8080)), {$p1 => 20, $p2 => 10}, 'weighted');
+hash_like(many(30), {$p1 => 20, $p2 => 10}, 0, 'weighted');
 
 # fail the peer
 $t->write_file('dead', '');
 
-is_deeply(many(30, port(8080)), {}, 'dead');
+hash_like(many(30), {}, 0, 'dead');
 
 # ensure it is now unhealthy
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p1");
@@ -110,8 +110,20 @@ unlink "$d/dead";
 
 select undef, undef, undef, 3;
 
-http_get('/foo');
-http_get('/foo');
+# to make sure the upstream is definitely revived,
+# we need to get OK response from each upstream server
+my $ok_responses = {$p1 => 0, $p2 => 0};
+for (1..3) {
+	my ($port) = http_get('/foo') =~ /^\b(\d{4})\b$/m;
+	next unless defined $port;
+
+	last if $ok_responses->{$p1} > 0 && $ok_responses->{$p2} > 0;
+
+	$ok_responses->{$port} ++;
+}
+
+ok($ok_responses->{$p1} && $ok_responses->{$p2}, 'both backends revived')
+	or diag(explain($ok_responses));
 
 # expect peer to be in 'recovery' state due to slow start
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p1");
@@ -121,23 +133,24 @@ is($r->{state}, "recovering", "backend 1 is recovering");
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "up", "backend 2 is up");
 
-is_deeply(many(30, port(8080)), {$p2 => 30}, 'p2 only');
+hash_like(many(30), {$p1 => 0, $p2 => 30}, 1, 'p2 only');
 
 # let the slow start to complete
 select undef, undef, undef, 3;
+
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p1");
 is($r->{state}, "up", "backend 1 is up again");
 
-is_deeply(many(30, port(8080)), {$p1 => 20, $p2 => 10}, 'weighted again');
+hash_like(many(30), {$p1 => 20, $p2 => 10}, 0, 'weighted again');
 
 ###############################################################################
 
 sub many {
-	my ($count, $port) = @_;
-	my (%ports);
+	my ($count) = @_;
 
+	my %ports;
 	for (1 .. $count) {
-		my $res = http_get('/foo', socket => getconn('127.0.0.1', $port));
+		my $res = http_get('/foo');
 		if ($res && $res =~ /(\d{4})$/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;

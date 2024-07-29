@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use parent qw/ Exporter /;
+use List::Util qw/ sum0 /;
 use Test::More;
 use Test::Nginx qw/ http http_get port /;
 
@@ -17,7 +18,7 @@ eval { require JSON; };
 plan(skip_all => "JSON is not installed") if $@;
 
 our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-	getconn /;
+	getconn hash_like /;
 
 sub _parse_response {
 	my $response = shift;
@@ -124,6 +125,39 @@ sub getconn {
 		or die "Can't connect to nginx: $!\n";
 
 	return $s;
+}
+
+# compares two hashes with some allowance
+# for example, the following statement is considered true:
+#	hash_like({a => 10, b => 5}, {a => 8, b => 7}, 2)
+sub hash_like {
+	my ($got, $expected, $allowance, $test_name) = @_;
+
+	$allowance //= 0;
+
+	my $got_total      = sum0 values %{ $got      // {} };
+	my $expected_total = sum0 values %{ $expected // {} };
+
+	my $pass = 0;
+
+	if ($got_total == $expected_total) {
+
+		$pass = 1;
+		foreach my $key (keys %{$expected}) {
+			if (abs(($got->{$key} // 0) - $expected->{$key}) > $allowance) {
+				$pass = 0;
+				last;
+			}
+		}
+	}
+
+	return 1
+		if ok($pass == 1, "$test_name");
+
+	diag(explain({
+		test_name => $test_name, allowance => $allowance,
+		got => $got, expected => $expected,
+	}));
 }
 
 1;

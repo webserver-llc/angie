@@ -3655,7 +3655,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_str_t                   *s, name;
     ngx_err_t                    err;
     ngx_uint_t                   i, j, n;
-    ngx_acme_client_t           *cli, **clients;
+    ngx_acme_client_t           *cli, **cli_p;
     ngx_pool_cleanup_t          *cln;
     ngx_http_handler_pt         *h;
     ngx_http_variable_t         *v;
@@ -3686,11 +3686,11 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         cscf = cscfp[i];
         ascf = cscf->ctx->srv_conf[ngx_http_acme_module.ctx_index];
 
-        clients = ascf->clients.elts;
+        cli_p = ascf->clients.elts;
 
         for (j = 0; j < ascf->clients.nelts; j++) {
 
-            cli = clients[j];
+            cli = cli_p[j];
             if (!cli->enabled) {
                 continue;
             }
@@ -3788,7 +3788,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
     for (i = 0; i < amcf->clients.nelts; i++) {
 
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+        cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
 
         if (!cli->enabled) {
             continue;
@@ -3952,7 +3952,7 @@ ngx_http_acme_fds_close(void *data)
 
     for (i = 0; i < clients->nelts; i++) {
 
-        cli = (ngx_acme_client_t *) clients->elts + i;
+        cli = ((ngx_acme_client_t **) clients->elts)[i];
 
         if (!cli->enabled) {
             continue;
@@ -4077,7 +4077,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
     for (i = 0; i < amcf->clients.nelts; i++) {
 
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+        cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
 
         if (!cli->enabled) {
             continue;
@@ -4257,7 +4257,7 @@ ngx_http_acme_nearest_client(ngx_http_acme_main_conf_t *amcf)
     nearest = NULL;
 
     for (i = 0; i < amcf->clients.nelts; i++) {
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+        cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
 
         if (!cli->enabled) {
             continue;
@@ -4512,7 +4512,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    if (ngx_array_init(&amcf->clients, cf->pool, 4, sizeof(ngx_acme_client_t))
+    if (ngx_array_init(&amcf->clients, cf->pool, 4, sizeof(ngx_acme_client_t *))
         != NGX_OK)
     {
         return NULL;
@@ -5130,7 +5130,7 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     ngx_str_t          *value;
     ngx_uint_t          i;
-    ngx_acme_client_t  *cli, **clients;
+    ngx_acme_client_t  *cli, **cli_p;
 
     value = cf->args->elts;
 
@@ -5139,10 +5139,10 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    clients = ascf->clients.elts;
+    cli_p = ascf->clients.elts;
 
     for (i = 0; i < ascf->clients.nelts; i++) {
-        if (cli == clients[i]) {
+        if (cli == cli_p[i]) {
             ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
                                "duplicate \"acme %V\" directive", &cli->name);
 
@@ -5150,12 +5150,12 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    clients = ngx_array_push(&ascf->clients);
-    if (clients == NULL) {
+    cli_p = ngx_array_push(&ascf->clients);
+    if (cli_p == NULL) {
         return NULL;
     }
 
-    *clients = cli;
+    *cli_p = cli;
 
     return NGX_CONF_OK;
 }
@@ -5165,7 +5165,7 @@ static ngx_acme_client_t *
 ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 {
     ngx_uint_t                  i;
-    ngx_acme_client_t          *cli;
+    ngx_acme_client_t          *cli, **cli_p;
     ngx_http_variable_t        *v;
     ngx_http_acme_main_conf_t  *amcf;
 
@@ -5177,7 +5177,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     amcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_acme_module);
 
     for (i = 0; i < amcf->clients.nelts; i++) {
-        cli = (ngx_acme_client_t *) amcf->clients.elts + i;
+        cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
 
         if (cli->name.len != name->len
             || ngx_strncasecmp(cli->name.data, name->data, name->len) != 0)
@@ -5188,12 +5188,10 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
         return cli;
     }
 
-    cli = ngx_array_push(&amcf->clients);
+    cli = ngx_pcalloc(cf->pool, sizeof(ngx_acme_client_t));
     if (cli == NULL) {
         return NULL;
     }
-
-    ngx_memzero(cli, sizeof(ngx_acme_client_t));
 
     cli->log = cf->log;
     cli->name = *name;
@@ -5220,6 +5218,13 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
             return NULL;
         }
     }
+
+    cli_p = ngx_array_push(&amcf->clients);
+    if (cli_p == NULL) {
+        return NULL;
+    }
+
+    *cli_p = cli;
 
     return cli;
 }

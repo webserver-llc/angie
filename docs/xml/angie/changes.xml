@@ -37,6 +37,22 @@ Thanks to Maxim Dounin (freenginx) and Bartek Nowotarski.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+MIME-тип в файле конфигурации "mime.types" для расширения bmp изменён на
+"image/bmp", для расширения rar - на "application/vnd.rar", а для расширений
+deb и udeb теперь указан "application/vnd.debian.binary-package".<br/>
+Спасибо Юрию Изоркину.
+</para>
+<para lang="en">
+the MIME type in the "mime.types" configuration file has been changed to
+"image/bmp" for the "bmp" extension and "application/vnd.rar" for the "rar"
+extension; set to "application/vnd.debian.binary-package" for the "deb" and
+"udeb" extensions.<br/>
+Thanks to Yuriy Izorkin.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 создание PID-файла теперь выполняется атомарно через промежуточный временный

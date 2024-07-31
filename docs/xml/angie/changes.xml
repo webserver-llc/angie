@@ -77,6 +77,23 @@ modules.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+при плавном завершении старых рабочих процессов keepalive-соединения теперь
+закрываются только после истечения таймаута, заданного директивой
+"lingering_timeout", что позволяет предотвратить возможные ошибки на клиенте
+при получении ответа в этот момент.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+when gracefully shutting down old worker processes, keep-alive connections are
+now closed only after the timeout specified by the "lingering_timeout" directive
+has expired, which allows to avoid possible client errors when receiving replies
+at that moment.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 поддержка кросс-компиляции: система сборки теперь может использовать

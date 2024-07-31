@@ -3415,6 +3415,7 @@ ngx_http_set_keepalive(ngx_http_request_t *r)
 {
     int                        tcp_nodelay;
     ngx_buf_t                 *b, *f;
+    ngx_msec_t                 timer;
     ngx_chain_t               *cl, *ln;
     ngx_event_t               *rev, *wev;
     ngx_connection_t          *c;
@@ -3615,10 +3616,19 @@ ngx_http_set_keepalive(ngx_http_request_t *r)
     r->http_state = NGX_HTTP_KEEPALIVE_STATE;
 #endif
 
-    c->idle = 1;
     ngx_reusable_connection(c, 1);
 
-    ngx_add_timer(rev, clcf->keepalive_timeout);
+    if (clcf->lingering_close
+        && clcf->lingering_timeout > 0)
+    {
+        timer = ngx_min(clcf->keepalive_timeout, clcf->lingering_timeout);
+        hc->keepalive_timeout = clcf->keepalive_timeout - timer;
+        ngx_add_timer(rev, timer);
+
+    } else {
+        c->idle = 1;
+        ngx_add_timer(rev, clcf->keepalive_timeout);
+    }
 
     if (rev->ready) {
         ngx_post_event(rev, &ngx_posted_events);
@@ -3629,16 +3639,32 @@ ngx_http_set_keepalive(ngx_http_request_t *r)
 static void
 ngx_http_keepalive_handler(ngx_event_t *rev)
 {
-    size_t             size;
-    ssize_t            n;
-    ngx_buf_t         *b;
-    ngx_connection_t  *c;
+    size_t                  size;
+    ssize_t                 n;
+    ngx_buf_t              *b;
+    ngx_connection_t       *c;
+    ngx_http_connection_t  *hc;
 
     c = rev->data;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "http keepalive handler");
 
-    if (rev->timedout || c->close) {
+    if (rev->timedout) {
+        if (c->idle || ngx_exiting) {
+            ngx_http_close_connection(c);
+            return;
+        }
+
+        hc = c->data;
+
+        c->idle = 1;
+        rev->timedout = 0;
+        ngx_add_timer(rev, hc->keepalive_timeout);
+
+        return;
+    }
+
+    if (c->close) {
         ngx_http_close_connection(c);
         return;
     }

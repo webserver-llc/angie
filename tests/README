@@ -56,4 +56,31 @@ TEST_ANGIE_GLOBALS_STREAM
 
     Sets additional directives in stream context.
 
+TEST_ANGIE_TC
+
+    Sets the name of the individual test case to run.
+    Important: works only for specially prepared tests:
+        - individual tests should be grouped into functions
+        - and the order of their execution should not be significant.
+
+    Example:
+
+        my %test_cases = (
+            'tc1: test case 1' => \&tc1,
+            'tc2: test case 2' => \&tc2,
+            'tc3: test case 3' => \&tc3,
+        );
+
+        $t->plan(scalar keys %test_cases);
+
+        $t->run_tests(\%test_cases);
+
+        sub tc1 {
+            ok($got eq $expected, 'test name');
+        }
+
+        sub tc2 {
+            ...
+        }
+
 Happy testing!

@@ -1157,6 +1157,32 @@ EOF
 	}
 }
 
+# runs tests. allows to run a specific test case
+# defined by the environment variable TEST_ANGIE_TC
+# usage: TEST_ANGIE_TC='<test_case_name>'
+sub run_tests {
+	my ($self, $test_cases) = @_;
+
+	while (my ($test_case_name, $test_case_sub) = each %{$test_cases}) {
+		my $test_case_params = {};
+		if (ref $test_case_sub eq 'HASH') {
+			$test_case_params = $test_case_sub->{test_params};
+			$test_case_sub    = $test_case_sub->{test_sub};
+		}
+
+		SKIP: {
+			Test::More::skip "subtest '$test_case_name'", 1
+				if defined $ENV{TEST_ANGIE_TC}
+					&& $ENV{TEST_ANGIE_TC} ne $test_case_name;
+
+			Test::More::subtest $test_case_name => $test_case_sub,
+				$self, $test_case_params;
+		}
+	}
+
+	return $self;
+}
+
 ###############################################################################
 
 1;

@@ -23,7 +23,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return stream_map/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return stream_map rewrite/)
 	->has(qw/http rewrite/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

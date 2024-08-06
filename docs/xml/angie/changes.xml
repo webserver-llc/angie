@@ -81,29 +81,20 @@ Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-при обработке закэшированных ответов с заголовком X-Accel-Redirect
-в рабочем процессе мог произойти segmentation fault.<br/>
-Спасибо Максиму Дунину (freenginx) и Jiří Setnička.
-</para>
-<para lang="en">
-a segmentation fault might occur in a worker process
-when handling cached responses with the "X-Accel-Redirect" header.<br/>
-Thanks to Maxim Dounin (freenginx) and Jiří Setnička.
-</para>
-</change>
+</changes>
+
+
+<changes ver="1.6.1" date="2024-08-08">
 
 <change type="feature">
 <para lang="ru">
-счётчик "passed" в зоне API статистики, задаваемой директивой "status_zone"
-модуля "stream", для подсчёта соединений, переданных на обработку в другие
-слушающие сокеты при помощи директив "pass".
+новый счётчик "passed" в статистике API директивы "status_zone" модуля "stream"
+отслеживает соединения, передаваемые на другие сокеты с помощью директив "pass".
 </para>
 <para lang="en">
-the "passed" counter in the statistics API zone, specified by the "status_zone"
-directive of the "stream" module, to count connections passed for handling
-to other listening sockets using the "pass" directives.
+a new "passed" counter in the API statistics of the "stream" module's
+"status_zone" directive tracks connections passed to other sockets using
+"pass" directives.
 </para>
 </change>
 
@@ -126,6 +117,19 @@ connections could be accounted incorrectly in the statistics API.
 <para lang="en">
 worker processes could crash on configurations with 5 ACME clients or more;
 the bug had appeared in 1.6.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+обработка закэшированных ответов с заголовком "X-Accel-Redirect" могла
+приводить к падению рабочего процесса.<br/>
+Спасибо Максиму Дунину (freenginx) и Jiří Setnička.
+</para>
+<para lang="en">
+handling cached responses with the "X-Accel-Redirect" header could
+crash the worker process.<br/>
+Thanks to Maxim Dounin (freenginx) and Jiří Setnička.
 </para>
 </change>
 

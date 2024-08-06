@@ -1,4 +1,23 @@
 
+Changes with Angie 1.6.1                                         08 Aug 2024
+
+    *) Feature: the "passed" counter in the statistics API zone, specified
+       by the "status_zone" directive of the "stream" module, to count
+       connections passed for handling to other listening sockets using the
+       "pass" directives.
+
+    *) Bugfix: when using virtual servers or the "pass" directives in the
+       "stream" module, connections could be accounted incorrectly in the
+       statistics API.
+
+    *) Bugfix: worker processes could crash on configurations with 5 ACME
+       clients or more; the bug had appeared in 1.6.0.
+
+    *) Bugfix: handling cached responses with the "X-Accel-Redirect" header
+       could crash the worker process.
+       Thanks to Maxim Dounin (freenginx) and Jiří Setnička.
+
+
 Changes with Angie 1.6.0                                         28 Jun 2024
 
     *) Feature: the "sticky" directive and related options in the "stream"
@@ -7,7 +26,7 @@ Changes with Angie 1.6.0                                         28 Jun 2024
        server.
 
     *) Feature: extraction of Cookie values from RDP connections using the
-       "rdp_preread" directive in the "stream" module into "$rdp_cookie" и
+       "rdp_preread" directive in the "stream" module into "$rdp_cookie" and
        "$rdp_cookie_NAME" variables, which allows to log and stick RDP
        client sessions to particular servers while load balancing.
 
@@ -70,7 +89,8 @@ Changes with Angie 1.5.1                                         16 May 2024
        0-RTT in QUIC.
 
     *) Bugfix: when reading a request body from a fast connection, reading
-       for a long time was possible. Thanks to Maxim Dounin (freenginx).
+       for a long time was possible.
+       Thanks to Maxim Dounin (freenginx).
 
 
 Changes with Angie 1.5.0                                         27 Mar 2024
@@ -93,7 +113,8 @@ Changes with Angie 1.5.0                                         27 Mar 2024
 
     *) Feature: now the "-V" switch also shows the relevant version of
        nginx, which is useful for compatibility with third-party utilities,
-       certbot in particular. Thanks to AdvTechnoKing.
+       certbot in particular.
+       Thanks to AdvTechnoKing.
 
     *) Feature: all functionality of nginx 1.25.4.
 
@@ -229,8 +250,9 @@ Changes with Angie 1.2.0                                         30 May 2023
        title, which allows to get this information about a running server
        instance using the "ps" utility.
 
-    *) Feature: ability to compress of "207 Multi-Status" responses by the
-       gzip module. Thanks to DBotThePony.
+    *) Feature: ability to compress "207 Multi-Status" responses by the gzip
+       module.
+       Thanks to DBotThePony.
 
     *) Feature: all functionality of nginx 1.25.0, including HTTP/3 support.
 

@@ -9,14 +9,13 @@
 
 <change type="feature">
 <para lang="ru">
-счётчик "passed" в зоне API статистики, задаваемой директивой "status_zone"
-модуля "stream", для подсчёта соединений, переданных на обработку в другие
-слушающие сокеты при помощи директив "pass".
+новый счётчик "passed" в статистике API директивы "status_zone" модуля "stream"
+отслеживает соединения, передаваемые на другие сокеты с помощью директив "pass".
 </para>
 <para lang="en">
-the "passed" counter in the statistics API zone, specified by the "status_zone"
-directive of the "stream" module, to count connections passed for handling
-to other listening sockets using the "pass" directives.
+a new "passed" counter in the API statistics of the "stream" module's
+"status_zone" directive tracks connections passed to other sockets using
+"pass" directives.
 </para>
 </change>
 

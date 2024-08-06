@@ -1,10 +1,9 @@
 
 Changes with Angie 1.6.1                                         08 Aug 2024
 
-    *) Feature: the "passed" counter in the statistics API zone, specified
-       by the "status_zone" directive of the "stream" module, to count
-       connections passed for handling to other listening sockets using the
-       "pass" directives.
+    *) Feature: a new "passed" counter in the API statistics of the "stream"
+       module's "status_zone" directive tracks connections passed to other
+       sockets using "pass" directives.
 
     *) Bugfix: when using virtual servers or the "pass" directives in the
        "stream" module, connections could be accounted incorrectly in the

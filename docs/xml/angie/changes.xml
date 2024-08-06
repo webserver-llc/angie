@@ -82,7 +82,7 @@ stream-модуля в переменные "$rdp_cookie" и "$rdp_cookie_NAME",
 </para>
 <para lang="en">
 extraction of Cookie values from RDP connections using the "rdp_preread"
-directive in the "stream" module into "$rdp_cookie" и "$rdp_cookie_NAME"
+directive in the "stream" module into "$rdp_cookie" and "$rdp_cookie_NAME"
 variables, which allows to log and stick RDP client sessions to particular
 servers while load balancing.
 </para>
@@ -268,12 +268,12 @@ HTTP/3 connection could be prematurely closed while using 0-RTT in QUIC.
 <change type="bugfix">
 <para lang="ru">
 при чтении тела запроса из быстрого соединения было возможно чтение в течение
-долгого времени.
+долгого времени.<br/>
 Спасибо Максиму Дунину (freenginx).
 </para>
 <para lang="en">
 when reading a request body from a fast connection, reading for a long time
-was possible.
+was possible.<br/>
 Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
@@ -336,12 +336,12 @@ option.
 <change type="feature">
 <para lang="ru">
 теперь ключ "-V" показывает также релевантную версию nginx, что полезно для
-совместимости со сторонними утилитами, в частности certbot.
+совместимости со сторонними утилитами, в частности certbot.<br/>
 Спасибо AdvTechnoKing.
 </para>
 <para lang="en">
 now the "-V" switch also shows the relevant version of nginx, which is useful
-for compatibility with third-party utilities, certbot in particular.
+for compatibility with third-party utilities, certbot in particular.<br/>
 Thanks to AdvTechnoKing.
 </para>
 </change>
@@ -711,11 +711,11 @@ to get this information about a running server instance using the "ps" utility.
 
 <change type="feature">
 <para lang="ru">
-возможность сжатия модулем gzip ответов со статусом "207 Multi-Status".
+возможность сжатия модулем gzip ответов со статусом "207 Multi-Status".<br/>
 Спасибо DBotThePony.
 </para>
 <para lang="en">
-ability to compress of "207 Multi-Status" responses by the gzip module.
+ability to compress "207 Multi-Status" responses by the gzip module.<br/>
 Thanks to DBotThePony.
 </para>
 </change>

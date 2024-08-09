@@ -39,8 +39,10 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2 ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
+
+        http2 on;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -80,9 +82,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

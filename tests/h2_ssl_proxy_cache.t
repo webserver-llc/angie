@@ -42,8 +42,10 @@ http {
     proxy_cache_path   %%TESTDIR%%/cache  keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:8080 http2 ssl sndbuf=32k;
+        listen       127.0.0.1:8080 ssl sndbuf=32k;
         server_name  localhost;
+
+        http2 on;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -88,9 +90,7 @@ foreach my $name ('localhost') {
 $t->write_file('tbig.html',
 	join('', map { sprintf "XX%06dXX", $_ } (1 .. 500000)));
 
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 plan(skip_all => 'no ALPN negotiation') unless defined getconn(port(8080));
 $t->plan(1);

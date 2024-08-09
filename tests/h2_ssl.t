@@ -41,8 +41,10 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2 ssl;
+        listen       127.0.0.1:8080 ssl;
         server_name  localhost;
+
+        http2 on;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
@@ -77,9 +79,7 @@ $t->write_file('index.html', '');
 $t->write_file('tbig.html',
 	join('', map { sprintf "XX%06dXX", $_ } (1 .. 500000)));
 
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 plan(skip_all => 'no ALPN negotiation') unless defined getconn();
 $t->plan(4);

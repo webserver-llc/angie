@@ -65,6 +65,8 @@ mail {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    map_hash_bucket_size 64;
+
     map $http_auth_protocol $proxy_port {
 	imap %%PORT_8144%%;
 	pop3 %%PORT_8111%%;

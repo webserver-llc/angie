@@ -532,7 +532,6 @@ sub unpack_length {
 
 sub new_socket {
 	my ($port, %extra) = @_;
-	my $npn = $extra{'npn'};
 	my $alpn = $extra{'alpn'};
 	my $s;
 
@@ -550,7 +549,6 @@ sub new_socket {
 		IO::Socket::SSL->start_SSL($s,
 			SSL_version => 'SSLv23',
 			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_npn_protocols => $npn ? [ $npn ] : undef,
 			SSL_alpn_protocols => $alpn ? [ $alpn ] : undef,
 			SSL_error_trap => sub { die $_[1] }
 		) if $extra{'SSL'};

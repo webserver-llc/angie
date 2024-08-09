@@ -76,6 +76,6 @@ unlike(http_get('/remote'), qr/HIDDEN/m, 'no additional body proxy');
 
 $t->stop();
 
-like(`cat ${\($t->testdir())}/access.log`, qr/post/, 'post action in logs');
+like($t->read_file('access.log'), qr/post/, 'post action in logs');
 
 ###############################################################################

@@ -107,7 +107,7 @@ $t->stop();
 SKIP: {
 skip "relies on error log contents", 2 unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $log = `grep -F '[error]' ${\($t->testdir())}/error.log`;
+my $log = $t->grep_file('error.log', '[error]');
 like($log, qr/no port in upstream "a.example.com"/, 'log - no port');
 like($log, qr/nx.example.com could not be resolved/, 'log - not found');
 

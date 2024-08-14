@@ -7,6 +7,17 @@
 
 <changes ver="1.7.0" date="">
 
+<change type="feature">
+<para lang="ru">
+группа метрик "sent", в которую входят счётчики отправленных типов DNS-запросов,
+для статистики резолвера в зоне разделяемой памяти.
+</para>
+<para lang="en">
+metric group "sent" for resolver statistics in a shared memory zone,
+containing counters of DNS query types sent.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 теперь перед HTTP-запросом допускается не более одной пустой строки для

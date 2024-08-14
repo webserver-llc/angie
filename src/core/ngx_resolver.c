@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2022 Web Server LLC
+ * Copyright (C) 2022-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -58,6 +58,13 @@ typedef struct {
     ngx_atomic_t           name_qrs;
     ngx_atomic_t           srv_qrs;
     ngx_atomic_t           addr_qrs;
+
+    ngx_atomic_t           a_sent;
+#if (NGX_HAVE_INET6)
+    ngx_atomic_t           aaaa_sent;
+#endif
+    ngx_atomic_t           srv_sent;
+    ngx_atomic_t           ptr_sent;
 
     ngx_atomic_t           responses[6];
     ngx_atomic_t           timedout_resps;
@@ -166,6 +173,9 @@ static char *ngx_resolver_init_conf(ngx_cycle_t *cycle, void *conf);
 
 static void ngx_resolver_stats_response(ngx_resolver_stats_t *stats,
     ngx_int_t state);
+static void ngx_resolver_stats_sent(ngx_resolver_stats_t *stats,
+    u_char *query, u_short qlen);
+static ngx_uint_t ngx_resolver_get_query_type(u_char *query, u_short qlen);
 
 static ngx_int_t ngx_resolver_set_status_zone(ngx_conf_t *cf,
     ngx_resolver_t *r, ngx_str_t *z);
@@ -196,6 +206,38 @@ static ngx_api_entry_t  ngx_api_resolver_queries_entries[] = {
         .name      = ngx_string("addr"),
         .handler   = ngx_api_struct_atomic_handler,
         .data.off  = offsetof(ngx_resolver_stats_t, addr_qrs)
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_resolver_sent_entries[] = {
+
+    {
+        .name      = ngx_string("a"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, a_sent)
+    },
+
+#if (NGX_HAVE_INET6)
+    {
+        .name      = ngx_string("aaaa"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, aaaa_sent)
+    },
+#endif
+
+    {
+        .name      = ngx_string("srv"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, srv_sent)
+    },
+
+    {
+        .name      = ngx_string("ptr"),
+        .handler   = ngx_api_struct_atomic_handler,
+        .data.off  = offsetof(ngx_resolver_stats_t, ptr_sent)
     },
 
     ngx_api_null_entry
@@ -262,6 +304,12 @@ static ngx_api_entry_t  ngx_api_resolver_entries[] = {
         .name      = ngx_string("queries"),
         .handler   = ngx_api_object_handler,
         .data.ents = ngx_api_resolver_queries_entries
+    },
+
+    {
+        .name      = ngx_string("sent"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_resolver_sent_entries
     },
 
     {
@@ -1561,6 +1609,12 @@ ngx_resolver_send_udp_query(ngx_resolver_t *r, ngx_resolver_connection_t  *rec,
         goto failed;
     }
 
+#if (NGX_API)
+    if (r->resolver_zone) {
+        ngx_resolver_stats_sent(r->resolver_zone->stats, query, qlen);
+    }
+#endif
+
     if ((size_t) n != (size_t) qlen) {
         ngx_log_error(NGX_LOG_CRIT, &rec->log, 0, "send() incomplete");
         goto failed;
@@ -1658,6 +1712,12 @@ ngx_resolver_send_tcp_query(ngx_resolver_t *r, ngx_resolver_connection_t *rec,
 
     if (rc == NGX_OK) {
         ngx_resolver_tcp_write(rec->tcp->write);
+
+#if (NGX_API)
+        if (r->resolver_zone) {
+            ngx_resolver_stats_sent(r->resolver_zone->stats, query, qlen);
+        }
+#endif
     }
 
     return NGX_OK;
@@ -5120,6 +5180,67 @@ ngx_api_resolvers_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
     ictx->elts = zone->next;
 
     return NGX_OK;
+}
+
+
+static void
+ngx_resolver_stats_sent(ngx_resolver_stats_t *stats, u_char *query,
+    u_short qlen)
+{
+    ngx_uint_t  qtype;
+
+    qtype = ngx_resolver_get_query_type(query, qlen);
+
+    switch (qtype) {
+
+    case NGX_RESOLVE_A:
+
+        (void) ngx_atomic_fetch_add(&stats->a_sent, 1);
+
+        break;
+
+#if (NGX_HAVE_INET6)
+    case NGX_RESOLVE_AAAA:
+
+        (void) ngx_atomic_fetch_add(&stats->aaaa_sent, 1);
+
+        break;
+#endif
+
+    case NGX_RESOLVE_SRV:
+
+        (void) ngx_atomic_fetch_add(&stats->srv_sent, 1);
+
+        break;
+
+    case NGX_RESOLVE_PTR:
+
+        (void) ngx_atomic_fetch_add(&stats->ptr_sent, 1);
+
+        break;
+
+    default:
+        return;
+    }
+}
+
+
+static ngx_uint_t
+ngx_resolver_get_query_type(u_char *query, u_short qlen)
+{
+    ngx_resolver_qs_t  *qs;
+
+    if (query == NULL) {
+        return 0;
+    }
+
+    if (qlen < sizeof(ngx_resolver_qs_t)) {
+        return 0;
+    }
+
+    qs = (ngx_resolver_qs_t *) (query + qlen - sizeof(ngx_resolver_qs_t));
+
+    return (qs->type_hi << 8) + qs->type_lo;
 }
 
 #endif

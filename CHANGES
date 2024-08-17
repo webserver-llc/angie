@@ -1,4 +1,11 @@
 
+Changes with Angie 1.6.2                                         16 Aug 2024
+
+    *) Security: processing a specially crafted mp4 file with the
+       ngx_http_mp4_module could cause a worker process crash
+       (CVE-2024-7347); the fix was ported from nginx 1.27.1.
+
+
 Changes with Angie 1.6.1                                         08 Aug 2024
 
     *) Feature: a new "passed" counter in the API statistics of the "stream"

@@ -155,6 +155,24 @@ Thanks to Maxim Dounin (freenginx).
 </changes>
 
 
+<changes ver="1.6.2" date="2024-08-16">
+
+<change type="security">
+<para lang="ru">
+обработка специально созданного mp4-файла модулем ngx_http_mp4_module
+могла приводить к падению рабочего процесса (CVE-2024-7347);
+исправление портировано из nginx 1.27.1.
+</para>
+<para lang="en">
+processing a specially crafted mp4 file with the ngx_http_mp4_module could
+cause a worker process crash (CVE-2024-7347);
+the fix was ported from nginx 1.27.1.
+</para>
+</change>
+
+</changes>
+
+
 <changes ver="1.6.1" date="2024-08-08">
 
 <change type="feature">

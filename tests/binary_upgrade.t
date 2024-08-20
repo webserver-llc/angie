@@ -146,17 +146,17 @@ sub second_USR2_signal_test {
 
 	# second USR2 signal on master pid should be ignored and an error logged
 	my $found = 0;
-	for (1 .. 100) {
+	for (1 .. 150) {
 		my $errors = read_error_log($t);
 		$found = grep { $_ =~ /changing binary/ } @{ $errors };
 		last if $found;
-		select undef, undef, undef, 0.01;
+		select undef, undef, undef, 0.02;
 	}
 
-	kill 'USR2', $pid;
-	select undef, undef, undef, 0.1;
+	ok($found, 'the first USR2 signal was received')
+		or return;
 
-	my $errors = [grep { $_ =~ /\[crit\]/} @{ read_error_log($t) } ];
+	kill 'USR2', $pid;
 
 	my $expected_error = "$pid#\\d+: the changing binary signal is ignored: "
 		. "you should shutdown or terminate before either old or new "
@@ -164,8 +164,17 @@ sub second_USR2_signal_test {
 
 	push @checked_crit_errors, $expected_error;
 
-	cmp_deeply($errors, [re($expected_error)], 'second USR2 is ignored')
-		or return;
+	# waiting for the error to appear in the log
+	$found = 0;
+	for (1 .. 150) {
+		my $errors = read_error_log($t);
+		$found = grep { $_ =~ /$expected_error/ } @{ $errors };
+		last if $found;
+
+		select undef, undef, undef, 0.02;
+	}
+
+	ok($found, 'the second USR2 signal was ignored');
 }
 
 # reads only new lines from error.log file

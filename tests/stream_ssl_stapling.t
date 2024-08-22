@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl/)
+my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl_sslversion/)
 	->has_daemon('openssl');
 
 eval { defined &Net::SSLeay::set_tlsext_status_type or die; };

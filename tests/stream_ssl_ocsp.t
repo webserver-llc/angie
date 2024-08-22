@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/stream stream_ssl stream_return sni socket_ssl_sni/)
+	->has(qw/stream stream_ssl stream_return sni socket_ssl_sslversion/)
 	->has_daemon('openssl');
 
 plan(skip_all => 'no OCSP support in BoringSSL')

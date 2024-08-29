@@ -1060,14 +1060,20 @@ ngx_ssl_password_callback(char *buf, int size, int rwflag, void *userdata)
 
 ngx_int_t
 ngx_ssl_ciphers(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *ciphers,
-    ngx_uint_t prefer_server_ciphers)
+    ngx_uint_t prefer_server_ciphers, ngx_uint_t protocols)
 {
-    if (SSL_CTX_set_cipher_list(ssl->ctx, (char *) ciphers->data) == 0) {
-        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
-                      "SSL_CTX_set_cipher_list(\"%V\") failed",
-                      ciphers);
-        return NGX_ERROR;
-    }
+	if (protocols == NGX_SSL_TLSv1_3) {
+        ngx_ssl_error(NGX_LOG_WARN, ssl->log, 0, "Only TLSv1.3 is enabled, skipping SSL_CTX_set_cipher_list");
+	}
+	else{
+		// set TLS 1.2 cipher suites
+		if (SSL_CTX_set_cipher_list(ssl->ctx, (const char*)ciphers->data) == 0){
+			ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+				          "SSL_CTX_set_cipher_list(\"%V\") failed",
+				          ciphers);
+			return NGX_ERROR;
+		}
+	}
 
     if (prefer_server_ciphers) {
         SSL_CTX_set_options(ssl->ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);

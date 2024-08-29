@@ -5453,7 +5453,7 @@ ngx_http_proxy_set_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *plcf)
     cln->handler = ngx_ssl_cleanup_ctx;
     cln->data = plcf->upstream.ssl;
 
-    if (ngx_ssl_ciphers(cf, plcf->upstream.ssl, &plcf->ssl_ciphers, 0)
+    if (ngx_ssl_ciphers(cf, plcf->upstream.ssl, &plcf->ssl_ciphers, 0, plcf->ssl_protocols)
         != NGX_OK)
     {
         return NGX_ERROR;

@@ -203,7 +203,7 @@ void ngx_ssl_ntls_prefix_strip(ngx_str_t *s);
 #endif
 
 ngx_int_t ngx_ssl_ciphers(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *ciphers,
-    ngx_uint_t prefer_server_ciphers);
+    ngx_uint_t prefer_server_ciphers, ngx_uint_t protocols);
 ngx_int_t ngx_ssl_client_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl,
     ngx_str_t *cert, ngx_int_t depth);
 ngx_int_t ngx_ssl_trusted_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl,

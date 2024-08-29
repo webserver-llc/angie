@@ -2536,7 +2536,7 @@ ngx_http_uwsgi_set_ssl(ngx_conf_t *cf, ngx_http_uwsgi_loc_conf_t *uwcf)
     cln->handler = ngx_ssl_cleanup_ctx;
     cln->data = uwcf->upstream.ssl;
 
-    if (ngx_ssl_ciphers(cf, uwcf->upstream.ssl, &uwcf->ssl_ciphers, 0)
+    if (ngx_ssl_ciphers(cf, uwcf->upstream.ssl, &uwcf->ssl_ciphers, 0, uwcf->ssl_protocols)
         != NGX_OK)
     {
         return NGX_ERROR;

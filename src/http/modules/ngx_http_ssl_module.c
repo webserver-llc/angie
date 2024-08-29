@@ -784,7 +784,7 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 #endif
 
     if (ngx_ssl_ciphers(cf, &conf->ssl, &conf->ciphers,
-                        conf->prefer_server_ciphers)
+                        conf->prefer_server_ciphers,conf->protocols)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;

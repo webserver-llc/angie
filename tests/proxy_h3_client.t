@@ -656,7 +656,7 @@ like($res, qr/server=h3backend;protocol=h3${CRLF}0${CRLF}X-T1: Foo1${CRLF}X-T2: 
 
 
 $res = http_get("/connect_timeout");
-like($res, "/504 Gateway Time-out/", "504 on connect timeout");
+like($res, "/504 Gateway Timeout/", "504 on connect timeout");
 
 $res = http_get("/early_client_error");
 like($res, "/500 Internal Server Error/", "500 on early error");

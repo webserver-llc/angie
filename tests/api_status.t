@@ -414,7 +414,7 @@ sub traverse_api {
 	cmp_deeply(
 		put_json($uri, {}),
 		{
-			h => re('405 Not Allowed'),
+			h => re('405 Method Not Allowed'),
 			j => {
 				'description' => 'The PUT method is not allowed for the'
 					. ' requested API entity "' . $uri . '".',
@@ -428,7 +428,7 @@ sub traverse_api {
 	cmp_deeply(
 		delete_json($uri),
 		{
-			h => re('405 Not Allowed'),
+			h => re('405 Method Not Allowed'),
 			j => {
 				'description' => 'The DELETE method is not allowed for the'
 					. ' requested API entity "' . $uri . '".',
@@ -442,7 +442,7 @@ sub traverse_api {
 	cmp_deeply(
 		patch_json($uri, {a => '123'}),
 		{
-			h => re('405 Not Allowed'),
+			h => re('405 Method Not Allowed'),
 			j => {
 				'description' => 'The PATCH method is not allowed for the'
 					. ' requested API entity "' . $uri . '".',

@@ -30,6 +30,9 @@ plan(skip_all => 'may not work, leaves coredump')
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
 	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool');
 
+plan(skip_all => 'Unsupported OpenSSL version')
+	if `openssl version` =~ /3\.2\.1-dev/;
+
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

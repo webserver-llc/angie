@@ -9,6 +9,19 @@
 
 <change type="feature">
 <para lang="ru">
+переменная $ssl_server_cert_type, принимающая значения "RSA", "DSA", "ECDSA",
+"ED448", "ED25519", "SM2", "RSA-PSS" или "unknown" в зависимости от типа
+сертификата и ключа.
+</para>
+<para lang="en">
+the $ssl_server_cert_type variable, which takes the values "RSA", "DSA",
+"ECDSA", "ED448", "ED25519", "SM2", "RSA-PSS", or "unknown" depending on the
+certificate and key type.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 группа метрик "sent", в которую входят счётчики отправленных типов DNS-запросов,
 для статистики резолвера в зоне разделяемой памяти.
 </para>

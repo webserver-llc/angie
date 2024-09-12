@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -6074,6 +6074,92 @@ ngx_ssl_get_client_v_end(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
     BIO_read(bio, s->data, len);
     BIO_free(bio);
     X509_free(cert);
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_ssl_get_server_cert_type(ngx_connection_t *c, ngx_pool_t *pool,
+    ngx_str_t *s)
+{
+    int                sign_nid, pkey_type;
+    X509              *cert;
+    const X509_ALGOR  *sigalg;
+
+    s->len = 0;
+
+    if (!c->ssl->handshaked) {
+        return NGX_OK;
+    }
+
+    cert = SSL_get_certificate(c->ssl->connection);
+    if (cert == NULL) {
+        return NGX_OK;
+    }
+
+    sigalg = X509_get0_tbs_sigalg(cert);
+
+    sign_nid = OBJ_obj2nid(sigalg->algorithm);
+    if (sign_nid == NID_undef) {
+        ngx_str_set(s, "unknown");
+        return NGX_OK;
+    }
+
+    if (OBJ_find_sigid_algs(sign_nid, NULL, &pkey_type) == 0) {
+        ngx_str_set(s, "unknown");
+        return NGX_OK;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                   "Signature Algorithm ID: %d, Key Type: %d",
+                   sign_nid, pkey_type);
+
+    switch (pkey_type) {
+
+    case EVP_PKEY_RSA:
+#if (OPENSSL_VERSION_NUMBER >= 0x1010100fL                                    \
+     && OPENSSL_VERSION_NUMBER < 0x3000000fL)
+        if (sign_nid == EVP_PKEY_RSA_PSS) {
+            ngx_str_set(s, "RSA-PSS");
+            break;
+        }
+#endif
+        ngx_str_set(s, "RSA");
+        break;
+
+    case EVP_PKEY_DSA:
+        ngx_str_set(s, "DSA");
+        break;
+
+    case EVP_PKEY_EC:
+        ngx_str_set(s, "ECDSA");
+        break;
+
+#if (OPENSSL_VERSION_NUMBER >= 0x1010100fL)
+    case EVP_PKEY_ED448:
+        ngx_str_set(s, "ED448");
+        break;
+
+    case EVP_PKEY_ED25519:
+        ngx_str_set(s, "ED25519");
+        break;
+
+#if (NGX_HAVE_NTLS)
+    case EVP_PKEY_SM2:
+        ngx_str_set(s, "SM2");
+        break;
+#endif
+
+    case EVP_PKEY_RSA_PSS:
+        ngx_str_set(s, "RSA-PSS");
+        break;
+#endif
+
+    default:
+        ngx_str_set(s, "unknown");
+        break;
+    }
 
     return NGX_OK;
 }

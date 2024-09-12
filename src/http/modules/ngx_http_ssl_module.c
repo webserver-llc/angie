@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -430,6 +430,9 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
 
     { ngx_string("ssl_client_v_remain"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_client_v_remain, NGX_HTTP_VAR_CHANGEABLE, 0 },
+
+    { ngx_string("ssl_server_cert_type"), NULL, ngx_http_ssl_variable,
+      (uintptr_t) ngx_ssl_get_server_cert_type, NGX_HTTP_VAR_CHANGEABLE, 0 },
 
       ngx_http_null_variable
 };

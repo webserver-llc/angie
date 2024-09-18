@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Maxim Dounin
  * Copyright (C) Nginx, Inc.
  */
@@ -358,6 +358,13 @@ static ngx_command_t  ngx_http_grpc_commands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_grpc_loc_conf_t, upstream.ignore_headers),
       &ngx_http_upstream_ignore_headers_masks },
+
+    { ngx_string("grpc_connection_drop"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_upstream_connection_drop_set_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_grpc_loc_conf_t, upstream.connection_drop),
+      NULL },
 
 #if (NGX_HTTP_SSL)
 
@@ -4371,6 +4378,7 @@ ngx_http_grpc_create_loc_conf(ngx_conf_t *cf)
     conf->upstream.send_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.read_timeout = NGX_CONF_UNSET_MSEC;
     conf->upstream.next_upstream_timeout = NGX_CONF_UNSET_MSEC;
+    conf->upstream.connection_drop = NGX_CONF_UNSET_MSEC;
 
     conf->upstream.buffer_size = NGX_CONF_UNSET_SIZE;
 
@@ -4444,6 +4452,10 @@ ngx_http_grpc_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->upstream.next_upstream_timeout,
                               prev->upstream.next_upstream_timeout, 0);
+
+    ngx_conf_merge_msec_value(conf->upstream.connection_drop,
+                              prev->upstream.connection_drop,
+                              NGX_HTTP_UPSTREAM_CONNECTION_DROP_OFF);
 
     ngx_conf_merge_size_value(conf->upstream.buffer_size,
                               prev->upstream.buffer_size,

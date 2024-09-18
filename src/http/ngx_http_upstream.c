@@ -109,6 +109,7 @@ static void ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
 static void ngx_http_upstream_cleanup(void *data);
 static void ngx_http_upstream_finalize_request(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_int_t rc);
+static ngx_int_t ngx_http_upstream_need_connection_drop(ngx_http_upstream_t *u);
 
 static ngx_int_t ngx_http_upstream_process_header_line(ngx_http_request_t *r,
     ngx_table_elt_t *h, ngx_uint_t offset);
@@ -1338,6 +1339,42 @@ failed:
 }
 
 
+static ngx_int_t
+ngx_http_upstream_need_connection_drop(ngx_http_upstream_t *u)
+{
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    ngx_http_upstream_rr_peer_t       *peer;
+    ngx_http_upstream_rr_peer_data_t  *rrp;
+
+    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
+        return 0;
+    }
+
+    rrp = u->peer.data;
+
+    if (rrp == NULL) {
+        return 0;
+    }
+
+    peer = rrp->current;
+
+    if (!peer->zombie) {
+        return 0;
+    }
+
+    if (u->conf->connection_drop == NGX_HTTP_UPSTREAM_CONNECTION_DROP_OFF) {
+        return 0;
+    }
+
+    if (ngx_current_msec - peer->zombie >= u->conf->connection_drop) {
+        return 1;
+    }
+#endif
+
+    return 0;
+}
+
+
 static void
 ngx_http_upstream_handler(ngx_event_t *ev)
 {
@@ -2330,6 +2367,11 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u,
         return;
     }
 
+    if (ngx_http_upstream_need_connection_drop(u)) {
+        ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_HTTP_502);
+        return;
+    }
+
     c->log->action = "sending request to upstream";
 
     rc = ngx_http_upstream_send_request_body(r, u, do_write);
@@ -2736,6 +2778,11 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
             ngx_add_timer(rev, u->read_timeout);
 #endif
 
+            if (ngx_http_upstream_need_connection_drop(u)) {
+                ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_HTTP_502);
+                return;
+            }
+
             if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
                 ngx_http_upstream_finalize_request(r, u,
                                                NGX_HTTP_INTERNAL_SERVER_ERROR);
@@ -2818,6 +2865,11 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     if (rc == NGX_ERROR) {
         ngx_http_upstream_finalize_request(r, u, NGX_ERROR);
+        return;
+    }
+
+    if (ngx_http_upstream_need_connection_drop(u)) {
+        ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_HTTP_502);
         return;
     }
 
@@ -3772,6 +3824,12 @@ ngx_http_upstream_process_upgraded(ngx_http_request_t *r,
         return;
     }
 
+    if (ngx_http_upstream_need_connection_drop(u)) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0, "drop connection");
+        ngx_http_upstream_finalize_request(r, u, NGX_HTTP_BAD_GATEWAY);
+        return;
+    }
+
     if (from_upstream) {
         src = upstream;
         dst = downstream;
@@ -4073,6 +4131,12 @@ ngx_http_upstream_process_non_buffered_request(ngx_http_request_t *r,
         }
 
         break;
+    }
+
+    if (ngx_http_upstream_need_connection_drop(u)) {
+        ngx_log_error(NGX_LOG_INFO, upstream->log, 0, "drop connection");
+        ngx_http_upstream_finalize_request(r, u, NGX_HTTP_BAD_GATEWAY);
+        return;
     }
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
@@ -4455,6 +4519,14 @@ ngx_http_upstream_process_request(ngx_http_request_t *r,
     }
 
     if (p->writing) {
+
+        if (ngx_http_upstream_need_connection_drop(u)) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                          "drop connection");
+            ngx_http_upstream_finalize_request(r, u, NGX_HTTP_BAD_GATEWAY);
+            return;
+        }
+
         return;
     }
 
@@ -4534,7 +4606,14 @@ ngx_http_upstream_process_request(ngx_http_request_t *r,
 
         if (!u->cacheable && !u->store && u->peer.connection) {
             ngx_http_upstream_finalize_request(r, u, NGX_ERROR);
+            return;
         }
+    }
+
+    if (ngx_http_upstream_need_connection_drop(u)) {
+        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "drop connection");
+        ngx_http_upstream_finalize_request(r, u, NGX_HTTP_BAD_GATEWAY);
+        return;
     }
 }
 
@@ -7158,6 +7237,45 @@ ngx_http_upstream_bind_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
                                "invalid parameter \"%V\"", &value[2]);
             return NGX_CONF_ERROR;
         }
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+char *
+ngx_http_upstream_connection_drop_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    char  *p = conf;
+
+    ngx_str_t   *value;
+    ngx_msec_t  *connection_drop;
+
+    connection_drop = (ngx_msec_t *) (p + cmd->offset);
+
+    if (*connection_drop != NGX_CONF_UNSET_MSEC) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    if (ngx_strcmp(value[1].data, "on") == 0) {
+        *connection_drop = 0;
+        return NGX_CONF_OK;
+    }
+
+    if (ngx_strcmp(value[1].data, "off") == 0) {
+        *connection_drop = NGX_HTTP_UPSTREAM_CONNECTION_DROP_OFF;
+        return NGX_CONF_OK;
+    }
+
+    *connection_drop = ngx_parse_time(&value[1], 0);
+
+    if (*connection_drop == (ngx_msec_t) NGX_ERROR) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid parameter \"%V\"",
+                           &value[1]);
+        return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;

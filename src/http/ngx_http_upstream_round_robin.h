@@ -106,7 +106,7 @@ struct ngx_http_upstream_rr_peer_s {
     ngx_http_upstream_peer_stats_t  stats;
 #endif
 
-    unsigned                        zombie:1;
+    ngx_msec_t                      zombie;
 #endif
 
     NGX_COMPAT_BEGIN(32)
@@ -190,7 +190,7 @@ ngx_http_upstream_rr_peer_free_locked(ngx_http_upstream_rr_peers_t *peers,
     ngx_http_upstream_rr_peer_t *peer)
 {
     if (peer->refs) {
-        peer->zombie = 1;
+        peer->zombie = ngx_current_msec;
         peers->zombies++;
         return;
     }

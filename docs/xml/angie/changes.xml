@@ -9,6 +9,23 @@
 
 <change type="feature">
 <para lang="ru">
+директивы "proxy_connection_drop", "grpc_connection_drop",
+"fastcgi_connection_drop", "scgi_connection_drop" и "uwsgi_connection_drop"
+в блоке "location" HTTP-модуля и директива "proxy_connection_drop" в блоке
+"server" stream-модуля, позволяющие завершить все соединения к проксируемому
+серверу, если он был удалён из группы.
+</para>
+<para lang="en">
+the "proxy_connection_drop", "grpc_connection_drop", "fastcgi_connection_drop",
+"scgi_connection_drop", and "uwsgi_connection_drop" directives in the
+"location" block of the "http" module and the "proxy_connection_drop" directive
+in the "server" block of the "stream" module, which allow dropping all
+connections to the proxied server if it is removed from the group.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 переменная $ssl_server_cert_type, принимающая значения "RSA", "DSA", "ECDSA",
 "ED448", "ED25519", "SM2", "RSA-PSS" или "unknown" в зависимости от типа
 сертификата и ключа.

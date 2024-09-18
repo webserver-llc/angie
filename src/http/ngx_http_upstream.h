@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023 Web Server LLC
+ * Copyright (C) 2023-2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -60,6 +60,9 @@
 #define NGX_HTTP_UPSTREAM_IGN_XA_BUFFERING   0x00000080
 #define NGX_HTTP_UPSTREAM_IGN_XA_CHARSET     0x00000100
 #define NGX_HTTP_UPSTREAM_IGN_VARY           0x00000200
+
+
+#define NGX_HTTP_UPSTREAM_CONNECTION_DROP_OFF  ((ngx_msec_t) -2)
 
 
 typedef struct {
@@ -175,6 +178,7 @@ typedef struct {
     ngx_msec_t                       send_timeout;
     ngx_msec_t                       read_timeout;
     ngx_msec_t                       next_upstream_timeout;
+    ngx_msec_t                       connection_drop;
 
     size_t                           send_lowat;
     size_t                           buffer_size;
@@ -470,6 +474,8 @@ char *ngx_http_upstream_bind_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 char *ngx_http_upstream_param_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+char *ngx_http_upstream_connection_drop_set_slot(ngx_conf_t *cf,
+    ngx_command_t *cmd, void *conf);
 ngx_int_t ngx_http_upstream_hide_headers_hash(ngx_conf_t *cf,
     ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev,
     ngx_str_t *default_hide_headers, ngx_hash_init_t *hash);

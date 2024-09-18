@@ -24,6 +24,8 @@ typedef struct {
     ngx_msec_t                       connect_timeout;
     ngx_msec_t                       timeout;
     ngx_msec_t                       next_upstream_timeout;
+    ngx_msec_t                       connection_drop;
+
     size_t                           buffer_size;
     ngx_stream_complex_value_t      *upload_rate;
     ngx_stream_complex_value_t      *download_rate;
@@ -106,6 +108,10 @@ static char *ngx_stream_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_stream_proxy_bind(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static char *ngx_stream_proxy_connection_drop(ngx_conf_t *cf,
+    ngx_command_t *cmd, void *conf);
+static ngx_int_t ngx_stream_proxy_need_connection_drop(ngx_stream_upstream_t *u,
+    ngx_msec_t connection_drop);
 
 #if (NGX_STREAM_SSL)
 
@@ -273,6 +279,13 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_proxy_srv_conf_t, half_close),
+      NULL },
+
+    { ngx_string("proxy_connection_drop"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_stream_proxy_connection_drop,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      0,
       NULL },
 
 #if (NGX_STREAM_SSL)
@@ -1563,6 +1576,43 @@ ngx_stream_proxy_upstream_handler(ngx_event_t *ev)
 }
 
 
+static ngx_int_t
+ngx_stream_proxy_need_connection_drop(ngx_stream_upstream_t *u,
+    ngx_msec_t connection_drop)
+{
+#if (NGX_STREAM_UPSTREAM_ZONE)
+    ngx_stream_upstream_rr_peer_t       *peer;
+    ngx_stream_upstream_rr_peer_data_t  *rrp;
+
+    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
+        return 0;
+    }
+
+    rrp = u->peer.data;
+
+    if (rrp == NULL) {
+        return 0;
+    }
+
+    peer = rrp->current;
+
+    if (!peer->zombie) {
+        return 0;
+    }
+
+    if (connection_drop == NGX_STREAM_UPSTREAM_CONNECTION_DROP_OFF) {
+        return 0;
+    }
+
+    if (ngx_current_msec - peer->zombie >= connection_drop) {
+        return 1;
+    }
+#endif
+
+    return 0;
+}
+
+
 static void
 ngx_stream_proxy_process_connection(ngx_event_t *ev, ngx_uint_t from_upstream)
 {
@@ -1594,6 +1644,14 @@ ngx_stream_proxy_process_connection(ngx_event_t *ev, ngx_uint_t from_upstream)
             ev->delayed = 0;
 
             if (!ev->ready) {
+                if (ngx_stream_proxy_need_connection_drop(u,
+                                                        pscf->connection_drop))
+                {
+                    ngx_log_error(NGX_LOG_INFO, c->log, 0, "drop connection");
+                    ngx_stream_proxy_finalize(s, NGX_STREAM_BAD_GATEWAY);
+                    return;
+                }
+
                 if (ngx_handle_read_event(ev, 0) != NGX_OK) {
                     ngx_stream_proxy_finalize(s,
                                               NGX_STREAM_INTERNAL_SERVER_ERROR);
@@ -1658,10 +1716,22 @@ ngx_stream_proxy_process_connection(ngx_event_t *ev, ngx_uint_t from_upstream)
         ngx_log_debug0(NGX_LOG_DEBUG_STREAM, c->log, 0,
                        "stream connection delayed");
 
+        if (ngx_stream_proxy_need_connection_drop(u, pscf->connection_drop)) {
+            ngx_log_error(NGX_LOG_INFO, c->log, 0, "drop connection");
+            ngx_stream_proxy_finalize(s, NGX_STREAM_BAD_GATEWAY);
+            return;
+        }
+
         if (ngx_handle_read_event(ev, 0) != NGX_OK) {
             ngx_stream_proxy_finalize(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
         }
 
+        return;
+    }
+
+    if (ngx_stream_proxy_need_connection_drop(u, pscf->connection_drop)) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0, "drop connection");
+        ngx_stream_proxy_finalize(s, NGX_STREAM_BAD_GATEWAY);
         return;
     }
 
@@ -2248,6 +2318,7 @@ ngx_stream_proxy_create_srv_conf(ngx_conf_t *cf)
     conf->connect_timeout = NGX_CONF_UNSET_MSEC;
     conf->timeout = NGX_CONF_UNSET_MSEC;
     conf->next_upstream_timeout = NGX_CONF_UNSET_MSEC;
+    conf->connection_drop = NGX_CONF_UNSET_MSEC;
     conf->buffer_size = NGX_CONF_UNSET_SIZE;
     conf->upload_rate = NGX_CONF_UNSET_PTR;
     conf->download_rate = NGX_CONF_UNSET_PTR;
@@ -2300,6 +2371,9 @@ ngx_stream_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_msec_value(conf->next_upstream_timeout,
                               prev->next_upstream_timeout, 0);
+
+    ngx_conf_merge_msec_value(conf->connection_drop, prev->connection_drop,
+                              NGX_STREAM_UPSTREAM_CONNECTION_DROP_OFF);
 
     ngx_conf_merge_size_value(conf->buffer_size,
                               prev->buffer_size, 16384);
@@ -2643,6 +2717,41 @@ ngx_stream_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     pscf->upstream = ngx_stream_upstream_add(cf, &u, 0);
     if (pscf->upstream == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_stream_proxy_connection_drop(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_stream_proxy_srv_conf_t *pscf = conf;
+
+    ngx_str_t  *value;
+
+    if (pscf->connection_drop != NGX_CONF_UNSET_MSEC) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    if (ngx_strcmp(value[1].data, "on") == 0) {
+        pscf->connection_drop = 0;
+        return NGX_CONF_OK;
+    }
+
+    if (ngx_strcmp(value[1].data, "off") == 0) {
+        pscf->connection_drop = NGX_STREAM_UPSTREAM_CONNECTION_DROP_OFF;
+        return NGX_CONF_OK;
+    }
+
+    pscf->connection_drop = ngx_parse_time(&value[1], 0);
+
+    if (pscf->connection_drop == (ngx_msec_t) NGX_ERROR) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid parameter \"%V\"",
+                           &value[1]);
         return NGX_CONF_ERROR;
     }
 

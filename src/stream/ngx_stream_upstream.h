@@ -35,6 +35,9 @@
 #define NGX_STREAM_UPSTREAM_STICKY_STATUS_MISS 3
 
 
+#define NGX_STREAM_UPSTREAM_CONNECTION_DROP_OFF  ((ngx_msec_t) -2)
+
+
 typedef struct {
     ngx_array_t                        upstreams;
                                            /* ngx_stream_upstream_srv_conf_t */

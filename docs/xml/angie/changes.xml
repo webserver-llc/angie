@@ -180,6 +180,17 @@ Thanks to Maxim Dounin (freenginx).
 
 <change type="feature">
 <para lang="ru">
+опция "--feature-cache" скрипта ./configure для кэширования результатов его
+работы с целью оптимизации массовой сборки модулей или кросс-компиляции.
+</para>
+<para lang="en">
+the "--feature-cache" option of the ./configure script to cache its results
+for optimization when building multiple modules or cross-compiling.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.27.1.
 </para>
 <para lang="en">

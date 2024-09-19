@@ -1,4 +1,84 @@
 
+Changes with Angie 1.7.0                                         19 Sep 2024
+
+    *) Change: updated descriptions of HTTP status codes in conformance with
+       RFC 9110.
+       Thanks to Maxim Dounin (freenginx) and Michiel W. Beijen.
+
+    *) Change: a maximum of one empty line is now allowed before an HTTP
+       request to better protect against DoS attacks.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Change: HTTP/1.x header field names without a colon at the end are
+       now prohibited; such invalid header fields from a client or a proxied
+       server will now cause an error response.
+       Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
+
+    *) Change: when reading a request body using HTTP/1.1 chunked transfer
+       encoding, the total size of ignored chunk extensions and trailer
+       header fields is now limited by the "client_max_body_size" directive
+       to better protect against DoS attacks.
+       Thanks to Maxim Dounin (freenginx) and Bartek Nowotarski.
+
+    *) Change: the MIME type in the "mime.types" configuration file has been
+       changed to "image/bmp" for the "bmp" extension and
+       "application/vnd.rar" for the "rar" extension; set to
+       "application/vnd.debian.binary-package" for the "deb" and "udeb"
+       extensions.
+       Thanks to Yuriy Izorkin.
+
+    *) Feature: forced closing all the connections to a proxied server when
+       it's removed from the group can be configured via the
+       "proxy_connection_drop", "grpc_connection_drop",
+       "fastcgi_connection_drop", "scgi_connection_drop", and
+       "uwsgi_connection_drop" directives.
+
+    *) Feature: counters of sent DNS query types in the resolver statistics
+       API, which is collected with the "status_zone" parameter of the
+       "resolver" directive.
+
+    *) Feature: the "$ssl_server_cert_type" variable that contains the type
+       of selected certificate for a received TLS-connection.
+
+    *) Feature: disabling creation of the PID file with the "off" parameter
+       of the "pid" directive, which might be beneficial with immutable
+       images and direct control by a service manager.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: creation of the PID file made atomic via an intermediate
+       temporary file, which removes a moment when the file is already in
+       the directory but still empty, and allows external programs to handle
+       it more easily and reliably.
+
+    *) Feature: now, during reconfiguration, no attempt is made to recreate
+       the PID file if the name in the "pid" directive has changed but
+       points to the same file via symlinks; in particular, it allows
+       avoiding issues on systems that migrate from "/var/run/angie.pid" to
+       "/run/angie.pid".
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: syslog logging errors are now reported no more than once per
+       second; this helps avoid flooding the logs with such messages when
+       the syslog server is down or overloaded.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: in the Mail proxy module, the maximum number of commands
+       during authentication, configured with the "max_commands" directive,
+       is limited to better protect against DoS attacks.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: the "--feature-cache" option of the ./configure script to
+       cache its results for optimization when building multiple modules or
+       cross-compiling.
+
+    *) Feature: all functionality of nginx 1.27.1.
+
+    *) Bugfix: "PID file ... not readable (yet?) after start" and "Failed to
+       parse PID from file..." errors might appear when starting with
+       systemd.
+       Thanks to Maxim Dounin (freenginx).
+
+
 Changes with Angie 1.6.2                                         16 Aug 2024
 
     *) Security: processing a specially crafted mp4 file with the

@@ -7,44 +7,14 @@
 
 <changes ver="1.7.0" date="">
 
-<change type="feature">
+<change type="change">
 <para lang="ru">
-директивы "proxy_connection_drop", "grpc_connection_drop",
-"fastcgi_connection_drop", "scgi_connection_drop" и "uwsgi_connection_drop"
-в блоке "location" HTTP-модуля и директива "proxy_connection_drop" в блоке
-"server" stream-модуля, позволяющие завершить все соединения к проксируемому
-серверу, если он был удалён из группы.
+обновлены текстовые описания кодов HTTP-ответов в соответствии с RFC 9110.<br/>
+Спасибо Максиму Дунину (freenginx) и Michiel W. Beijen.
 </para>
 <para lang="en">
-the "proxy_connection_drop", "grpc_connection_drop", "fastcgi_connection_drop",
-"scgi_connection_drop", and "uwsgi_connection_drop" directives in the
-"location" block of the "http" module and the "proxy_connection_drop" directive
-in the "server" block of the "stream" module, which allow dropping all
-connections to the proxied server if it is removed from the group.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-переменная $ssl_server_cert_type, принимающая значения "RSA", "DSA", "ECDSA",
-"ED448", "ED25519", "SM2", "RSA-PSS" или "unknown" в зависимости от типа
-сертификата и ключа.
-</para>
-<para lang="en">
-the $ssl_server_cert_type variable, which takes the values "RSA", "DSA",
-"ECDSA", "ED448", "ED25519", "SM2", "RSA-PSS", or "unknown" depending on the
-certificate and key type.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-группа метрик "sent", в которую входят счётчики отправленных типов DNS-запросов,
-для статистики резолвера в зоне разделяемой памяти.
-</para>
-<para lang="en">
-metric group "sent" for resolver statistics in a shared memory zone,
-containing counters of DNS query types sent.
+updated descriptions of HTTP status codes in conformance with RFC 9110.<br/>
+Thanks to Maxim Dounin (freenginx) and Michiel W. Beijen.
 </para>
 </change>
 
@@ -58,6 +28,21 @@ containing counters of DNS query types sent.
 a maximum of one empty line is now allowed before an HTTP request to better
 protect against DoS attacks.<br/>
 Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+запрещены имена полей заголовка HTTP/1.x без двоеточия на конце; такие
+некорректные заголовки от клиента или проксируемого сервера теперь будут
+приводить к возврату ошибки.<br/>
+Спасибо Максиму Дунину (freenginx) и Максиму Евменкину.
+</para>
+<para lang="en">
+HTTP/1.x header field names without a colon at the end are now prohibited;
+such invalid header fields from a client or a proxied server will now cause
+an error response.<br/>
+Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
 </para>
 </change>
 
@@ -80,32 +65,6 @@ Thanks to Maxim Dounin (freenginx) and Bartek Nowotarski.
 
 <change type="change">
 <para lang="ru">
-запрещены имена полей заголовка HTTP/1.x без двоеточия на конце; такие
-некорректные заголовки от клиента или проксируемого сервера теперь будут
-приводить к возврату ошибки.<br/>
-Спасибо Максиму Дунину (freenginx) и Максиму Евменкину.
-</para>
-<para lang="en">
-HTTP/1.x header field names without a colon at the end are now prohibited;
-such invalid header fields from a client or a proxied server will now cause
-an error response.<br/>
-Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-обновлены текстовые описания кодов HTTP-ответов в соответствии с RFC 9110.<br/>
-Спасибо Максиму Дунину (freenginx) и Michiel W. Beijen.
-</para>
-<para lang="en">
-updated descriptions of HTTP status codes in conformance with RFC 9110.<br/>
-Thanks to Maxim Dounin (freenginx) and Michiel W. Beijen.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
 MIME-тип в файле конфигурации "mime.types" для расширения bmp изменён на
 "image/bmp", для расширения rar - на "application/vnd.rar", а для расширений
 deb и udeb теперь указан "application/vnd.debian.binary-package".<br/>
@@ -117,6 +76,43 @@ the MIME type in the "mime.types" configuration file has been changed to
 extension; set to "application/vnd.debian.binary-package" for the "deb" and
 "udeb" extensions.<br/>
 Thanks to Yuriy Izorkin.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+принудительное закрытие соединений к проксируемому серверу при удалении его
+из группы, настраиваемое с помощью директив "proxy_connection_drop",
+"grpc_connection_drop", "fastcgi_connection_drop", "scgi_connection_drop"
+и "uwsgi_connection_drop".
+</para>
+<para lang="en">
+forced closing all the connections to a proxied server when it's removed
+from the group can be configured via the "proxy_connection_drop",
+"grpc_connection_drop", "fastcgi_connection_drop", "scgi_connection_drop",
+and "uwsgi_connection_drop" directives.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+счетчики отдельных типов отправленных DNS-запросов в API статистики резолвера,
+собираемой параметром "status_zone" директивы "resolver".
+</para>
+<para lang="en">
+counters of sent DNS query types in the resolver statistics API, which is
+collected with the "status_zone" parameter of the "resolver" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+переменная "$ssl_server_cert_type", содержащая тип выбранного сертификата
+при приеме TLS-соединения.
+</para>
+<para lang="en">
+the "$ssl_server_cert_type" variable that contains the type of selected
+certificate for a received TLS-connection.
 </para>
 </change>
 
@@ -138,28 +134,13 @@ Thanks to Maxim Dounin (freenginx).
 <change type="feature">
 <para lang="ru">
 создание PID-файла теперь выполняется атомарно через промежуточный временный
-файл, что убирает мгновение, когда файл уже появился в директории, но ещё пуст,
+файл, что исключает момент, когда файл уже появился в директории, но еще пуст,
 и позволяет внешним программам проще и надежнее с ним работать.
 </para>
 <para lang="en">
 creation of the PID file made atomic via an intermediate temporary file, which
 removes a moment when the file is already in the directory but still empty,
-and allows external programs to handle it easier and reliable.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-ошибки записи в syslog теперь логгируются не чаще одного раза в секунду,
-что помогает предотвратить избыточное засорение логов подобными сообщениями
-в случаях перегрузки или сбоя syslog-сервера.<br/>
-Спасибо Максиму Дунину (freenginx).
-</para>
-<para lang="en">
-syslog logging errors are now reported no more than once per second; this helps
-avoid flooding the logs with such messages when the syslog server is down or
-overloaded.<br/>
-Thanks to Maxim Dounin (freenginx).
+and allows external programs to handle it more easily and reliably.
 </para>
 </change>
 
@@ -172,10 +153,25 @@ Thanks to Maxim Dounin (freenginx).
 Спасибо Максиму Дунину (freenginx).
 </para>
 <para lang="en">
-now during reconfiguration no attempt to recreate the PID file is made
-if the name in the "pid" directive was changed, but points to the same file
-via symlinks; in particular, it allows to avoid issues on systems while
-migrating from "/var/run/angie.pid" to "/run/angie.pid".<br/>
+now, during reconfiguration, no attempt is made to recreate the PID file
+if the name in the "pid" directive has changed but points to the same file
+via symlinks; in particular, it allows avoiding issues on systems that migrate
+from "/var/run/angie.pid" to "/run/angie.pid".<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+ошибки записи в syslog теперь логгируются не чаще одного раза в секунду,
+что помогает предотвратить засорение логов подобными сообщениями в случаях
+перегрузки или сбоя syslog-сервера.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+syslog logging errors are now reported no more than once per second; this helps
+avoid flooding the logs with such messages when the syslog server is down or
+overloaded.<br/>
 Thanks to Maxim Dounin (freenginx).
 </para>
 </change>

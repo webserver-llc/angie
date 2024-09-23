@@ -10,7 +10,7 @@
 <change type="change">
 <para lang="ru">
 обновлены текстовые описания кодов HTTP-ответов в соответствии с RFC 9110.<br/>
-Спасибо Максиму Дунину (freenginx) и Michiel W. Beijen.
+Спасибо Максиму Дунину (freenginx) и Михилу В. Бейену.
 </para>
 <para lang="en">
 updated descriptions of HTTP status codes in conformance with RFC 9110.<br/>
@@ -52,7 +52,7 @@ Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
 суммарный размер игнорируемых "chunk extensions" и полей "trailer header"
 теперь ограничен директивой "client_max_body_size" для улучшения защиты против
 DoS-атак.<br/>
-Спасибо Максиму Дунину (freenginx) и Bartek Nowotarski.
+Спасибо Максиму Дунину (freenginx) и Бартеку Новотарскому.
 </para>
 <para lang="en">
 when reading a request body using HTTP/1.1 chunked transfer encoding,
@@ -285,7 +285,7 @@ the bug had appeared in 1.6.0.
 <para lang="ru">
 обработка закэшированных ответов с заголовком "X-Accel-Redirect" могла
 приводить к падению рабочего процесса.<br/>
-Спасибо Максиму Дунину (freenginx) и Jiří Setnička.
+Спасибо Максиму Дунину (freenginx) и Иржи Сетничке.
 </para>
 <para lang="en">
 handling cached responses with the "X-Accel-Redirect" header could

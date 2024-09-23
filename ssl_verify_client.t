@@ -152,9 +152,6 @@ like(get('localhost', '2.example.com'), qr/SUCCESS.*BEGIN/, 'good cert');
 like(get('optional', '2.example.com'), qr/SUCCESS.*BEGI/, 'good cert optional');
 like(get('optional', '3.example.com'), qr/SUCCESS.*BEGIN/, 'good cert trusted');
 
-SKIP: {
-skip 'Net::SSLeay version >= 1.36 required', 1 if $Net::SSLeay::VERSION < 1.36;
-
 TODO: {
 local $TODO = 'broken TLSv1.3 CA list in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
@@ -162,7 +159,6 @@ local $TODO = 'broken TLSv1.3 CA list in LibreSSL'
 my $ca = join ' ', get('optional', '3.example.com');
 is($ca, '/CN=2.example.com', 'no trusted sent');
 
-}
 }
 
 like(get('optional', undef, 'localhost'), qr/421 Misdirected/, 'misdirected');

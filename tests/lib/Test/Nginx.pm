@@ -779,6 +779,49 @@ sub write_file_expand($$) {
 	return $self->write_file($name, $content);
 }
 
+sub run_dnsmasq {
+	my ($self, $conf) = @_;
+	my $tdir = $self->testdir();
+
+	$self->run_daemon('dnsmasq', '-C', "$tdir/$conf", '-k',
+		"--log-facility=$tdir/dnsmasq.log",
+		'-q', "--pid-file=$tdir/dnsmasq.pid");
+}
+
+sub get_dnsmasq_pid {
+	my ($self) = @_;
+	my $tdir = $self->testdir();
+
+	for (1 .. 50) {
+		last if -e "$tdir/dnsmasq.pid";
+		select undef, undef, undef, 0.2;
+	}
+
+	return $self->read_file('dnsmasq.pid');
+}
+
+sub stop_dnsmasq {
+	my ($self) = @_;
+	my $tdir = $self->testdir();
+
+	my $pid = $self->get_dnsmasq_pid();
+
+	$self->_stop_pid($pid, 1);
+
+	# wait for dnsmasq delete .pid file
+	for (1 .. 50) {
+		last if ! -e "$tdir/dnsmasq.pid";
+		select undef, undef, undef, 0.2;
+	}
+}
+
+sub restart_dnsmasq {
+	my ($self, $conf) = @_;
+
+	$self->stop_dnsmasq();
+	$self->run_dnsmasq($conf);
+}
+
 sub run_daemon($;@) {
 	my ($self, $code, @args) = @_;
 

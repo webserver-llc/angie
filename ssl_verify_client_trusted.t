@@ -104,8 +104,6 @@ sub get {
 		start => 1,
 		SSL => 1,
 		SSL_hostname => $sni,
-		SSL_version => 'SSLv23',
-		SSL_cipher_list => 'ALL:@SECLEVEL=0',
 		$cert ? (
 		SSL_cert_file => "$d/$cert.crt",
 		SSL_key_file => "$d/$cert.key"

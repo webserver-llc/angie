@@ -217,7 +217,7 @@ TODO: {
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 	if $t->has_module('LibreSSL') && test_tls13();
 local $TODO = 'no TLSv1.3 sessions ids in BoringSSL'
-	if $t->has_module('BoringSSL') && test_tls13();
+	if $t->has_module('BoringSSL|AWS-LC') && test_tls13();
 
 like(get('/id', 8085, $ctx), qr/^body \w{64}$/m, 'session id reused');
 
@@ -228,7 +228,7 @@ unlike(http_get('/id'), qr/body \w/, 'session id no ssl');
 like(get('/cipher', 8085), qr/^body [\w-]+$/m, 'cipher');
 
 SKIP: {
-skip 'BoringSSL', 1 if $t->has_module('BoringSSL');
+skip 'BoringSSL', 1 if $t->has_module('BoringSSL|AWS-LC');
 
 like(get('/ciphers', 8085), qr/^body [:\w-]+$/m, 'ciphers');
 

@@ -89,7 +89,7 @@ $s = Test::Nginx::HTTP3->new(8980, psk_list => $psk_list, early_data => {});
 TODO: {
 local $TODO = 'no 0-RTT in OpenSSL compat layer'
 	unless $t->has_module('OpenSSL [.0-9]+\+quic')
-	or $t->has_module('BoringSSL')
+	or $t->has_module('BoringSSL|AWS-LC')
 	or $t->has_module('LibreSSL');
 
 $frames = $s->read(all => [{ sid => 0, fin => 1 }]);

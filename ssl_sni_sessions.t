@@ -117,7 +117,7 @@ plan(skip_all => 'no TLSv1.3 sessions, old IO::Socket::SSL')
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
 	if $t->has_module('LibreSSL') && test_tls13();
 plan(skip_all => 'no TLS 1.3 session cache in BoringSSL')
-	if $t->has_module('BoringSSL') && test_tls13();
+	if $t->has_module('BoringSSL|AWS-LC') && test_tls13();
 
 $t->plan(6);
 

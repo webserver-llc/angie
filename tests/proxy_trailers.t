@@ -49,17 +49,18 @@ http {
 
         http2 on;
 
+        proxy_http_version 1.1;
+        proxy_pass_trailers on;
+        proxy_set_header Connection "te, close";
+        proxy_set_header TE "trailers";
+
         location / {
             proxy_pass http://127.0.0.1:8081;
-            proxy_http_version 1.1;
-            proxy_pass_trailers on;
         }
 
         location /nobuffering {
             proxy_pass http://127.0.0.1:8081/;
             proxy_buffering off;
-            proxy_http_version 1.1;
-            proxy_pass_trailers on;
         }
     }
 

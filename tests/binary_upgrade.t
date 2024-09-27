@@ -144,10 +144,11 @@ sub upgrade_test {
 sub second_USR2_signal_test {
 	my ($t, $pid) = @_;
 
-	# second USR2 signal on master pid should be ignored and an error logged
+	my $errors;
 	my $found = 0;
+
 	for (1 .. 150) {
-		my $errors = read_error_log($t);
+		$errors = read_error_log($t);
 		$found = grep { $_ =~ /changing binary/ } @{ $errors };
 		last if $found;
 		select undef, undef, undef, 0.02;
@@ -156,6 +157,21 @@ sub second_USR2_signal_test {
 	ok($found, 'the first USR2 signal was received')
 		or return;
 
+	# second USR2 signal before handling the first one shouldn't cause issues
+	kill 'USR2', $pid;
+
+	$found = 0;
+	for (1 .. 150) {
+		$found = grep { $_ =~ /: changing binary/ } @{ $errors };
+		last if $found;
+		select undef, undef, undef, 0.02;
+		$errors = read_error_log($t);
+	}
+
+	ok($found, 'the first USR2 signal was handled')
+		or return;
+
+	# another USR2 signal during binary upgrade must be ignored
 	kill 'USR2', $pid;
 
 	my $expected_error = "$pid#\\d+: the changing binary signal is ignored: "

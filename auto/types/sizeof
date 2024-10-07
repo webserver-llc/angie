@@ -47,7 +47,11 @@ eval "$ngx_test >> $NGX_AUTOCONF_ERR 2>&1"
 
 
 if [ -x $NGX_AUTOTEST ]; then
-    ngx_size=`$NGX_AUTOTEST`
+    ngx_feature_run=value
+    if runtest "sizeof" "$ngx_type"; then
+        ngx_size="$ngx_rtval"
+    fi
+
     echo " $ngx_size bytes"
 fi
 

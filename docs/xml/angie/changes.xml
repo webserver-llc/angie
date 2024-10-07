@@ -7,6 +7,21 @@
 
 <changes ver="1.8.0" date="">
 
+<change type="feature">
+<para lang="ru">
+поддержка кросс-компиляции: система сборки теперь может использовать
+скрипт-обёртку для запуска автотестов.
+Это позволяет сконфигурировать angie без запуска тестовых программ
+на сборочной машине.
+</para>
+<para lang="en">
+cross-compilation support: build system now allows to specify a wrapper
+script used to run autotests.
+This makes it possible to configure angie without executing test
+binaries on build host.
+</para>
+</change>
+
 </changes>
 
 

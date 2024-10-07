@@ -61,8 +61,7 @@ if [ -x $NGX_AUTOTEST ]; then
     case "$ngx_feature_run" in
 
         yes)
-            # /bin/sh is used to intercept "Killed" or "Abort trap" messages
-            if /bin/sh -c $NGX_AUTOTEST >> $NGX_AUTOCONF_ERR 2>&1; then
+            if runtest "feature" "$ngx_feature_name"; then
                 echo " found"
                 ngx_found=yes
 
@@ -77,12 +76,11 @@ if [ -x $NGX_AUTOTEST ]; then
         ;;
 
         value)
-            # /bin/sh is used to intercept "Killed" or "Abort trap" messages
-            if /bin/sh -c $NGX_AUTOTEST >> $NGX_AUTOCONF_ERR 2>&1; then
+            if runtest "feature" "$ngx_feature_name"; then
                 echo " found"
                 ngx_found=yes
 
-                have="$ngx_feature_name" value="$($NGX_AUTOTEST)" . auto/define
+                have="$ngx_feature_name" value="$ngx_rtval" . auto/define
                 ngx_add_value=$value
 
             else
@@ -91,8 +89,7 @@ if [ -x $NGX_AUTOTEST ]; then
         ;;
 
         bug)
-            # /bin/sh is used to intercept "Killed" or "Abort trap" messages
-            if /bin/sh -c $NGX_AUTOTEST >> $NGX_AUTOCONF_ERR 2>&1; then
+            if runtest "feature" "$ngx_feature_name"; then
                 echo " not found"
 
             else

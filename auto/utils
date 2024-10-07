@@ -31,3 +31,26 @@ name2macro()
         res="$res$r"
     done
 }
+
+
+runtest()
+{
+    if [ $NGX_TEST_RUNNER != no ]; then
+        $NGX_TEST_RUNNER "$NGX_AUTOTEST" "$1" "$2" >> $NGX_AUTOCONF_ERR 2>&1
+    else
+        # /bin/sh is used to intercept "Killed" or "Abort trap" messages
+        /bin/sh -c "$NGX_AUTOTEST" >> $NGX_AUTOCONF_ERR 2>&1
+    fi
+
+    ngx_rt_res=$?
+
+    if [ $ngx_rt_res -eq 0 ] && [ "$ngx_feature_run" = "value" ] ; then
+        if [ $NGX_TEST_RUNNER != no ]; then
+            ngx_rtval=$($NGX_TEST_RUNNER "$NGX_AUTOTEST" "$1" "$2")
+        else
+            ngx_rtval=$($NGX_AUTOTEST)
+        fi
+    fi
+
+    return $ngx_rt_res
+}

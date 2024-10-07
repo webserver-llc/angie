@@ -195,6 +195,8 @@ NGX_CPU_CACHE_LINE=
 
 NGX_POST_CONF_MSG=
 
+NGX_TEST_RUNNER=no
+
 opt=
 
 for option
@@ -221,6 +223,7 @@ do
         --group=*)                       NGX_GROUP="$value"         ;;
 
         --crossbuild=*)                  NGX_PLATFORM="$value"      ;;
+        --test-runner=*)                 NGX_TEST_RUNNER="$value"   ;;
 
         --build=*)                       NGX_BUILD="$value"         ;;
         --builddir=*)                    NGX_OBJS="$value"          ;;
@@ -475,6 +478,8 @@ cat << END
 
   --feature-cache                    enable configure feature cache
   --feature-cache=path               use configure feature cache at given path
+
+  --test-runner=path                 set wrapper script to run autotests
 
   --build=NAME                       set build name
   --builddir=DIR                     set build directory

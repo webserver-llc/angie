@@ -120,7 +120,8 @@ my %test_cases = (
 		my $with_debug = $t->has_module('--with-debug');
 
 		my $num_re  = re(qr/^\d+$/);
-		my $time_re = re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d+\w*$/);
+		my $time_re
+			= re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
 
 		my $slot = {
 			fails => $num_re,

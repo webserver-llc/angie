@@ -184,6 +184,9 @@ like(http_get('/t'), qr/200 OK.*SUCCESS:.*1\.example\.com/s, 'proxy ssl');
 sub get {
 	my ($port, $ca, $cert) = @_;
 
+	$ca = undef if $IO::Socket::SSL::VERSION < 2.062
+		|| !eval { Net::SSLeay::X509_V_FLAG_PARTIAL_CHAIN() };
+
 	http_get('/t',
 		PeerAddr => '127.0.0.1:' . port($port),
 		SSL => 1,

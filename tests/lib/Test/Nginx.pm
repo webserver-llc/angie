@@ -387,7 +387,7 @@ sub has_daemon($) {
 }
 
 sub try_run($$) {
-	my ($self, $message) = @_;
+	my ($self, $message, $check_message) = @_;
 
 	eval {
 		open OLDERR, ">&", \*STDERR; close STDERR;
@@ -404,7 +404,15 @@ sub try_run($$) {
 		close F;
 	}
 
-	Test::More::plan(skip_all => $message);
+	my $message_found = 0;
+	if ($check_message) {
+		$message_found =
+			($self->read_file('error.log') =~ quotemeta($message));
+	}
+
+	Test::More::plan(skip_all => $message)
+		if $message_found || !$check_message;
+
 	return $self;
 }
 

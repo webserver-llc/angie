@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -179,13 +180,23 @@ foreach my $name ('localhost') {
 		or plan(skip_all => "missing engine");
 }
 
-$t->run()->plan(2);
+$t->try_run('no such engine:id=pkcs11', 1)->plan(2);
 
 $t->write_file('index.html', '');
 
 ###############################################################################
 
-like(http_get('/proxy'), qr/200 OK/, 'ssl engine keys');
-like(http_get('/var'), qr/200 OK/, 'ssl_certificate with variable');
+TODO: {
+	my $error = 'loading "engine:..." certificate keys is not supported';
+
+	local $TODO;
+	if ($t->has_module('LibreSSL') or $t->has_module('BoringSSL')) {
+		$TODO = $error . ' in LibreSSL and BoringSSL';
+		$t->skip_errors_check('emerg', $error);
+	}
+
+	like(http_get('/proxy'), qr/200 OK/, 'ssl engine keys');
+	like(http_get('/var'), qr/200 OK/, 'ssl_certificate with variable');
+}
 
 ###############################################################################

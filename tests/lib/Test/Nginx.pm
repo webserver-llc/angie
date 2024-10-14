@@ -95,12 +95,21 @@ sub DESTROY {
 
 			my @errors = $self->read_file('error.log') =~ /.+\[$level\].+/gm;
 
-			if (length $errors_re && scalar @errors) {
+			if (length $errors_re) {
+
 				Test::More::ok(
 					! (grep { $_ !~ qr/$errors_re/ } @errors),
 					"no unexpected $level errors")
 				or Test::More::diag("all $level errors: "
 					. join("\n", @errors));
+
+				unless (scalar @errors) {
+					Test::More::diag(
+						"expected $level errors that are not in the log:");
+					Test::More::diag(
+						Test::More::explain($self->{_errors_to_skip}{$level}));
+				}
+
 			} else {
 				my $errors = join("\n", @errors);
 				Test::More::ok($errors eq '', "no $level errors")

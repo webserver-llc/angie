@@ -114,7 +114,9 @@ skip "OpenSSL too old", 3 if $got && $got == 0x100 + 70; # "protocol_version"
 # default virtual server rejected
 
 TODO: {
-local $TODO = 'broken send_alert in LibreSSL' if $t->has_module('LibreSSL');
+local $TODO = 'broken send_alert in LibreSSL'
+	if $t->has_module('LibreSSL')
+	and not $t->has_feature('libressl:4.0.0');
 
 is(bad('default', 8980), $alert, 'default rejected');
 is(bad(undef, 8980), $alert, 'absent sni rejected');
@@ -132,7 +134,9 @@ like(get(undef, 8982), qr/200/, 'absent sni accepted');
 like(get('virtual1', 8982), qr/virtual1/, 'virtual 1 accepted');
 
 TODO: {
-local $TODO = 'broken send_alert in LibreSSL' if $t->has_module('LibreSSL');
+local $TODO = 'broken send_alert in LibreSSL'
+	if $t->has_module('LibreSSL')
+	and not $t->has_feature('libressl:4.0.0');
 
 is(bad('virtual2', 8982), $alert, 'virtual 2 rejected');
 

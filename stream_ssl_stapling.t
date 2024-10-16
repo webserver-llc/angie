@@ -287,7 +287,8 @@ ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL') && test_tls13()
+	and not $t->has_feature('libressl:4.0.0');
 
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 

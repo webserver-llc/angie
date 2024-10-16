@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) 2023-2024 Web Server LLC
+# (C) 2023 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for location selection, an auto_redirect edge case.

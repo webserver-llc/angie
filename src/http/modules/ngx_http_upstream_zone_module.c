@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023-2024 Web Server LLC
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Ruslan Ermilov
  * Copyright (C) Nginx, Inc.
  */

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2023-2024 Web Server LLC
+ * Copyright (C) 2023 Web Server LLC
  * Copyright (C) Unbit S.a.s. 2009-2010
  * Copyright (C) 2008 Manlio Perillo (manlio.perillo@gmail.com)
  * Copyright (C) Igor Sysoev

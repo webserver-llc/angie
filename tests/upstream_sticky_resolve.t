@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# (C) 2022-2024 Web Server LLC
+# (C) 2022 Web Server LLC
 
 # Tests for upstream module with sticky feature.
 

@@ -1,6 +1,6 @@
 package Test::Nginx;
 
-# (C) 2022-2024 Web Server LLC
+# (C) 2022 Web Server LLC
 # (C) Maxim Dounin
 
 # Generic module for Angie tests.

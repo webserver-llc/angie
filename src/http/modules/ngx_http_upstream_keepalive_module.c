@@ -42,17 +42,11 @@ typedef struct {
 } ngx_http_upstream_keepalive_cache_t;
 
 
-typedef struct {
-    ngx_event_get_peer_pt              original_get_peer;
-    ngx_event_free_peer_pt             original_free_peer;
-} ngx_http_upstream_keepalive_peer_data_t;
-
-
 static ngx_int_t ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us);
-static ngx_int_t ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc,
-    void *data);
-static void ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc,
+static ngx_int_t ngx_http_upstream_connect_keepalive_peer(
+    ngx_peer_connection_t *pc, void *data);
+static void ngx_http_upstream_close_keepalive_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t state);
 
 static void ngx_http_upstream_keepalive_dummy_handler(ngx_event_t *ev);
@@ -179,8 +173,7 @@ static ngx_int_t
 ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
-    ngx_http_upstream_keepalive_peer_data_t  *kp;
-    ngx_http_upstream_keepalive_srv_conf_t   *kcf;
+    ngx_http_upstream_keepalive_srv_conf_t  *kcf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "init keepalive peer");
@@ -188,53 +181,31 @@ ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
     kcf = ngx_http_conf_upstream_srv_conf(us,
                                           ngx_http_upstream_keepalive_module);
 
-    kp = ngx_palloc(r->pool, sizeof(ngx_http_upstream_keepalive_peer_data_t));
-    if (kp == NULL) {
-        return NGX_ERROR;
-    }
-
     if (kcf->original_init_peer(r, us) != NGX_OK) {
         return NGX_ERROR;
     }
 
-    kp->original_get_peer = r->upstream->peer.get;
-    kp->original_free_peer = r->upstream->peer.free;
-
-    ngx_http_set_ctx(r, kp, ngx_http_upstream_keepalive_module);
-
-    r->upstream->peer.get = ngx_http_upstream_get_keepalive_peer;
-    r->upstream->peer.free = ngx_http_upstream_free_keepalive_peer;
+    r->upstream->peer.connect = ngx_http_upstream_connect_keepalive_peer;
+    r->upstream->peer.close = ngx_http_upstream_close_keepalive_peer;
 
     return NGX_OK;
 }
 
 
 static ngx_int_t
-ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
+ngx_http_upstream_connect_keepalive_peer(ngx_peer_connection_t *pc, void *data)
 {
-    ngx_http_request_t                       *r;
-    ngx_http_upstream_keepalive_cache_t      *item;
-    ngx_http_upstream_keepalive_srv_conf_t   *kcf;
-    ngx_http_upstream_keepalive_peer_data_t  *kp;
+    ngx_http_request_t                      *r;
+    ngx_http_upstream_keepalive_cache_t     *item;
+    ngx_http_upstream_keepalive_srv_conf_t  *kcf;
 
-    ngx_int_t          rc;
     ngx_queue_t       *q, *cache;
     ngx_connection_t  *c;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                   "get keepalive peer");
-
-    /* ask balancer */
+                   "connect keepalive peer");
 
     r = pc->ctx;
-
-    kp = ngx_http_get_module_ctx(r, ngx_http_upstream_keepalive_module);
-
-    rc = kp->original_get_peer(pc, data);
-
-    if (rc != NGX_OK) {
-        return rc;
-    }
 
     kcf = ngx_http_conf_upstream_srv_conf(r->upstream->upstream,
                                           ngx_http_upstream_keepalive_module);
@@ -268,12 +239,12 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
-    return NGX_OK;
+    return ngx_event_connect(pc, pc->data);
 
 found:
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                   "get keepalive peer: using connection %p", c);
+                   "connect keepalive peer: using connection %p", c);
 
 #if (NGX_HTTP_V3)
     if (c->quic) {
@@ -282,7 +253,7 @@ found:
 
         ngx_http_v3_upstream_close_request_stream(c, 1);
 
-        return NGX_DONE;
+        return NGX_OK;
     }
 #endif
 
@@ -301,18 +272,17 @@ found:
     pc->connection = c;
     pc->cached = 1;
 
-    return NGX_DONE;
+    return NGX_OK;
 }
 
 
 static void
-ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
+ngx_http_upstream_close_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_uint_t state)
 {
-    ngx_http_request_t                       *r;
-    ngx_http_upstream_keepalive_cache_t      *item;
-    ngx_http_upstream_keepalive_srv_conf_t   *kcf;
-    ngx_http_upstream_keepalive_peer_data_t  *kp;
+    ngx_http_request_t                      *r;
+    ngx_http_upstream_keepalive_cache_t     *item;
+    ngx_http_upstream_keepalive_srv_conf_t  *kcf;
 
     ngx_uint_t            requests;
     ngx_queue_t          *q;
@@ -320,7 +290,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_http_upstream_t  *u;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                   "free keepalive peer");
+                   "close keepalive peer");
 
     /* cache valid connections */
 
@@ -328,14 +298,12 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     u = r->upstream;
 
-    kp = ngx_http_get_module_ctx(r, ngx_http_upstream_keepalive_module);
-
     kcf = ngx_http_conf_upstream_srv_conf(u->upstream,
                                           ngx_http_upstream_keepalive_module);
     c = pc->connection;
 
     if (c == NULL) {
-        goto invalid;
+        return;
     }
 
     if (state & NGX_PEER_FAILED
@@ -353,7 +321,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
         || c->read->timedout
         || c->write->timedout)
     {
-        goto invalid;
+        return;
     }
 
 #if (NGX_HTTP_V3)
@@ -363,31 +331,31 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 #endif
 
     if (requests >= kcf->requests) {
-        goto invalid;
+        return;
     }
 
     if (ngx_current_msec - c->start_time > kcf->time) {
-        goto invalid;
+        return;
     }
 
     if (!u->keepalive) {
-        goto invalid;
+        return;
     }
 
     if (!u->request_body_sent) {
-        goto invalid;
+        return;
     }
 
     if (ngx_terminate || ngx_exiting) {
-        goto invalid;
+        return;
     }
 
     if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
-        goto invalid;
+        return;
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                   "free keepalive peer: saving connection %p", c);
+                   "close keepalive peer: saving connection %p", c);
 
     if (ngx_queue_empty(&kcf->free)) {
 
@@ -422,8 +390,6 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
 
     item->connection = c;
 
-    kp->original_free_peer(pc, data, state);
-
     pc->connection = NULL;
 
     c->read->delayed = 0;
@@ -449,12 +415,6 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     if (c->read->ready) {
         ngx_http_upstream_keepalive_close_handler(c->read);
     }
-
-    return;
-
-invalid:
-
-    kp->original_free_peer(pc, data, state);
 }
 
 

@@ -177,14 +177,6 @@ ngx_http_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_rr_peer_t         *peer;
     ngx_http_upstream_hash_peer_data_t  *hp;
 
-#if (NGX_HTTP_UPSTREAM_STICKY)
-    if (pc->sockaddr) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                       "get hash peer skipped");
-        return NGX_OK;
-    }
-#endif
-
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get hash peer, try: %ui", pc->tries);
 
@@ -588,14 +580,6 @@ ngx_http_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_chash_points_t    *points;
     ngx_http_upstream_hash_srv_conf_t   *hcf;
     ngx_http_upstream_hash_peer_data_t  *hp;
-
-#if (NGX_HTTP_UPSTREAM_STICKY)
-    if (pc->sockaddr) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                       "get consistent hash peer skipped");
-        return NGX_OK;
-    }
-#endif
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get consistent hash peer, try: %ui", pc->tries);

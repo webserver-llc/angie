@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -20,6 +21,24 @@ static ngx_int_t ngx_event_connect_set_transparent(ngx_peer_connection_t *pc,
 ngx_int_t
 ngx_event_connect_peer(ngx_peer_connection_t *pc)
 {
+    int  rc;
+
+    rc = pc->get(pc, pc->data);
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    if (pc->connect) {
+        return pc->connect(pc, pc->data);
+    }
+
+    return ngx_event_connect(pc, pc->data);
+}
+
+
+ngx_int_t
+ngx_event_connect(ngx_peer_connection_t *pc, void *data)
+{
     int                rc, type, value;
 #if (NGX_HAVE_IP_BIND_ADDRESS_NO_PORT || NGX_LINUX)
     in_port_t          port;
@@ -30,11 +49,6 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
     ngx_socket_t       s;
     ngx_event_t       *rev, *wev;
     ngx_connection_t  *c;
-
-    rc = pc->get(pc, pc->data);
-    if (rc != NGX_OK) {
-        return rc;
-    }
 
     type = (pc->type ? pc->type : SOCK_STREAM);
 

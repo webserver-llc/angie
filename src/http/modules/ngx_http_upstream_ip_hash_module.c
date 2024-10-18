@@ -156,14 +156,6 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_rr_peer_t            *peer;
     ngx_http_upstream_ip_hash_peer_data_t  *iphp;
 
-#if (NGX_HTTP_UPSTREAM_STICKY)
-    if (pc->sockaddr) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                       "get ip hash peer skipped");
-        return NGX_OK;
-    }
-#endif
-
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get ip hash peer, try: %ui", pc->tries);
 

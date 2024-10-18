@@ -32,6 +32,10 @@ typedef ngx_int_t (*ngx_event_set_peer_session_pt)(ngx_peer_connection_t *pc,
     void *data);
 typedef void (*ngx_event_save_peer_session_pt)(ngx_peer_connection_t *pc,
     void *data);
+typedef ngx_int_t (*ngx_event_connect_peer_pt)(ngx_peer_connection_t *pc,
+    void *data);
+typedef void (*ngx_event_close_peer_pt)(ngx_peer_connection_t *pc, void *data,
+    ngx_uint_t state);
 
 
 struct ngx_peer_connection_s {
@@ -48,6 +52,9 @@ struct ngx_peer_connection_s {
     ngx_event_get_peer_pt            get;
     ngx_event_free_peer_pt           free;
     ngx_event_notify_peer_pt         notify;
+    ngx_event_connect_peer_pt        connect;
+    ngx_event_close_peer_pt          close;
+
     void                            *data;
     void                            *ctx;
 
@@ -76,6 +83,7 @@ struct ngx_peer_connection_s {
 };
 
 
+ngx_int_t ngx_event_connect(ngx_peer_connection_t *pc, void *data);
 ngx_int_t ngx_event_connect_peer(ngx_peer_connection_t *pc);
 ngx_int_t ngx_event_get_peer(ngx_peer_connection_t *pc, void *data);
 

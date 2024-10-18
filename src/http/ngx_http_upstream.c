@@ -1703,7 +1703,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
         return;
     }
 
-    /* rc == NGX_OK || rc == NGX_AGAIN || rc == NGX_DONE */
+    /* rc == NGX_OK || rc == NGX_AGAIN */
 
     c = u->peer.connection;
 
@@ -4938,6 +4938,10 @@ ngx_http_upstream_free_peer(ngx_http_upstream_t *u, ngx_uint_t ft_type)
 
     if (pc->free) {
         pc->free(pc, pc->data, state);
+    }
+
+    if (pc->close) {
+        pc->close(pc, pc->data, state);
     }
 
     pc->sockaddr = NULL;

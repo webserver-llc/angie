@@ -589,14 +589,6 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_rr_peer_t   *peer;
     ngx_http_upstream_rr_peers_t  *peers;
 
-#if (NGX_HTTP_UPSTREAM_STICKY)
-    if (pc->sockaddr) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                       "get rr peer skipped");
-        return NGX_OK;
-    }
-#endif
-
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get rr peer, try: %ui", pc->tries);
 

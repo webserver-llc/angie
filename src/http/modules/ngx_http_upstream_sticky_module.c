@@ -141,7 +141,7 @@ ngx_http_upstream_sticky_select_peer(ngx_http_upstream_rr_peer_data_t *rrp,
 
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "sticky: no hint provided");
-        return NGX_OK;
+        return NGX_DECLINED;
     }
 
     now = ngx_time();
@@ -251,7 +251,7 @@ again:
     scf = ngx_http_conf_upstream_srv_conf(r->upstream->upstream,
                                           ngx_http_upstream_sticky_module);
 
-    return scf->strict ? NGX_BUSY : NGX_OK;
+    return scf->strict ? NGX_BUSY : NGX_DECLINED;
 }
 
 
@@ -407,12 +407,14 @@ ngx_http_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
         return NGX_BUSY;
     }
 
-    /* rc == NGX_OK */
-
-    rc = sp->original_get_peer(pc, data);
-    if (rc != NGX_OK && rc != NGX_DONE) {
-        return rc;
+    if (rc == NGX_DECLINED) {
+        rc = sp->original_get_peer(pc, data);
+        if (rc != NGX_OK) {
+            return rc;
+        }
     }
+
+    /* rc == NGX_OK */
 
     if (scf->cookie.len == 0) {
         /* sticky route */

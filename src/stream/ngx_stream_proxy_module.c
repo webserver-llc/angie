@@ -836,7 +836,7 @@ ngx_stream_proxy_connect(ngx_stream_session_t *s)
         return;
     }
 
-    /* rc == NGX_OK || rc == NGX_AGAIN || rc == NGX_DONE */
+    /* rc == NGX_OK || rc == NGX_AGAIN */
 
     pc = u->peer.connection;
 
@@ -2205,6 +2205,10 @@ ngx_stream_upstream_free_peer(ngx_stream_upstream_t *u, ngx_uint_t state)
 
     if (pc->free) {
         pc->free(pc, pc->data, state);
+    }
+
+    if (pc->close) {
+        pc->close(pc, pc->data, state);
     }
 
     pc->sockaddr = NULL;

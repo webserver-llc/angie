@@ -104,6 +104,8 @@ static void ngx_http_upstream_dummy_handler(ngx_http_request_t *r,
     ngx_http_upstream_t *u);
 static void ngx_http_upstream_next(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_uint_t ft_type);
+static void ngx_http_upstream_free_peer(ngx_http_upstream_t *u,
+    ngx_uint_t ft_type);
 static void ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
     ngx_http_upstream_t *u, ngx_uint_t no_send);
 static void ngx_http_upstream_cleanup(void *data);
@@ -4712,31 +4714,17 @@ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
     ngx_uint_t ft_type)
 {
     ngx_msec_t  timeout;
-    ngx_uint_t  status, state;
+    ngx_uint_t  status;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http next upstream, %xi", ft_type);
 
+    if (u->peer.connection) {
+        u->state->bytes_sent = u->peer.connection->sent;
+    }
+
     if (u->peer.sockaddr) {
-
-        if (u->peer.connection) {
-            u->state->bytes_sent = u->peer.connection->sent;
-        }
-
-        if (ft_type == NGX_HTTP_UPSTREAM_FT_HTTP_403
-            || ft_type == NGX_HTTP_UPSTREAM_FT_HTTP_404)
-        {
-            state = NGX_PEER_NEXT;
-
-        } else {
-            state = NGX_PEER_FAILED;
-        }
-
-        u->peer.free(&u->peer, u->peer.data, state);
-        u->peer.sockaddr = NULL;
-#if (NGX_HTTP_UPSTREAM_SID)
-        u->peer.sid.len = 0;
-#endif
+        ngx_http_upstream_free_peer(u, ft_type);
     }
 
     if (ft_type == NGX_HTTP_UPSTREAM_FT_TIMEOUT) {
@@ -4926,6 +4914,40 @@ ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
 
 
 static void
+ngx_http_upstream_free_peer(ngx_http_upstream_t *u, ngx_uint_t ft_type)
+{
+    ngx_uint_t              state;
+    ngx_peer_connection_t  *pc;
+
+    pc = &u->peer;
+
+    switch (ft_type) {
+    case 0:
+        state = 0;
+        break;
+
+    case NGX_HTTP_UPSTREAM_FT_HTTP_403:
+    case NGX_HTTP_UPSTREAM_FT_HTTP_404:
+        state = NGX_PEER_NEXT;
+        break;
+
+    default:
+        state = NGX_PEER_FAILED;
+        break;
+    }
+
+    if (pc->free) {
+        pc->free(pc, pc->data, state);
+    }
+
+    pc->sockaddr = NULL;
+#if (NGX_HTTP_UPSTREAM_SID)
+    pc->sid.len = 0;
+#endif
+}
+
+
+static void
 ngx_http_upstream_cleanup(void *data)
 {
     ngx_http_request_t *r = data;
@@ -4976,12 +4998,8 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
 
     u->finalize_request(r, rc);
 
-    if (u->peer.free && u->peer.sockaddr) {
-        u->peer.free(&u->peer, u->peer.data, 0);
-        u->peer.sockaddr = NULL;
-#if (NGX_HTTP_UPSTREAM_SID)
-        u->peer.sid.len = 0;
-#endif
+    if (u->peer.sockaddr) {
+        ngx_http_upstream_free_peer(u, 0);
     }
 
     if (u->peer.connection) {

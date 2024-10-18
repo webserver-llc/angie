@@ -97,6 +97,8 @@ static void ngx_stream_proxy_process(ngx_stream_session_t *s,
 static ngx_int_t ngx_stream_proxy_test_finalize(ngx_stream_session_t *s,
     ngx_uint_t from_upstream);
 static void ngx_stream_proxy_next_upstream(ngx_stream_session_t *s);
+static void ngx_stream_upstream_free_peer(ngx_stream_upstream_t *u,
+    ngx_uint_t state);
 static void ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc);
 static u_char *ngx_stream_proxy_log_error(ngx_log_t *log, u_char *buf,
     size_t len);
@@ -2147,11 +2149,7 @@ ngx_stream_proxy_next_upstream(ngx_stream_session_t *s)
     }
 
     if (u->peer.sockaddr) {
-        u->peer.free(&u->peer, u->peer.data, NGX_PEER_FAILED);
-        u->peer.sockaddr = NULL;
-#if (NGX_STREAM_UPSTREAM_SID)
-        u->peer.sid.len = 0;
-#endif
+        ngx_stream_upstream_free_peer(u, NGX_PEER_FAILED);
     }
 
     pscf = ngx_stream_get_module_srv_conf(s, ngx_stream_proxy_module);
@@ -2191,9 +2189,34 @@ ngx_stream_proxy_next_upstream(ngx_stream_session_t *s)
 
 
 static void
+ngx_stream_upstream_free_peer(ngx_stream_upstream_t *u, ngx_uint_t state)
+{
+    ngx_connection_t       *c;
+    ngx_peer_connection_t  *pc;
+
+    pc = &u->peer;
+    c = pc->connection;
+
+    if (state == 0 && c && c->type == SOCK_DGRAM
+        && (c->read->error || c->write->error))
+    {
+        state = NGX_PEER_FAILED;
+    }
+
+    if (pc->free) {
+        pc->free(pc, pc->data, state);
+    }
+
+    pc->sockaddr = NULL;
+#if (NGX_STREAM_UPSTREAM_SID)
+    pc->sid.len = 0;
+#endif
+}
+
+
+static void
 ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc)
 {
-    ngx_uint_t              state;
     ngx_connection_t       *pc;
     ngx_stream_upstream_t  *u;
 
@@ -2224,20 +2247,8 @@ ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc)
         }
     }
 
-    if (u->peer.free && u->peer.sockaddr) {
-        state = 0;
-
-        if (pc && pc->type == SOCK_DGRAM
-            && (pc->read->error || pc->write->error))
-        {
-            state = NGX_PEER_FAILED;
-        }
-
-        u->peer.free(&u->peer, u->peer.data, state);
-        u->peer.sockaddr = NULL;
-#if (NGX_STREAM_UPSTREAM_SID)
-        u->peer.sid.len = 0;
-#endif
+    if (u->peer.sockaddr) {
+        ngx_stream_upstream_free_peer(u, 0);
     }
 
     if (pc) {

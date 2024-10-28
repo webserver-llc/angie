@@ -364,6 +364,9 @@ ngx_http_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "sticky: get peer");
 
+    pc->cached = 0;
+    pc->connection = NULL;
+
     r = pc->ctx;
 
     sp = ngx_http_get_module_ctx(r, ngx_http_upstream_sticky_module);

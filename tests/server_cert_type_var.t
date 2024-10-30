@@ -290,6 +290,11 @@ local $TODO = 'BoringSSL does not support dual certificates'
 
 like(https_cipher_get(8446, 'ECDHE-RSA-AES128-GCM-SHA256'),
 	qr/RSA/, 'RSA certificate');
+}
+
+TODO: {
+local $TODO = 'Wrong server certificate in older versions of LibreSSL'
+	if $is_libressl and not $t->has_feature('libressl:4.0.0');
 
 like(https_cipher_get(8446, 'ECDHE-ECDSA-AES128-SHA'),
 	qr/ECDSA/, 'ECDSA certificate');

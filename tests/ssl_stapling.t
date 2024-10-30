@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -293,7 +294,8 @@ ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
 TODO: {
 local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL') && not $t->has_feature('libressl:4.0.0')
+		&& test_tls13();
 
 like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 

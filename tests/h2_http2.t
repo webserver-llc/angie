@@ -157,6 +157,8 @@ local $TODO = 'broken ALPN/SNI order in OpenSSL before 1.0.2h'
 
 is(get_https(8444, 'http2'), 200, 'sni to enabled');
 
+$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
+	if $TODO;
 }
 
 # http2 detection on plain tcp socket by connection preface

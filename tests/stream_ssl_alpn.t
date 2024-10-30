@@ -100,6 +100,10 @@ like($t->read_file('test.log'), qr/500$/, 'alpn mismatch - log');
 
 }
 
+if ($t->has_module('LibreSSL')) {
+	$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed');
+}
+
 ###############################################################################
 
 sub get_ssl {

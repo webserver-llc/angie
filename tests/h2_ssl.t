@@ -96,6 +96,8 @@ skip 'OpenSSL too old', 1
 
 ok(!get_ssl_socket(['unknown']), 'alpn rejected');
 
+$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
+	if $t->has_module('LibreSSL');
 }
 
 like(http_get('/', socket => get_ssl_socket(['http/1.1'])),

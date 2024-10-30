@@ -182,6 +182,8 @@ $s = Test::Nginx::IMAP->new(
 );
 ok(!$s->read(), 'alpn rejected');
 
+$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
+	if $t->has_module('LibreSSL');
 }
 
 # starttls imap

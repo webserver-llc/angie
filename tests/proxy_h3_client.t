@@ -579,14 +579,16 @@ like($res, "/x-session: reuse=\./", "ssl session reuse - request 1");
 
 TODO: {
 
-local $TODO = 'not supported in OpenSSL compat layer'
-    unless $t->has_module('OpenSSL [.0-9]+\+quic')
-        or $t->has_module('BoringSSL')
-        or $t->has_module('LibreSSL');
+	local $TODO = 'not supported in OpenSSL compat layer'
+		unless $t->has_module('OpenSSL [.0-9]+\+quic')
+		or $t->has_module('BoringSSL')
+		or $t->{_configure_args} =~ /babassl/;
 
+	local $TODO = 'does not work with LibreSSL'
+		if $t->has_module('LibreSSL');
 
-    $res = http_get("/sessions");
-    like($res, "/x-session: reuse=r/", "ssl session reuse - request 2");
+	$res = http_get("/sessions");
+	like($res, "/x-session: reuse=r/", "ssl session reuse - request 2");
 }
 
 # body test

@@ -927,10 +927,10 @@ ngx_api_stream_upstream_peers_handler(ngx_api_entry_data_t data,
         ngx_stream_upstream_rr_peers_rlock(peers->next);
     }
 
-    peers_ctx.peer = NULL;
+    ngx_memzero(&peers_ctx, sizeof(ngx_api_stream_upstream_peers_ctx_t));
+
     peers_ctx.peers = peers;
     peers_ctx.uscf = uscf;
-    peers_ctx.backup = 0;
 
     ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
 

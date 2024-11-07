@@ -105,20 +105,17 @@ static ngx_api_entry_t  ngx_api_http_upstream_entries[] = {
 };
 
 
-static ngx_uint_t  ngx_api_http_upstream_peer_backup;
-
-
 static ngx_api_entry_t  ngx_api_http_upstream_peer_selected_entries[] = {
 
     {
         .name      = ngx_string("current"),
-        .handler   = ngx_api_struct_int_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, conns)
     },
 
     {
         .name      = ngx_string("total"),
-        .handler   = ngx_api_struct_int64_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int64_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, stats.requests)
     },
 
@@ -135,13 +132,13 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_health_entries[] = {
 
     {
         .name      = ngx_string("fails"),
-        .handler   = ngx_api_struct_int64_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int64_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, stats.fails)
     },
 
     {
         .name      = ngx_string("unavailable"),
-        .handler   = ngx_api_struct_int64_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int64_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, stats.unavailable)
     },
 
@@ -163,13 +160,13 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_data_entries[] = {
 
     {
         .name      = ngx_string("sent"),
-        .handler   = ngx_api_struct_int64_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int64_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, stats.sent)
     },
 
     {
         .name      = ngx_string("received"),
-        .handler   = ngx_api_struct_int64_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int64_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, stats.received)
     },
 
@@ -196,7 +193,7 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_entries[] = {
 
     {
         .name      = ngx_string("weight"),
-        .handler   = ngx_api_struct_int_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, weight)
     },
 
@@ -244,7 +241,7 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_entries[] = {
 #if (NGX_DEBUG)
     {
         .name      = ngx_string("refs"),
-        .handler   = ngx_api_struct_int_handler,
+        .handler   = ngx_api_http_upstream_peer_struct_int_handler,
         .data.off  = offsetof(ngx_http_upstream_rr_peer_t, refs)
     },
 #endif
@@ -951,13 +948,12 @@ ngx_api_http_upstream_peers_handler(ngx_api_entry_data_t data,
 {
     ngx_http_upstream_srv_conf_t *uscf = ctx;
 
-    ngx_int_t                      rc;
-    ngx_api_iter_ctx_t             ictx;
-    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_int_t                           rc;
+    ngx_api_iter_ctx_t                  ictx;
+    ngx_http_upstream_rr_peers_t       *peers;
+    ngx_api_http_upstream_peers_ctx_t   peers_ctx;
 
     peers = uscf->peer.data;
-
-    ngx_api_http_upstream_peer_backup = 0;
 
     ngx_http_upstream_rr_peers_rlock(peers);
 
@@ -965,10 +961,16 @@ ngx_api_http_upstream_peers_handler(ngx_api_entry_data_t data,
         ngx_http_upstream_rr_peers_rlock(peers->next);
     }
 
+    ngx_memzero(&peers_ctx, sizeof(ngx_api_http_upstream_peers_ctx_t));
+
+    peers_ctx.peers = peers;
+    peers_ctx.uscf = uscf;
+
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_http_upstream_peer_entries;
-    ictx.ctx = NULL;
-    ictx.elts = peers;
+    ictx.ctx = &peers_ctx;
 
     rc = ngx_api_object_iterate(ngx_api_http_upstream_peers_iter, &ictx, actx);
 
@@ -985,37 +987,52 @@ ngx_api_http_upstream_peers_handler(ngx_api_entry_data_t data,
 static ngx_int_t
 ngx_api_http_upstream_peers_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
 {
-    ngx_http_upstream_rr_peer_t   *peer;
-    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_api_http_upstream_peers_ctx_t  *pctx;
 
-    peers = ictx->elts;
-    peer = ictx->ctx;
+    pctx = ictx->ctx;
 
-    peer = (peer == NULL) ? peers->peer : peer->next;
+    pctx->peer = (pctx->peer == NULL) ? pctx->peers->peer : pctx->peer->next;
 
     for ( ;; ) {
 
-        if (peer == NULL) {
+        if (pctx->peer == NULL) {
 
-            peers = peers->next;
+            pctx->peers = pctx->peers->next;
 
-            if (peers == NULL) {
+            if (pctx->peers == NULL) {
                 return NGX_DECLINED;
             }
 
-            ngx_api_http_upstream_peer_backup = 1;
-
-            ictx->elts = peers;
-            peer = peers->peer;
+            pctx->backup = 1;
+            pctx->peer = pctx->peers->peer;
 
             continue;
         }
 
-        ictx->entry.name = peer->name;
-        ictx->ctx = peer;
+        ictx->entry.name = pctx->peer->name;
 
         return NGX_OK;
     }
+}
+
+
+ngx_int_t
+ngx_api_http_upstream_peer_struct_int_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    return ngx_api_struct_int_handler(data, actx, pctx->peer);
+}
+
+
+ngx_int_t
+ngx_api_http_upstream_peer_struct_int64_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    return ngx_api_struct_int64_handler(data, actx, pctx->peer);
 }
 
 
@@ -1071,7 +1088,11 @@ static ngx_int_t
 ngx_api_http_upstream_peer_server_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     if (peer->host && peer->host->service.len) {
         data.str = &peer->host->peer->server;
@@ -1088,7 +1109,11 @@ static ngx_int_t
 ngx_api_http_upstream_peer_service_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     if (peer->host && peer->host->service.len) {
         data.str = &peer->host->service;
@@ -1104,7 +1129,9 @@ static ngx_int_t
 ngx_api_http_upstream_peer_backup_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    data.flag = ngx_api_http_upstream_peer_backup;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    data.flag = pctx->backup;
 
     return ngx_api_flag_handler(data, actx, ctx);
 }
@@ -1114,9 +1141,12 @@ static ngx_int_t
 ngx_api_http_upstream_peer_state_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    ngx_str_t  state;
+    ngx_str_t                     state;
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     if (peer->down) {
         ngx_str_set(&state, "down");
@@ -1141,13 +1171,13 @@ static ngx_int_t
 ngx_api_http_upstream_peer_max_conns_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    if (peer->max_conns == 0) {
+    if (pctx->peer->max_conns == 0) {
         return NGX_DECLINED;
     }
 
-    data.num = peer->max_conns;
+    data.num = pctx->peer->max_conns;
 
     return ngx_api_number_handler(data, actx, ctx);
 }
@@ -1157,12 +1187,12 @@ static ngx_int_t
 ngx_api_http_upstream_peer_response_codes_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
     void                **codes;
     ngx_api_iter_ctx_t    ictx;
 
-    codes = (void **) ((u_char *) peer + data.off);
+    codes = (void **) ((u_char *) pctx->peer + data.off);
 
     ictx.entry.handler = ngx_api_number_handler;
     ictx.ctx = (void *) 0;
@@ -1180,10 +1210,10 @@ static ngx_int_t
 ngx_api_http_upstream_peer_sid_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    if (peer->sid.len) {
-        data.str = &peer->sid;
+    if (pctx->peer->sid.len) {
+        data.str = &pctx->peer->sid;
 
         return ngx_api_string_handler(data, actx, ctx);
     }
@@ -1250,9 +1280,12 @@ static ngx_int_t
 ngx_api_http_upstream_peer_downtime_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    ngx_time_t  *tp;
+    ngx_time_t                   *tp;
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     data.num = peer->stats.downtime;
 
@@ -1270,10 +1303,13 @@ static ngx_int_t
 ngx_api_http_upstream_peer_downstart_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    uint64_t    downstart;
-    ngx_time_t  time;
+    uint64_t                      downstart;
+    ngx_time_t                    time;
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     downstart = peer->stats.downstart;
 
@@ -1294,9 +1330,12 @@ static ngx_int_t
 ngx_api_http_upstream_peer_selected_last_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_http_upstream_rr_peer_t *peer = ctx;
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
-    ngx_time_t  time;
+    ngx_time_t                    time;
+    ngx_http_upstream_rr_peer_t  *peer;
+
+    peer = pctx->peer;
 
     if (peer->stats.selected == 0) {
         return NGX_DECLINED;

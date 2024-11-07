@@ -145,7 +145,8 @@ typedef struct {
     ngx_stream_upstream_rr_peer_t   *peer;
     ngx_stream_upstream_rr_peers_t  *peers;
     ngx_stream_upstream_srv_conf_t  *uscf;
-    ngx_uint_t                       backup;  /* unsigned  backup:1; */
+    unsigned                         backup:1;
+    unsigned                         locked:1;
 } ngx_api_stream_upstream_peers_ctx_t;
 
 

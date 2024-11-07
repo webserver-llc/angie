@@ -950,22 +950,13 @@ ngx_api_http_upstream_peers_handler(ngx_api_entry_data_t data,
 {
     ngx_http_upstream_srv_conf_t *uscf = ctx;
 
-    ngx_int_t                           rc;
-    ngx_api_iter_ctx_t                  ictx;
-    ngx_http_upstream_rr_peers_t       *peers;
-    ngx_api_http_upstream_peers_ctx_t   peers_ctx;
-
-    peers = uscf->peer.data;
-
-    ngx_http_upstream_rr_peers_rlock(peers);
-
-    if (peers->next) {
-        ngx_http_upstream_rr_peers_rlock(peers->next);
-    }
+    ngx_int_t                          rc;
+    ngx_api_iter_ctx_t                 ictx;
+    ngx_api_http_upstream_peers_ctx_t  peers_ctx;
 
     ngx_memzero(&peers_ctx, sizeof(ngx_api_http_upstream_peers_ctx_t));
 
-    peers_ctx.peers = peers;
+    peers_ctx.peers = uscf->peer.data;
     peers_ctx.uscf = uscf;
 
     ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
@@ -976,10 +967,10 @@ ngx_api_http_upstream_peers_handler(ngx_api_entry_data_t data,
 
     rc = ngx_api_object_iterate(ngx_api_http_upstream_peers_iter, &ictx, actx);
 
-    ngx_http_upstream_rr_peers_unlock(peers);
-
-    if (peers->next) {
-        ngx_http_upstream_rr_peers_unlock(peers->next);
+    if (peers_ctx.locked) {
+        /* some problems while iteration */
+        ngx_http_upstream_rr_peer_unlock(peers_ctx.peers, peers_ctx.peer);
+        ngx_http_upstream_rr_peers_unlock(peers_ctx.peers);
     }
 
     return rc;
@@ -993,17 +984,28 @@ ngx_api_http_upstream_peers_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
 
     pctx = ictx->ctx;
 
-    pctx->peer = (pctx->peer == NULL) ? pctx->peers->peer : pctx->peer->next;
+    if (pctx->peer == NULL) {
+        ngx_http_upstream_rr_peers_rlock(pctx->peers);
+        pctx->peer = pctx->peers->peer;
+
+    } else {
+        ngx_http_upstream_rr_peer_unlock(pctx->peers, pctx->peer);
+        pctx->peer = pctx->peer->next;
+    }
 
     for ( ;; ) {
 
         if (pctx->peer == NULL) {
+            ngx_http_upstream_rr_peers_unlock(pctx->peers);
+            pctx->locked = 0;
 
             pctx->peers = pctx->peers->next;
 
             if (pctx->peers == NULL) {
                 return NGX_DECLINED;
             }
+
+            ngx_http_upstream_rr_peers_rlock(pctx->peers);
 
             pctx->backup = 1;
             pctx->peer = pctx->peers->peer;
@@ -1012,6 +1014,9 @@ ngx_api_http_upstream_peers_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
         }
 
         ictx->entry.name = pctx->peer->name;
+
+        ngx_http_upstream_rr_peer_lock(pctx->peers, pctx->peer);
+        pctx->locked = 1;
 
         return NGX_OK;
     }

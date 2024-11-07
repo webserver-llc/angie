@@ -73,7 +73,7 @@ sub DESTROY {
 	if (Test::More->builder->expected_tests) {
 		local $Test::Nginx::TODO = 'alerts' unless $self->{_alerts};
 
-		my @alerts = $self->read_file('error.log') =~ /.+\[alert\].+/gm;
+		my @alerts = $self->find_in_file('error.log', qr/.+\[alert\].+/);
 
 		if ($^O eq 'solaris') {
 			$Test::Nginx::TODO = 'alerts' if @alerts
@@ -93,7 +93,7 @@ sub DESTROY {
 			my $errors_re = join('|',
 				@{ $self->{_errors_to_skip}{$level} // [] });
 
-			my @errors = $self->read_file('error.log') =~ /.+\[$level\].+/gm;
+			my @errors = $self->find_in_file('error.log', qr/.+\[$level\].+/);
 
 			if (length $errors_re) {
 
@@ -120,8 +120,8 @@ sub DESTROY {
 
 	if (Test::More->builder->expected_tests) {
 		local $Test::Nginx::TODO;
-		my $errors = $self->read_file('error.log');
-		$errors = join "\n", $errors =~ /.+Sanitizer.+/gm;
+		my $errors = join "\n",
+			$self->find_in_file('error.log', qr/.+Sanitizer.+/);
 		Test::More::is($errors, '', 'no sanitizer errors');
 	}
 
@@ -766,6 +766,21 @@ sub read_file($) {
 	close F;
 
 	return $content;
+}
+
+sub find_in_file {
+	my ($self, $name, $pattern) = @_;
+
+	open F, '<', $self->{_testdir} . '/' . $name
+		or die "Can't open $name: $!";
+
+	my @found;
+	while (my $line = <F>) {
+		next unless $line =~ $pattern;
+		push @found, $line;
+	}
+
+	return @found;
 }
 
 sub write_file($$) {

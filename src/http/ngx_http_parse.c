@@ -2152,7 +2152,7 @@ ngx_http_split_args(ngx_http_request_t *r, ngx_str_t *uri, ngx_str_t *args)
 
 ngx_int_t
 ngx_http_parse_chunked(ngx_http_request_t *r, ngx_buf_t *b,
-    ngx_http_chunked_t *ctx)
+    ngx_http_chunked_t *ctx, ngx_uint_t keep_trailers)
 {
     u_char     *pos, ch, c;
     ngx_int_t   rc;
@@ -2230,6 +2230,9 @@ ngx_http_parse_chunked(ngx_http_request_t *r, ngx_buf_t *b,
                     state = sw_last_chunk_extension_almost_done;
                     break;
                 case LF:
+                    if (keep_trailers) {
+                        goto done;
+                    }
                     state = sw_trailer;
                     break;
                 case ';':
@@ -2312,6 +2315,9 @@ ngx_http_parse_chunked(ngx_http_request_t *r, ngx_buf_t *b,
                 state = sw_last_chunk_extension_almost_done;
                 break;
             case LF:
+                if (keep_trailers) {
+                    goto done;
+                }
                 state = sw_trailer;
                 break;
             default:
@@ -2321,6 +2327,9 @@ ngx_http_parse_chunked(ngx_http_request_t *r, ngx_buf_t *b,
 
         case sw_last_chunk_extension_almost_done:
             if (ch == LF) {
+                if (keep_trailers) {
+                    goto done;
+                }
                 state = sw_trailer;
                 break;
             }

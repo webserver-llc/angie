@@ -6,7 +6,7 @@ TEMP =		tmp
 
 CC =		cl
 OBJS =		objs.msvc8
-OPENSSL =	openssl-3.0.14
+OPENSSL =	openssl-3.0.15
 ZLIB =		zlib-1.3.1
 PCRE =		pcre2-10.39
 
@@ -85,9 +85,7 @@ zip: export
 
 	sed -i '' -e "s/$$/`printf '\r'`/" $(TEMP)/$(ANGIE)/conf/*
 
-	mv $(TEMP)/$(ANGIE)/docs/text/LICENSE $(TEMP)/$(ANGIE)/docs.new
-	mv $(TEMP)/$(ANGIE)/docs/text/README $(TEMP)/$(ANGIE)/docs.new
-	mv $(TEMP)/$(ANGIE)/docs/html $(TEMP)/$(ANGIE)
+	mv $(TEMP)/$(ANGIE)/docs/txt/README $(TEMP)/$(ANGIE)/docs.new
 
 	rm -r $(TEMP)/$(ANGIE)/docs
 	mv $(TEMP)/$(ANGIE)/docs.new $(TEMP)/$(ANGIE)/docs

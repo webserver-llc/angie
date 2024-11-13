@@ -31,6 +31,18 @@ Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+запрещено кэширование для переменных "$ssl_server_name",
+"$ssl_server_cert_type", "$ssl_preread_protocol" и "$ssl_preread_server_name"
+модуля "stream".
+</para>
+<para lang="en">
+disabled caching for the variables "$ssl_server_name", "$ssl_server_cert_type",
+"$ssl_preread_protocol", and "$ssl_preread_server_name" in the "stream" module.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 поддержка кросс-компиляции: система сборки теперь может использовать

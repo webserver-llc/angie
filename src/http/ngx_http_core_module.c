@@ -716,6 +716,13 @@ static ngx_command_t  ngx_http_core_commands[] = {
       offsetof(ngx_http_core_loc_conf_t, set_auto_redirect),
       &ngx_http_core_auto_redirect },
 
+    { ngx_string("early_hints"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+      ngx_http_set_predicate_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_core_loc_conf_t, early_hints),
+      NULL },
+
     { ngx_string("error_page"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
                         |NGX_CONF_2MORE,
@@ -2019,6 +2026,37 @@ ngx_http_send_header(ngx_http_request_t *r)
     }
 
     return ngx_http_top_header_filter(r);
+}
+
+
+ngx_int_t
+ngx_http_send_early_hints(ngx_http_request_t *r)
+{
+    ngx_int_t                  rc;
+    ngx_http_core_loc_conf_t  *clcf;
+
+    if (r->post_action) {
+        return NGX_OK;
+    }
+
+    if (r->header_sent) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                      "header already sent");
+        return NGX_ERROR;
+    }
+
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+    rc = ngx_http_test_predicates(r, clcf->early_hints);
+
+    if (rc != NGX_DECLINED) {
+        return rc;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "http send early hints \"%V?%V\"", &r->uri, &r->args);
+
+    return ngx_http_top_early_hints_filter(r);
 }
 
 
@@ -3981,6 +4019,7 @@ ngx_http_core_create_loc_conf(ngx_conf_t *cf)
     clcf->etag = NGX_CONF_UNSET;
     clcf->set_auto_redirect = NGX_CONF_UNSET_UINT;
     clcf->server_tokens = NGX_CONF_UNSET_UINT;
+    clcf->early_hints = NGX_CONF_UNSET_PTR;
     clcf->types_hash_max_size = NGX_CONF_UNSET_UINT;
     clcf->types_hash_bucket_size = NGX_CONF_UNSET_UINT;
 
@@ -4271,6 +4310,8 @@ ngx_http_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_uint_value(conf->server_tokens, prev->server_tokens,
                               NGX_HTTP_SERVER_TOKENS_ON);
+
+    ngx_conf_merge_ptr_value(conf->early_hints, prev->early_hints, NULL);
 
     ngx_conf_merge_ptr_value(conf->open_file_cache,
                               prev->open_file_cache, NULL);

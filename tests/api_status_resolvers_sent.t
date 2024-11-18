@@ -247,7 +247,7 @@ sub rd_srv {
 	my ($ttl, $srv) = @_;
 	my ($rdlen, @rdname);
 
-	use constant PORT	=> 8091;
+	use constant PORT	=> port(8091);
 	use constant WEIGHT	=> 0;
 	use constant PRIORITY	=> 5;
 

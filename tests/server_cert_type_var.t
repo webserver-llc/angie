@@ -241,21 +241,25 @@ if (not ($is_old_openssl or $is_boringssl or $is_libressl)) {
 }
 
 foreach my $type (@types) {
-	system("$openssl genpkey -algorithm $type -out $tdir/$type.key") == 0
+	system("$openssl genpkey -algorithm $type -out $tdir/$type.key "
+		. ">> $tdir/openssl.out 2>&1") == 0
 		or die "Can't create '$type' key$!\n";
 
 	system("$openssl req -new -config $tdir/openssl.conf "
 		. "-subj /CN=$type/ -key $tdir/$type.key -x509 -nodes "
-		. "-days 365 -out $tdir/$type.crt") == 0
+		. "-days 365 -out $tdir/$type.crt "
+		. ">> $tdir/openssl.out 2>&1") == 0
 		or die "Can't create '$type' cecertificate: $!\n";
 }
 
-system("$openssl ecparam -name secp384r1 -genkey -out $tdir/ecdsa.key") == 0
+system("$openssl ecparam -name secp384r1 -genkey -out $tdir/ecdsa.key "
+		. ">> $tdir/openssl.out 2>&1") == 0
 	or die "Can't create 'ecdsa' key$!\n";
 
 system("$openssl req -new -config $tdir/openssl.conf "
 	. "-subj /CN=ecdsa/ -key $tdir/ecdsa.key -x509 -nodes "
-	. "-days 365 -out $tdir/ecdsa.crt") == 0
+	. "-days 365 -out $tdir/ecdsa.crt "
+	. ">> $tdir/openssl.out 2>&1") == 0
 	or die "Can't create 'ecdsa' cecertificate: $!\n";
 
 $t->run();

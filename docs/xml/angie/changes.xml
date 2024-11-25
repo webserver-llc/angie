@@ -45,6 +45,16 @@ disabled caching for the variables "$ssl_server_name", "$ssl_server_cert_type",
 
 <change type="feature">
 <para lang="ru">
+поддержка переменных в директивах "status_zone" в модулях stream и HTTP.
+</para>
+support for variables in the "status_zone" directives in the stream and HTTP
+modules.
+<para lang="en">
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка кросс-компиляции: система сборки теперь может использовать
 скрипт-обёртку для запуска автотестов.
 Это позволяет сконфигурировать angie без запуска тестовых программ

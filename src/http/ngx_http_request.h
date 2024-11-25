@@ -332,6 +332,10 @@ typedef struct {
 
     ngx_chain_t                      *free;
 
+#if (NGX_API)
+    void                             *server_stats;
+#endif
+
     unsigned                          ssl:1;
     unsigned                          proxy_protocol:1;
 } ngx_http_connection_t;

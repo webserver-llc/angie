@@ -61,6 +61,16 @@ typedef struct ngx_thread_pool_s  ngx_thread_pool_t;
 #define NGX_HTTP_SERVER_TOKENS_BUILD    2
 
 
+#define NGX_HTTP_STATS_ZONE_KEY_SIZE    256
+
+#define NGX_HTTP_STATS_ZONE_NODE_SIZE                                         \
+    (offsetof(ngx_http_stats_zone_node_t, data)                               \
+     + NGX_HTTP_STATS_ZONE_KEY_SIZE)
+
+#define NGX_HTTP_STATS_ZONE_SIZE                                              \
+    (offsetof(ngx_rbtree_node_t, color) + NGX_HTTP_STATS_ZONE_NODE_SIZE)
+
+
 typedef struct ngx_http_location_tree_node_s  ngx_http_location_tree_node_t;
 typedef struct ngx_http_core_loc_conf_s  ngx_http_core_loc_conf_t;
 typedef struct ngx_http_core_loc_s       ngx_http_core_loc_t;
@@ -180,23 +190,60 @@ typedef struct {
 } ngx_http_location_stats_t;
 
 
-typedef struct ngx_http_stats_zone_s  ngx_http_stats_zone_t;
+typedef struct ngx_http_stats_zone_node_s ngx_http_stats_zone_node_t;
 
-struct ngx_http_stats_zone_s {
-    ngx_str_t                  name;
+struct ngx_http_stats_zone_node_s {
+    u_char                          color;
+    u_char                          len;
 
     union {
-        ngx_http_server_stats_t    *server;
-        ngx_http_location_stats_t  *location;
-        void                       *any;
+        ngx_http_server_stats_t     server;
+        ngx_http_location_stats_t   location;
+        u_char                      any[1];
     } stats;
 
-    ngx_http_stats_zone_t     *next;
-
+    ngx_http_stats_zone_node_t     *next;
 #if (NGX_HTTP_SSL)
-    ngx_uint_t                 ssl;  /* unsigned ssl:1 */
+    ngx_uint_t                      ssl;  /* unsigned ssl:1 */
 #endif
+    u_char                          data[1];
 };
+
+
+typedef struct {
+    ngx_rbtree_t                    rbtree;
+    ngx_rbtree_node_t               sentinel;
+
+    ngx_uint_t                      stats_count;
+    ngx_atomic_t                    lock;
+
+    ngx_http_stats_zone_node_t     *first_node;
+    ngx_http_stats_zone_node_t     *last_node;
+} ngx_http_stats_zone_shctx_t;
+
+
+typedef struct ngx_http_stats_zone_s ngx_http_stats_zone_t;
+
+struct ngx_http_stats_zone_s {
+    ngx_str_t                       name;
+
+    ngx_uint_t                      count;
+
+    ngx_shm_zone_t                 *shm_zone;
+    ngx_http_stats_zone_shctx_t    *sh;
+
+    ngx_http_stats_zone_t          *next;
+    ngx_http_stats_zone_node_t     *current_node;
+};
+
+
+typedef struct {
+    ngx_http_complex_value_t        key;
+    ngx_http_stats_zone_t          *zone;
+#if (NGX_HTTP_SSL)
+    ngx_uint_t                      ssl;  /* unsigned ssl:1 */
+#endif
+} ngx_http_status_zone_t;
 
 #endif
 
@@ -267,7 +314,7 @@ typedef struct {
     ngx_http_core_loc_t       **named_locations;
 
 #if (NGX_API)
-    ngx_http_stats_zone_t      *server_zone;
+    ngx_http_status_zone_t     *status_zone;
 #endif
 } ngx_http_core_srv_conf_t;
 
@@ -514,7 +561,7 @@ struct ngx_http_core_loc_conf_s {
     ngx_http_core_loc_t    *combined;
 
 #if (NGX_API)
-    ngx_http_stats_zone_t  *location_zone;
+    ngx_http_status_zone_t  *status_zone;
 #endif
 };
 

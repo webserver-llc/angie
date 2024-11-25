@@ -36,6 +36,8 @@ static char *ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
 #if (NGX_API)
 static char *ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static void ngx_stream_stats_fix(ngx_stream_session_t *s,
+    ngx_stream_status_zone_t *status_zone);
 
 ngx_int_t ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
@@ -145,7 +147,7 @@ static ngx_command_t  ngx_stream_core_commands[] = {
 #if (NGX_API)
 
     { ngx_string("status_zone"),
-      NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
       ngx_stream_core_status_zone,
       NGX_STREAM_SRV_CONF_OFFSET,
       0,
@@ -333,6 +335,9 @@ done:
     }
 
     if (rc == NGX_OK) {
+#if (NGX_API)
+        ngx_stream_stats_fix(s, cscf->status_zone);
+#endif
         s->phase_handler = ph->next;
         return NGX_AGAIN;
     }
@@ -656,37 +661,6 @@ ngx_stream_find_virtual_server(ngx_stream_session_t *s,
 }
 
 
-#if (NGX_API)
-
-void
-ngx_stream_stats_fix(ngx_stream_session_t *s, ngx_stream_core_srv_conf_t *cscf)
-{
-    ngx_stream_server_stats_t   *stats;
-    ngx_stream_core_srv_conf_t  *ocscf;
-
-    ocscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
-
-    if (cscf->server_zone != ocscf->server_zone) {
-        if (ocscf->server_zone) {
-            stats = ocscf->server_zone->stats;
-
-            (void) ngx_atomic_fetch_add(&stats->processing, -1);
-            (void) ngx_atomic_fetch_add(&stats->connections, -1);
-        }
-
-        if (cscf->server_zone) {
-            stats = cscf->server_zone->stats;
-
-            (void) ngx_atomic_fetch_add(&stats->processing, 1);
-            s->stat_processing = 1;
-            (void) ngx_atomic_fetch_add(&stats->connections, 1);
-        }
-    }
-}
-
-#endif
-
-
 static ngx_int_t
 ngx_stream_core_preconfiguration(ngx_conf_t *cf)
 {
@@ -721,8 +695,8 @@ ngx_stream_core_postconfiguration(ngx_conf_t *cf)
                 cscfp = addr[a].servers.elts;
                 for (s = 0; s < addr[a].servers.nelts; s++) {
 
-                    if (cscfp[s]->server_zone != NULL) {
-                        cscfp[s]->server_zone->ssl = 1;
+                    if (cscfp[s]->status_zone != NULL) {
+                        cscfp[s]->status_zone->ssl = 1;
                     }
                 }
             }
@@ -1523,22 +1497,89 @@ ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 #if (NGX_API)
 
+static void
+ngx_stream_stats_zone_rbtree_insert_value(ngx_rbtree_node_t *temp,
+    ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel)
+{
+    ngx_rbtree_node_t             **p;
+    ngx_stream_stats_zone_node_t   *szn, *sznt;
+
+    for ( ;; ) {
+
+        if (node->key < temp->key) {
+
+            p = &temp->left;
+
+        } else if (node->key > temp->key) {
+
+            p = &temp->right;
+
+        } else { /* node->key == temp->key */
+
+            szn = (ngx_stream_stats_zone_node_t *) &node->color;
+            sznt = (ngx_stream_stats_zone_node_t *) &temp->color;
+
+            p = (ngx_memn2cmp(szn->data, sznt->data, szn->len, sznt->len) < 0)
+                ? &temp->left : &temp->right;
+        }
+
+        if (*p == sentinel) {
+            break;
+        }
+
+        temp = *p;
+    }
+
+    *p = node;
+    node->parent = temp;
+    node->left = sentinel;
+    node->right = sentinel;
+    ngx_rbt_red(node);
+}
+
+
 static ngx_int_t
 ngx_stream_stats_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
-    ngx_stream_stats_zone_t *ozone = data;
+    ngx_stream_status_zone_t *ostatus_zone = data;
 
-    ngx_stream_stats_zone_t  *zone;
+    ngx_rbtree_node_t             *node;
+    ngx_stream_stats_zone_t       *zone;
+    ngx_stream_status_zone_t      *status_zone;
+    ngx_stream_stats_zone_node_t  *zone_node;
 
-    zone = shm_zone->data;
+    status_zone = shm_zone->data;
 
-    if (ozone) {
-        zone->stats = ozone->stats;
-
+    if (ostatus_zone) {
+        status_zone->zone->sh = ostatus_zone->zone->sh;
         return NGX_OK;
     }
 
-    zone->stats = (ngx_stream_server_stats_t *) shm_zone->shm.addr;
+    zone = status_zone->zone;
+    zone->sh = (ngx_stream_stats_zone_shctx_t *) shm_zone->shm.addr;
+
+    ngx_rbtree_init(&zone->sh->rbtree, &zone->sh->sentinel,
+                    ngx_stream_stats_zone_rbtree_insert_value);
+
+    node = (ngx_rbtree_node_t *) ((u_char *) zone->sh
+                + sizeof(ngx_stream_stats_zone_shctx_t));
+
+    node->key = ngx_crc32_short(zone->name.data, zone->name.len);
+
+    zone_node = (ngx_stream_stats_zone_node_t *) &node->color;
+
+    zone_node->len = zone->name.len;
+    ngx_memcpy(zone_node->data, zone->name.data, zone->name.len);
+
+    ngx_rbtree_insert(&zone->sh->rbtree, node);
+
+    zone->sh->first_node = zone_node;
+#if (NGX_STREAM_SSL)
+    zone->sh->first_node->ssl = status_zone->ssl;
+#endif
+
+    zone->sh->last_node = zone_node;
+    zone->sh->stats_count = 1;
 
     return NGX_OK;
 }
@@ -1549,57 +1590,187 @@ ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_stream_core_srv_conf_t *cscf = conf;
 
-    ngx_str_t                     *value, name;
-    ngx_shm_zone_t                *shm_zone;
-    ngx_stream_stats_zone_t      **zonep;
-    ngx_stream_core_main_conf_t   *cmcf;
+    u_char                               *p;
+    size_t                                shsize;
+    ngx_int_t                             count;
+    ngx_str_t                            *value, shname, zname, c;
+    ngx_shm_zone_t                       *shm_zone;
+    ngx_stream_stats_zone_t             **zonep, *zone;
+    ngx_stream_status_zone_t             *status_zone;
+    ngx_stream_core_main_conf_t          *cmcf;
+    ngx_stream_compile_complex_value_t    ccv;
 
-    if (cscf->server_zone) {
+    if (cscf->status_zone) {
         return "is duplicate";
     }
 
+    shsize = 0;
+    count = 1;
     value = cf->args->elts;
 
-    cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
+    status_zone = ngx_pcalloc(cf->pool, sizeof(ngx_stream_status_zone_t));
+    if (status_zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
-    for (zonep = &cmcf->server_zones; *zonep; zonep = &(*zonep)->next) {
-        if ((*zonep)->name.len == value[1].len
-            && ngx_strncmp((*zonep)->name.data, value[1].data, value[1].len)
-               == 0)
-        {
-            cscf->server_zone = *zonep;
-            return NGX_CONF_OK;
+    cscf->status_zone = status_zone;
+
+    ngx_memzero(&ccv, sizeof(ngx_stream_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[1];
+    ccv.complex_value = &status_zone->key;
+
+    if (ngx_stream_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (cf->args->nelts == 3) {
+        if (ngx_strncmp(value[2].data, "zone=", 5) != 0) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "invalid parameter \"%V\"", &value[2]);
+            return NGX_CONF_ERROR;
         }
+
+        zname.data = value[2].data + 5;
+
+        p = (u_char *) ngx_strchr(zname.data, ':');
+
+        if (p == NULL) {
+            zname.len = value[2].len - 5;
+
+        } else {
+            zname.len = p - zname.data;
+
+            c.data = p + 1;
+            c.len = value[2].data + value[2].len - c.data;
+
+            count = ngx_atoi(c.data, c.len);
+
+            if (count == NGX_ERROR) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "invalid zone elements count \"%V\"",
+                                   &value[2]);
+                return NGX_CONF_ERROR;
+            }
+
+            count++;
+
+            shsize = NGX_STREAM_STATS_ZONE_SIZE * count
+                     + sizeof(ngx_stream_stats_zone_shctx_t);
+        }
+
+    } else {
+        zname = value[1];
+        shsize = NGX_STREAM_STATS_ZONE_SIZE
+                 + sizeof(ngx_stream_stats_zone_shctx_t);
     }
 
-    *zonep = ngx_pcalloc(cf->pool, sizeof(ngx_stream_stats_zone_t));
-    if (*zonep == NULL) {
+    if (zname.len > NGX_STREAM_STATS_ZONE_KEY_SIZE) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "zone name \"%V\" must be less than %d characters",
+                           &zname, NGX_STREAM_STATS_ZONE_KEY_SIZE);
         return NGX_CONF_ERROR;
     }
 
-    (*zonep)->name = value[1];
-    cscf->server_zone = *zonep;
+    shname.len = sizeof("angie_stream_status_zone_") - 1 + zname.len;
 
-    name.len = sizeof("angie_stream_status_zone_") - 1 + value[1].len;
-    name.data = ngx_pnalloc(cf->pool, name.len);
-    if (name.data == NULL) {
+    shname.data = ngx_pnalloc(cf->pool, shname.len);
+    if (shname.data == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    ngx_sprintf(name.data, "angie_stream_status_zone_%V", &value[1]);
+    ngx_sprintf(shname.data, "angie_stream_status_zone_%V", &zname);
 
-    shm_zone = ngx_shared_memory_add(cf, &name,
-                                     sizeof(ngx_stream_server_stats_t),
+    shm_zone = ngx_shared_memory_add(cf, &shname, shsize,
                                      &ngx_stream_core_status_zone);
     if (shm_zone == NULL) {
         return NGX_CONF_ERROR;
     }
 
     shm_zone->init = ngx_stream_stats_init_zone;
-    shm_zone->data = *zonep;
+    shm_zone->data = status_zone;
     shm_zone->noslab = 1;
 
+    cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
+
+    for (zonep = &cmcf->server_zones; *zonep; zonep = &(*zonep)->next) {
+        zone = *zonep;
+
+        if (zone->name.len == zname.len
+            && ngx_strncmp(zone->name.data, zname.data, zname.len) == 0)
+        {
+            if (count > zone->count) {
+                zone->count = count;
+            }
+
+            status_zone->zone = zone;
+            return NGX_CONF_OK;
+        }
+    }
+
+    zone = ngx_pcalloc(cf->pool, sizeof(ngx_stream_stats_zone_t));
+    if (zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    *zonep = zone;
+    status_zone->zone = zone;
+
+    zone->name = zname;
+    zone->count = count;
+    zone->shm_zone = shm_zone;
+
     return NGX_CONF_OK;
+}
+
+
+static void
+ngx_stream_stats_fix(ngx_stream_session_t *s,
+    ngx_stream_status_zone_t *status_zone)
+{
+#if (NGX_STREAM_SSL)
+    ngx_connection_t           *c;
+#endif
+    ngx_stream_server_stats_t  *stats;
+
+    if (status_zone == NULL) {
+        return;
+    }
+
+    stats = ngx_stream_get_server_stats(s, status_zone);
+    if (stats == NULL) {
+        return;
+    }
+
+#if (NGX_STREAM_SSL)
+    c = s->connection;
+#endif
+
+    if (s->server_stats != NULL) {
+        if (s->server_stats != stats) {
+            ngx_stream_add_connection_stats(s->server_stats, -1);
+            ngx_stream_add_connection_stats(stats, 1);
+
+#if (NGX_STREAM_SSL)
+            if (c->ssl != NULL) {
+                ngx_stream_add_ssl_handshake_stats(c, s->server_stats, -1);
+                ngx_stream_add_ssl_handshake_stats(c, stats, 1);
+            }
+#endif
+        }
+
+    } else {
+        s->stat_processing = 1;
+        ngx_stream_add_connection_stats(stats, 1);
+#if (NGX_STREAM_SSL)
+        if (c->ssl != NULL) {
+            ngx_stream_add_ssl_handshake_stats(c, stats, 1);
+        }
+#endif
+    }
+
+    s->server_stats = stats;
 }
 
 #endif

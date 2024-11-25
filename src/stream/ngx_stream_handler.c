@@ -355,12 +355,15 @@ ngx_stream_init_connection(ngx_connection_t *c)
     {
     ngx_stream_server_stats_t  *stats;
 
-    if (cscf->server_zone) {
-        stats = cscf->server_zone->stats;
+    if (cscf->status_zone != NULL) {
+        stats = ngx_stream_get_server_stats(s, cscf->status_zone);
 
-        (void) ngx_atomic_fetch_add(&stats->processing, 1);
-        s->stat_processing = 1;
-        (void) ngx_atomic_fetch_add(&stats->connections, 1);
+        if (stats != NULL) {
+            s->server_stats = stats;
+            s->stat_processing = 1;
+
+            ngx_stream_add_connection_stats(stats, 1);
+        }
     }
     }
 #endif
@@ -542,15 +545,13 @@ ngx_stream_close_connection(ngx_connection_t *c)
 
 #if (NGX_API)
     if (c->data) {
-        ngx_stream_session_t        *s;
-        ngx_stream_server_stats_t   *stats;
-        ngx_stream_core_srv_conf_t  *cscf;
+        ngx_stream_session_t       *s;
+        ngx_stream_server_stats_t  *stats;
 
         s = c->data;
-        cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
 
-        if (cscf->server_zone) {
-            stats = cscf->server_zone->stats;
+        if (s->server_stats != NULL) {
+            stats = s->server_stats;
 
             if (s->stat_processing) {
                 (void) ngx_atomic_fetch_add(&stats->processing, -1);
@@ -644,25 +645,43 @@ ngx_int_t
 ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
+    ngx_int_t                     rc;
     ngx_api_iter_ctx_t            ictx;
+    ngx_stream_stats_zone_t      *zone;
     ngx_stream_core_main_conf_t  *cmcf;
 
     cmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
                                                  ngx_stream_core_module);
 
+    zone = cmcf->server_zones;
+    if (zone == NULL) {
+        return NGX_DECLINED;
+    }
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_stream_server_zone_entries;
-    ictx.elts = cmcf->server_zones;
+    ictx.elts = zone;
 
-    return ngx_api_object_iterate(ngx_api_stream_server_zones_iter,
-                                  &ictx, actx);
+    zone->current_node = zone->sh->first_node;
+    ngx_rwlock_rlock(&zone->sh->lock);
+
+    rc = ngx_api_object_iterate(ngx_api_stream_server_zones_iter, &ictx, actx);
+
+    zone = ictx.elts;
+
+    if (rc != NGX_OK && zone != NULL) {
+        ngx_rwlock_unlock(&zone->sh->lock);
+    }
+
+    return rc;
 }
 
 
 static ngx_int_t
 ngx_api_stream_server_zones_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
 {
-    ngx_stream_stats_zone_t  *zone;
+    ngx_stream_stats_zone_t       *zone;
+    ngx_stream_stats_zone_node_t  *stats_zone;
 
     zone = ictx->elts;
 
@@ -670,9 +689,27 @@ ngx_api_stream_server_zones_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
         return NGX_DECLINED;
     }
 
-    ictx->entry.name = zone->name;
-    ictx->ctx = zone;
-    ictx->elts = zone->next;
+    stats_zone = zone->current_node;
+
+    ictx->entry.name.data = stats_zone->data;
+    ictx->entry.name.len = stats_zone->len;
+
+    ictx->ctx = stats_zone;
+
+    zone->current_node = stats_zone->next;
+
+    if (stats_zone->next == NULL) {
+        ngx_rwlock_unlock(&zone->sh->lock);
+
+        zone = zone->next;
+
+        ictx->elts = zone;
+
+        if (zone != NULL) {
+            zone->current_node = zone->sh->first_node;
+            ngx_rwlock_rlock(&zone->sh->lock);
+        }
+    }
 
     return NGX_OK;
 }
@@ -682,9 +719,9 @@ static ngx_int_t
 ngx_api_stream_zone_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {
-    ngx_stream_stats_zone_t *zone = ctx;
+    ngx_stream_stats_zone_node_t *stats_zone = ctx;
 
-    return ngx_api_object_handler(data, actx, zone->stats);
+    return ngx_api_object_handler(data, actx, &stats_zone->server_stats);
 }
 
 
@@ -692,9 +729,9 @@ static ngx_int_t
 ngx_api_stream_session_codes_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
-    ngx_stream_stats_zone_t *zone = ctx;
+    ngx_stream_stats_zone_node_t *stats_zone = ctx;
 
-    ctx = (u_char *) zone->stats + data.off;
+    ctx = (u_char *) &stats_zone->server_stats + data.off;
     data.ents = ngx_api_stream_session_codes_entries;
 
     return ngx_api_object_handler(data, actx, ctx);
@@ -707,15 +744,151 @@ static ngx_int_t
 ngx_api_stream_ssl_handler(ngx_api_entry_data_t data,ngx_api_ctx_t *actx,
     void *ctx)
 {
-    ngx_stream_stats_zone_t *zone = ctx;
+    ngx_stream_stats_zone_node_t *stats_zone = ctx;
 
-    if (zone->ssl) {
-        return ngx_api_object_handler(data, actx, zone->stats);
+    if (stats_zone->ssl) {
+        return ngx_api_object_handler(data, actx, &stats_zone->server_stats);
     }
 
     return NGX_DECLINED;
 }
 
+void
+ngx_stream_add_ssl_handshake_stats(ngx_connection_t *c,
+    ngx_stream_server_stats_t *stats, int num)
+{
+    (void) ngx_atomic_fetch_add(&stats->ssl_handshaked, 1);
+
+    if (SSL_session_reused(c->ssl->connection)) {
+        (void) ngx_atomic_fetch_add(&stats->ssl_reuses, 1);
+    }
+}
+
 #endif
+
+
+static ngx_rbtree_node_t *
+ngx_stream_stats_zone_lookup(ngx_rbtree_t *rbtree, ngx_str_t *key,
+    uint32_t hash)
+{
+    ngx_int_t                      rc;
+    ngx_rbtree_node_t             *node, *sentinel;
+    ngx_stream_stats_zone_node_t  *stats_zone;
+
+    node = rbtree->root;
+    sentinel = rbtree->sentinel;
+
+    while (node != sentinel) {
+
+        if (hash < node->key) {
+            node = node->left;
+            continue;
+        }
+
+        if (hash > node->key) {
+            node = node->right;
+            continue;
+        }
+
+        /* hash == node->key */
+
+        stats_zone = (ngx_stream_stats_zone_node_t *) &node->color;
+
+        rc = ngx_memn2cmp(key->data, stats_zone->data, key->len,
+                          (size_t) stats_zone->len);
+
+        if (rc == 0) {
+            return node;
+        }
+
+        node = (rc < 0) ? node->left : node->right;
+    }
+
+    return NULL;
+}
+
+
+ngx_stream_server_stats_t *
+ngx_stream_get_server_stats(ngx_stream_session_t *s,
+    ngx_stream_status_zone_t *status_zone)
+{
+    uint32_t                       hash;
+    ngx_str_t                      key;
+    ngx_rbtree_node_t             *node;
+    ngx_stream_stats_zone_t       *zone;
+    ngx_stream_stats_zone_node_t  *stats_zone;
+
+    zone = status_zone->zone;
+
+    if (zone->count == 1) {
+        return &zone->sh->first_node->server_stats;
+    }
+
+    if (ngx_stream_complex_value(s, &status_zone->key, &key) != NGX_OK) {
+        return NULL;
+    }
+
+    if (key.len == 0) {
+        return NULL;
+    }
+
+    if (key.len > NGX_STREAM_STATS_ZONE_KEY_SIZE) {
+        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+                      "the value of the \"%V\" key "
+                      "is more than %d bytes: \"%V\"",
+                      &status_zone->key.value, NGX_STREAM_STATS_ZONE_KEY_SIZE,
+                      &key);
+        return NULL;
+    }
+
+    hash = ngx_crc32_short(key.data, key.len);
+
+    ngx_rwlock_wlock(&zone->sh->lock);
+
+    node = ngx_stream_stats_zone_lookup(&zone->sh->rbtree, &key, hash);
+
+    if (node == NULL) {
+        if (zone->sh->stats_count >= zone->count) {
+            ngx_rwlock_unlock(&zone->sh->lock);
+            return &zone->sh->first_node->server_stats;
+        }
+
+        node = (ngx_rbtree_node_t *) ((u_char *) zone->sh->last_node
+                   + NGX_STREAM_STATS_ZONE_NODE_SIZE);
+
+        node->key = hash;
+
+        stats_zone = (ngx_stream_stats_zone_node_t *) &node->color;
+
+        stats_zone->len = key.len;
+        ngx_memcpy(stats_zone->data, key.data, key.len);
+
+#if (NGX_STREAM_SSL)
+        stats_zone->ssl = status_zone->ssl;
+#endif
+
+        zone->sh->last_node->next = stats_zone;
+        zone->sh->last_node = stats_zone;
+
+        zone->sh->stats_count++;
+
+        ngx_rbtree_insert(&zone->sh->rbtree, node);
+
+    } else {
+        stats_zone = (ngx_stream_stats_zone_node_t *) &node->color;
+    }
+
+    ngx_rwlock_unlock(&zone->sh->lock);
+
+    return &stats_zone->server_stats;
+}
+
+
+void
+ngx_stream_add_connection_stats(ngx_stream_server_stats_t *stats, int num)
+{
+    (void) ngx_atomic_fetch_add(&stats->processing, num);
+    (void) ngx_atomic_fetch_add(&stats->connections, num);
+}
 
 #endif /* NGX_API */

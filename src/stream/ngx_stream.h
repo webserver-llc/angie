@@ -35,6 +35,17 @@ typedef struct ngx_stream_session_s  ngx_stream_session_t;
 #define NGX_STREAM_SERVICE_UNAVAILABLE       503
 
 
+#define NGX_STREAM_STATS_ZONE_KEY_SIZE       256
+
+#define NGX_STREAM_STATS_ZONE_NODE_SIZE                                       \
+    (offsetof(ngx_stream_stats_zone_node_t, data)                             \
+     + NGX_STREAM_STATS_ZONE_KEY_SIZE)
+
+#define NGX_STREAM_STATS_ZONE_SIZE                                            \
+    (offsetof(ngx_rbtree_node_t, color) + NGX_STREAM_STATS_ZONE_NODE_SIZE)
+
+
+
 typedef struct {
     void                         **main_conf;
     void                         **srv_conf;
@@ -136,17 +147,55 @@ typedef struct {
 } ngx_stream_server_stats_t;
 
 
-typedef struct ngx_stream_stats_zone_s  ngx_stream_stats_zone_t;
+typedef struct ngx_stream_stats_zone_node_s ngx_stream_stats_zone_node_t;
+
+struct ngx_stream_stats_zone_node_s {
+    u_char                          color;
+    u_char                          len;
+
+    ngx_stream_server_stats_t       server_stats;
+
+    ngx_stream_stats_zone_node_t   *next;
+#if (NGX_STREAM_SSL)
+    ngx_uint_t                      ssl;  /* unsigned ssl:1 */
+#endif
+    u_char                          data[1];
+};
+
+
+typedef struct {
+    ngx_rbtree_t                    rbtree;
+    ngx_rbtree_node_t               sentinel;
+
+    ngx_int_t                       stats_count;
+    ngx_atomic_t                    lock;
+
+    ngx_stream_stats_zone_node_t   *first_node;
+    ngx_stream_stats_zone_node_t   *last_node;
+} ngx_stream_stats_zone_shctx_t;
+
+
+typedef struct ngx_stream_stats_zone_s ngx_stream_stats_zone_t;
 
 struct ngx_stream_stats_zone_s {
-    ngx_str_t                      name;
-    ngx_stream_server_stats_t     *stats;
-    ngx_stream_stats_zone_t       *next;
+    ngx_str_t                       name;
+    ngx_int_t                       count;
 
-#if (NGX_STREAM_SSL)
-    ngx_uint_t                     ssl;  /* unsigned ssl:1 */
-#endif
+    ngx_shm_zone_t                 *shm_zone;
+    ngx_stream_stats_zone_shctx_t  *sh;
+
+    ngx_stream_stats_zone_t        *next;
+    ngx_stream_stats_zone_node_t   *current_node;
 };
+
+
+typedef struct {
+    ngx_stream_complex_value_t      key;
+    ngx_stream_stats_zone_t        *zone;
+#if (NGX_STREAM_SSL)
+    ngx_uint_t                      ssl;  /* unsigned ssl:1 */
+#endif
+} ngx_stream_status_zone_t;
 
 #endif
 
@@ -205,7 +254,7 @@ typedef struct {
     ngx_msec_t                     proxy_protocol_timeout;
 
 #if (NGX_API)
-    ngx_stream_stats_zone_t       *server_zone;
+    ngx_stream_status_zone_t      *status_zone;
 #endif
 
     unsigned                       listen:1;
@@ -322,6 +371,10 @@ struct ngx_stream_session_s {
                                            /* of ngx_stream_upstream_state_t */
     ngx_stream_variable_value_t   *variables;
 
+#if (NGX_API)
+    ngx_stream_server_stats_t     *server_stats;
+#endif
+
 #if (NGX_PCRE)
     ngx_uint_t                     ncaptures;
     int                           *captures;
@@ -407,8 +460,15 @@ ngx_int_t ngx_stream_find_virtual_server(ngx_stream_session_t *s,
     ngx_str_t *host, ngx_stream_core_srv_conf_t **cscfp);
 
 #if (NGX_API)
-void ngx_stream_stats_fix(ngx_stream_session_t *s,
-    ngx_stream_core_srv_conf_t *cscf);
+ngx_stream_server_stats_t *ngx_stream_get_server_stats(ngx_stream_session_t *s,
+    ngx_stream_status_zone_t *status_zone);
+void ngx_stream_add_connection_stats(ngx_stream_server_stats_t *stats, int num);
+
+#if (NGX_STREAM_SSL)
+void ngx_stream_add_ssl_handshake_stats(ngx_connection_t *c,
+    ngx_stream_server_stats_t *stats, int num);
+#endif
+
 #endif
 
 void ngx_stream_init_connection(ngx_connection_t *c);

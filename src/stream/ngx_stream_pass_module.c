@@ -149,18 +149,9 @@ ngx_stream_pass_handler(ngx_stream_session_t *s)
         }
 
 #if (NGX_API)
-        {
-        ngx_stream_server_stats_t   *stats;
-        ngx_stream_core_srv_conf_t  *cscf;
-
-        cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
-
-        if (cscf->server_zone) {
-            stats = cscf->server_zone->stats;
-
-            (void) ngx_atomic_fetch_add(&stats->processing, -1);
-            (void) ngx_atomic_fetch_add(&stats->passed, 1);
-        }
+        if (s->server_stats != NULL) {
+            (void) ngx_atomic_fetch_add(&s->server_stats->processing, -1);
+            (void) ngx_atomic_fetch_add(&s->server_stats->passed, 1);
         }
 #endif
 

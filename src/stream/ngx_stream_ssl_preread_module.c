@@ -542,10 +542,6 @@ ngx_stream_ssl_preread_servername(ngx_stream_session_t *s,
         return NGX_OK;
     }
 
-#if (NGX_API)
-    ngx_stream_stats_fix(s, cscf);
-#endif
-
     s->srv_conf = cscf->ctx->srv_conf;
 
     ngx_set_connection_log(c, cscf->error_log);

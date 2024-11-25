@@ -538,6 +538,8 @@ ngx_stream_ssl_init_connection(ngx_ssl_t *ssl, ngx_connection_t *c)
 
     /* rc == NGX_OK */
 
+    ngx_stream_ssl_handshake_handler(c);
+
     return NGX_OK;
 }
 
@@ -582,9 +584,8 @@ ngx_stream_ssl_handshake_handler(ngx_connection_t *c)
 
     if (c->read->timer_set) {
         ngx_del_timer(c->read);
+        ngx_stream_core_run_phases(s);
     }
-
-    ngx_stream_core_run_phases(s);
 }
 
 

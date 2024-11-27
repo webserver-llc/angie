@@ -87,7 +87,7 @@ stream {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, $t, port($_), port($_ + 10)) for (8980 .. 8982);
+$t->run_daemon(\&dns_daemon, $t, port($_), port($_ - 500)) for (8980 .. 8982);
 $t->waitforfile($t->testdir . '/' . port($_)) for (8980 .. 8982);
 
 $t->try_run('no resolver in upstream')->plan(6);
@@ -118,7 +118,7 @@ sub waitfordns {
 
 		IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port($port + 10)
+			PeerAddr => '127.0.0.1:' . port($port - 500)
 		)
 			or die "Can't connect to dns control socket: $!\n";
 	}

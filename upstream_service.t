@@ -51,6 +51,7 @@ http {
     upstream u3 {
         zone z3 1m;
         server trunc.example.net resolve service=http;
+        resolver 127.0.0.1:%%PORT_8982_UDP%% valid=1s;
     }
 
     # lower the retry timeout after empty reply
@@ -75,7 +76,7 @@ http {
         }
 
         location /trunc {
-            proxy_pass http://u2/t;
+            proxy_pass http://u3/t;
         }
 
         location /t { }
@@ -84,12 +85,15 @@ http {
 
 EOF
 
-port(8084);
-
 $t->write_file('t', '');
 
-$t->run_daemon(\&dns_daemon, $t)->waitforfile($t->testdir . '/' . port(8981));
-port(8981, socket => 1)->close();
+$t->run_daemon(\&dns_daemon, port(8981), port(8084), $t)
+	->waitforfile($t->testdir . '/' . port(8981));
+
+$t->run_daemon(\&dns_daemon, port(8982), port(8085), $t, tcp => 1)
+	->waitforfile($t->testdir . '/' . port(8982));
+port(8982, socket => 1)->close();
+
 $t->try_run('no service in upstream server')->plan(38);
 
 ###############################################################################
@@ -220,8 +224,6 @@ like($r, qr/127.0.0.201:$p0/, 'SRV diff 1');
 like($r, qr/127.0.0.201:$p0/, 'SRV diff 2');
 
 # SRV trunc
-
-update_name({A => '127.0.0.1', SRV => "1 5 $p0 example.net"}, 3, 2);
 
 $r = http_get('/trunc');
 is(@n = $r =~ /:$p0/g, 1, 'tcp request');
@@ -410,32 +412,37 @@ sub rd_addr6 {
 }
 
 sub dns_daemon {
-	my ($t) = @_;
+	my ($port, $control_port, $t, %extra) = @_;
 	my ($data, $recv_data, $h);
 
 	my $socket = IO::Socket::INET->new(
 		LocalAddr => '127.0.0.1',
-		LocalPort => port(8981),
+		LocalPort => $port,
 		Proto => 'udp',
 	)
 		or die "Can't create listening socket: $!\n";
 
 	my $control = IO::Socket::INET->new(
 		Proto => 'tcp',
-		LocalHost => '127.0.0.1:' . port(8084),
+		LocalHost => '127.0.0.1:' . $control_port,
 		Listen => 5,
 		Reuse => 1
 	)
 		or die "Can't create listening socket: $!\n";
 
-	my $tcp = port(8981, socket => 1);
-	my $sel = IO::Select->new($socket, $control, $tcp);
+	my $sel = IO::Select->new($socket, $control);
+	my $tcp = 0;
+
+	if ($extra{tcp}) {
+		$tcp = port(8982, socket => 1);
+		$sel->add($tcp);
+	}
 
 	local $SIG{PIPE} = 'IGNORE';
 
 	# signal we are ready
 
-	open my $fh, '>', $t->testdir() . '/' . port(8981);
+	open my $fh, '>', $t->testdir() . '/' . $port;
 	close $fh;
 	my $cnt = 0;
 
@@ -451,12 +458,12 @@ sub dns_daemon {
 				$data = reply_handler($recv_data, $h, \$cnt);
 				$fh->send($data);
 
-			} elsif ($fh->sockport() == port(8084)) {
+			} elsif ($fh->sockport() == $control_port) {
 				$h = process_name($fh, $cnt);
 				$sel->remove($fh);
 				$fh->close;
 
-			} elsif ($fh->sockport() == port(8981)) {
+			} elsif ($fh->sockport() == $port) {
 				$fh->recv($recv_data, 65536);
 				unless (length $recv_data) {
 					$sel->remove($fh);

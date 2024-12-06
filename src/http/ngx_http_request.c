@@ -4568,7 +4568,7 @@ ngx_http_get_stats_zone(ngx_http_request_t *r,
     }
 
     if (key.len > NGX_HTTP_STATS_ZONE_KEY_SIZE) {
-        ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                       "the value of the \"%V\" key "
                       "is more than %d bytes: \"%V\"",
                       &status_zone->key.value, NGX_HTTP_STATS_ZONE_KEY_SIZE,

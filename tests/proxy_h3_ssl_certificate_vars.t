@@ -143,8 +143,8 @@ $t->run()->plan(4);
 ###############################################################################
 
 TODO: {
-local $TODO = 'does not work with BabaSSL'
-	if $t->{_configure_args} =~ /babassl/;
+local $TODO = 'does not work with Tongsuo'
+	if $t->{_configure_args} =~ /tongsuo/;
 
 like(http_get('/?cert=1'),
 	qr/x-verify: SUCCESS/ms, 'variable - verify certificate');

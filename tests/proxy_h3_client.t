@@ -582,7 +582,7 @@ TODO: {
 	local $TODO = 'not supported in OpenSSL compat layer'
 		unless $t->has_module('OpenSSL [.0-9]+\+quic')
 		or $t->has_module('BoringSSL')
-		or $t->{_configure_args} =~ /babassl/;
+		or $t->{_configure_args} =~ /tongsuo/;
 
 	local $TODO = 'does not work with LibreSSL'
 		if $t->has_module('LibreSSL');

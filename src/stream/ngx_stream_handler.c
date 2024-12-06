@@ -833,7 +833,7 @@ ngx_stream_get_server_stats(ngx_stream_session_t *s,
     }
 
     if (key.len > NGX_STREAM_STATS_ZONE_KEY_SIZE) {
-        ngx_log_error(NGX_LOG_INFO, s->connection->log, 0,
+        ngx_log_error(NGX_LOG_WARN, s->connection->log, 0,
                       "the value of the \"%V\" key "
                       "is more than %d bytes: \"%V\"",
                       &status_zone->key.value, NGX_STREAM_STATS_ZONE_KEY_SIZE,

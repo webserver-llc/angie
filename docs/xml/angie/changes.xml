@@ -9,6 +9,19 @@
 
 <change type="bugfix">
 <para lang="ru">
+проксирование по протоколу HTTP/3 игнорировало клиентские сертификаты
+указанные в директиве proxy_client_certificate
+при сборке с библиотекой TLS TongSuo и включённой поддержкой NTLS.
+</para>
+<para lang="en">
+proxying using HTTP/3 protocol ignored client certificates
+specified in the proxy_client_certificate directive
+when building with TongSuo TLS library and enabled NTLS support.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 некоторые SSL-рукопожатия могли не учитываться при запросе статистики для
 модуля 'stream'.
 </para>

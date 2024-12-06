@@ -142,17 +142,12 @@ $t->run()->plan(4);
 
 ###############################################################################
 
-TODO: {
-local $TODO = 'does not work with Tongsuo'
-	if $t->{_configure_args} =~ /tongsuo/;
-
 like(http_get('/?cert=1'),
 	qr/x-verify: SUCCESS/ms, 'variable - verify certificate');
 like(http_get('/?cert=2'),
 	qr/x-verify: FAILED/ms, 'variable - fail certificate');
 like(http_get('/encrypted?cert=3'),
 	qr/x-verify: SUCCESS/ms, 'variable - with encrypted key');
-}
 
 like(http_get('/none'),
 	qr/x-verify: NONE/ms, 'variable - no certificate');

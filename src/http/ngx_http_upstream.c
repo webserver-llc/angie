@@ -7410,14 +7410,27 @@ ngx_http_v3_upstream_init_ssl(ngx_connection_t *c, void *data)
         }
     }
 
-    if (u->conf->ssl_certificate
-        && u->conf->ssl_certificate->value.len
-        && (u->conf->ssl_certificate->lengths
-            || u->conf->ssl_certificate_key->lengths))
-    {
-        if (ngx_http_upstream_ssl_certificate(r, u, c) != NGX_OK) {
+#if (NGX_HTTP_PROXY_MULTICERT)
+
+    if (u->conf->ssl_certificate_values) {
+        if (ngx_http_upstream_ssl_certificates(r, u, c) != NGX_OK) {
             return NGX_ERROR;
         }
+
+    } else
+
+#endif
+    {
+        if (u->conf->ssl_certificate
+            && u->conf->ssl_certificate->value.len
+            && (u->conf->ssl_certificate->lengths
+                || u->conf->ssl_certificate_key->lengths))
+        {
+            if (ngx_http_upstream_ssl_certificate(r, u, c) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+
     }
 
     if (u->conf->ssl_session_reuse) {

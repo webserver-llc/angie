@@ -354,8 +354,10 @@ EOF
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't generate ${type} param: $!\n";
 
+	my $type_prefix = $t->has_feature('openssl:3.0.0') ? 'param' : 'ec';
+
 	system("$openssl req -config $d/$subca_cnf "
-		. "-newkey ec:$d/${type}_sm2.param "
+		. "-newkey $type_prefix:$d/${type}_sm2.param "
 		. "-nodes -keyout $d/${type}_sign.key "
 		. '-sm3 -sigopt sm2_id:1234567812345678 '
 		. "-new -out $d/${type}_sign.csr "
@@ -372,7 +374,7 @@ EOF
 		or die "Can't generate ${type} sign crt $!\n";
 
 	system("$openssl req -config $d/$subca_cnf "
-		. "-newkey ec:$d/${type}_sm2.param "
+		. "-newkey $type_prefix:$d/${type}_sm2.param "
 		. "-nodes -keyout $d/${type}_enc.key "
 		. '-sm3 -sigopt sm2_id:1234567812345678 '
 		. "-new -out $d/${type}_enc.csr "

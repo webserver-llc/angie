@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_api http_ssl map socket_ssl_sni/)
 	->has(qw/sni/)
-	->has_daemon('openssl')->plan(1857)
+	->has_daemon('openssl')->plan(1860)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -531,9 +531,9 @@ sub check_uri_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats($server_zones->{uri}, 15), "check 'uri' server zone");
+	ok(check_stats($server_zones->{uri}, 17), "check 'uri' server zone");
 
-	ok(check_stats($location_zones->{uri}, 15), "check 'uri' location zone");
+	ok(check_stats($location_zones->{uri}, 17), "check 'uri' location zone");
 
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
@@ -563,6 +563,13 @@ sub test_uri_zone {
 		for my $j (1 .. 3) {
 			get_host("/$i.$j.f", 8080 + $j, 'localhost');
 		}
+	}
+
+	my $uri = '/' . ('a' x 254);
+
+	for my $i (1 .. 3) {
+		get_host($uri, 8081, 'localhost');
+		$uri .= 'a';
 	}
 
 	check_uri_zone();

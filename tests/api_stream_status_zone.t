@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http_api stream stream_ssl_preread/)
 	->has(qw/stream_ssl stream_return stream_map socket_ssl_sni stream_pass/)
 	->has(qw/rewrite sni/)
-	->has_daemon('openssl')->plan(2133)
+	->has_daemon('openssl')->plan(2206)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -209,6 +209,17 @@ stream {
 
         pass 127.0.0.1:8094;
     }
+
+    server {
+        listen %%PORT_8095%% ssl;
+
+        ssl_certificate rsa.crt;
+        ssl_certificate_key rsa.key;
+
+        status_zone pfx.$ssl_server_name zone=long:3;
+
+        return "OK";
+    }
 }
 
 EOF
@@ -243,6 +254,9 @@ my $a = "a.example.com";
 my $b = "b.example.com";
 my $c = "c.example.com";
 
+# 251 bytes
+my $long_sni = (('a' x 60) . '.') x 4 . 'a' x 7;
+
 ###############################################################################
 
 SKIP: {
@@ -255,6 +269,7 @@ test_sni_zone();
 test_server_cert_type_zone();
 test_sni_preread_zone();
 test_sni_pass_zone();
+test_long_zone();
 
 # Check all previous states
 SKIP: {
@@ -267,6 +282,7 @@ check_sni_zone();
 check_server_cert_type_zone();
 check_sni_preread_zone();
 check_sni_pass_zone();
+check_long_zone();
 
 ###############################################################################
 
@@ -472,6 +488,33 @@ sub test_sni_zone {
 	}
 
 	check_sni_zone();
+}
+
+sub check_long_zone {
+	my $j = get_json('/status/');
+	my $server_zones = $j->{stream}{server_zones};
+	my $zone = 'pfx.' . $long_sni;
+
+	for (1 .. 2) {
+		ok(check_stats_ssl($server_zones->{$zone}, 1),
+			"check '$zone' zone");
+
+		$zone .= 'a';
+	}
+
+	ok(not (exists $server_zones->{$zone}),
+		"'$zone' zone does not exist");
+}
+
+sub test_long_zone {
+	my $sni = $long_sni;
+
+	for (1 .. 3) {
+		stream_ssl_request(8095, $sni);
+		$sni .= 'a';
+	}
+
+	check_long_zone();
 }
 
 sub check_remote_addr_zone {

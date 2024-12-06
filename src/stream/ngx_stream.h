@@ -38,11 +38,12 @@ typedef struct ngx_stream_session_s  ngx_stream_session_t;
 #define NGX_STREAM_STATS_ZONE_KEY_SIZE       256
 
 #define NGX_STREAM_STATS_ZONE_NODE_SIZE                                       \
-    (offsetof(ngx_stream_stats_zone_node_t, data)                             \
-     + NGX_STREAM_STATS_ZONE_KEY_SIZE)
+    ngx_align(offsetof(ngx_stream_stats_zone_node_t, data)                    \
+              + NGX_STREAM_STATS_ZONE_KEY_SIZE, NGX_ALIGNMENT)
 
 #define NGX_STREAM_STATS_ZONE_SIZE                                            \
-    (offsetof(ngx_rbtree_node_t, color) + NGX_STREAM_STATS_ZONE_NODE_SIZE)
+    ngx_align(offsetof(ngx_rbtree_node_t, color)                              \
+              + NGX_STREAM_STATS_ZONE_NODE_SIZE, NGX_ALIGNMENT)
 
 
 
@@ -151,7 +152,7 @@ typedef struct ngx_stream_stats_zone_node_s ngx_stream_stats_zone_node_t;
 
 struct ngx_stream_stats_zone_node_s {
     u_char                          color;
-    u_char                          len;
+    uint16_t                        len;
 
     ngx_stream_server_stats_t       server_stats;
 

@@ -9,6 +9,17 @@
 
 <change type="bugfix">
 <para lang="ru">
+HTTP/3 клиенты могли отключиться по таймауту при использовании 0-RTT.
+Проблема появилась в версии 1.7.0.
+</para>
+<para lang="en">
+HTTP/3 clients could timeout when using 0-RTT.
+The problem appeared in version 1.7.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 проксирование по протоколу HTTP/3 игнорировало клиентские сертификаты
 указанные в директиве proxy_client_certificate
 при сборке с библиотекой TLS TongSuo и включённой поддержкой NTLS.

@@ -12,7 +12,8 @@ use warnings;
 use strict;
 use feature 'state';
 
-use Test::Most;
+use Test::More;
+use Test::Deep;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -60,10 +61,11 @@ subtest 'upgrade followed by termination of the old master process' => sub {
 	# terminate old master process
 	terminate_pid($t, $pid, 'QUIT');
 
-	is($t->read_file('nginx.pid'), "$new_pid\n", 'master pid changed');
+	is($t->read_file('nginx.pid'), "$new_pid\n",
+		"new master pid $new_pid persists after old master $pid terminates");
 
-	is_deeply(get_master_processes_pids(), [$new_pid],
-		'only new master process is running');
+	check_master_processes_pids([$new_pid],
+		"only new master process $new_pid is running");
 
 	ok(-e "$d/unix.sock", 'unix socket exists on old master shutdown');
 };
@@ -85,10 +87,11 @@ subtest 'upgrade followed by termination of the new master process' => sub {
 	# terminate new master process
 	terminate_pid($t, $new_pid, 'TERM');
 
-	is($t->read_file('nginx.pid'), "$pid\n", 'master pid not changed');
+	is($t->read_file('nginx.pid'), "$pid\n",
+		"master pid $pid equals old pid after new master $new_pid terminates");
 
-	is_deeply(get_master_processes_pids(), [$pid],
-		'only old master process is running');
+	check_master_processes_pids([$pid],
+		"only old master process $pid is running");
 
 	ok(-e "$d/unix.sock", 'unix socket exists on new master termination');
 };
@@ -98,11 +101,12 @@ subtest 'upgrade followed by termination of the new master process' => sub {
 sub upgrade {
 	my ($t, $pid) = @_;
 
-	ok($pid, 'old master pid file is not empty')
+	ok($pid, "old master pid $pid file is not empty")
 		or return;
 
-	is_deeply(get_master_processes_pids(), [$pid],
-		'only old master process is running') or return;
+	check_master_processes_pids([$pid],
+		"only old master process $pid is running")
+		or return;
 
 	# upgrade the executable on the fly
 	kill 'USR2', $pid;
@@ -170,11 +174,11 @@ sub upgrade {
 	my $new_pid = $t->read_file('nginx.pid');
 	chomp($new_pid);
 
-	isnt($new_pid, $pid, 'master pid changed')
+	isnt($new_pid, $pid, "master pid changed from $pid to $new_pid")
 		or return;
 
-	is_deeply(get_master_processes_pids(), [$pid, $new_pid],
-		'an old and a new master processes are running')
+	check_master_processes_pids([$pid, $new_pid],
+		"an old $pid and a new $new_pid master processes are running")
 		or return;
 
 	return $new_pid;
@@ -220,12 +224,24 @@ sub read_error_log {
 	return \@error_log;
 }
 
-sub get_master_processes_pids {
-	my @master_processes = split(/\n/,
-		`ps ax | grep '$Test::Nginx::NGINX -p $d' \\
-		| grep -v grep | awk '{print \$1}'`);
+sub check_master_processes_pids {
+	my ($expected_processes, $tname) = @_;
 
-	return \@master_processes;
+	my @master_processes = split(/\n/,
+		`ps axw | grep '$Test::Nginx::NGINX -p $d' | grep -v grep`);
+
+	my @pids;
+	foreach my $process (@master_processes) {
+		my @splitted = grep {$_ ne ''} split(/\s+/, $process);
+		push @pids, $splitted[0];
+	}
+
+	cmp_deeply(\@pids, bag(@{ $expected_processes}), $tname)
+		or diag(explain({
+			running  => \@pids,
+			expected => $expected_processes,
+			ps       => \@master_processes,
+		}));
 }
 
 1;

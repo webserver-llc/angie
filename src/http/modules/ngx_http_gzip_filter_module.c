@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2024 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -507,11 +508,14 @@ ngx_http_gzip_filter_memory(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
      *
      * A zlib variant from Intel (https://github.com/jtkukunas/zlib)
      * uses additional 16-byte padding in one of window-sized buffers.
+     *
+     * A zlib version 1.3.1 when comiled with the LIT_MEM define allocates
+     * additional 1 << (memlevel + 6) bytes.
      */
 
     if (!ngx_http_gzip_assume_zlib_ng) {
         ctx->allocated = 8192 + 16 + (1 << (wbits + 2))
-                         + (1 << (memlevel + 9));
+                         + (1 << (memlevel + 9)) + (1 << (memlevel + 6));
 
     } else {
         /*

@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
-	->has_daemon('openssl')->plan(5)
+	->has_daemon('openssl')->plan(6)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -84,7 +84,8 @@ local $TODO = 'no TLSv1.3 sessions in LibreSSL' if $t->has_module('LibreSSL');
 
 my $psk_list = $s->{psk_list};
 
-$s = Test::Nginx::HTTP3->new(8980, psk_list => $psk_list, early_data => {});
+$s = Test::Nginx::HTTP3->new(8980, psk_list => $psk_list, early_data => {},
+	start_chain => 1);
 
 TODO: {
 local $TODO = 'no 0-RTT in OpenSSL compat layer'
@@ -99,7 +100,19 @@ is($frame->{headers}->{'x-early'}, '1', 'reused session is early');
 
 }
 
+$s->send_chain();
+
 $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+
+TODO: {
+local $TODO = 'not yet'
+	if $t->has_version('1.27.1') && !$t->has_version('1.27.4');
+
+($frame) = grep { $_->{type} eq "HANDSHAKE_DONE" } @$frames;
+ok($frame, '1rtt after discarding 0rtt');
+
+}
+
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{'x-session'}, 'r', 'reused session 1rtt');
 is($frame->{headers}->{'x-early'}, undef, 'reused session not early');

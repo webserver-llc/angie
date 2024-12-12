@@ -49,6 +49,7 @@ sub new {
 	$self->{ciphers} = $extra{ciphers} || "\x13\x01";
 	$self->{group} = $extra{group} || 'x25519';
 	$self->{opts} = $extra{opts};
+	$self->{chaining} = $extra{start_chain} || 0;
 
 	$self->{zero} = pack("x5");
 
@@ -246,7 +247,7 @@ sub handshake {
 		"resumption = " . unpack("H*", $self->{rms_prk}));
 
 	my $crypto = build_crypto($finished);
-	$self->{socket}->syswrite($self->encrypt_aead($crypto, 2));
+	$self->raw_write($crypto, 2);
 }
 
 sub DESTROY {

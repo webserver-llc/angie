@@ -215,6 +215,10 @@ struct ngx_http_acme_session_s {
     ngx_int_t                   status_code;
     ngx_str_t                   body;
     ngx_data_item_t            *json;
+    ngx_str_t                   post_url;
+    ngx_str_t                   post_payload;
+    ngx_uint_t                  post_count;
+    ngx_str_t                   jws;
     ngx_str_t                   nonce;
     ngx_str_t                   content_type;
     ngx_str_t                   location;
@@ -243,6 +247,7 @@ struct ngx_http_acme_session_s {
     ngx_fiber_state_t           get_state;
     ngx_fiber_state_t           post_state;
     ngx_fiber_state_t           run_state;
+    ngx_fiber_state_t           new_nonce_state;
     ngx_fiber_state_t           bootstrap_state;
     ngx_fiber_state_t           account_ensure_state;
     ngx_fiber_state_t           cert_issue_state;
@@ -373,9 +378,12 @@ static ngx_int_t ngx_http_acme_response_handler(ngx_http_acme_session_t *ses,
     ngx_http_request_t *r, ngx_int_t rc);
 static int ngx_http_acme_server_error(ngx_http_acme_session_t *ses,
     const char *default_msg);
+static int ngx_http_acme_server_error_type(ngx_http_acme_session_t *ses,
+    const char *type);
 static void ngx_http_acme_timer_handler(ngx_event_t *ev);
 static ngx_int_t ngx_acme_http_challenge_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_acme_run(ngx_http_acme_session_t *ses);
+static ngx_int_t ngx_http_acme_new_nonce(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses);
@@ -418,7 +426,7 @@ static ngx_int_t ngx_data_object_vget_str(ngx_data_item_t *obj, ngx_str_t *s,
     va_list args);
 static ngx_int_t ngx_data_object_get_str(ngx_data_item_t *obj, ngx_str_t *s,
     ...);
-static int ngx_data_object_str_eq(ngx_data_item_t *obj, char *value, ...);
+static int ngx_data_object_str_eq(ngx_data_item_t *obj, const char *value, ...);
 
 static ngx_int_t ngx_str_eq(ngx_str_t *s1, const char *s2);
 static ngx_int_t ngx_strcase_eq(ngx_str_t *s1, char *s2);
@@ -702,7 +710,7 @@ ngx_http_acme_protected_jwk(ngx_http_acme_session_t *ses,
     rc = NGX_ERROR;
     alg = ngx_http_acme_alg(key);
 
-    if (nonce) {
+    if (nonce->len != 0) {
         len = sizeof("{\"alg\":\"\",\"nonce\":\"\",\"url\":\"\",\"jwk\":}") - 1;
         len += ngx_strlen(alg);
         len += nonce->len;
@@ -2442,9 +2450,7 @@ ngx_http_acme_server_error(ngx_http_acme_session_t *ses,
     json = NULL;
 
     if (ses->json) {
-        if (ngx_strcase_startswith(&ses->content_type,
-                                   "application/problem+json"))
-        {
+        if (ngx_http_acme_server_error_type(ses, NULL)) {
             json = ses->json;
 
         } else {
@@ -2463,6 +2469,22 @@ ngx_http_acme_server_error(ngx_http_acme_session_t *ses,
     }
 
     return !!json;
+}
+
+
+static int
+ngx_http_acme_server_error_type(ngx_http_acme_session_t *ses, const char *type)
+{
+    int ret;
+
+    ret = ngx_strcase_startswith(&ses->content_type,
+                                "application/problem+json");
+
+    if (ret && type != NULL) {
+        ret = ngx_data_object_str_eq(ses->json, type, "type", 0);
+    }
+
+    return ret;
 }
 
 
@@ -2488,30 +2510,57 @@ ngx_http_acme_post(ngx_http_acme_session_t *ses, ngx_str_t *url,
     ngx_str_t *payload)
 {
     ngx_int_t  rc;
-    ngx_str_t  protected, jws;
+    ngx_str_t  protected;
 
     rc = NGX_ERROR;
 
     NGX_ACME_BEGIN(post);
 
-    if (ngx_http_acme_protected_header(ses, &ses->client->account_key, url,
-        &ses->nonce, &protected) != NGX_OK)
+    ses->post_url = *url;
+    ses->post_payload = *payload;
+
+    if (ses->nonce.len == 0) {
+        NGX_ACME_SPAWN(post, new_nonce, (ses), rc);
+
+        if (rc != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
+
+    ses->post_count = 3;
+
+again:
+
+    if (ngx_http_acme_protected_header(ses, &ses->client->account_key,
+        &ses->post_url, &ses->nonce, &protected) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
     if (ngx_http_acme_jws_encode(ses, &ses->client->account_key, &protected,
-        payload, &jws) != NGX_OK)
+        &ses->post_payload, &ses->jws) != NGX_OK)
     {
         return NGX_ERROR;
     }
 
 #if 1
     DBG_HTTP((ses->client, "protected: \"%V\"", &protected));
-    DBG_HTTP((ses->client, "payload: \"%V\"", payload));
+    DBG_HTTP((ses->client, "payload: \"%V\"", &ses->post_payload));
 #endif
 
-    NGX_ACME_SPAWN(post, send_request, (ses, NGX_HTTP_POST, url, &jws), rc);
+    NGX_ACME_SPAWN(post, send_request,
+                           (ses, NGX_HTTP_POST, &ses->post_url, &ses->jws), rc);
+
+    if (rc == NGX_OK && ses->status_code == 400 && ses->nonce.len != 0
+        && ngx_http_acme_server_error_type(ses,
+                                         "urn:ietf:params:acme:error:badNonce"))
+    {
+        ses->post_count--;
+
+        if (ses->post_count != 0) {
+            goto again;
+        }
+    }
 
     NGX_ACME_END(post);
 
@@ -2520,10 +2569,44 @@ ngx_http_acme_post(ngx_http_acme_session_t *ses, ngx_str_t *url,
 
 
 static ngx_int_t
-ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
+ngx_http_acme_new_nonce(ngx_http_acme_session_t *ses)
 {
     ngx_int_t         rc;
     ngx_str_t         url;
+
+    NGX_ACME_BEGIN(new_nonce);
+
+    if (ngx_data_object_get_str(ses->dir, &url, "newNonce", 0) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "newNonce URL not found");
+        return NGX_ERROR;
+    }
+
+    NGX_ACME_SPAWN(new_nonce, get, (ses, &url), rc);
+
+    if (rc != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (ses->status_code != 204) {
+        ngx_http_acme_server_error(ses, "failed to retrieve new nonce");
+        return NGX_ERROR;
+
+    } else if (ngx_http_acme_server_error(ses, NULL)) {
+        return NGX_ERROR;
+    }
+
+    DBG_HTTP((ses->client, "acme nonce: %V", &ses->nonce));
+
+    NGX_ACME_END(new_nonce);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
+{
+    ngx_int_t         rc;
     ngx_data_item_t  *item;
 
     NGX_ACME_BEGIN(bootstrap);
@@ -2554,27 +2637,6 @@ ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
         NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
     }
 
-    if (ngx_data_object_get_str(ses->dir, &url, "newNonce", 0) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "newNonce URL not found");
-        NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
-    }
-
-    NGX_ACME_SPAWN(bootstrap, get, (ses, &url), rc);
-
-    if (rc != NGX_OK) {
-        NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
-    }
-
-    if (ses->status_code != 204) {
-        ngx_http_acme_server_error(ses, "failed to retrieve new nonce");
-        NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
-
-    } else if (ngx_http_acme_server_error(ses, NULL)) {
-        NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
-    }
-
-    DBG_HTTP((ses->client, "acme nonce: %V", &ses->nonce));
-
     NGX_ACME_END(bootstrap);
 
     return NGX_OK;
@@ -2584,16 +2646,8 @@ ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
 static ngx_int_t
 ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 {
-    /*
-     * This much size for buf should be large enough to hold, among other
-     * things, a valid email address of the maximum length (for a discussion
-     * on what the maximum length of a valid email address is, see
-     * https://www.dominicsayers.com/isemail/#getting-it-right )
-     */
-    u_char     buf[512], *p;
     ngx_str_t  s;
     ngx_int_t  rc;
-    ngx_str_t  payload;
 
     NGX_ACME_BEGIN(account_ensure);
 
@@ -2604,10 +2658,9 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
         NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
     }
 
-    ngx_str_set(&payload, "{\"onlyReturnExisting\":true}");
+    ngx_str_set(&s, "{\"onlyReturnExisting\":true}");
 
-    NGX_ACME_SPAWN(account_ensure, post, (ses, &ses->request_url, &payload),
-                   rc);
+    NGX_ACME_SPAWN(account_ensure, post, (ses, &ses->request_url, &s), rc);
 
     if (rc != NGX_OK) {
         NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
@@ -2630,39 +2683,32 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
         NGX_ACME_TERMINATE(account_ensure, rc);
 
     } else if (ses->status_code == 400) {
-        if (ngx_strcase_startswith(&ses->content_type,
-                                   "application/problem+json")
-            && ngx_data_object_str_eq(ses->json,
-                               "urn:ietf:params:acme:error:accountDoesNotExist",
-                               "type", 0))
+        if (ngx_http_acme_server_error_type(ses,
+                              "urn:ietf:params:acme:error:accountDoesNotExist"))
         {
-            p = ngx_copy(buf, "{\"termsOfServiceAgreed\":true",
-                         sizeof("{\"termsOfServiceAgreed\":true") - 1);
+            if (ses->client->email.len == 0) {
+                ngx_str_set(&s, "{\"termsOfServiceAgreed\":true}");
 
-            if (ses->client->email.len > 0) {
-                size_t n = sizeof(buf) - (p - buf);
+            } else {
+                s.len = ses->client->email.len +
+                        sizeof("{\"termsOfServiceAgreed\":true"
+                        ",\"contact\":[\"mailto:\"]}") - 1;
 
-                if (ses->client->email.len
-                    > n - sizeof(",\"contact\":[\"mailto:\"]") - 1 - 1)
-                {
-                    ngx_log_error(NGX_LOG_WARN, ses->log, 0,
-                                  "invalid email \"%V\", omitted",
-                                  &ses->client->email);
-                } else {
-                    p = ngx_snprintf(p, n, ",\"contact\":[\"mailto:%V\"]",
-                                     &ses->client->email);
+                s.data = ngx_pnalloc(ses->pool, s.len);
+                if (!s.data) {
+                    NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
                 }
+
+                ngx_snprintf(s.data, s.len,
+                             "{\"termsOfServiceAgreed\":true"
+                             ",\"contact\":[\"mailto:%V\"]}",
+                             &ses->client->email);
             }
 
-            p = ngx_copy(p, "}", 1);
+            DBG_HTTP((ses->client, "new account payload %V", &s));
 
-            payload.data = buf;
-            payload.len = p - buf;
-
-            DBG_HTTP((ses->client, "new account payload %V", &payload));
-
-            NGX_ACME_SPAWN(account_ensure, post,
-                (ses, &ses->request_url, &payload), rc);
+            NGX_ACME_SPAWN(account_ensure, post, (ses, &ses->request_url, &s),
+                           rc);
 
             if (rc != NGX_OK) {
                 NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
@@ -4743,7 +4789,7 @@ ngx_str_is_valid_domain(ngx_str_t *s, int wildcard_allowed)
 
 
 static int
-ngx_data_object_str_eq(ngx_data_item_t *obj, char *value, ...)
+ngx_data_object_str_eq(ngx_data_item_t *obj, const char *value, ...)
 {
     va_list    args;
     ngx_str_t  v;

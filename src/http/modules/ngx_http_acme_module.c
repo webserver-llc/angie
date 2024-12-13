@@ -197,6 +197,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_http_acme_sh_keyauth_t *sh;
     ngx_str_t                   path;
     ngx_str_t                   acme_server_var;
+    ngx_uint_t                  handle_challenge;
 };
 
 
@@ -3181,7 +3182,7 @@ challenge_found:
     }
 
     if (ngx_http_acme_share_key_auth(ses, &ses->key_auth, ses->token.len)
-        != NGX_OK)
+        == NGX_ERROR)
     {
         NGX_ACME_TERMINATE(authorize, NGX_ERROR);
     }
@@ -3297,6 +3298,10 @@ ngx_http_acme_share_key_auth(ngx_http_acme_session_t *ses, ngx_str_t *key_auth,
 
     amcf = ngx_http_acme_get_main_conf();
 
+    if (!amcf->handle_challenge) {
+        return NGX_DECLINED;
+    }
+
     if (key_auth->len > amcf->max_key_auth_size) {
         ngx_log_error(NGX_LOG_CRIT, ses->log, 0,
                       "key authorization string received from ACME server "
@@ -3406,6 +3411,11 @@ ngx_http_acme_get_shared_key_auth(ngx_http_request_t *r, ngx_str_t *token,
     rc = NGX_DECLINED;
 
     amcf = ngx_http_get_module_main_conf(r, ngx_http_acme_module);
+
+    if (!amcf->handle_challenge) {
+        return rc;
+    }
+
     sh = amcf->sh;
 
     ngx_rwlock_rlock(&sh->key_auth_lock);
@@ -3877,7 +3887,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     size_t                       shm_size, sz;
     ngx_str_t                   *s, name;
     ngx_err_t                    err;
-    ngx_uint_t                   i, j, n, handle_challenge;
+    ngx_uint_t                   i, j, n;
     ngx_acme_client_t           *cli, **cli_p;
     ngx_pool_cleanup_t          *cln;
     ngx_http_handler_pt         *h;
@@ -3990,8 +4000,6 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         pclcf->error_log = clcf->error_log;
     }
 
-    handle_challenge = 0;
-
     for (i = 0; i < amcf->clients.nelts; i++) {
 
         cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
@@ -4027,7 +4035,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         }
 
         if (cli->challenge == NGX_AC_HTTP_01 && cli->hook_ctx == NULL) {
-            handle_challenge = 1;
+            amcf->handle_challenge = 1;
         }
 
         cli->log = &amcf->log;
@@ -4127,7 +4135,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
 
-    if (handle_challenge) {
+    if (amcf->handle_challenge) {
         n = 0;
 
         if (cmcf->ports != NULL) {
@@ -4153,11 +4161,11 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         }
 
         *h = ngx_acme_http_challenge_handler;
+
+        sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
+
+        shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
-
-    sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
-
-    shm_size += ngx_align(sz, NGX_ALIGNMENT);
 
     ngx_str_set(&name, "acme_shm");
 
@@ -4333,12 +4341,17 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
     amcf->log.data = &amcf->log_ctx;
     amcf->log.handler = ngx_http_acme_log_error;
 
-    amcf->sh = (ngx_http_acme_sh_keyauth_t *) shm_zone->shm.addr;
-    p = (u_char *) amcf->sh;
-    sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
+    if (amcf->handle_challenge) {
+        amcf->sh = (ngx_http_acme_sh_keyauth_t *) shm_zone->shm.addr;
+        p = (u_char *) amcf->sh;
+        sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
 
-    ngx_memzero(p, sz);
-    p += ngx_align(sz, NGX_ALIGNMENT);
+        ngx_memzero(p, sz);
+        p += ngx_align(sz, NGX_ALIGNMENT);
+
+    } else {
+        p = shm_zone->shm.addr;
+    }
 
     for (i = 0; i < amcf->clients.nelts; i++) {
 

@@ -75,7 +75,7 @@ my @keys = (
     { type => 'ecdsa', bits => 256 },
 );
 
-my @challenges = ('http-01', 'dns-01');
+my @challenges = ('http', 'dns');
 
 my $domain_count = 1;
 
@@ -96,7 +96,7 @@ for (1..6) {
         $domain_count++;
     }
 
-    if ($chlg eq 'dns-01') {
+    if ($chlg eq 'dns') {
         # The dns-01 validation method allows wildcard domain names.
         push(@{$srv->{domains}}, "*.angie-test${domain_count}.com");
         $domain_count++;
@@ -383,11 +383,11 @@ sub hook_handler_start {
 sub hook_add {
     my ($challenge, $hook, $domain, $token, $keyauth) = @_;
 
-    if ($challenge eq 'http-01') {
+    if ($challenge eq 'http') {
         http_post('/add-http01',
             body => "{\"token\":\"$token\",\"content\":\"$keyauth\"}");
 
-    } elsif ($challenge eq 'dns-01') {
+    } elsif ($challenge eq 'dns') {
         my $name = "_acme-challenge.$domain.";
 
         http_post('/set-txt',
@@ -400,10 +400,10 @@ sub hook_add {
 sub hook_remove {
     my ($challenge, $hook, $domain, $token, $keyauth) = @_;
 
-    if ($challenge eq 'http-01') {
+    if ($challenge eq 'http') {
         http_post('/del-http01',  body => "{\"token\":\"$token\"}");
 
-    } elsif ($challenge eq 'dns-01') {
+    } elsif ($challenge eq 'dns') {
         my $name = "_acme-challenge.$domain.";
 
         http_post('/clear-txt', body => "{\"host\":\"$name\"}");
@@ -431,10 +431,8 @@ sub hook_handler {
         if ($hook eq 'add') {
             hook_add($challenge, $hook, $domain, $token, $keyauth);
 
-        } elsif ($hook eq 'remove' || $hook eq 'error') {
+        } elsif ($hook eq 'remove') {
             hook_remove($challenge, $hook, $domain, $token, $keyauth);
-
-            $status = '500' if $hook eq 'error';
 
         } else {
             $status = '400';

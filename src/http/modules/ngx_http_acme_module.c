@@ -289,6 +289,7 @@ static u_char *ngx_http_acme_log_error(ngx_log_t *log, u_char *buf, size_t len);
 static void ngx_log_acme_debug_core(ngx_log_t *log, const char *prefix,
     ngx_str_t *name, const char *fmt, va_list args);
 #endif
+static void ngx_http_acme_log_domains(ngx_acme_client_t *cli);
 static void *ngx_http_acme_alg(ngx_acme_privkey_t *key);
 static void *ngx_http_acme_crv(ngx_acme_privkey_t *key);
 static ngx_int_t ngx_http_acme_bn_encode(ngx_http_acme_session_t *ses,
@@ -350,7 +351,8 @@ static ngx_int_t ngx_http_acme_sha256_base64url(ngx_http_acme_session_t *ses,
     ngx_str_t *str, ngx_str_t *encoded);
 static time_t ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time,
     ngx_log_t *log);
-static time_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli);
+static time_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli,
+    ngx_uint_t log_diagnosis);
 static ngx_int_t ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *name,
     ngx_str_t *filename, ngx_str_t *full_path);
 static ngx_int_t ngx_http_acme_init_connection(ngx_http_acme_session_t *ses);
@@ -654,6 +656,52 @@ ngx_log_acme_debug_http(ngx_acme_client_t *cli, const char *fmt, ...)
 }
 
 #endif
+
+
+static void
+ngx_http_acme_log_domains(ngx_acme_client_t *cli)
+{
+    const char  *sep = ": ";
+
+    u_char       buf[NGX_MAX_ERROR_STR], *last, *p;
+    ngx_str_t    s;
+    ngx_uint_t   i;
+
+    if (cli->log->log_level < NGX_LOG_NOTICE) {
+        return;
+    }
+
+    p = buf;
+    last = p + NGX_MAX_ERROR_STR - 1;
+    p = ngx_slprintf(buf, last, "domain list for ACME client %V", &cli->name);
+
+    for (i = 0; i < cli->domains->nelts; i++) {
+
+        s = ((ngx_str_t*) cli->domains->elts)[i];
+
+        if (p + s.len <= last - 2 - NGX_LINEFEED_SIZE) {
+            p = ngx_slprintf(p, last, "%s%V", sep, &s);
+            sep = ", ";
+
+        } else {
+            break;
+        }
+    }
+
+    if (i < cli->domains->nelts) {
+        if (last - p >= 4 + NGX_LINEFEED_SIZE) {
+            ngx_memcpy(p, " ...", 4);
+            p += 4;
+        }
+
+    } else if (last - p >= 1 + NGX_LINEFEED_SIZE) {
+        *p++ = '.';
+    }
+
+    *p = 0;
+
+    ngx_log_error(NGX_LOG_NOTICE, cli->log, 0, "%s", buf);
+}
 
 
 static ngx_int_t
@@ -1928,7 +1976,7 @@ ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time, ngx_log_t *log)
  * + NGX_ERROR if an OpenSSL or system error occurred.
  */
 static time_t
-ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
+ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
 {
     int               type, i, found;
 #ifndef OPENSSL_IS_BORINGSSL
@@ -1991,6 +2039,11 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
 
     if (ngx_time() >= rc) {
         /* expired */
+        if (log_diagnosis) {
+            ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
+                          "certificate expired: \"%V\"",
+                          &cli->certificate_file.name);
+        }
         rc = NGX_DECLINED;
         goto failed;
     }
@@ -1998,9 +2051,11 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
     sans = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
 
     if (!sans) {
-        ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
-                      "no SAN entry in certificate \"%V\"",
-                      &cli->certificate_file.name);
+        if (log_diagnosis) {
+            ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
+                          "no SAN entry in certificate \"%V\"",
+                          &cli->certificate_file.name);
+        }
         rc = NGX_DECLINED;
         goto failed;
     }
@@ -2083,6 +2138,12 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli)
         }
 
         if (!found) {
+            if (log_diagnosis) {
+                ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
+                              "domain \"%V\" not found in certificate \"%V\"",
+                              &domain, &cli->certificate_file.name);
+            }
+
             rc = NGX_DECLINED;
             break;
         }
@@ -2160,7 +2221,7 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
         goto failed;
     }
 
-    t = ngx_http_acme_cert_validity(ses->client);
+    t = ngx_http_acme_cert_validity(ses->client, 0);
 
     if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
         ses->client->expiry_time = t;
@@ -2651,6 +2712,8 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 
         } else {
             ses->kid = ses->location;
+            ngx_log_error(NGX_LOG_INFO, ses->log, 0, "ACME account ID: \"%V\"",
+                          &ses->kid);
             rc = NGX_OK;
         }
 
@@ -2708,7 +2771,10 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
                                   "newly created account's Location not found");
 
                 } else {
+                    DBG_STATUS((ses->client, "new ACME account created"));
                     ses->kid = ses->location;
+                    ngx_log_error(NGX_LOG_INFO, ses->log, 0,
+                                  "ACME account ID: \"%V\"", &ses->kid);
                     rc = NGX_OK;
                 }
 
@@ -2796,8 +2862,9 @@ ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses)
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
-    DBG_STATUS((ses->client, "poll authorization status for %d sec",
-                NGX_ACME_AUTHORIZATION_TIMEOUT));
+    ngx_log_error(NGX_LOG_INFO, ses->log, 0,
+                  "polling for authorization status (%d sec)",
+                  NGX_ACME_AUTHORIZATION_TIMEOUT);
 
     ses->deadline = ngx_time() + NGX_ACME_AUTHORIZATION_TIMEOUT;
 
@@ -2814,7 +2881,7 @@ poll_status:
     }
 
     if (ses->status_code != 200) {
-        ngx_http_acme_server_error(ses, "failed to poll order status");
+        ngx_http_acme_server_error(ses, "failed to poll for order status");
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
@@ -2834,7 +2901,7 @@ poll_status:
 
     if (ngx_time() >= ses->deadline) {
         ngx_http_acme_server_error(ses,
-                                "timeout occurred while polling order status");
+                             "timeout occurred while polling for order status");
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
@@ -2877,8 +2944,9 @@ finalize:
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
-    DBG_STATUS((ses->client, "poll issuance status for %d sec",
-                NGX_ACME_ISSUANCE_TIMEOUT));
+    ngx_log_error(NGX_LOG_INFO, ses->log, 0,
+                  "polling for issuance status (%d sec)",
+                  NGX_ACME_ISSUANCE_TIMEOUT);
 
     ses->deadline = ngx_time() +  NGX_ACME_ISSUANCE_TIMEOUT;
 
@@ -2893,7 +2961,7 @@ poll_status2:
     }
 
     if (ses->status_code != 200) {
-        ngx_http_acme_server_error(ses, "failed to poll issuance status");
+        ngx_http_acme_server_error(ses, "failed to poll for issuance status");
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
@@ -2914,7 +2982,7 @@ poll_status2:
 
     if (ngx_time() >= ses->deadline) {
         ngx_http_acme_server_error(ses,
-                             "timeout occurred while polling issuance status");
+                          "timeout occurred while polling for issuance status");
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
@@ -3231,8 +3299,9 @@ challenge_found:
     DBG_STATUS((ses->client, "\"%V\" is ready to respond to challenge",
                 &ses->ident));
 
-    DBG_STATUS((ses->client, "poll challenge status for %d sec",
-                NGX_ACME_CHALLENGE_TIMEOUT));
+    ngx_log_error(NGX_LOG_INFO, ses->log, 0,
+                  "polling for challenge status of \"%V\" (%d sec)",
+                  &ses->ident, NGX_ACME_CHALLENGE_TIMEOUT);
 
     ses->deadline = ngx_time() + NGX_ACME_CHALLENGE_TIMEOUT;
 
@@ -3249,7 +3318,7 @@ poll_challenge_status:
     }
 
     if (ses->status_code != 200) {
-        ngx_http_acme_server_error(ses, "failed to poll challenge status");
+        ngx_http_acme_server_error(ses, "failed to poll for challenge status");
         NGX_ACME_TERMINATE(authorize, NGX_ERROR);
     }
 
@@ -3278,7 +3347,7 @@ poll_challenge_status:
 
     if (ngx_time() >= ses->deadline) {
         ngx_http_acme_server_error(ses,
-                             "timeout occurred while polling challenge status");
+                         "timeout occurred while polling for challenge status");
         NGX_ACME_TERMINATE(authorize, NGX_ERROR);
     }
 
@@ -4363,6 +4432,9 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
             continue;
         }
 
+        /* for the log handler to add the client name in log messages */
+        amcf->current = cli;
+
         shc = (ngx_http_acme_sh_cert_t *) p;
         shc->lock = 0;
         shc->len = cli->certificate_file_size + 5;
@@ -4371,7 +4443,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         ngx_memcpy(shc->data_start, "data:", 5);
 
         if (shc->len != 5) {
-            t = ngx_http_acme_cert_validity(cli);
+            t = ngx_http_acme_cert_validity(cli, 1);
 
             if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
                 s = "valid";
@@ -4419,8 +4491,12 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
              : "now";
 
         ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                      "%s certificate, renewal scheduled %s, ACME client: %V",
+                      "%s certificate, renewal scheduled %s",
                       s, s2, &cli->name);
+
+        amcf->current = NULL;
+
+        ngx_http_acme_log_domains(cli);
 
         cli->sh_cert = shc;
 
@@ -4428,6 +4504,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
         p += ngx_align(sz, NGX_ALIGNMENT);
     }
+
 
     return NGX_OK;
 }

@@ -339,8 +339,6 @@ static ngx_int_t ngx_http_acme_key_gen(ngx_acme_client_t *cli,
 static ngx_int_t ngx_http_acme_key_load(ngx_acme_client_t *cli,
     ngx_acme_privkey_t *key);
 static void ngx_http_acme_key_free(ngx_acme_privkey_t *key);
-static ngx_int_t ngx_http_acme_load_keys(ngx_acme_client_t *cli);
-static void ngx_http_acme_free_keys(ngx_acme_client_t *cli);
 static ngx_int_t ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses,
     ngx_acme_privkey_t *key, ngx_str_t *csr);
 static ngx_int_t ngx_http_acme_identifiers(ngx_http_acme_session_t *ses,
@@ -1248,6 +1246,7 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
 
     if (n >= hash_size) {
         ngx_memcpy(new_sig, p + n - hash_size, hash_size);
+
     } else {
         ngx_memcpy(new_sig + hash_size - n, p, n);
     }
@@ -1266,6 +1265,7 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
 
     if (n >= hash_size) {
         ngx_memcpy(new_sig + hash_size, p + n - hash_size, hash_size);
+
     } else {
         ngx_memcpy(new_sig + hash_size * 2 - n, p, n);
     }
@@ -1339,7 +1339,7 @@ ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
         key->file_size = ngx_file_size(&fi);
 
         if (key->file_size != 0) {
-            return NGX_OK;
+            return ngx_http_acme_key_load(cli, key);
         }
 
         if (retry && ngx_http_acme_key_gen(cli, key) != NGX_OK) {
@@ -1567,27 +1567,6 @@ ngx_http_acme_key_free(ngx_acme_privkey_t *key)
 {
     EVP_PKEY_free(key->key);
     key->key = NULL;
-}
-
-
-static ngx_int_t
-ngx_http_acme_load_keys(ngx_acme_client_t *cli)
-{
-    if (ngx_http_acme_key_load(cli, &cli->account_key) != NGX_OK
-        || ngx_http_acme_key_load(cli, &cli->private_key) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    return NGX_OK;
-}
-
-
-static void
-ngx_http_acme_free_keys(ngx_acme_client_t *cli)
-{
-    ngx_http_acme_key_free(&cli->private_key);
-    ngx_http_acme_key_free(&cli->account_key);
 }
 
 
@@ -2154,12 +2133,6 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
 
     DBG_STATUS((ses->client, "--- start renewal"));
 
-    rc = ngx_http_acme_load_keys(ses->client);
-
-    if (rc != NGX_OK) {
-        goto failed;
-    }
-
     NGX_ACME_SPAWN(run, bootstrap, (ses), rc);
 
     if (rc != NGX_OK) {
@@ -2216,8 +2189,6 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
     }
 
 failed:
-
-    ngx_http_acme_free_keys(ses->client);
 
     NGX_ACME_END(run);
 
@@ -4253,6 +4224,14 @@ ngx_http_acme_fds_close(void *data)
 
         if (cli->certificate_file.fd != NGX_INVALID_FILE) {
             (void) ngx_close_file(cli->certificate_file.fd);
+        }
+
+        if (cli->account_key.key != NULL) {
+            ngx_http_acme_key_free(&cli->account_key);
+        }
+
+        if (cli->private_key.key != NULL) {
+            ngx_http_acme_key_free(&cli->private_key);
         }
     }
 }

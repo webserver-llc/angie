@@ -4315,8 +4315,9 @@ ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
 {
     file->log = cf->log;
 
-    if (ngx_http_acme_full_path(cf->pool, path, filename, &file->name)
-        != NGX_OK)
+    if (file->name.len == 0
+        && ngx_http_acme_full_path(cf->pool, path, filename, &file->name)
+           != NGX_OK)
     {
         return NGX_ERROR;
     }
@@ -5160,6 +5161,16 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             } else {
                 return "has an invalid \"challenge\" value";
             }
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "account_key=", 12) == 0) {
+
+            value[i].data += 12;
+            value[i].len -= 12;
+
+            cli->account_key.file.name = value[i];
 
             continue;
         }

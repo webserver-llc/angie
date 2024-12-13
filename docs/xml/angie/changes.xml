@@ -111,6 +111,57 @@ binaries on build host.
 
 <change type="feature">
 <para lang="ru">
+система хуков в модуле ACME.
+Она позволяет получать wildcard-сертификаты с помощью http-01
+и dns-01-валидации, используя внешнее приложение.
+</para>
+<para lang="en">
+hook system in the ACME module.
+This allows wildcard certificates to be obtained through
+http-01 or dns-01 validation using an external application.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+параметр account_key в директиве acme_client, позволяющий
+использовать существующий ключ аккаунта ACME-сервера,
+а не генерировать его автоматически.
+</para>
+<para lang="en">
+account_key parameter for the acme_client directive allowing
+to use an existing key for the ACME server account.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+некоторые ошибки, возникшие в модуле ACME при запуске, могли привести
+к завершению без сообщения об ошибке.
+</para>
+<para lang="en">
+certain errors occurring in the ACME module during startup caused Angie
+to quit without an error message.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+ACME-модуль выводит в лог дополнительную информацию: точная причина
+обновления сертификата, полный список доменов, account ID пользователя,
+длительные периоды неактивности (например, во время опросов), и какой
+домен выполняет валидацию.
+</para>
+<para lang="en">
+the ACME module logs some additional information: why exactly
+the certificate is being renewed, full domain name list, client's
+account ID, long periods of inactivity (e.g. pollings) and domain
+names being challenged.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.27.2.
 </para>
 <para lang="en">

@@ -2,7 +2,7 @@
 
 # (C) 2024 Web Server LLC
 
-# ACME protocol support tests
+# ACME hooks tests
 
 ###############################################################################
 
@@ -10,21 +10,20 @@ use warnings;
 use strict;
 
 use Test::More;
+use Socket qw/ CRLF /;
+use IO::Socket::SSL;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_content /;
-
-use POSIX 'strftime';
-use Socket qw/ CRLF /;
-use IO::Socket::SSL;
+use Test::Nginx;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'long test') unless $ENV{TEST_ANGIE_UNSAFE};
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
@@ -36,8 +35,6 @@ plan(skip_all => 'win32') if $^O eq 'MSWin32';
 my $acme_server_dir = $ENV{HOME} . '/go/bin';
 
 my $t = Test::Nginx->new()->has(qw/acme/);
-
-plan(skip_all => 'LibreSSL') if $t->has_module('LibreSSL');
 
 my $d = $t->testdir();
 
@@ -63,16 +60,102 @@ my $hook_port = port(9000);
 # "Address already in use" error).
 # While it is not entirely safe to use this port number, this shouldn't cause
 # problems in most cases.
-my $dns_port = 20053;
+my $dns_port = 10053;
 
-my $ssl_port = port(8443);
 my $http_port = port(5002);
 my $tls_port = port(5001);
 my $pebble_port = port(14000);
 my $pebble_mgmt_port = port(15000);
 my $challtestsrv_mgmt_port = port(8055);
 
-$t->write_file_expand('nginx.conf', <<"EOF");
+my (@clients, @servers);
+
+my @keys = (
+    { type => 'rsa', bits => 2048 },
+    { type => 'ecdsa', bits => 256 },
+);
+
+my @challenges = ('http-01', 'dns-01');
+
+my $domain_count = 1;
+
+# Each iteration creates 2 clients, one with the RSA key type, the other with
+# the ECDSA. Each subsequent iteration also assigns a different challenge type.
+for (1..6) {
+    my $n = $_;
+
+    my $chlg = $challenges[($n - 1) % @challenges];
+
+    my $srv = {
+        domains => [],
+        clients => [],
+    };
+
+    for (1..2) {
+        push(@{$srv->{domains}}, "angie-test${domain_count}.com");
+        $domain_count++;
+    }
+
+    if ($chlg eq 'dns-01') {
+        # The dns-01 validation method allows wildcard domain names.
+        push(@{$srv->{domains}}, "*.angie-test${domain_count}.com");
+        $domain_count++;
+    }
+
+    for my $key (@keys) {
+        my $cli = {
+            name => "test${n}_$key->{type}",
+            key_type => $key->{type},
+            key_bits => $key->{bits},
+            challenge => $chlg,
+            renewed => 0,
+            enddate => "n/a",
+        };
+
+        push(@clients, $cli);
+        push(@{$srv->{clients}}, $cli);
+    }
+
+    push(@servers, $srv);
+}
+
+my $conf_clients = "";
+my $conf_servers = "";
+my $conf_hooks = "";
+
+my $account_key = "";
+my $email = "";
+
+for my $e (@clients) {
+    $conf_clients .=  "    acme_client $e->{name} " .
+        "https://localhost:$pebble_port/dir challenge=$e->{challenge} " .
+        "key_type=$e->{key_type} key_bits=$e->{key_bits} $account_key $email;\n";
+
+    # for a change...
+    $email = ($email eq "" ) ? "email=admin\@angie-test.com" : "";
+    $account_key = "account_key=$d/acme_client/$clients[0]->{name}/account.key";
+
+    $conf_hooks .= "            acme_hook $e->{name};\n";
+}
+
+for my $e (@servers) {
+
+    $conf_servers .=
+"    server {
+#        listen       localhost:8080;  # XXX
+        server_name  @{$e->{domains}};
+
+";
+
+    for my $cli (@{$e->{clients}}) {
+        $conf_servers .= "        acme $cli->{name};\n";
+    }
+
+    $conf_servers .= "    }\n\n";
+}
+
+my $conf =
+"
 %%TEST_GLOBALS%%
 
 daemon off;
@@ -85,108 +168,84 @@ http {
 
     resolver localhost:$dns_port ipv6=off;
 
-    acme_client test https://localhost:14000/dir email=admin\@angie-test.com ;
-
     server {
-        listen               $ssl_port ssl;
-        server_name          angie-test900.com angie-test901.com angie-test902.com;
-
-        ssl_certificate      \$acme_cert_test;
-        ssl_certificate_key  \$acme_cert_key_test;
-
-        acme                 test;
+#        listen       localhost:8080;
 
         location / {
-            return           200 "SECURED";
+            internal;
+
+$conf_hooks
+            fastcgi_pass localhost:$hook_port;
+
+            fastcgi_param ACME_CLIENT           \$acme_hook_client;
+            fastcgi_param ACME_HOOK             \$acme_hook_name;
+            fastcgi_param ACME_CHALLENGE        \$acme_hook_challenge;
+            fastcgi_param ACME_DOMAIN           \$acme_hook_domain;
+            fastcgi_param ACME_TOKEN            \$acme_hook_token;
+            fastcgi_param ACME_KEYAUTH          \$acme_hook_keyauth;
+
+#            include fastcgi.conf;
         }
     }
 
-    server {
-        # XXX for http-01 validation with pebble.
-        # it will send a validating HTTP request to this
-        # port instead of 80; Angie will issue a warning though
-        listen               $http_port;
-
-        location / {
-            return           200 "HELLO";
-        }
-
-    }
-
+$conf_servers
+$conf_clients
 }
+";
 
-EOF
+$t->plan(scalar @clients);
 
-$t->plan(3);
+$t->write_file_expand('nginx.conf', $conf);
 
 challtestsrv_start($t);
 pebble_start($t);
+hook_handler_start($t);
 
 $t->run();
 
-my $cert_file = "$d/acme_client/test/certificate.pem";
+my $renewed_count = 0;
+my $loop_start = time();
 
-my $obtained = 0;
-my $obtained_enddate = '';
-my $renewed = 0;
-my $renewed_enddate = '';
+for (1 .. 20 * @clients) {
 
-# First, obtain the certificate.
+    for my $cli (@clients) {
+        if (!$cli->{renewed}) {
 
-for (1 .. 30) {
-    if (-e $cert_file && -s $cert_file) {
-        $obtained_enddate = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
+            my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-        if ($obtained_enddate ne "") {
-            chomp($obtained_enddate);
+            if (-e $cert_file && -s $cert_file) {
+                my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
-            my $s = strftime("%H:%M:%S GMT", gmtime());
-            print("$0: obtained certificate on $s; enddate: $obtained_enddate\n");
+                if ($s ne "") {
+                    chomp($s);
 
-            $obtained = 1;
-            last;
+                    $renewed_count++;
+                    print("$0: $cli->{name} renewed certificate ($renewed_count of " .
+                        @clients . ")\n");
+
+                    $cli->{renewed} = 1;
+                    $cli->{enddate} = $s;
+                }
+            }
         }
     }
 
-    sleep(1);
-}
+    last if $renewed_count == @clients;
 
-if (!$obtained) {
-    goto FAILED;
-}
-
-# Then try to use it.
-
-my $page = get_page("localhost:$ssl_port") // '';
-my $cert_used = $page eq "SECURED";
-
-# Finally, renew the certificate.
-
-for (1 .. 40) {
-    sleep(1);
-
-    $renewed_enddate = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
-
-    if ($renewed_enddate eq "") {
-        next;
-    }
-
-    chomp($renewed_enddate);
-
-    if ($renewed_enddate ne $obtained_enddate) {
-        my $s = strftime("%H:%M:%S GMT", gmtime());
-        print("$0: renewed certificate on $s; enddate: $renewed_enddate\n");
-
-        $renewed = 1;
+    if (!$renewed_count && time() - $loop_start > 20) {
+        # If none of the clients has renewed during this time,
+        # then there's probably no need to wait longer.
+        print("$0: Quitting on timeout ...\n");
         last;
     }
+
+    sleep(1);
 }
 
-FAILED:
-
-ok($obtained, "obtained certificate");
-ok($cert_used, "used certificate");
-ok($renewed, "renewed certificate");
+for my $cli (@clients) {
+    ok($cli->{renewed}, "$cli->{name} renewed certificate " .
+        "(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
+}
 
 ###############################################################################
 
@@ -272,7 +331,7 @@ EOF
         "authz": 3,
         "order": 5
     },
-    "certificateValidityPeriod": 10
+    "certificateValidityPeriod": 157766400
   }
 }
 EOF
@@ -301,7 +360,7 @@ sub challtestsrv_start {
         '-management', ":$challtestsrv_mgmt_port",
         '-defaultIPv6', "",
         '-dns01', ":$dns_port",
-        '-http01', "",
+        '-http01', ":$http_port",
         '-https01', "",
         '-doh', "",
         '-tlsalpn01', "",
@@ -309,6 +368,86 @@ sub challtestsrv_start {
 
     $t->waitforsocket("0.0.0.0:$challtestsrv_mgmt_port")
         or die("Couldn't start challtestsrv");
+}
+
+###############################################################################
+
+sub hook_handler_start {
+    my ($t) = @_;
+
+    $t->run_daemon(\&hook_handler);
+}
+
+###############################################################################
+
+sub hook_add {
+    my ($challenge, $hook, $domain, $token, $keyauth) = @_;
+
+    if ($challenge eq 'http-01') {
+        http_post('/add-http01',
+            body => "{\"token\":\"$token\",\"content\":\"$keyauth\"}");
+
+    } elsif ($challenge eq 'dns-01') {
+        my $name = "_acme-challenge.$domain.";
+
+        http_post('/set-txt',
+            body => "{\"host\":\"$name\",\"value\":\"$keyauth\"}");
+    } else {
+        die('Unknown challenge ' . $challenge);
+    }
+}
+
+sub hook_remove {
+    my ($challenge, $hook, $domain, $token, $keyauth) = @_;
+
+    if ($challenge eq 'http-01') {
+        http_post('/del-http01',  body => "{\"token\":\"$token\"}");
+
+    } elsif ($challenge eq 'dns-01') {
+        my $name = "_acme-challenge.$domain.";
+
+        http_post('/clear-txt', body => "{\"host\":\"$name\"}");
+
+    } else {
+        die('Unknown challenge ' . $challenge);
+    }
+}
+
+
+sub hook_handler {
+    my $socket = FCGI::OpenSocket(":$hook_port", 5);
+    my $req = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
+
+    while ($req->Accept() >= 0) {
+        my $client =    $ENV{ACME_CLIENT};
+        my $hook =      $ENV{ACME_HOOK};
+        my $challenge = $ENV{ACME_CHALLENGE};
+        my $domain =    $ENV{ACME_DOMAIN};
+        my $token =     $ENV{ACME_TOKEN};
+        my $keyauth =   $ENV{ACME_KEYAUTH};
+
+        my $status = '';
+
+        if ($hook eq 'add') {
+            hook_add($challenge, $hook, $domain, $token, $keyauth);
+
+        } elsif ($hook eq 'remove' || $hook eq 'error') {
+            hook_remove($challenge, $hook, $domain, $token, $keyauth);
+
+            $status = '500' if $hook eq 'error';
+
+        } else {
+            $status = '400';
+        }
+
+        print "Status: $status\r\n" if $status ne '';
+
+#        print "Content-Type: text/plain\r\n";
+        print "\r\n";
+
+    }
+
+    FCGI::CloseSocket($socket);
 }
 
 ###############################################################################
@@ -335,21 +474,24 @@ sub waitforsslsocket {
 
 ###############################################################################
 
-sub get_page {
-    my ($host) = @_;
+sub http_post {
+    my ($url, %extra) = @_;
+
+    my $peer = "127.0.0.1:$challtestsrv_mgmt_port";
 
     my $s = IO::Socket::INET->new(
         Proto => 'tcp',
-        PeerAddr => "$host",
+        PeerAddr => $peer,
     )
-    or die "Can't connect to $host: $!\n";
+    or die "Can't connect to $peer: $!\n";
 
-    my $r = http(<<EOF, socket => $s, SSL => 1);
-GET / HTTP/1.0
-Host: $host
+    $extra{socket} = $s;
 
-EOF
+    my $p = "POST $url HTTP/1.0" . CRLF .
+        "Host: localhost" . CRLF .
+        "Content-Length: ". length($extra{body}) . CRLF .
+        CRLF;
 
-    return http_content($r);
+    return http($p, %extra);
 }
 

@@ -1324,6 +1324,8 @@ ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
                                 NGX_FILE_OWNER_ACCESS);
 
         if (file->fd == NGX_INVALID_FILE) {
+            ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
+                          ngx_open_file_n " \"%s\" failed", file->name.data);
             return NGX_ERROR;
         }
     }
@@ -4840,6 +4842,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    ngx_memcpy(&amcf->log, cf->log, sizeof(ngx_log_t));
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
 
     return amcf;

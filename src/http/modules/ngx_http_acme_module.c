@@ -3621,7 +3621,9 @@ ngx_http_acme_dns_close(ngx_connection_t *c)
 static ssize_t
 ngx_http_acme_parse_dns_request(ngx_connection_t *c)
 {
+#if (NGX_DEBUG)
     const char *err = "";
+#endif
 
     ssize_t     len;
     u_char     *p, *end;
@@ -3635,7 +3637,9 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
     if (end - p <= 12 || ntohs(*(u_short*)&p[4]) != 1
         || ntohs(*(u_short*)&p[6]) != 0 || ntohs(*(u_short*)&p[8]) != 0)
     {
+#if (NGX_DEBUG)
         err = "malformed query";
+#endif
         goto failed;
     }
 
@@ -3643,14 +3647,18 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
 
     do {
         if ((*p & 0xc0) != 0) {
+#if (NGX_DEBUG)
             err = "compressed message (not supported)";
+#endif
             goto failed;
         }
 
         len = *p++;
 
         if (end - p <= len) {
+#if (NGX_DEBUG)
             err = "malformed query";
+#endif
             goto failed;
         }
 
@@ -3659,21 +3667,27 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
     } while (len);
 
     if (end - p < 4) {
+#if (NGX_DEBUG)
         err = "malformed query";
+#endif
         goto failed;
     }
 
     rc = NGX_DECLINED;
 
     if (ntohs(*(u_short*)p) != 16) {
+#if (NGX_DEBUG)
         err = "not a TXT record";
+#endif
         goto failed;
     }
 
     p += 2;
 
     if (ntohs(*(u_short*)p) != 1) {
+#if (NGX_DEBUG)
         err = "not an IN class";
+#endif
         goto failed;
     }
 
@@ -3683,8 +3697,10 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
 
 failed:
 
+#if (NGX_DEBUG)
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "acme status: DNS query error: %s", err);
+#endif
     return rc;
 }
 

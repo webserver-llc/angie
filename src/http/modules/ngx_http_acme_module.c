@@ -123,8 +123,9 @@ typedef enum {
 
 
 typedef enum {
-    NGX_AC_HTTP_01,
-    NGX_AC_DNS_01,
+    /* must be defined as bitmasks */
+    NGX_AC_HTTP_01 = 0x01,
+    NGX_AC_DNS_01  = 0x02,
 } ngx_acme_challenge_t;
 
 
@@ -189,6 +190,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_shm_zone_t             *shm_zone;
     /* event ident must be after 3 pointers as in ngx_connection_t */
     ngx_int_t                   dummy;
+    ngx_conf_t                 *cf;
     ngx_log_t                   log;
     ngx_http_log_ctx_t          log_ctx;
     ngx_array_t                 clients;
@@ -198,6 +200,9 @@ struct ngx_http_acme_main_conf_s {
     ngx_str_t                   path;
     ngx_str_t                   acme_server_var;
     ngx_uint_t                  handle_challenge;
+    ngx_uint_t                  handle_dns;
+    ngx_connection_handler_pt   default_dns_handler;
+    ngx_int_t                   dns_port;
 };
 
 
@@ -383,6 +388,13 @@ static int ngx_http_acme_server_error_type(ngx_http_acme_session_t *ses,
     const char *type);
 static void ngx_http_acme_timer_handler(ngx_event_t *ev);
 static ngx_int_t ngx_acme_http_challenge_handler(ngx_http_request_t *r);
+static void ngx_http_acme_dns_handler(ngx_connection_t *c);
+static void ngx_http_acme_dns_resend(ngx_event_t *wev);
+static ngx_int_t ngx_http_acme_parse_dns_request(ngx_connection_t *c,
+    size_t *quest_size);
+static ngx_buf_t *ngx_http_acme_create_dns_response(ngx_connection_t *c,
+    size_t quest_size);
+static ngx_buf_t *ngx_http_acme_create_dns_error_response(ngx_connection_t *c);
 static ngx_int_t ngx_http_acme_run(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_new_nonce(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses);
@@ -391,6 +403,9 @@ static ngx_int_t ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_authorize(ngx_http_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_get_shared_key_auth(ngx_http_request_t *r,
     ngx_str_t *token, ngx_str_t *key_auth);
+static ngx_int_t ngx_http_acme_get_shared_key_auth2(
+    ngx_http_acme_main_conf_t *amcf, ngx_pool_t *pool, ngx_str_t *token,
+    ngx_str_t *key_auth);
 static ngx_int_t ngx_http_acme_share_key_auth(ngx_http_acme_session_t *ses,
     ngx_str_t *key_auth, u_short token_len);
 static char *ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -399,6 +414,7 @@ static char *ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_http_acme_hook(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_acme_add_proxy_pass(ngx_conf_t *cf,
     ngx_http_acme_main_conf_t *amcf);
+static ngx_int_t ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf);
 static ngx_int_t ngx_http_acme_create_conf_ctx(ngx_conf_t *cf,
     ngx_http_acme_main_conf_t *amcf);
 static ngx_int_t ngx_http_acme_merge_conf_ctx(ngx_conf_t *cf,
@@ -469,6 +485,13 @@ static ngx_command_t  ngx_http_acme_commands[] = {
       ngx_http_acme_hook,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
+      NULL },
+
+    { ngx_string("acme_dns_port"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_acme_main_conf_t, dns_port),
       NULL },
 
       ngx_null_command
@@ -3474,14 +3497,22 @@ static ngx_int_t
 ngx_http_acme_get_shared_key_auth(ngx_http_request_t *r, ngx_str_t *token,
     ngx_str_t *key_auth)
 {
+
+    return ngx_http_acme_get_shared_key_auth2(
+                         ngx_http_get_module_main_conf(r, ngx_http_acme_module),
+                         r->pool, token, key_auth);
+}
+
+
+static ngx_int_t
+ngx_http_acme_get_shared_key_auth2(ngx_http_acme_main_conf_t *amcf,
+    ngx_pool_t *pool, ngx_str_t *token, ngx_str_t *key_auth)
+{
     u_char                      *p;
     ngx_int_t                    rc;
-    ngx_http_acme_main_conf_t   *amcf;
     ngx_http_acme_sh_keyauth_t  *sh;
 
     rc = NGX_DECLINED;
-
-    amcf = ngx_http_get_module_main_conf(r, ngx_http_acme_module);
 
     if (!amcf->handle_challenge) {
         return rc;
@@ -3491,10 +3522,12 @@ ngx_http_acme_get_shared_key_auth(ngx_http_request_t *r, ngx_str_t *token,
 
     ngx_rwlock_rlock(&sh->key_auth_lock);
 
-    if (token->len == sh->token_len
-        && ngx_memcmp(token->data, &sh->data_start, token->len) == 0)
+    if ((token == NULL && sh->key_auth_len != 0)
+        || (token != NULL
+            && token->len == sh->token_len
+            && ngx_memcmp(token->data, &sh->data_start, token->len) == 0))
     {
-        p = ngx_pnalloc(r->pool, sh->key_auth_len);
+        p = ngx_pnalloc(pool, sh->key_auth_len);
 
         if (p) {
             key_auth->len = sh->key_auth_len;
@@ -3510,6 +3543,261 @@ ngx_http_acme_get_shared_key_auth(ngx_http_request_t *r, ngx_str_t *token,
     ngx_rwlock_unlock(&sh->key_auth_lock);
 
     return rc;
+}
+
+
+static void
+ngx_http_acme_dns_handler(ngx_connection_t *c)
+{
+    size_t                      n;
+    ngx_int_t                   rc;
+    ngx_buf_t                  *b;
+    ngx_event_t                *wev;
+    ngx_http_acme_main_conf_t  *amcf;
+
+    c->read->handler = ngx_http_empty_handler;
+    c->write->handler = ngx_http_empty_handler;
+
+    n = 0;
+
+    rc = ngx_http_acme_parse_dns_request(c, &n);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "acme status: dns-01 challenge handler: %i", rc);
+
+    amcf = ngx_http_acme_get_main_conf();
+
+    if (rc == NGX_OK) {
+        b = ngx_http_acme_create_dns_response(c, n);
+
+    } else if (rc != NGX_ERROR && amcf->default_dns_handler == NULL) {
+        b = ngx_http_acme_create_dns_error_response(c);
+
+    } else {
+        if (amcf->default_dns_handler != NULL) {
+            amcf->default_dns_handler(c);
+            return;
+        }
+
+        b = NULL;
+    }
+
+    if (b != NULL) {
+        n = c->send(c, b->start, b->end - b->start);
+
+        if (n == (size_t) NGX_AGAIN) {
+            wev = c->write;
+
+            if (!wev->timer_set) {
+                c->buffer = b;
+                c->write->handler = ngx_http_acme_dns_resend;
+                ngx_add_timer(wev, 1000);
+            }
+
+            return;
+        }
+    }
+
+    ngx_close_connection(c);
+}
+
+
+static void
+ngx_http_acme_dns_resend(ngx_event_t *wev)
+{
+    size_t             n;
+    ngx_buf_t         *b;
+    ngx_connection_t  *c;
+
+    c = wev->data;
+    b = c->buffer;
+
+    n = c->send(c, b->start, b->end - b->start);
+
+    if (n == (size_t) NGX_AGAIN) {
+        wev = c->write;
+
+        if (!wev->timer_set) {
+            ngx_add_timer(wev, 1000);
+        }
+
+        return;
+    }
+
+    ngx_close_connection(c);
+}
+
+static ngx_int_t
+ngx_http_acme_parse_dns_request(ngx_connection_t *c, size_t *quest_size)
+{
+    const char *err = "";
+
+    size_t      len;
+    u_char     *p, *end;
+    ngx_int_t   rc;
+
+    p = c->buffer->start;
+    end = c->buffer->end;
+
+    rc = NGX_ERROR;
+
+    if (end - p <= 12 || ntohs(*(u_short*)&p[4]) != 1
+        || ntohs(*(u_short*)&p[6]) != 0 || ntohs(*(u_short*)&p[8]) != 0)
+    {
+        err = "malformed query";
+        goto failed;
+    }
+
+    p += 12;
+
+    do {
+        if (p >= end) {
+            err = "malformed query";
+            goto failed;
+        }
+        if ((*p & 0xc0) != 0) {
+            err = "compressed message (not supported)";
+            goto failed;
+        }
+        len = *p++;
+        p += len;
+
+    } while (len);
+
+    if (p + 4 > end) {
+        err = "malformed query";
+        goto failed;
+    }
+
+    rc = NGX_DECLINED;
+
+    if (ntohs(*(u_short*)p) != 16) {
+        err = "not a TXT record";
+        goto failed;
+    }
+
+    p += 2;
+
+    if (ntohs(*(u_short*)p) != 1) {
+        err = "not an IN class";
+        goto failed;
+    }
+
+    p += 2;
+
+    *quest_size = p - c->buffer->start;
+
+    return NGX_OK;
+
+failed:
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "acme status: DNS query error: %s", err);
+    return rc;
+}
+
+
+static ngx_buf_t *
+ngx_http_acme_create_dns_response(ngx_connection_t *c, size_t quest_size)
+{
+    size_t      size;
+    u_char     *p;
+    ngx_buf_t  *b;
+    ngx_str_t   key_auth;
+
+    if (ngx_http_acme_get_shared_key_auth2(ngx_http_acme_get_main_conf(),
+                                           c->pool, NULL, &key_auth)
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
+    size = c->buffer->end - c->buffer->start + key_auth.len + 13;
+
+    b = ngx_create_temp_buf(c->pool, size);
+    if (b == NULL) {
+        return NULL;
+    }
+
+    p = b->start;
+
+    ngx_memcpy(p, c->buffer->start, quest_size);
+
+    /* this message is a response */
+    p[2] |= 0x80;
+    /* RCODE = No error */
+    p[3] = 0;
+    /* ANCOUNT */
+    *(u_short*)&p[6] = htons(1);
+
+    p += quest_size;
+
+    /* pointer to label  */
+    *p++ = 0xc0;
+    *p++ = 0x0c;
+
+    /* TXT */
+    *(u_short*)p = htons(16);
+
+    p += 2;
+
+    /* IN */
+    *(u_short*)p = htons(1);
+
+    p += 2;
+
+    /* TTL */
+    *(uint32_t*)p = htonl(1);
+
+    p += 4;
+
+    /* RDLENGTH */
+    *(u_short*)p = htons(key_auth.len + 1);
+
+    p += 2;
+
+    /* character-string length */
+    *p++ = key_auth.len;
+
+    /* RDATA */
+    ngx_memcpy(p, key_auth.data, key_auth.len);
+
+    p += key_auth.len;
+
+    size = c->buffer->end - c->buffer->start - quest_size;
+
+    ngx_memcpy(p, c->buffer->end - size, size);
+
+    return b;
+}
+
+
+static ngx_buf_t *
+ngx_http_acme_create_dns_error_response(ngx_connection_t *c)
+{
+    size_t      size;
+    u_char     *p;
+    ngx_buf_t  *b;
+
+    /* We assume c->buffer contains a correct query. */
+
+    size = c->buffer->end - c->buffer->start;
+
+    b = ngx_create_temp_buf(c->pool, size);
+    if (b == NULL) {
+        return NULL;
+    }
+
+    p = b->start;
+
+    ngx_memcpy(p, c->buffer->start, size);
+
+    /* this message is a response */
+    p[2] |= 0x80;
+    /* RCODE = NOERROR (NODATA) */
+    p[3] = 0;
+
+    return b;
 }
 
 
@@ -3983,6 +4271,8 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
+    amcf->cf = cf;
+
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
     cscfp = cmcf->servers.elts;
 
@@ -4088,10 +4378,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         }
 
         if (cli->challenge == NGX_AC_DNS_01 && cli->hook_ctx == NULL) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "ACME client \"%V\" accepts dns-01 challenge "
-                               "but has no acme_hook defined", &cli->name);
-            return NGX_ERROR;
+            amcf->handle_dns = 1;
         }
 
         if (cli->server_url.addrs == NULL
@@ -4105,8 +4392,8 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             return NGX_ERROR;
         }
 
-        if (cli->challenge == NGX_AC_HTTP_01 && cli->hook_ctx == NULL) {
-            amcf->handle_challenge = 1;
+        if (cli->hook_ctx == NULL) {
+            amcf->handle_challenge |= cli->challenge;
         }
 
         cli->log = &amcf->log;
@@ -4206,7 +4493,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
 
-    if (amcf->handle_challenge) {
+    if (amcf->handle_challenge & NGX_AC_HTTP_01) {
         n = 0;
 
         if (cmcf->ports != NULL) {
@@ -4472,12 +4759,16 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         } else {
             if (cli->certificate_file.fd == NGX_INVALID_FILE) {
                 cli->certificate_file.fd = ngx_open_file(
-                                                   cli->certificate_file.name.data,
-                                                   NGX_FILE_RDWR,
-                                                   NGX_FILE_CREATE_OR_OPEN,
-                                                   NGX_FILE_DEFAULT_ACCESS);
+                                                cli->certificate_file.name.data,
+                                                NGX_FILE_RDWR,
+                                                NGX_FILE_CREATE_OR_OPEN,
+                                                NGX_FILE_DEFAULT_ACCESS);
 
                 if (cli->certificate_file.fd == NGX_INVALID_FILE) {
+                    ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
+                          ngx_open_file_n " \"%s\" failed",
+                          cli->certificate_file.name.data);
+
                     return NGX_ERROR;
                 }
             }
@@ -4505,6 +4796,9 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         p += ngx_align(sz, NGX_ALIGNMENT);
     }
 
+    if (amcf->handle_dns) {
+        return ngx_http_acme_add_listen(amcf);
+    }
 
     return NGX_OK;
 }
@@ -4921,6 +5215,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
 
     ngx_memcpy(&amcf->log, cf->log, sizeof(ngx_log_t));
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
+    amcf->dns_port = NGX_CONF_UNSET;
 
     return amcf;
 }
@@ -4940,6 +5235,7 @@ ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf)
     }
 
     ngx_conf_init_size_value(amcf->max_key_auth_size, 2 * 1024);
+    ngx_conf_init_value(amcf->dns_port, 53);
 
     return NGX_CONF_OK;
 }
@@ -5478,12 +5774,78 @@ ngx_http_acme_add_proxy_pass(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 
 
 static ngx_int_t
+ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf)
+{
+    ngx_uint_t           i;
+    ngx_cycle_t         *cycle;
+    ngx_listening_t     *ls;
+    struct sockaddr_in   sa;
+
+    if (amcf->dns_port < 0 || amcf->dns_port > 65535) {
+        ngx_conf_log_error(NGX_LOG_ERR, amcf->cf, 0,
+                           "invalid acme_dns_port value");
+        return NGX_ERROR;
+    }
+
+    cycle = amcf->cf->cycle;
+
+    ngx_memzero(&sa, sizeof(sa));
+
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(amcf->dns_port);
+    sa.sin_addr.s_addr = INADDR_ANY;
+
+    ls = cycle->listening.elts;
+    for (i = 0; i < cycle->listening.nelts; i++) {
+
+        if (ls[i].type == SOCK_DGRAM
+            && ngx_cmp_sockaddr(ls[i].sockaddr, ls[i].socklen,
+                               (struct sockaddr *) &sa, sizeof(sa), 1)
+            == NGX_OK)
+        {
+            amcf->default_dns_handler = ls[i].handler;
+            ls[i].handler = ngx_http_acme_dns_handler;
+
+            return NGX_OK;
+        }
+    }
+
+    if (amcf->dns_port <= 1024 && geteuid() != 0) {
+        ngx_conf_log_error(NGX_LOG_WARN, amcf->cf, 0,
+                           "this configuration requires super-user privileges "
+                           "to handle ACME dns-01 challenge");
+    }
+
+    ls = ngx_create_listening(amcf->cf, (struct sockaddr*) &sa, sizeof(sa));
+    if (ls == NULL) {
+        return NGX_ERROR;
+    }
+
+    ls->addr_ntop = 1;
+
+    ls->handler = ngx_http_acme_dns_handler;
+
+    ls->pool_size = 256;
+
+    ls->logp = &amcf->log;
+    ls->log.data = &ls->addr_text;
+    ls->log.handler = ngx_accept_log_error;
+    ls->type = SOCK_DGRAM;
+    ls->wildcard = 1;
+    ls->reuseport = 1;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_acme_merge_conf_ctx(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 {
-    char                 *rv;
-    ngx_uint_t            mi, m;
-    ngx_http_module_t    *module;
-    ngx_http_conf_ctx_t  *ctx;
+    char                      *rv;
+    ngx_uint_t                 mi, m;
+    ngx_http_module_t         *module;
+    ngx_http_conf_ctx_t       *ctx;
+    ngx_http_core_srv_conf_t  *cscf;
 
     rv = NGX_CONF_OK;
     ctx = amcf->ctx;
@@ -5518,6 +5880,8 @@ ngx_http_acme_merge_conf_ctx(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
     }
 
     if (rv == NGX_CONF_OK) {
+        cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
+        cscf->ctx = ctx;
         return NGX_OK;
     }
 
@@ -5685,6 +6049,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     cli->renew_before_expiry = NGX_CONF_UNSET;
     cli->retry_after_error = NGX_CONF_UNSET;
     cli->max_cert_size = NGX_CONF_UNSET_SIZE;
+    cli->challenge = NGX_CONF_UNSET_UINT;
     cli->account_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.type = NGX_KT_UNSUPPORTED;

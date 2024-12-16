@@ -5975,6 +5975,8 @@ static ngx_int_t
 ngx_http_v3_proxy_merge_quic(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
     ngx_http_proxy_loc_conf_t *prev)
 {
+    size_t  default_max_table_capacity;
+
     if ((conf->upstream.upstream || conf->proxy_lengths)
         && (conf->ssl == 0 || conf->upstream.ssl == NULL))
     {
@@ -6001,9 +6003,29 @@ ngx_http_v3_proxy_merge_quic(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
         conf->upstream.quic.alpn.len = sizeof(NGX_HTTP_V3_ALPN_PROTO) - 1;
     }
 
+#if (NGX_HTTP_CACHE)
+    if (conf->upstream.cache) {
+        default_max_table_capacity = 0;
+    } else
+#endif
+    {
+        default_max_table_capacity = NGX_HTTP_V3_MAX_TABLE_CAPACITY;
+    }
+
     ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_table_capacity,
                               prev->upstream.h3_settings.max_table_capacity,
-                              NGX_HTTP_V3_MAX_TABLE_CAPACITY);
+                              default_max_table_capacity);
+
+#if (NGX_HTTP_CACHE)
+        if (conf->upstream.cache
+            && conf->upstream.h3_settings.max_table_capacity)
+        {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "http3 cache does not work with dynamic table");
+
+            return NGX_ERROR;
+        }
+#endif
 
     ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_concurrent_streams,
                               prev->upstream.h3_settings.max_concurrent_streams,
@@ -7045,7 +7067,9 @@ ngx_http_v3_proxy_reinit_request(ngx_http_request_t *r)
     r->upstream->process_header = ngx_http_v3_proxy_process_status_line;
     r->upstream->pipe->input_filter = ngx_http_v3_proxy_copy_filter;
     r->upstream->input_filter = ngx_http_v3_proxy_non_buffered_copy_filter;
+
     r->state = 0;
+    ngx_memzero(ctx->v3_parse, sizeof(ngx_http_v3_parse_t));
 
     return NGX_OK;
 }
@@ -7064,6 +7088,8 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
     ngx_http_v3_parse_headers_t  *st;
 #if (NGX_HTTP_CACHE)
     ngx_connection_t              stub;
+    ngx_http_conf_ctx_t           conf_ctx;
+    ngx_http_connection_t         hc;
 #endif
 
     u = r->upstream;
@@ -7078,16 +7104,28 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
     }
 
 #if (NGX_HTTP_CACHE)
-    if (r->cache) {
-        /* no connection here */
-        h3c = NULL;
+    if (r->cache && c == NULL) {
+        /* QPACK table checks require session object */
+
+        ngx_memzero(&hc, sizeof(ngx_http_connection_t));
         ngx_memzero(&stub, sizeof(ngx_connection_t));
+
+        conf_ctx.main_conf = r->main_conf;
+        conf_ctx.srv_conf = r->srv_conf;
+        conf_ctx.loc_conf = r->loc_conf;
+
+        hc.conf_ctx = &conf_ctx;
+
         c = &stub;
 
-        /* while HTTP/3 parsing, only log and pool are used */
+        c->data = &hc;
         c->log = r->connection->log;
         c->pool = r->connection->pool;
-    } else
+
+        if (ngx_http_v3_init_session(c) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    }
 #endif
 
     h3c = ngx_http_v3_get_session(c);
@@ -7111,7 +7149,7 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
        rc = ngx_http_v3_parse_headers(c, st, b);
        if (rc > 0) {
 
-            if (h3c) {
+            if (h3c && c->quic) {
                 ngx_quic_reset_stream(c, rc);
             }
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,

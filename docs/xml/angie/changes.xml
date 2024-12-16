@@ -31,6 +31,17 @@ cause a worker process crash.
 
 <change type="bugfix">
 <para lang="ru">
+HTTP/3 апстримы использующие динамическую таблицу могли привести к падению
+рабочего процесса при использовании совместно с кешом.
+</para>
+<para lang="en">
+HTTP/3 upstreams using dynamic table could lead to worker process crash
+if used with cache.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 HTTP/3 клиенты могли отключиться по таймауту при использовании 0-RTT.
 Проблема появилась в версии 1.7.0.
 </para>

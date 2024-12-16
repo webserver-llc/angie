@@ -354,12 +354,10 @@ ngx_http_v3_parse_headers(ngx_connection_t *c, ngx_http_v3_parse_headers_t *st,
 
         case sw_verify:
 
-            if (c->quic != NULL) {
-                rc = ngx_http_v3_check_insert_count(c, st->prefix.insert_count);
-                if (rc != NGX_OK) {
-                    return rc;
-                }
-            } /* else: check skipped for cached response */
+            rc = ngx_http_v3_check_insert_count(c, st->prefix.insert_count);
+            if (rc != NGX_OK) {
+                return rc;
+            }
 
             st->state = sw_field_rep;
 
@@ -620,15 +618,13 @@ ngx_http_v3_parse_literal(ngx_connection_t *c, ngx_http_v3_parse_literal_t *st,
 
             n = st->length;
 
-            if (c->quic != NULL) {
-                cscf = ngx_http_v3_get_module_srv_conf(c, ngx_http_core_module);
+            cscf = ngx_http_v3_get_module_srv_conf(c, ngx_http_core_module);
 
-                if (n > cscf->large_client_header_buffers.size) {
-                    ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                                  "client sent too large field line");
-                    return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
-                }
-            } /* else: check skipped for cached response */
+            if (n > cscf->large_client_header_buffers.size) {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "client sent too large field line");
+                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+            }
 
             if (st->huffman) {
                 n = n * 8 / 5;

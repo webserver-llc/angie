@@ -96,6 +96,19 @@ Thanks to Maxim Dounin (freenginx).
 
 <change type="feature">
 <para lang="ru">
+совместимость HTTP-модуля сжатия GZip с версиями библиотеки zlib-ng 2.2.0 и
+выше, которые ранее могли приводить к появлению в логе ошибок вида "[alert] gzip
+filter failed to use preallocated memory".
+</para>
+<para lang="en">
+compatibility of GZip HTTP compression module with the zlib-ng versions 2.2.0
+or above, those previously could cause "[alert] gzip filter failed to use
+preallocated memory" messages in the error log.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка кросс-компиляции: система сборки теперь может использовать
 скрипт-обёртку для запуска автотестов.
 Это позволяет сконфигурировать angie без запуска тестовых программ

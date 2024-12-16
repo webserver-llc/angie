@@ -57,7 +57,6 @@ typedef struct {
     unsigned             done:1;
     unsigned             nomem:1;
     unsigned             buffering:1;
-    unsigned             zlib_ng:1;
     unsigned             state_allocated:1;
 
     size_t               zin;
@@ -345,7 +344,7 @@ ngx_http_gzip_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         }
     }
 
-    if (ctx->preallocated == NULL) {
+    if (ctx->last_out == NULL) {
         if (ngx_http_gzip_filter_deflate_start(r, ctx) != NGX_OK) {
             goto failed;
         }
@@ -455,10 +454,12 @@ failed:
 
     ctx->done = 1;
 
-    if (ctx->preallocated) {
+    if (ctx->last_out) {
         deflateEnd(&ctx->zstream);
 
-        ngx_pfree(r->pool, ctx->preallocated);
+        if (ctx->preallocated) {
+            ngx_pfree(r->pool, ctx->preallocated);
+        }
     }
 
     ngx_http_gzip_filter_free_copy_buf(r, ctx);
@@ -516,24 +517,6 @@ ngx_http_gzip_filter_memory(ngx_http_request_t *r, ngx_http_gzip_ctx_t *ctx)
     if (!ngx_http_gzip_assume_zlib_ng) {
         ctx->allocated = 8192 + 16 + (1 << (wbits + 2))
                          + (1 << (memlevel + 9)) + (1 << (memlevel + 6));
-
-    } else {
-        /*
-         * Another zlib variant, https://github.com/zlib-ng/zlib-ng.
-         * It used to force window bits to 13 for fast compression level,
-         * uses (64 + sizeof(void*)) additional space on all allocations
-         * for alignment, 16-byte padding in one of window-sized buffers,
-         * and 128K hash.
-         */
-
-        if (conf->level == 1) {
-            wbits = ngx_max(wbits, 13);
-        }
-
-        ctx->allocated = 8192 + 16 + (1 << (wbits + 2))
-                         + 131072 + (1 << (memlevel + 8))
-                         + 4 * (64 + sizeof(void*));
-        ctx->zlib_ng = 1;
     }
 }
 
@@ -615,12 +598,14 @@ ngx_http_gzip_filter_deflate_start(ngx_http_request_t *r,
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_gzip_filter_module);
 
-    ctx->preallocated = ngx_palloc(r->pool, ctx->allocated);
-    if (ctx->preallocated == NULL) {
-        return NGX_ERROR;
-    }
+    if (ctx->allocated) {
+        ctx->preallocated = ngx_palloc(r->pool, ctx->allocated);
+        if (ctx->preallocated == NULL) {
+            return NGX_ERROR;
+        }
 
-    ctx->free_mem = ctx->preallocated;
+        ctx->free_mem = ctx->preallocated;
+    }
 
     ctx->zstream.zalloc = ngx_http_gzip_filter_alloc;
     ctx->zstream.zfree = ngx_http_gzip_filter_free;
@@ -893,7 +878,9 @@ ngx_http_gzip_filter_deflate_end(ngx_http_request_t *r,
         return NGX_ERROR;
     }
 
-    ngx_pfree(r->pool, ctx->preallocated);
+    if (ctx->preallocated) {
+        ngx_pfree(r->pool, ctx->preallocated);
+    }
 
     cl = ngx_alloc_chain_link(r->pool);
     if (cl == NULL) {
@@ -932,6 +919,10 @@ ngx_http_gzip_filter_alloc(void *opaque, u_int items, u_int size)
     void        *p;
     ngx_uint_t   alloc;
 
+    if (ctx->preallocated == NULL) {
+        goto no_prealloc;
+    }
+
     alloc = items * size;
 
     if (items == 1 && alloc % 512 != 0 && alloc < 8192
@@ -959,14 +950,11 @@ ngx_http_gzip_filter_alloc(void *opaque, u_int items, u_int size)
         return p;
     }
 
-    if (ctx->zlib_ng) {
-        ngx_log_error(NGX_LOG_ALERT, ctx->request->connection->log, 0,
-                      "gzip filter failed to use preallocated memory: "
-                      "%ud of %ui", items * size, ctx->allocated);
+    ngx_log_error(NGX_LOG_ALERT, ctx->request->connection->log, 0,
+                  "gzip filter failed to use preallocated memory: "
+                  "%ud of %ui", items * size, ctx->allocated);
 
-    } else {
-        ngx_http_gzip_assume_zlib_ng = 1;
-    }
+no_prealloc:
 
     p = ngx_palloc(ctx->request->pool, items * size);
 
@@ -977,9 +965,13 @@ ngx_http_gzip_filter_alloc(void *opaque, u_int items, u_int size)
 static void
 ngx_http_gzip_filter_free(void *opaque, void *address)
 {
-#if 0
     ngx_http_gzip_ctx_t *ctx = opaque;
 
+    if (ctx->preallocated == NULL) {
+        ngx_pfree(ctx->request->pool, address);
+    }
+
+#if 0
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, ctx->request->connection->log, 0,
                    "gzip free: %p", address);
 #endif
@@ -1135,6 +1127,8 @@ ngx_http_gzip_filter_init(ngx_conf_t *cf)
 
     ngx_http_next_body_filter = ngx_http_top_body_filter;
     ngx_http_top_body_filter = ngx_http_gzip_body_filter;
+
+    ngx_http_gzip_assume_zlib_ng = (strstr(zlibVersion(), "zlib-ng") != NULL);
 
     return NGX_OK;
 }

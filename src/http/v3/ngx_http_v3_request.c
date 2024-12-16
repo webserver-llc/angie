@@ -157,11 +157,11 @@ ngx_http_v3_init(ngx_connection_t *c)
         }
     }
 
-    if (ngx_http_v3_send_settings(c) != NGX_OK) {
+    if (ngx_http_v3_send_settings(c, &h3scf->settings) != NGX_OK) {
         return NGX_ERROR;
     }
 
-    if (h3scf->max_table_capacity > 0) {
+    if (h3scf->settings.max_table_capacity > 0) {
         if (ngx_http_v3_get_uni_stream(c, NGX_HTTP_V3_STREAM_DECODER) == NULL) {
             return NGX_ERROR;
         }

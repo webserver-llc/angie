@@ -16,6 +16,9 @@
 #include <ngx_event_connect.h>
 #include <ngx_event_pipe.h>
 #include <ngx_http.h>
+#if (NGX_HTTP_V3)
+#include <ngx_http_v3.h>
+#endif
 
 
 #define NGX_HTTP_UPSTREAM_FT_ERROR           0x00000002
@@ -284,6 +287,7 @@ typedef struct {
 
 #if (NGX_HTTP_V3)
     ngx_quic_conf_t                  quic;
+    ngx_http_v3_settings_t           h3_settings;
 #endif
 
     NGX_COMPAT_BEGIN(2)

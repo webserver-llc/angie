@@ -127,12 +127,17 @@
                                  code, reason)
 
 
-typedef struct {
-    ngx_flag_t                    enable;
-    ngx_flag_t                    enable_hq;
+struct ngx_http_v3_settings_s {
     size_t                        max_table_capacity;
     ngx_uint_t                    max_blocked_streams;
     ngx_uint_t                    max_concurrent_streams;
+};
+
+
+typedef struct {
+    ngx_flag_t                    enable;
+    ngx_flag_t                    enable_hq;
+    ngx_http_v3_settings_t        settings;
     ngx_quic_conf_t               quic;
 } ngx_http_v3_srv_conf_t;
 

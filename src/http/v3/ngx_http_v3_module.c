@@ -43,7 +43,14 @@ static ngx_command_t  ngx_http_v3_commands[] = {
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_num_slot,
       NGX_HTTP_SRV_CONF_OFFSET,
-      offsetof(ngx_http_v3_srv_conf_t, max_concurrent_streams),
+      offsetof(ngx_http_v3_srv_conf_t, settings.max_concurrent_streams),
+      NULL },
+
+    { ngx_string("http3_max_table_capacity"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_v3_srv_conf_t, settings.max_table_capacity),
       NULL },
 
     { ngx_string("http3_stream_buffer_size"),
@@ -233,13 +240,13 @@ ngx_http_v3_create_srv_conf(ngx_conf_t *cf)
      *     h3scf->quic.stream_reject_code_uni = 0;
      *     h3scf->quic.disable_active_migration = 0;
      *     h3scf->quic.idle_timeout = 0;
-     *     h3scf->max_blocked_streams = 0;
+     *     h3scf->settings.max_blocked_streams = 0;
      */
 
     h3scf->enable = NGX_CONF_UNSET;
     h3scf->enable_hq = NGX_CONF_UNSET;
-    h3scf->max_table_capacity = NGX_HTTP_V3_MAX_TABLE_CAPACITY;
-    h3scf->max_concurrent_streams = NGX_CONF_UNSET_UINT;
+    h3scf->settings.max_table_capacity = NGX_CONF_UNSET;
+    h3scf->settings.max_concurrent_streams = NGX_CONF_UNSET_UINT;
 
     h3scf->quic.stream_buffer_size = NGX_CONF_UNSET_SIZE;
     h3scf->quic.max_concurrent_streams_bidi = NGX_CONF_UNSET_UINT;
@@ -270,16 +277,21 @@ ngx_http_v3_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->enable_hq, prev->enable_hq, 0);
 
-    ngx_conf_merge_uint_value(conf->max_concurrent_streams,
-                              prev->max_concurrent_streams, 128);
+    ngx_conf_merge_uint_value(conf->settings.max_table_capacity,
+                              prev->settings.max_table_capacity,
+                              NGX_HTTP_V3_MAX_TABLE_CAPACITY);
 
-    conf->max_blocked_streams = conf->max_concurrent_streams;
+    ngx_conf_merge_uint_value(conf->settings.max_concurrent_streams,
+                              prev->settings.max_concurrent_streams, 128);
+
+    conf->settings.max_blocked_streams = conf->settings.max_concurrent_streams;
 
     ngx_conf_merge_size_value(conf->quic.stream_buffer_size,
                               prev->quic.stream_buffer_size,
                               65536);
 
-    conf->quic.max_concurrent_streams_bidi = conf->max_concurrent_streams;
+    conf->quic.max_concurrent_streams_bidi =
+                                         conf->settings.max_concurrent_streams;
 
     ngx_conf_merge_value(conf->quic.retry, prev->quic.retry, 0);
     ngx_conf_merge_value(conf->quic.gso_enabled, prev->quic.gso_enabled, 0);

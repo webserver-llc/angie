@@ -7617,7 +7617,8 @@ ngx_http_v3_upstream_connected(ngx_http_request_t *r, ngx_http_upstream_t *u,
     }
 
     if (!u->hq) {
-        if (ngx_http_v3_send_settings(c) != NGX_OK) {
+        if (ngx_http_v3_send_settings(c, &u->conf->h3_settings) != NGX_OK) {
+
             /* example error: qc->closing is set */
             return NGX_ERROR;
         }

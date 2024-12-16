@@ -7320,7 +7320,13 @@ ngx_http_v3_upstream_init_connection(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "http3 upstream init connection on c:%p", c);
 
-    c->sockaddr = u->peer.sockaddr;
+    c->sockaddr = ngx_palloc(c->pool, u->peer.socklen);
+    if (c->sockaddr == NULL) {
+       return NGX_ERROR;
+    }
+
+    ngx_memcpy(c->sockaddr, u->peer.sockaddr, u->peer.socklen);
+
     c->socklen = u->peer.socklen;
 
     c->addr_text.data = ngx_pnalloc(c->pool, u->peer.name->len);

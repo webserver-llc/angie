@@ -9,6 +9,17 @@
 
 <change type="bugfix">
 <para lang="ru">
+проксирование по HTTP/3 с использованием переменных в имени апстрима могло
+приводить к падению рабочего процесса.
+</para>
+<para lang="en">
+proxying with HTTP/3 using variables in upstream name could
+cause a worker process crash.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 HTTP/3 клиенты могли отключиться по таймауту при использовании 0-RTT.
 Проблема появилась в версии 1.7.0.
 </para>

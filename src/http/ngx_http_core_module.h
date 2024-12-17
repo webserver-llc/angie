@@ -63,13 +63,8 @@ typedef struct ngx_thread_pool_s  ngx_thread_pool_t;
 
 #define NGX_HTTP_STATS_ZONE_KEY_SIZE    256
 
-#define NGX_HTTP_STATS_ZONE_NODE_SIZE                                         \
-    ngx_align(offsetof(ngx_http_stats_zone_node_t, data)                      \
-              + NGX_HTTP_STATS_ZONE_KEY_SIZE, NGX_ALIGNMENT)
-
 #define NGX_HTTP_STATS_ZONE_SIZE                                              \
-    ngx_align(offsetof(ngx_rbtree_node_t, color)                              \
-              + NGX_HTTP_STATS_ZONE_NODE_SIZE, NGX_ALIGNMENT)
+    (offsetof(ngx_rbtree_node_t, color) + sizeof(ngx_http_stats_zone_node_t))
 
 
 typedef struct ngx_http_location_tree_node_s  ngx_http_location_tree_node_t;
@@ -207,7 +202,7 @@ struct ngx_http_stats_zone_node_s {
 #if (NGX_HTTP_SSL)
     ngx_uint_t                      ssl;  /* unsigned ssl:1 */
 #endif
-    u_char                          data[1];
+    u_char                          data[NGX_HTTP_STATS_ZONE_KEY_SIZE];
 };
 
 

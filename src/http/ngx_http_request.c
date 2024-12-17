@@ -4615,7 +4615,7 @@ ngx_http_get_stats_zone(ngx_http_request_t *r,
         }
 
         node = (ngx_rbtree_node_t *) ((u_char *) zone->sh->last_node
-                   + NGX_HTTP_STATS_ZONE_NODE_SIZE);
+                   + sizeof(ngx_http_stats_zone_node_t));
 
         node->key = hash;
 

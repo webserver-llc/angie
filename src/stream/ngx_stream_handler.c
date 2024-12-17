@@ -854,7 +854,7 @@ ngx_stream_get_server_stats(ngx_stream_session_t *s,
         }
 
         node = (ngx_rbtree_node_t *) ((u_char *) zone->sh->last_node
-                   + NGX_STREAM_STATS_ZONE_NODE_SIZE);
+                   + sizeof(ngx_stream_stats_zone_node_t));
 
         node->key = hash;
 

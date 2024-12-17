@@ -715,7 +715,7 @@ ngx_http_acme_log_domains(ngx_acme_client_t *cli)
 
     *p = 0;
 
-    ngx_log_error(NGX_LOG_NOTICE, cli->log, 0, "%s", buf);
+    ngx_log_error(NGX_LOG_INFO, cli->log, 0, "%s", buf);
 }
 
 
@@ -1075,7 +1075,7 @@ ngx_http_acme_bn_encode(ngx_http_acme_session_t *ses, ngx_str_t * dst,
 
     } else if (padded_len < n) {
         /* can't happen? */
-        ngx_log_error(NGX_LOG_EMERG, ses->log, 0, "padded length too small");
+        ngx_log_error(NGX_LOG_ALERT, ses->log, 0, "padded length too small");
         goto failed;
 
     } else if (padded_len > n) {
@@ -1357,7 +1357,7 @@ ngx_http_acme_file_load(ngx_log_t *log, ngx_file_t *file, u_char *buf,
     n = ngx_read_file(file, buf, size, 0);
 
     if ((size_t) n != size) {
-        ngx_log_error(NGX_LOG_EMERG, file->log, 0,
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
                       ngx_read_file_n " \"%s\" returned only %z bytes instead "
                       "of %uz", file->name.data, n, size);
         return NGX_ERROR;
@@ -2789,7 +2789,7 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
                 } else {
                     DBG_STATUS((ses->client, "new ACME account created"));
                     ses->kid = ses->location;
-                    ngx_log_error(NGX_LOG_INFO, ses->log, 0,
+                    ngx_log_error(NGX_LOG_NOTICE, ses->log, 0,
                                   "ACME account ID: \"%V\"", &ses->kid);
                     rc = NGX_OK;
                 }

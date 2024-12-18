@@ -7,60 +7,119 @@
 
 <changes ver="1.8.0" date="">
 
-<change type="bugfix">
+<change type="change">
 <para lang="ru">
-проксирование по HTTP/3 с использованием переменных в имени апстрима могло
-приводить к падению рабочего процесса.
+при плавном завершении старых рабочих процессов keepalive-соединения теперь
+закрываются только после истечения таймаута, заданного директивой
+"lingering_timeout"; такое поведение позволяет предотвратить возможные ошибки
+на клиенте при получении ответа в этот момент.<br/>
+Спасибо Максиму Дунину (freenginx).
 </para>
 <para lang="en">
-proxying with HTTP/3 using variables in upstream name could
-cause a worker process crash.
+when gracefully shutting down old worker processes, keep-alive connections are
+now closed only after the timeout specified by the "lingering_timeout" directive
+has expired; this behaviour allows to avoid possible client errors when
+receiving replies at that moment.<br/>
+Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
-<change type="bugfix">
+<change type="change">
 <para lang="ru">
-HTTP/3 апстримы использующие динамическую таблицу могли привести к падению
-рабочего процесса при использовании совместно с кешом.
+отключено кэширование значений переменных stream-модуля "$ssl_server_name",
+"$ssl_server_cert_type", "$ssl_preread_protocol" и "$ssl_preread_server_name",
+что позволит получить актуальные значения при использовании виртуальных
+серверов.
 </para>
 <para lang="en">
-HTTP/3 upstreams using dynamic table could lead to worker process crash
-if used with cache.
+disabled caching of the "stream" module variables "$ssl_server_name",
+"$ssl_server_cert_type", "$ssl_preread_protocol", and
+"$ssl_preread_server_name", which allows to get actual values when using
+virtual servers.
 </para>
 </change>
 
-<change type="bugfix">
+<change type="feature">
 <para lang="ru">
-HTTP/3 клиенты могли отключиться по таймауту при использовании 0-RTT.
-Проблема появилась в версии 1.7.0.
+поддержка валидации "DNS-01" посредством ответа на DNS-запрос от ACME-сервера,
+что позволяет автоматически запрашивать сертификаты любых типов, в том числе
+wildcard.
 </para>
 <para lang="en">
-HTTP/3 clients could timeout when using 0-RTT.
-The problem appeared in version 1.7.0.
+support of "DNS-01" challenges by handling DNS queries from the ACME server,
+which allows to automatically request certificates of any types, including
+wildcard ones.
 </para>
 </change>
 
-<change type="bugfix">
+<change type="feature">
 <para lang="ru">
-проксирование по протоколу HTTP/3 игнорировало клиентские сертификаты
-указанные в директиве proxy_client_certificate
-при сборке с библиотекой TLS TongSuo и включённой поддержкой NTLS.
+система внешних вызовов в модуле ACME, настраиваемая с помощью директивы
+"acme_hook", которая позволяет обеспечить валидацию доменных имен посредством
+внешнего обработчика для интеграции с различными сервисами и провайдерами
+DNS-хостинга.
 </para>
 <para lang="en">
-proxying using HTTP/3 protocol ignored client certificates
-specified in the proxy_client_certificate directive
-when building with TongSuo TLS library and enabled NTLS support.
+hooks system in the ACME module, configurable using the "acme_hook" directive,
+which allows handling of domain name challenges using an external application
+to provide integration with various services and DNS hosting providers.
 </para>
 </change>
 
-<change type="bugfix">
+<change type="feature">
 <para lang="ru">
-некоторые SSL-рукопожатия могли не учитываться при запросе статистики для
-модуля 'stream'.
+ACME-модуль выводит в лог дополнительную информацию: точная причина обновления
+сертификата, полный список доменов, идентификатор аккаунта пользователя,
+длительные периоды неактивности (например, во время опросов), какой домен
+выполняет валидацию; такая информация позволяет легче диагностировать проблемы
+на этапе перевыпуска сертификатов, а также прописывать DNS-запись CAA.
 </para>
 <para lang="en">
-some SSL handshakes could be missed when requesting statistics for the
-'stream' module.
+the ACME module logs some additional information: why exactly
+the certificate is being renewed, full domain name list, client's
+account ID, long periods of inactivity (e.g. pollings), and the domain
+name being challenged; this information simplifies troubleshooting and
+allows to specify the CAA DNS record.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+параметр "account_key" в директиве "acme_client", позволяющий переиспользовать
+существующий ключ аккаунта ACME-сервера, а не генерировать новый автоматически.
+</para>
+<para lang="en">
+the "account_key" parameter of the "acme_client" directive, which allows to
+reuse an existing key for the ACME server account instead of auto-generating
+a new one.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка переменных в директиве "status_zone" в модулях HTTP и stream позволяет
+динамически распределять статистику по нескольким зонам в рамках одного блока
+"location" или "server"; это, в частности, пригодится для случая, когда один
+блок "server" обрабатывает несколько виртуальных хостов.
+</para>
+<para lang="en">
+support for variables in the "status_zone" directives in the stream and HTTP
+modules allows to dynamically account statistics within several zones in a
+single "location" or "server" block; in particular, it's especially useful
+when a single "server" block is handling multiple virtual hosts.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+совместимость HTTP-модуля сжатия GZip с версиями библиотеки zlib-ng 2.2.0 и
+выше, которые ранее могли приводить к появлению в логе ошибок вида "[alert]
+gzip filter failed to use preallocated memory".
+</para>
+<para lang="en">
+GZip HTTP compression module compatibility with the zlib-ng versions 2.2.0
+and above, which could previously cause "[alert] gzip filter failed to use
+preallocated memory" messages in the error log.
 </para>
 </change>
 
@@ -77,132 +136,27 @@ Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
 </para>
 </change>
 
-<change type="change">
+<change type="feature">
 <para lang="ru">
-запрещено кэширование для переменных "$ssl_server_name",
-"$ssl_server_cert_type", "$ssl_preread_protocol" и "$ssl_preread_server_name"
-модуля "stream".
+директивы "http3_max_table_capacity" и "proxy_http3_max_table_capacity" для
+настройки ограничения на размер динамической таблицы сжатия заголовка в HTTP/3.
 </para>
 <para lang="en">
-disabled caching for the variables "$ssl_server_name", "$ssl_server_cert_type",
-"$ssl_preread_protocol", and "$ssl_preread_server_name" in the "stream" module.
+the "http3_max_table_capacity" and "proxy_http3_max_table_capacity" directives
+to configure the HTTP/3 dynamic header compression table limits.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-поддержка переменных в директивах "status_zone" в модулях stream и HTTP.
-</para>
-support for variables in the "status_zone" directives in the stream and HTTP
-modules.
-<para lang="en">
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-при плавном завершении старых рабочих процессов keepalive-соединения теперь
-закрываются только после истечения таймаута, заданного директивой
-"lingering_timeout", что позволяет предотвратить возможные ошибки на клиенте
-при получении ответа в этот момент.<br/>
-Спасибо Максиму Дунину (freenginx).
+поддержка кросс-компиляции - система сборки теперь может использовать
+скрипт-обертку для запуска автотестов, что позволяет подготовить сборку
+без запуска тестовых программ непосредственно на целевой платформе.
 </para>
 <para lang="en">
-when gracefully shutting down old worker processes, keep-alive connections are
-now closed only after the timeout specified by the "lingering_timeout" directive
-has expired, which allows to avoid possible client errors when receiving replies
-at that moment.<br/>
-Thanks to Maxim Dounin (freenginx).
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-совместимость HTTP-модуля сжатия GZip с версиями библиотеки zlib-ng 2.2.0 и
-выше, которые ранее могли приводить к появлению в логе ошибок вида "[alert] gzip
-filter failed to use preallocated memory".
-</para>
-<para lang="en">
-compatibility of GZip HTTP compression module with the zlib-ng versions 2.2.0
-or above, those previously could cause "[alert] gzip filter failed to use
-preallocated memory" messages in the error log.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка кросс-компиляции: система сборки теперь может использовать
-скрипт-обёртку для запуска автотестов.
-Это позволяет сконфигурировать angie без запуска тестовых программ
-на сборочной машине.
-</para>
-<para lang="en">
-cross-compilation support: build system now allows to specify a wrapper
-script used to run autotests.
-This makes it possible to configure angie without executing test
-binaries on build host.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-система хуков в модуле ACME.
-Она позволяет получать wildcard-сертификаты с помощью http-01
-и dns-01-валидации, используя внешнее приложение.
-</para>
-<para lang="en">
-hook system in the ACME module.
-This allows wildcard certificates to be obtained through
-http-01 or dns-01 validation using an external application.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-параметр account_key в директиве acme_client, позволяющий
-использовать существующий ключ аккаунта ACME-сервера,
-а не генерировать его автоматически.
-</para>
-<para lang="en">
-account_key parameter for the acme_client directive allowing
-to use an existing key for the ACME server account.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-некоторые ошибки, возникшие в модуле ACME при запуске, могли привести
-к завершению без сообщения об ошибке.
-</para>
-<para lang="en">
-certain errors occurring in the ACME module during startup caused Angie
-to quit without an error message.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-ACME-модуль выводит в лог дополнительную информацию: точная причина
-обновления сертификата, полный список доменов, account ID пользователя,
-длительные периоды неактивности (например, во время опросов), и какой
-домен выполняет валидацию.
-</para>
-<para lang="en">
-the ACME module logs some additional information: why exactly
-the certificate is being renewed, full domain name list, client's
-account ID, long periods of inactivity (e.g. pollings) and domain
-names being challenged.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-автоматическая обработка dns-01-валидации посредством перехвата
-DNS-запросов от ACME-сервера.
-</para>
-<para lang="en">
-automatic handling of dns-01 challenges by intercepting DNS queries
-from the ACME server.
+cross-compilation support - the build system can now use a wrapper script to
+run autotests, which enables to prepare a build without running test programs
+directly on the target platform.
 </para>
 </change>
 
@@ -215,24 +169,67 @@ all functionality of nginx 1.27.3.
 </para>
 </change>
 
-<change type="feature">
+<change type="bugfix">
 <para lang="ru">
-директивы "http3_max_table_capacity" и "proxy_http3_max_table_capacity",
-ограничивающие размер динамической таблицы в HTTP/3.
+HTTP/3-клиенты могли отключаться по таймауту при использовании 0-RTT;
+проблема была унаследована из nginx в версии 1.7.0.
 </para>
 <para lang="en">
-the "http3_max_table_capacity" and "proxy_http3_max_table_capacity" directives
-that limit the size of HTTP/3 dynamic table.
+HTTP/3 clients could time out when using 0-RTT;
+the bug was inherited from nginx in version 1.7.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-настройки HTTP/3-проксирования указанные в блоках main или server могли
+проксирование по HTTP/3 с использованием переменных в директиве "proxy_pass"
+и без указания блока "upstream" могло приводить к падению рабочего процесса.
+</para>
+<para lang="en">
+proxying with HTTP/3 using variables in the "proxy_pass" directive and without
+specifying an "upstream" block could crash the worker process.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+кэширование HTTP/3-ответов при использовании динамической таблицы сжатия
+заголовка могло привести к падению рабочего процесса.
+</para>
+<para lang="en">
+HTTP/3 upstreams using dynamic table could lead to worker process crash
+if used with cache.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+некоторые SSL-рукопожатия могли не учитываться в счетчиках статистики для
+stream-модуля.
+</para>
+<para lang="en">
+some SSL handshakes could be not counted in statistics for the "stream" module.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+настройки HTTP/3-проксирования указанные на уровне "http" или "server" могли
 игнорироваться.
 </para>
 <para lang="en">
-HTTP/3-proxy settings specified in main or server block might be ignored.
+HTTP/3 proxy settings specified in "http" or "server" level might be ignored.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по протоколу HTTP/3 c включенной поддержкой NTLS директива
+"proxy_client_certificate" не работала.
+</para>
+<para lang="en">
+the "proxy_client_certificate" directive didn't work when proxying via HTTP/3
+with NTLS support enabled.
 </para>
 </change>
 

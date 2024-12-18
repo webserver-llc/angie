@@ -1,4 +1,81 @@
 
+Changes with Angie 1.8.0                                         19 Dec 2024
+
+    *) Change: when gracefully shutting down old worker processes,
+       keep-alive connections are now closed only after the timeout
+       specified by the "lingering_timeout" directive has expired; this
+       behaviour allows to avoid possible client errors when receiving
+       replies at that moment.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Change: disabled caching of the "stream" module variables
+       "$ssl_server_name", "$ssl_server_cert_type", "$ssl_preread_protocol",
+       and "$ssl_preread_server_name", which allows to get actual values
+       when using virtual servers.
+
+    *) Feature: support of "DNS-01" challenges by handling DNS queries from
+       the ACME server, which allows to automatically request certificates
+       of any types, including wildcard ones.
+
+    *) Feature: hooks system in the ACME module, configurable using the
+       "acme_hook" directive, which allows handling of domain name
+       challenges using an external application to provide integration with
+       various services and DNS hosting providers.
+
+    *) Feature: the ACME module logs some additional information: why
+       exactly the certificate is being renewed, full domain name list,
+       client's account ID, long periods of inactivity (e.g. pollings), and
+       the domain name being challenged; this information simplifies
+       troubleshooting and allows to specify the CAA DNS record.
+
+    *) Feature: the "account_key" parameter of the "acme_client" directive,
+       which allows to reuse an existing key for the ACME server account
+       instead of auto-generating a new one.
+
+    *) Feature: support for variables in the "status_zone" directives in the
+       stream and HTTP modules allows to dynamically account statistics
+       within several zones in a single "location" or "server" block; in
+       particular, it's especially useful when a single "server" block is
+       handling multiple virtual hosts.
+
+    *) Feature: GZip HTTP compression module compatibility with the zlib-ng
+       versions 2.2.0 and above, which could previously cause "[alert] gzip
+       filter failed to use preallocated memory" messages in the error log.
+
+    *) Feature: the "max_headers" directive that limits the number of HTTP
+       request header fields to better protect against DoS attacks.
+       Thanks to Maxim Dounin (freenginx) and Maksim Yevmenkin.
+
+    *) Feature: the "http3_max_table_capacity" and
+       "proxy_http3_max_table_capacity" directives to configure the HTTP/3
+       dynamic header compression table limits.
+
+    *) Feature: cross-compilation support - the build system can now use a
+       wrapper script to run autotests, which enables to prepare a build
+       without running test programs directly on the target platform.
+
+    *) Feature: all functionality of nginx 1.27.3.
+
+    *) Bugfix: HTTP/3 clients could time out when using 0-RTT; the bug was
+       inherited from nginx in version 1.7.0.
+
+    *) Bugfix: proxying with HTTP/3 using variables in the "proxy_pass"
+       directive and without specifying an "upstream" block could crash the
+       worker process.
+
+    *) Bugfix: HTTP/3 upstreams using dynamic table could lead to worker
+       process crash if used with cache.
+
+    *) Bugfix: some SSL handshakes could be not counted in statistics for
+       the "stream" module.
+
+    *) Bugfix: HTTP/3 proxy settings specified in "http" or "server" level
+       might be ignored.
+
+    *) Bugfix: the "proxy_client_certificate" directive didn't work when
+       proxying via HTTP/3 with NTLS support enabled.
+
+
 Changes with Angie 1.7.0                                         19 Sep 2024
 
     *) Change: updated descriptions of HTTP status codes in conformance with

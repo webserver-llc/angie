@@ -940,6 +940,7 @@ ngx_stream_ssl_create_srv_conf(ngx_conf_t *cf)
     sscf->reject_handshake = NGX_CONF_UNSET;
     sscf->verify = NGX_CONF_UNSET_UINT;
     sscf->verify_depth = NGX_CONF_UNSET_UINT;
+    sscf->no_check_time = NGX_CONF_UNSET;
     sscf->builtin_session_cache = NGX_CONF_UNSET;
     sscf->session_timeout = NGX_CONF_UNSET;
     sscf->session_tickets = NGX_CONF_UNSET;
@@ -1124,7 +1125,8 @@ ngx_stream_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     if (ngx_ssl_trusted_certificate(cf, &conf->ssl,
                                     &conf->trusted_certificate,
-                                    conf->verify_depth)
+                                    conf->verify_depth,
+                                    conf->no_check_time)
         != NGX_OK)
     {
         return NGX_CONF_ERROR;

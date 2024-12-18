@@ -136,6 +136,7 @@ typedef struct {
     ngx_str_t                      host;
     ngx_uint_t                     host_set;
     ngx_flag_t                     enable_hq;
+    ngx_uint_t                     max_table_capacity_set;
 #endif
 } ngx_http_proxy_loc_conf_t;
 
@@ -3888,6 +3889,7 @@ ngx_http_proxy_create_loc_conf(ngx_conf_t *cf)
      *
      *     conf->host = { 0, NULL };
      *     conf->host_set = 0;
+     *     conf->max_table_capacity_set = 0;
      *
      *     conf->upstream.quic.host_key = { 0, NULL }
      *     conf->upstream.quic.stream_reject_code_uni = 0;
@@ -4454,6 +4456,59 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     }
 
 #if (NGX_HTTP_V3)
+
+    ngx_conf_merge_value(conf->enable_hq, prev->enable_hq, 0);
+
+    if (conf->enable_hq) {
+        conf->upstream.quic.alpn.data = (unsigned char *)
+                                        NGX_HTTP_V3_HQ_ALPN_PROTO;
+
+        conf->upstream.quic.alpn.len = sizeof(NGX_HTTP_V3_HQ_ALPN_PROTO) - 1;
+
+    } else {
+        conf->upstream.quic.alpn.data = (unsigned char *)
+                                        NGX_HTTP_V3_ALPN_PROTO;
+
+        conf->upstream.quic.alpn.len = sizeof(NGX_HTTP_V3_ALPN_PROTO) - 1;
+    }
+
+    if (conf->upstream.h3_settings.max_table_capacity != NGX_CONF_UNSET_UINT) {
+        /* really set in user config */
+        conf->max_table_capacity_set = 1;
+    }
+
+    ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_table_capacity,
+                              prev->upstream.h3_settings.max_table_capacity,
+                              NGX_HTTP_V3_MAX_TABLE_CAPACITY);
+
+    ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_concurrent_streams,
+                              prev->upstream.h3_settings.max_concurrent_streams,
+                              128);
+
+    conf->upstream.h3_settings.max_blocked_streams =
+                             conf->upstream.h3_settings.max_concurrent_streams;
+
+    ngx_conf_merge_size_value(conf->upstream.quic.stream_buffer_size,
+                              prev->upstream.quic.stream_buffer_size,
+                              65536);
+
+    conf->upstream.quic.max_concurrent_streams_bidi =
+                             conf->upstream.h3_settings.max_concurrent_streams;
+
+    ngx_conf_merge_value(conf->upstream.quic.gso_enabled,
+                         prev->upstream.quic.gso_enabled,
+                         0);
+
+    ngx_conf_merge_uint_value(conf->upstream.quic.active_connection_id_limit,
+                              prev->upstream.quic.active_connection_id_limit,
+                              2);
+
+    conf->upstream.quic.idle_timeout = conf->upstream.read_timeout;
+    conf->upstream.quic.handshake_timeout = conf->upstream.connect_timeout;
+
+    ngx_conf_merge_str_value(conf->upstream.quic.host_key,
+                             prev->upstream.quic.host_key, "");
+
 
     if (conf->http_version == NGX_HTTP_VERSION_30) {
         if (ngx_http_v3_proxy_merge_quic(cf, conf, prev) != NGX_OK) {
@@ -5975,8 +6030,6 @@ static ngx_int_t
 ngx_http_v3_proxy_merge_quic(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
     ngx_http_proxy_loc_conf_t *prev)
 {
-    size_t  default_max_table_capacity;
-
     if ((conf->upstream.upstream || conf->proxy_lengths)
         && (conf->ssl == 0 || conf->upstream.ssl == NULL))
     {
@@ -5988,69 +6041,6 @@ ngx_http_v3_proxy_merge_quic(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
         return NGX_ERROR;
     }
 
-    ngx_conf_merge_value(conf->enable_hq, prev->enable_hq, 0);
-
-    if (conf->enable_hq) {
-        conf->upstream.quic.alpn.data = (unsigned char *)
-                                        NGX_HTTP_V3_HQ_ALPN_PROTO;
-
-        conf->upstream.quic.alpn.len = sizeof(NGX_HTTP_V3_HQ_ALPN_PROTO) - 1;
-
-    } else {
-        conf->upstream.quic.alpn.data = (unsigned char *)
-                                        NGX_HTTP_V3_ALPN_PROTO;
-
-        conf->upstream.quic.alpn.len = sizeof(NGX_HTTP_V3_ALPN_PROTO) - 1;
-    }
-
-#if (NGX_HTTP_CACHE)
-    if (conf->upstream.cache) {
-        default_max_table_capacity = 0;
-    } else
-#endif
-    {
-        default_max_table_capacity = NGX_HTTP_V3_MAX_TABLE_CAPACITY;
-    }
-
-    ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_table_capacity,
-                              prev->upstream.h3_settings.max_table_capacity,
-                              default_max_table_capacity);
-
-#if (NGX_HTTP_CACHE)
-        if (conf->upstream.cache
-            && conf->upstream.h3_settings.max_table_capacity)
-        {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "http3 cache does not work with dynamic table");
-
-            return NGX_ERROR;
-        }
-#endif
-
-    ngx_conf_merge_uint_value(conf->upstream.h3_settings.max_concurrent_streams,
-                              prev->upstream.h3_settings.max_concurrent_streams,
-                              128);
-
-    conf->upstream.h3_settings.max_blocked_streams =
-                             conf->upstream.h3_settings.max_concurrent_streams;
-
-    ngx_conf_merge_size_value(conf->upstream.quic.stream_buffer_size,
-                              prev->upstream.quic.stream_buffer_size,
-                              65536);
-
-    conf->upstream.quic.max_concurrent_streams_bidi =
-                             conf->upstream.h3_settings.max_concurrent_streams;
-
-    ngx_conf_merge_value(conf->upstream.quic.gso_enabled,
-                         prev->upstream.quic.gso_enabled,
-                         0);
-
-    ngx_conf_merge_uint_value(conf->upstream.quic.active_connection_id_limit,
-                              prev->upstream.quic.active_connection_id_limit,
-                              2);
-
-    conf->upstream.quic.idle_timeout = conf->upstream.read_timeout;
-    conf->upstream.quic.handshake_timeout = conf->upstream.connect_timeout;
 
     if (conf->upstream.quic.host_key.len == 0) {
 
@@ -6091,6 +6081,25 @@ ngx_http_v3_proxy_merge_quic(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
     }
 
     conf->upstream.quic.ssl = conf->upstream.ssl;
+
+#if (NGX_HTTP_CACHE)
+
+        if (conf->upstream.cache
+            && conf->upstream.h3_settings.max_table_capacity)
+        {
+            if (conf->max_table_capacity_set) {
+
+                /* the setting is present in config file, refuse to accept it */
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "http3 cache does not work with dynamic table");
+
+                return NGX_ERROR;
+            }
+
+            /* the value is from defaults, disable dynamic table */
+            conf->upstream.h3_settings.max_table_capacity = 0;
+        }
+#endif
 
     return NGX_OK;
 }

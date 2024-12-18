@@ -5,17 +5,6 @@
 <change_log title="Angie">
 
 
-<change type="feature">
-<para lang="ru">
-директивы "http3_max_table_capacity" и "proxy_http3_max_table_capacity",
-ограничивающие размер динамической таблицы в HTTP/3.
-</para>
-<para lang="en">
-the "http3_max_table_capacity" and "proxy_http3_max_table_capacity" directives
-that limit the size of HTTP/3 dynamic table.
-</para>
-</change>
-
 <changes ver="1.8.0" date="">
 
 <change type="bugfix">
@@ -223,6 +212,27 @@ from the ACME server.
 </para>
 <para lang="en">
 all functionality of nginx 1.27.3.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+директивы "http3_max_table_capacity" и "proxy_http3_max_table_capacity",
+ограничивающие размер динамической таблицы в HTTP/3.
+</para>
+<para lang="en">
+the "http3_max_table_capacity" and "proxy_http3_max_table_capacity" directives
+that limit the size of HTTP/3 dynamic table.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+настройки HTTP/3-проксирования указанные в блоках main или server могли
+игнорироваться.
+</para>
+<para lang="en">
+HTTP/3-proxy settings specified in main or server block might be ignored.
 </para>
 </change>
 

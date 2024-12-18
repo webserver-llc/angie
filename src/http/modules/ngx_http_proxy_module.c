@@ -5859,7 +5859,8 @@ skip:
 
         if (ngx_ssl_trusted_certificate(cf, plcf->upstream.ssl,
                                         &plcf->ssl_trusted_certificate,
-                                        plcf->ssl_verify_depth)
+                                        plcf->ssl_verify_depth,
+                                        plcf->no_check_time)
             != NGX_OK)
         {
             return NGX_ERROR;

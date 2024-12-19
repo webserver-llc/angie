@@ -922,7 +922,7 @@ ngx_ssl_client_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
 
 ngx_int_t
 ngx_ssl_trusted_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
-    ngx_int_t depth)
+    ngx_int_t depth, ngx_uint_t no_check_time)
 {
     int              i, n;
     char            *err;
@@ -930,6 +930,10 @@ ngx_ssl_trusted_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
     X509_STORE      *store;
     STACK_OF(X509)  *chain;
 
+    if (no_check_time) {
+        X509_VERIFY_PARAM *vpm = SSL_CTX_get0_param(ssl->ctx);
+        X509_VERIFY_PARAM_set_flags(vpm, X509_V_FLAG_NO_CHECK_TIME);
+    }
     SSL_CTX_set_verify(ssl->ctx, SSL_CTX_get_verify_mode(ssl->ctx),
                        ngx_ssl_verify_callback);
 

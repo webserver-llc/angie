@@ -6,53 +6,60 @@
 
 
 <changes ver="1.8.1" date="">
-<change type="bugfix">
-<para lang="ru">
-убрано логирование пустых HTTP-запросов при наличии директивы "status_zone" в
-блоках "server" с ssl.
-</para>
-<para lang="en">
-removed empty HTTP request logging in the "status_zone" directive in the
-"server" blocks with ssl.
-</para>
-</changes>
 
 <change type="bugfix">
 <para lang="ru">
-в модуле ACME ошибка вычисления размера разделяемой памяти, если для
-ACME-клиента задана DNS-валидация и не использовались хуки, могла
-привести к падению.
+использование директивы "status_zone" в блоке "server" HTTP-модуля
+приводило к избыточному логированию пустых запросов в "access_log" во
+время TLS-согласований;
+проблема появилась в 1.8.0.
 </para>
 <para lang="en">
-in the ACME module, an error in the calculation of shared memory size
-when an ACME client was configured with challenge=dns and no hooks
-could cause a segmentation fault.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-отправка пакетов с согласованием версии протокола QUIC могла привести
-к бесконечному циклу обмена пакетами
-</para>
-<para lang="en">
-sending QUIC protocol version negotiation packets could cause an
-infinite packet exchange loop
+using the "status_zone" directive in the "server" block of the HTTP module
+caused excessive logging of empty requests in "access_log" on TLS handshakes;
+the bug had appeared in 1.8.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
 ошибки декодирования потока HTTP/3 могли приводить к падению рабочего процесса
-при закрытии QUIC-соединения
+при закрытии QUIC-соединения;
+исправление портировано из nginx 1.27.4.
 </para>
 <para lang="en">
-decoding errors in HTTP/3 stream could cause worker process crash when
-closing QUIC connection
+decoding errors in HTTP/3 stream could cause worker process crash when closing
+QUIC connection;
+the fix was ported from nginx 1.27.4.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+отправка пакетов с согласованием версии протокола QUIC могла привести к
+бесконечному циклу обмена пакетами;
+исправление портировано из nginx 1.27.4.
+</para>
+<para lang="en">
+sending QUIC protocol version negotiation packets could cause an infinite
+packet exchange loop;
+the fix was ported from nginx 1.27.4.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+использование DNS-валидации без хуков в ACME-модуле на некоторых конфигурациях
+могло привести к падению рабочего процесса.
+</para>
+<para lang="en">
+using DNS-challenge without hooks in the ACME module could cause a worker
+process crash in some configurations.
 </para>
 </change>
 
 </changes>
+
 
 <changes ver="1.8.0" date="2024-12-19">
 
@@ -221,11 +228,11 @@ all functionality of nginx 1.27.3.
 <change type="bugfix">
 <para lang="ru">
 HTTP/3-клиенты могли отключаться по таймауту при использовании 0-RTT;
-проблема была унаследована из nginx в версии 1.7.0.
+исправление портировано из nginx 1.27.4.
 </para>
 <para lang="en">
 HTTP/3 clients could time out when using 0-RTT;
-the bug was inherited from nginx in version 1.7.0.
+the fix was ported from nginx 1.27.4.
 </para>
 </change>
 
@@ -1141,7 +1148,7 @@ all functionality of nginx 1.25.2.
 сборка завершалась ошибкой при использовании опций ./configure
 "--without-http_upstream_zone_module"
 или "--without-stream_upstream_zone_module";
-ошибка появилась в 1.2.0.
+проблема появилась в 1.2.0.
 </para>
 <para lang="en">
 compilation failed when ./configure options

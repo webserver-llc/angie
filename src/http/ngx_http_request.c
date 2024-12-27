@@ -1024,6 +1024,7 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
 #endif
 #if (NGX_API)
     ngx_http_request_t        *r;
+    ngx_http_stats_zone_t     *stats_zone;
     ngx_http_server_stats_t   *stats;
     ngx_http_core_srv_conf_t  *cscf;
 #endif
@@ -1038,31 +1039,37 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
     if (cscf->status_zone != NULL) {
-        r = ngx_http_alloc_request(c);
+        stats = NULL;
+        stats_zone = cscf->status_zone->zone;
 
-        if (r != NULL) {
-            r->logged = 1;
+        if (stats_zone->count == 1) {
+            stats = &stats_zone->sh->first_node->stats.server;
 
-            stats = ngx_http_get_server_stats(r, cscf->status_zone);
+        } else {
+            r = ngx_http_alloc_request(c);
+            if (r != NULL) {
+                r->logged = 1;
 
-            ngx_http_free_request(r, 0);
+                stats = ngx_http_get_server_stats(r, cscf->status_zone);
 
-            c->log->action = "SSL handshaking";
-            c->destroyed = 0;
+                ngx_http_free_request(r, 0);
 
-            if (stats != NULL) {
-                hc->server_stats = stats;
+                c->log->action = "SSL handshaking";
+                c->destroyed = 0;
+            }
+        }
 
-                if (c->ssl->handshaked) {
-                    ngx_http_add_ssl_handshake_stats(c->ssl->connection,
-                                                     stats, 1);
+        if (stats != NULL) {
+            hc->server_stats = stats;
 
-                } else if (c->read->timedout) {
-                    (void) ngx_atomic_fetch_add(&stats->ssl_timedout, 1);
+            if (c->ssl->handshaked) {
+                ngx_http_add_ssl_handshake_stats(c->ssl->connection, stats, 1);
 
-                } else {
-                    (void) ngx_atomic_fetch_add(&stats->ssl_failed, 1);
-                }
+            } else if (c->read->timedout) {
+                (void) ngx_atomic_fetch_add(&stats->ssl_timedout, 1);
+
+            } else {
+                (void) ngx_atomic_fetch_add(&stats->ssl_failed, 1);
             }
         }
     }

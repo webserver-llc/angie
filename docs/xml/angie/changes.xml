@@ -20,8 +20,18 @@ could cause a segmentation fault.
 </para>
 </change>
 
-</changes>
+<change type="bugfix">
+<para lang="ru">
+отправка пакетов с согласованием версии протокола QUIC могла привести
+к бесконечному циклу обмена пакетами
+</para>
+<para lang="en">
+sending QUIC protocol version negotiation packets could cause an
+infinite packet exchange loop
+</para>
+</change>
 
+</changes>
 
 <changes ver="1.8.0" date="2024-12-19">
 

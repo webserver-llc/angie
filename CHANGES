@@ -1,4 +1,22 @@
 
+Changes with Angie 1.8.1                                         28 Dec 2024
+
+    *) Bugfix: using the "status_zone" directive in the "server" block of
+       the HTTP module caused excessive logging of empty requests in
+       "access_log" on TLS handshakes; the bug had appeared in 1.8.0.
+
+    *) Bugfix: decoding errors in HTTP/3 stream could cause worker process
+       crash when closing QUIC connection; the fix was ported from nginx
+       1.27.4.
+
+    *) Bugfix: sending QUIC protocol version negotiation packets could cause
+       an infinite packet exchange loop; the fix was ported from nginx
+       1.27.4.
+
+    *) Bugfix: using DNS-challenge without hooks in the ACME module could
+       cause a worker process crash in some configurations.
+
+
 Changes with Angie 1.8.0                                         19 Dec 2024
 
     *) Change: when gracefully shutting down old worker processes,
@@ -56,8 +74,8 @@ Changes with Angie 1.8.0                                         19 Dec 2024
 
     *) Feature: all functionality of nginx 1.27.3.
 
-    *) Bugfix: HTTP/3 clients could time out when using 0-RTT; the bug was
-       inherited from nginx in version 1.7.0.
+    *) Bugfix: HTTP/3 clients could time out when using 0-RTT; the fix was
+       ported from nginx 1.27.4.
 
     *) Bugfix: proxying with HTTP/3 using variables in the "proxy_pass"
        directive and without specifying an "upstream" block could crash the

@@ -274,12 +274,6 @@ struct ngx_http_acme_sh_cert_s {
 };
 
 
-struct ngx_http_acme_sh_key_s {
-    u_short                     len;
-    u_char                      data_start[1];
-};
-
-
 static u_char *ngx_http_acme_log_error(ngx_log_t *log, u_char *buf, size_t len);
 #if (NGX_DEBUG)
 static void ngx_log_acme_debug_core(ngx_log_t *log, const char *prefix,
@@ -4489,32 +4483,36 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         shm_size += ngx_align(sz, NGX_ALIGNMENT);
     }
 
-    if (amcf->handle_challenge & ((ngx_uint_t) 1 << NGX_AC_HTTP_01)) {
-        n = 0;
+    if (amcf->handle_challenge) {
 
-        if (cmcf->ports != NULL) {
-            port = cmcf->ports->elts;
-            for (i = 0; i < cmcf->ports->nelts; i++) {
+        if (amcf->handle_challenge & ((ngx_uint_t) 1 << NGX_AC_HTTP_01)) {
+            n = 0;
 
-                if (port[i].port == 80) {
-                    n = 1;
-                    break;
+            if (cmcf->ports != NULL) {
+                port = cmcf->ports->elts;
+                for (i = 0; i < cmcf->ports->nelts; i++) {
+
+                    if (port[i].port == 80) {
+                        n = 1;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!n) {
-            ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+            if (!n) {
+                ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                                "this configuration requires a server listening "
                                "on port 80 for ACME HTTP challenge");
-        }
+            }
 
-        h = ngx_array_push(&cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
-        if (h == NULL) {
-            return NGX_ERROR;
-        }
+            h = ngx_array_push(
+                              &cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
+            if (h == NULL) {
+                return NGX_ERROR;
+            }
 
-        *h = ngx_acme_http_challenge_handler;
+            *h = ngx_acme_http_challenge_handler;
+        }
 
         sz = sizeof(ngx_http_acme_sh_keyauth_t) + amcf->max_key_auth_size;
 

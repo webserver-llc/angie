@@ -7,6 +7,19 @@
 
 <changes ver="1.8.1" date="">
 
+<change type="bugfix">
+<para lang="ru">
+в модуле ACME ошибка вычисления размера разделяемой памяти, если для
+ACME-клиента задана DNS-валидация и не использовались хуки, могла
+привести к падению.
+</para>
+<para lang="en">
+in the ACME module, an error in the calculation of shared memory size
+when an ACME client was configured with challenge=dns and no hooks
+could cause a segmentation fault.
+</para>
+</change>
+
 </changes>
 
 

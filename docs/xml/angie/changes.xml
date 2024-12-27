@@ -31,6 +31,17 @@ infinite packet exchange loop
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+ошибки декодирования потока HTTP/3 могли приводить к падению рабочего процесса
+при закрытии QUIC-соединения
+</para>
+<para lang="en">
+decoding errors in HTTP/3 stream could cause worker process crash when
+closing QUIC connection
+</para>
+</change>
+
 </changes>
 
 <changes ver="1.8.0" date="2024-12-19">

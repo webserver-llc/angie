@@ -1041,9 +1041,14 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
         r = ngx_http_alloc_request(c);
 
         if (r != NULL) {
+            r->logged = 1;
+
             stats = ngx_http_get_server_stats(r, cscf->status_zone);
 
             ngx_http_free_request(r, 0);
+
+            c->log->action = "SSL handshaking";
+            c->destroyed = 0;
 
             if (stats != NULL) {
                 hc->server_stats = stats;

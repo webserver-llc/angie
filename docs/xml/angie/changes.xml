@@ -6,6 +6,16 @@
 
 
 <changes ver="1.8.1" date="">
+<change type="bugfix">
+<para lang="ru">
+убрано логирование пустых HTTP-запросов при наличии директивы "status_zone" в
+блоках "server" с ssl.
+</para>
+<para lang="en">
+removed empty HTTP request logging in the "status_zone" directive in the
+"server" blocks with ssl.
+</para>
+</changes>
 
 <change type="bugfix">
 <para lang="ru">

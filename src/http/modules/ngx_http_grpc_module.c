@@ -5011,7 +5011,8 @@ ngx_http_grpc_set_ssl(ngx_conf_t *cf, ngx_http_grpc_loc_conf_t *glcf)
 
         if (ngx_ssl_trusted_certificate(cf, glcf->upstream.ssl,
                                         &glcf->ssl_trusted_certificate,
-                                        glcf->ssl_verify_depth)
+                                        glcf->ssl_verify_depth,
+                                        glcf->no_check_time)
             != NGX_OK)
         {
             return NGX_ERROR;

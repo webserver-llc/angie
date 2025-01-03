@@ -42,6 +42,7 @@ static ngx_int_t ngx_quic_detect_lost(ngx_connection_t *c,
     ngx_quic_ack_stat_t *st);
 static ngx_msec_t ngx_quic_pcg_duration(ngx_connection_t *c);
 static void ngx_quic_persistent_congestion(ngx_connection_t *c);
+static ngx_msec_t ngx_quic_oldest_sent_packet(ngx_connection_t *c);
 static void ngx_quic_congestion_lost(ngx_connection_t *c,
     ngx_quic_frame_t *frame);
 static ngx_int_t ngx_quic_ping_peer(ngx_connection_t *c,
@@ -350,6 +351,14 @@ ngx_quic_congestion_ack(ngx_connection_t *c, ngx_quic_frame_t *f)
 
     cg->in_flight -= f->plen;
 
+    /* prevent recovery_start from wrapping */
+
+    timer = now - cg->recovery_start;
+
+    if ((ngx_msec_int_t) timer < 0) {
+        cg->recovery_start = ngx_quic_oldest_sent_packet(c) - 1;
+    }
+
     timer = f->send_time - cg->recovery_start;
 
     if ((ngx_msec_int_t) timer <= 0) {
@@ -375,14 +384,6 @@ ngx_quic_congestion_ack(ngx_connection_t *c, ngx_quic_frame_t *f)
                        now, cg->window, cg->in_flight);
     }
 
-    /* prevent recovery_start from wrapping */
-
-    timer = cg->recovery_start - now + qc->tp.max_idle_timeout * 2;
-
-    if ((ngx_msec_int_t) timer < 0) {
-        cg->recovery_start = now - qc->tp.max_idle_timeout * 2;
-    }
-
 done:
 
     if (blocked && cg->in_flight < cg->window) {
@@ -400,7 +401,7 @@ ngx_quic_congestion_reset(ngx_quic_connection_t *qc)
                                     ngx_max(2 * NGX_QUIC_MIN_INITIAL_SIZE,
                                             14720));
     qc->congestion.ssthresh = (size_t) -1;
-    qc->congestion.recovery_start = ngx_current_msec;
+    qc->congestion.recovery_start = ngx_current_msec -1;
 }
 
 
@@ -571,19 +572,48 @@ ngx_quic_pcg_duration(ngx_connection_t *c)
 static void
 ngx_quic_persistent_congestion(ngx_connection_t *c)
 {
-    ngx_msec_t              now;
     ngx_quic_congestion_t  *cg;
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
     cg = &qc->congestion;
-    now = ngx_current_msec;
 
-    cg->recovery_start = now;
+    cg->recovery_start = ngx_quic_oldest_sent_packet(c) - 1;
     cg->window = qc->path->mtu * 2;
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "quic congestion persistent t:%M win:%uz", now, cg->window);
+                   "quic congestion persistent t:%M win:%uz",
+                   ngx_current_msec, cg->window);
+}
+
+
+static ngx_msec_t
+ngx_quic_oldest_sent_packet(ngx_connection_t *c)
+{
+    ngx_msec_t              oldest;
+    ngx_uint_t              i;
+    ngx_queue_t            *q;
+    ngx_quic_frame_t       *start;
+    ngx_quic_send_ctx_t    *ctx;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+    oldest = ngx_current_msec;
+
+    for (i = 0; i < NGX_QUIC_SEND_CTX_LAST; i++) {
+        ctx = &qc->send_ctx[i];
+
+        if (!ngx_queue_empty(&ctx->sent)) {
+            q = ngx_queue_head(&ctx->sent);
+            start = ngx_queue_data(q, ngx_quic_frame_t, queue);
+
+            if ((ngx_msec_int_t) (start->send_time - oldest) < 0) {
+                oldest = start->send_time;
+            }
+        }
+    }
+
+    return oldest;
 }
 
 

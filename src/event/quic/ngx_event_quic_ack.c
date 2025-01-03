@@ -368,7 +368,7 @@ ngx_quic_congestion_ack(ngx_connection_t *c, ngx_quic_frame_t *f)
                        now, cg->window, cg->ssthresh, cg->in_flight);
 
     } else {
-        cg->window += qc->tp.max_udp_payload_size * f->plen / cg->window;
+        cg->window += (uint64_t) qc->path->mtu * f->plen / cg->window;
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0,
                        "quic congestion ack reno t:%M win:%uz if:%uz",
@@ -396,8 +396,8 @@ ngx_quic_congestion_reset(ngx_quic_connection_t *qc)
 {
     ngx_memzero(&qc->congestion, sizeof(ngx_quic_congestion_t));
 
-    qc->congestion.window = ngx_min(10 * qc->tp.max_udp_payload_size,
-                                    ngx_max(2 * qc->tp.max_udp_payload_size,
+    qc->congestion.window = ngx_min(10 * NGX_QUIC_MIN_INITIAL_SIZE,
+                                    ngx_max(2 * NGX_QUIC_MIN_INITIAL_SIZE,
                                             14720));
     qc->congestion.ssthresh = (size_t) -1;
     qc->congestion.recovery_start = ngx_current_msec;
@@ -580,7 +580,7 @@ ngx_quic_persistent_congestion(ngx_connection_t *c)
     now = ngx_current_msec;
 
     cg->recovery_start = now;
-    cg->window = qc->tp.max_udp_payload_size * 2;
+    cg->window = qc->path->mtu * 2;
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic congestion persistent t:%M win:%uz", now, cg->window);
@@ -726,8 +726,8 @@ ngx_quic_congestion_lost(ngx_connection_t *c, ngx_quic_frame_t *f)
     cg->recovery_start = now;
     cg->window /= 2;
 
-    if (cg->window < qc->tp.max_udp_payload_size * 2) {
-        cg->window = qc->tp.max_udp_payload_size * 2;
+    if (cg->window < qc->path->mtu * 2) {
+        cg->window = qc->path->mtu * 2;
     }
 
     cg->ssthresh = cg->window;

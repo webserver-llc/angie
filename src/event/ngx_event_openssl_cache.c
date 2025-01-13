@@ -297,6 +297,7 @@ ngx_ssl_cache_connection_fetch(ngx_ssl_cache_t *cache, ngx_pool_t *pool,
     void                  *value;
     time_t                 now;
     uint32_t               hash;
+    ngx_file_info_t        fi;
     ngx_ssl_cache_key_t    id;
     ngx_ssl_cache_type_t  *type;
     ngx_ssl_cache_node_t  *cn;
@@ -326,7 +327,33 @@ ngx_ssl_cache_connection_fetch(ngx_ssl_cache_t *cache, ngx_pool_t *pool,
             goto found;
         }
 
-        if (now - cn->created > cache->valid) {
+        if (now - cn->created <= cache->valid) {
+            goto found;
+        }
+
+        switch (id.type) {
+
+        case NGX_SSL_CACHE_PATH:
+
+            if (ngx_file_info(id.data, &fi) != NGX_FILE_ERROR) {
+
+                if (ngx_file_uniq(&fi) == cn->uniq
+                    && ngx_file_mtime(&fi) == cn->mtime)
+                {
+                    break;
+                }
+
+                cn->mtime = ngx_file_mtime(&fi);
+                cn->uniq = ngx_file_uniq(&fi);
+
+            } else {
+                cn->mtime = 0;
+                cn->uniq = 0;
+            }
+
+            /* fall through */
+
+        default:
             ngx_log_debug1(NGX_LOG_DEBUG_CORE, pool->log, 0,
                            "update cached ssl object: %s", cn->id.data);
 
@@ -345,8 +372,9 @@ ngx_ssl_cache_connection_fetch(ngx_ssl_cache_t *cache, ngx_pool_t *pool,
             }
 
             cn->value = value;
-            cn->created = now;
         }
+
+        cn->created = now;
 
         goto found;
     }
@@ -372,6 +400,18 @@ ngx_ssl_cache_connection_fetch(ngx_ssl_cache_t *cache, ngx_pool_t *pool,
     cn->created = now;
 
     ngx_cpystrn(cn->id.data, id.data, id.len + 1);
+
+    if (id.type == NGX_SSL_CACHE_PATH) {
+
+        if (ngx_file_info(id.data, &fi) != NGX_FILE_ERROR) {
+            cn->mtime = ngx_file_mtime(&fi);
+            cn->uniq = ngx_file_uniq(&fi);
+
+        } else {
+            cn->mtime = 0;
+            cn->uniq = 0;
+        }
+    }
 
     ngx_ssl_cache_expire(cache, 1, pool->log);
 

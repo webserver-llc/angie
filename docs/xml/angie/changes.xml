@@ -281,10 +281,10 @@ HTTP/3 proxy settings specified in "http" or "server" level might be ignored.
 <change type="bugfix">
 <para lang="ru">
 при проксировании по протоколу HTTP/3 c включенной поддержкой NTLS директива
-"proxy_client_certificate" не работала.
+"proxy_ssl_certificate" не работала.
 </para>
 <para lang="en">
-the "proxy_client_certificate" directive didn't work when proxying via HTTP/3
+the "proxy_ssl_certificate" directive didn't work when proxying via HTTP/3
 with NTLS support enabled.
 </para>
 </change>

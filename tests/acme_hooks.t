@@ -9,9 +9,9 @@
 use warnings;
 use strict;
 
-use Test::More;
-use Socket qw/ CRLF /;
 use IO::Socket::SSL;
+use Socket qw/ CRLF /;
+use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -23,16 +23,16 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'long test') unless $ENV{TEST_ANGIE_UNSAFE};
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 # This script requires pebble and pebble-challtestsrv (see
 # https://github.com/letsencrypt/pebble). If you build them from source,
 # assume they live in the directory below. Otherwise we expect them to be
 # installed system-wide.
-my $acme_server_dir = $ENV{HOME} . '/go/bin';
+my $acme_server_dir = defined $ENV{PEBBLE_PATH}
+	? $ENV{PEBBLE_PATH}
+	: $ENV{HOME} . '/go/bin';
 
 my $t = Test::Nginx->new()->has(qw/acme/);
 
@@ -42,13 +42,13 @@ my $pebble = "$acme_server_dir/pebble";
 my $challtestsrv = "$acme_server_dir/pebble-challtestsrv";
 
 if (!-f $pebble) {
-    $pebble = 'pebble';
-    $t->has_daemon($pebble);
+	$pebble = 'pebble';
+	$t->has_daemon($pebble);
 }
 
 if (!-f $challtestsrv) {
-    $challtestsrv = 'pebble-challtestsrv';
-    $t->has_daemon($challtestsrv);
+	$challtestsrv = 'pebble-challtestsrv';
+	$t->has_daemon($challtestsrv);
 }
 
 my $hook_port = port(9000);
@@ -71,8 +71,8 @@ my $challtestsrv_mgmt_port = port(8055);
 my (@clients, @servers);
 
 my @keys = (
-    { type => 'rsa', bits => 2048 },
-    { type => 'ecdsa', bits => 256 },
+	{ type => 'rsa', bits => 2048 },
+	{ type => 'ecdsa', bits => 256 },
 );
 
 my @challenges = ('http', 'dns');
@@ -81,77 +81,78 @@ my $domain_count = 1;
 
 # Each iteration creates 2 clients, one with the RSA key type, the other with
 # the ECDSA. Each subsequent iteration also assigns a different challenge type.
-for (1..6) {
-    my $n = $_;
+for (1 .. 6) {
+	my $n = $_;
 
-    my $chlg = $challenges[($n - 1) % @challenges];
+	my $chlg = $challenges[($n - 1) % @challenges];
 
-    my $srv = {
-        domains => [],
-        clients => [],
-    };
+	my $srv = {
+		domains => [],
+		clients => [],
+	};
 
-    for (1..2) {
-        push(@{$srv->{domains}}, "angie-test${domain_count}.com");
-        $domain_count++;
-    }
+	for (1 .. 2) {
+		push @{ $srv->{domains} }, "angie-test${domain_count}.com";
+		$domain_count++;
+	}
 
-    if ($chlg eq 'dns') {
-        # The dns-01 validation method allows wildcard domain names.
-        push(@{$srv->{domains}}, "*.angie-test${domain_count}.com");
-        $domain_count++;
-    }
+	if ($chlg eq 'dns') {
+		# The dns-01 validation method allows wildcard domain names.
+		push @{ $srv->{domains} }, "*.angie-test${domain_count}.com";
+		$domain_count++;
+	}
 
-    for my $key (@keys) {
-        my $cli = {
-            name => "test${n}_$key->{type}",
-            key_type => $key->{type},
-            key_bits => $key->{bits},
-            challenge => $chlg,
-            renewed => 0,
-            enddate => "n/a",
-        };
+	for my $key (@keys) {
+		my $cli = {
+			name => "test${n}_$key->{type}",
+			key_type => $key->{type},
+			key_bits => $key->{bits},
+			challenge => $chlg,
+			renewed => 0,
+			enddate => "n/a",
+		};
 
-        push(@clients, $cli);
-        push(@{$srv->{clients}}, $cli);
-    }
+		push @clients, $cli;
+		push @{ $srv->{clients} }, $cli;
+	}
 
-    push(@servers, $srv);
+	push @servers, $srv;
 }
 
-my $conf_clients = "";
-my $conf_servers = "";
-my $conf_hooks = "";
+my $conf_clients = '';
+my $conf_servers = '';
+my $conf_hooks = '';
 
-my $account_key = "";
-my $email = "";
+my $account_key = '';
+my $email = '';
 
 for my $e (@clients) {
-    $conf_clients .=  "    acme_client $e->{name} " .
-        "https://localhost:$pebble_port/dir challenge=$e->{challenge} " .
-        "key_type=$e->{key_type} key_bits=$e->{key_bits} $account_key $email;\n";
+	$conf_clients .= "    acme_client $e->{name} "
+		. "https://localhost:$pebble_port/dir challenge=$e->{challenge} "
+		. "key_type=$e->{key_type} key_bits=$e->{key_bits} "
+		. "$account_key $email;\n";
 
-    # for a change...
-    $email = ($email eq "" ) ? "email=admin\@angie-test.com" : "";
-    $account_key = "account_key=$d/acme_client/$clients[0]->{name}/account.key";
+	# for a change...
+	$email = ($email eq '' ) ? "email=admin\@angie-test.com" : '';
+	$account_key = "account_key=$d/acme_client/$clients[0]->{name}/account.key";
 
-    $conf_hooks .= "            acme_hook $e->{name};\n";
+	$conf_hooks .= "            acme_hook $e->{name};\n";
 }
 
 for my $e (@servers) {
 
-    $conf_servers .=
+	$conf_servers .=
 "    server {
-#        listen       localhost:8080;  # XXX
-        server_name  @{$e->{domains}};
+        listen       localhost:%%PORT_8080%%;
+        server_name  @{ $e->{domains} };
 
 ";
 
-    for my $cli (@{$e->{clients}}) {
-        $conf_servers .= "        acme $cli->{name};\n";
-    }
+	for my $cli (@{ $e->{clients} }) {
+		$conf_servers .= "        acme $cli->{name};\n";
+	}
 
-    $conf_servers .= "    }\n\n";
+	$conf_servers .= "    }\n\n";
 }
 
 my $conf =
@@ -169,7 +170,7 @@ http {
     resolver localhost:$dns_port ipv6=off;
 
     server {
-#        listen       localhost:8080;
+        listen       localhost:%%PORT_8080%%;
 
         location / {
             internal;
@@ -183,8 +184,6 @@ $conf_hooks
             fastcgi_param ACME_DOMAIN           \$acme_hook_domain;
             fastcgi_param ACME_TOKEN            \$acme_hook_token;
             fastcgi_param ACME_KEYAUTH          \$acme_hook_keyauth;
-
-#            include fastcgi.conf;
         }
     }
 
@@ -208,57 +207,56 @@ my $loop_start = time();
 
 for (1 .. 20 * @clients) {
 
-    for my $cli (@clients) {
-        if (!$cli->{renewed}) {
+	for my $cli (@clients) {
+		next if $cli->{renewed};
 
-            my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
+		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-            if (-e $cert_file && -s $cert_file) {
-                my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
+		if (-e $cert_file && -s $cert_file) {
+			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
-                if ($s ne "") {
-                    chomp($s);
+			if ($s ne '') {
+				chomp $s;
 
-                    $renewed_count++;
-                    print("$0: $cli->{name} renewed certificate ($renewed_count of " .
-                        @clients . ")\n");
+				$renewed_count++;
+				note("$0: $cli->{name} renewed certificate "
+					. " ($renewed_count of " . @clients . ")\n");
 
-                    $cli->{renewed} = 1;
-                    $cli->{enddate} = $s;
-                }
-            }
-        }
-    }
+				$cli->{renewed} = 1;
+				$cli->{enddate} = $s;
+			}
+		}
+	}
 
-    last if $renewed_count == @clients;
+	last if $renewed_count == @clients;
 
-    if (!$renewed_count && time() - $loop_start > 20) {
-        # If none of the clients has renewed during this time,
-        # then there's probably no need to wait longer.
-        print("$0: Quitting on timeout ...\n");
-        last;
-    }
+	if (!$renewed_count && time() - $loop_start > 20) {
+		# If none of the clients has renewed during this time,
+		# then there's probably no need to wait longer.
+		note("$0: Quitting on timeout ...\n");
+		last;
+	}
 
-    sleep(1);
+	sleep 1;
 }
 
 for my $cli (@clients) {
-    ok($cli->{renewed}, "$cli->{name} renewed certificate " .
-        "(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
+	ok($cli->{renewed}, "$cli->{name} renewed certificate " .
+		"(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
 }
 
 ###############################################################################
 
 sub pebble_start {
-    my ($t) = @_;
+	my ($t) = @_;
 
-    my $pebble_key = 'pebble-key.pem';
+	my $pebble_key = 'pebble-key.pem';
 
-    # Create a leaf certificate and a private key for the Pebble HTTPS server.
-    # Copied from
-    # https://github.com/letsencrypt/pebble/tree/main/test/certs/localhost
+	# Create a leaf certificate and a private key for the Pebble HTTPS server.
+	# Copied from
+	# https://github.com/letsencrypt/pebble/tree/main/test/certs/localhost
 
-    $t->write_file($pebble_key, <<"EOF");
+	$t->write_file($pebble_key, <<"EOF");
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAmxTFtw113RK70H9pQmdKs9AxhFmnQ6BdDtp3jOZlWlUO0Blt
 MXOUML5905etgtCbcC6RdKRtgSAiDfgx3VWiFMJH++4gUtnaB9SN8GhNSPBpFfSa
@@ -288,9 +286,9 @@ fK+mTZay2d3v24r9WKEKwLykngYPyZw5+BdWU0E+xx5lGUd3U4gG
 -----END RSA PRIVATE KEY-----
 EOF
 
-    my $pebble_cert = 'pebble-cert.pem';
+	my $pebble_cert = 'pebble-cert.pem';
 
-    $t->write_file($pebble_cert, <<"EOF");
+	$t->write_file($pebble_cert, <<"EOF");
 -----BEGIN CERTIFICATE-----
 MIIDGzCCAgOgAwIBAgIIbEfayDFsBtwwDQYJKoZIhvcNAQELBQAwIDEeMBwGA1UE
 AxMVbWluaWNhIHJvb3QgY2EgMjRlMmRiMCAXDTE3MTIwNjE5NDIxMFoYDzIxMDcx
@@ -313,9 +311,9 @@ W8zIG6H9SVKkAznM2yfYhW8v2ktcaZ95/OBHY97ZIw==
 EOF
 
 
-    my $pebble_config = 'pebble-config.json';
+	my $pebble_config = 'pebble-config.json';
 
-    $t->write_file($pebble_config, <<"EOF");
+	$t->write_file($pebble_config, <<"EOF");
 {
   "pebble": {
     "listenAddress": "0.0.0.0:$pebble_port",
@@ -336,116 +334,110 @@ EOF
 }
 EOF
 
-    # Percentage of valid nonces that will be rejected by the server.
-    # The default value is 5, and we don't want any of the nonces to be rejected
-    # unless explicitly specified.
-    if (!defined $ENV{PEBBLE_WFE_NONCEREJECT}) {
-        $ENV{PEBBLE_WFE_NONCEREJECT} = 0;
-    }
+	# Percentage of valid nonces that will be rejected by the server.
+	# The default value is 5, and we don't want any of the nonces
+	# to be rejected unless explicitly specified.
+	if (!defined $ENV{PEBBLE_WFE_NONCEREJECT}) {
+		$ENV{PEBBLE_WFE_NONCEREJECT} = 0;
+	}
 
-    $t->run_daemon($pebble,
-        '-config', "$d/$pebble_config",
-        '-dnsserver', '127.0.0.1:' . $dns_port);
+	$t->run_daemon($pebble,
+		'-config', "$d/$pebble_config",
+		'-dnsserver', '127.0.0.1:' . $dns_port);
 
-    waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
-        or die("Couldn't start pebble");
+	waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
+		or die("Couldn't start pebble");
 }
 
 ###############################################################################
 
 sub challtestsrv_start {
-    my ($t) = @_;
+	my ($t) = @_;
 
-    $t->run_daemon($challtestsrv,
-        '-management', ":$challtestsrv_mgmt_port",
-        '-defaultIPv6', "",
-        '-dns01', ":$dns_port",
-        '-http01', ":$http_port",
-        '-https01', "",
-        '-doh', "",
-        '-tlsalpn01', "",
-    );
+	$t->run_daemon($challtestsrv,
+		'-management', ":$challtestsrv_mgmt_port",
+		'-defaultIPv6', '',
+		'-dns01', ":$dns_port",
+		'-http01', ":$http_port",
+		'-https01', '',
+		'-doh', '',
+		'-tlsalpn01', '',
+	);
 
-    $t->waitforsocket("0.0.0.0:$challtestsrv_mgmt_port")
-        or die("Couldn't start challtestsrv");
+	$t->waitforsocket("0.0.0.0:$challtestsrv_mgmt_port")
+		or die("Couldn't start challtestsrv");
 }
 
 ###############################################################################
 
 sub hook_handler_start {
-    my ($t) = @_;
+	my ($t) = @_;
 
-    $t->run_daemon(\&hook_handler);
+	$t->run_daemon(\&hook_handler);
 }
 
 ###############################################################################
 
 sub hook_add {
-    my ($challenge, $hook, $domain, $token, $keyauth) = @_;
+	my ($challenge, $hook, $domain, $token, $keyauth) = @_;
 
-    if ($challenge eq 'http') {
-        http_post('/add-http01',
-            body => "{\"token\":\"$token\",\"content\":\"$keyauth\"}");
+	if ($challenge eq 'http') {
+		http_post('/add-http01',
+			body => "{\"token\":\"$token\",\"content\":\"$keyauth\"}");
 
-    } elsif ($challenge eq 'dns') {
-        my $name = "_acme-challenge.$domain.";
+	} elsif ($challenge eq 'dns') {
+		my $name = "_acme-challenge.$domain.";
 
-        http_post('/set-txt',
-            body => "{\"host\":\"$name\",\"value\":\"$keyauth\"}");
-    } else {
-        die('Unknown challenge ' . $challenge);
-    }
+		http_post('/set-txt',
+			body => "{\"host\":\"$name\",\"value\":\"$keyauth\"}");
+	} else {
+		die('Unknown challenge ' . $challenge);
+	}
 }
 
 sub hook_remove {
-    my ($challenge, $hook, $domain, $token, $keyauth) = @_;
+	my ($challenge, $hook, $domain, $token, $keyauth) = @_;
 
-    if ($challenge eq 'http') {
-        http_post('/del-http01',  body => "{\"token\":\"$token\"}");
+	if ($challenge eq 'http') {
+		http_post('/del-http01', body => "{\"token\":\"$token\"}");
 
-    } elsif ($challenge eq 'dns') {
-        my $name = "_acme-challenge.$domain.";
+	} elsif ($challenge eq 'dns') {
+		my $name = "_acme-challenge.$domain.";
 
-        http_post('/clear-txt', body => "{\"host\":\"$name\"}");
+		http_post('/clear-txt', body => "{\"host\":\"$name\"}");
 
-    } else {
-        die('Unknown challenge ' . $challenge);
-    }
+	} else {
+		die('Unknown challenge ' . $challenge);
+	}
 }
 
 
 sub hook_handler {
-    my $socket = FCGI::OpenSocket(":$hook_port", 5);
-    my $req = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
+	my $socket = FCGI::OpenSocket(":$hook_port", 5);
+	my $req = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
 
-    while ($req->Accept() >= 0) {
-        my $client =    $ENV{ACME_CLIENT};
-        my $hook =      $ENV{ACME_HOOK};
-        my $challenge = $ENV{ACME_CHALLENGE};
-        my $domain =    $ENV{ACME_DOMAIN};
-        my $token =     $ENV{ACME_TOKEN};
-        my $keyauth =   $ENV{ACME_KEYAUTH};
+	while ($req->Accept() >= 0) {
+		my $client = $ENV{ACME_CLIENT};
+		my $hook = $ENV{ACME_HOOK};
+		my $challenge = $ENV{ACME_CHALLENGE};
+		my $domain = $ENV{ACME_DOMAIN};
+		my $token = $ENV{ACME_TOKEN};
+		my $keyauth = $ENV{ACME_KEYAUTH};
 
-        my $status = '';
+		if ($hook eq 'add') {
+			hook_add($challenge, $hook, $domain, $token, $keyauth);
 
-        if ($hook eq 'add') {
-            hook_add($challenge, $hook, $domain, $token, $keyauth);
+		} elsif ($hook eq 'remove') {
+			hook_remove($challenge, $hook, $domain, $token, $keyauth);
 
-        } elsif ($hook eq 'remove') {
-            hook_remove($challenge, $hook, $domain, $token, $keyauth);
+		} else {
+			print "Status: 400\r\n";
+		}
 
-        } else {
-            $status = '400';
-        }
+		print "\r\n";
+	}
 
-        print "Status: $status\r\n" if $status ne '';
-
-#        print "Content-Type: text/plain\r\n";
-        print "\r\n";
-
-    }
-
-    FCGI::CloseSocket($socket);
+	FCGI::CloseSocket($socket);
 }
 
 ###############################################################################
@@ -459,7 +451,7 @@ sub waitforsslsocket {
 		my $s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => $peer,
-            SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
 		);
 
 		return 1 if defined $s;
@@ -473,23 +465,23 @@ sub waitforsslsocket {
 ###############################################################################
 
 sub http_post {
-    my ($url, %extra) = @_;
+	my ($url, %extra) = @_;
 
-    my $peer = "127.0.0.1:$challtestsrv_mgmt_port";
+	my $peer = "127.0.0.1:$challtestsrv_mgmt_port";
 
-    my $s = IO::Socket::INET->new(
-        Proto => 'tcp',
-        PeerAddr => $peer,
-    )
-    or die "Can't connect to $peer: $!\n";
+	my $s = IO::Socket::INET->new(
+		Proto => 'tcp',
+		PeerAddr => $peer,
+	)
+	or die "Can't connect to $peer: $!\n";
 
-    $extra{socket} = $s;
+	$extra{socket} = $s;
 
-    my $p = "POST $url HTTP/1.0" . CRLF .
-        "Host: localhost" . CRLF .
-        "Content-Length: ". length($extra{body}) . CRLF .
-        CRLF;
+	my $p = "POST $url HTTP/1.0" . CRLF .
+		"Host: localhost" . CRLF .
+		"Content-Length: ". length($extra{body}) . CRLF .
+		CRLF;
 
-    return http($p, %extra);
+	return http($p, %extra);
 }
 

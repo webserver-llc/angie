@@ -2,38 +2,34 @@
 
 # (C) 2024 Web Server LLC
 
-# ACME protocol support tests
+# ACME HTTP-01 challenge test
 
 ###############################################################################
 
 use warnings;
 use strict;
 
+use IO::Socket::SSL;
+use POSIX qw/ strftime /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_content /;
-
-use POSIX 'strftime';
-use Socket qw/ CRLF /;
-use IO::Socket::SSL;
+use Test::Nginx qw/ :DEFAULT /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-eval { require FCGI; };
-plan(skip_all => 'FCGI not installed') if $@;
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 # This script requires pebble and pebble-challtestsrv (see
 # https://github.com/letsencrypt/pebble). If you build them from source,
 # assume they live in the directory below. Otherwise we expect them to be
 # installed system-wide.
-my $acme_server_dir = $ENV{HOME} . '/go/bin';
+my $acme_server_dir = defined $ENV{PEBBLE_PATH}
+	? $ENV{PEBBLE_PATH}
+	: $ENV{HOME} . '/go/bin';
 
 my $t = Test::Nginx->new()->has(qw/acme/);
 
@@ -45,16 +41,14 @@ my $pebble = "$acme_server_dir/pebble";
 my $challtestsrv = "$acme_server_dir/pebble-challtestsrv";
 
 if (!-f $pebble) {
-    $pebble = 'pebble';
-    $t->has_daemon($pebble);
+	$pebble = 'pebble';
+	$t->has_daemon($pebble);
 }
 
 if (!-f $challtestsrv) {
-    $challtestsrv = 'pebble-challtestsrv';
-    $t->has_daemon($challtestsrv);
+	$challtestsrv = 'pebble-challtestsrv';
+	$t->has_daemon($challtestsrv);
 }
-
-my $hook_port = port(9000);
 
 # XXX
 # We don't use the port function here, because the port it creates is currently
@@ -65,7 +59,6 @@ my $hook_port = port(9000);
 # problems in most cases.
 my $dns_port = 20053;
 
-my $ssl_port = port(8443);
 my $http_port = port(5002);
 my $tls_port = port(5001);
 my $pebble_port = port(14000);
@@ -85,11 +78,14 @@ http {
 
     resolver localhost:$dns_port ipv6=off;
 
-    acme_client test https://localhost:14000/dir email=admin\@angie-test.com ;
+    acme_client test https://localhost:$pebble_port/dir
+                email=admin\@angie-test.com;
 
     server {
-        listen               $ssl_port ssl;
-        server_name          angie-test900.com angie-test901.com angie-test902.com;
+        listen               %%PORT_8443%% ssl;
+        server_name          angie-test900.com
+                             angie-test901.com
+                             angie-test902.com;
 
         ssl_certificate      \$acme_cert_test;
         ssl_certificate_key  \$acme_cert_key_test;
@@ -110,96 +106,92 @@ http {
         location / {
             return           200 "HELLO";
         }
-
     }
-
 }
 
 EOF
 
-$t->plan(3);
+$t->plan(1);
 
 challtestsrv_start($t);
 pebble_start($t);
 
 $t->run();
 
-my $cert_file = "$d/acme_client/test/certificate.pem";
+subtest 'obtaining and renewing a certificate' => sub {
+	my $cert_file = "$d/acme_client/test/certificate.pem";
 
-my $obtained = 0;
-my $obtained_enddate = '';
-my $renewed = 0;
-my $renewed_enddate = '';
+	# First, obtain the certificate.
 
-# First, obtain the certificate.
+	my $obtained = 0;
+	my $obtained_enddate = '';
 
-for (1 .. 30) {
-    if (-e $cert_file && -s $cert_file) {
-        $obtained_enddate = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
+	for (1 .. 30) {
+		if (-e $cert_file && -s $cert_file) {
+			$obtained_enddate
+				= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
 
-        if ($obtained_enddate ne "") {
-            chomp($obtained_enddate);
+			if ($obtained_enddate ne '') {
+				chomp $obtained_enddate;
 
-            my $s = strftime("%H:%M:%S GMT", gmtime());
-            print("$0: obtained certificate on $s; enddate: $obtained_enddate\n");
+				my $s = strftime("%H:%M:%S GMT", gmtime());
+				note("$0: obtained certificate on $s; "
+					. "enddate: $obtained_enddate\n");
 
-            $obtained = 1;
-            last;
-        }
-    }
+				$obtained = 1;
+				last;
+			}
+		}
 
-    sleep(1);
-}
+		sleep 1;
+	}
 
-if (!$obtained) {
-    goto FAILED;
-}
+	ok($obtained, 'obtained certificate')
+		or return 0;
 
-# Then try to use it.
+	# Then try to use it.
 
-my $page = get_page("localhost:$ssl_port") // '';
-my $cert_used = $page eq "SECURED";
+	like(http_get('/', SSL => 1), qr/SECURED/, 'used certificate');
 
-# Finally, renew the certificate.
+	# Finally, renew the certificate.
 
-for (1 .. 40) {
-    sleep(1);
+	my $renewed = 0;
+	my $renewed_enddate = '';
 
-    $renewed_enddate = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
+	for (1 .. 40) {
+		sleep 1;
 
-    if ($renewed_enddate eq "") {
-        next;
-    }
+		$renewed_enddate
+			= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
 
-    chomp($renewed_enddate);
+		next if $renewed_enddate eq '';
 
-    if ($renewed_enddate ne $obtained_enddate) {
-        my $s = strftime("%H:%M:%S GMT", gmtime());
-        print("$0: renewed certificate on $s; enddate: $renewed_enddate\n");
+		chomp $renewed_enddate;
 
-        $renewed = 1;
-        last;
-    }
-}
+		if ($renewed_enddate ne $obtained_enddate) {
+			my $s = strftime("%H:%M:%S GMT", gmtime());
+			note("$0: renewed certificate on $s; enddate: $renewed_enddate\n");
 
-FAILED:
+			$renewed = 1;
+			last;
+		}
+	}
 
-ok($obtained, "obtained certificate");
-ok($cert_used, "used certificate");
-ok($renewed, "renewed certificate");
+	ok($renewed, 'renewed certificate');
+};
 
 ###############################################################################
 
 sub pebble_start {
-    my ($t) = @_;
+	my ($t) = @_;
 
-    my $pebble_key = 'pebble-key.pem';
+	my $pebble_key = 'pebble-key.pem';
 
-    # Create a leaf certificate and a private key for the Pebble HTTPS server.
-    # Copied from
-    # https://github.com/letsencrypt/pebble/tree/main/test/certs/localhost
+	# Create a leaf certificate and a private key for the Pebble HTTPS server.
+	# Copied from
+	# https://github.com/letsencrypt/pebble/tree/main/test/certs/localhost
 
-    $t->write_file($pebble_key, <<"EOF");
+	$t->write_file($pebble_key, <<"EOF");
 -----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAmxTFtw113RK70H9pQmdKs9AxhFmnQ6BdDtp3jOZlWlUO0Blt
 MXOUML5905etgtCbcC6RdKRtgSAiDfgx3VWiFMJH++4gUtnaB9SN8GhNSPBpFfSa
@@ -229,9 +221,9 @@ fK+mTZay2d3v24r9WKEKwLykngYPyZw5+BdWU0E+xx5lGUd3U4gG
 -----END RSA PRIVATE KEY-----
 EOF
 
-    my $pebble_cert = 'pebble-cert.pem';
+	my $pebble_cert = 'pebble-cert.pem';
 
-    $t->write_file($pebble_cert, <<"EOF");
+	$t->write_file($pebble_cert, <<"EOF");
 -----BEGIN CERTIFICATE-----
 MIIDGzCCAgOgAwIBAgIIbEfayDFsBtwwDQYJKoZIhvcNAQELBQAwIDEeMBwGA1UE
 AxMVbWluaWNhIHJvb3QgY2EgMjRlMmRiMCAXDTE3MTIwNjE5NDIxMFoYDzIxMDcx
@@ -254,9 +246,9 @@ W8zIG6H9SVKkAznM2yfYhW8v2ktcaZ95/OBHY97ZIw==
 EOF
 
 
-    my $pebble_config = 'pebble-config.json';
+	my $pebble_config = 'pebble-config.json';
 
-    $t->write_file($pebble_config, <<"EOF");
+	$t->write_file($pebble_config, <<"EOF");
 {
   "pebble": {
     "listenAddress": "0.0.0.0:$pebble_port",
@@ -277,38 +269,38 @@ EOF
 }
 EOF
 
-    # Percentage of valid nonces that will be rejected by the server.
-    # The default value is 5, and we don't want any of the nonces to be rejected
-    # unless explicitly specified.
-    if (!defined $ENV{PEBBLE_WFE_NONCEREJECT}) {
-        $ENV{PEBBLE_WFE_NONCEREJECT} = 0;
-    }
+	# Percentage of valid nonces that will be rejected by the server.
+	# The default value is 5, and we don't want any of the nonces
+	# to be rejected unless explicitly specified.
+	if (!defined $ENV{PEBBLE_WFE_NONCEREJECT}) {
+		$ENV{PEBBLE_WFE_NONCEREJECT} = 0;
+	}
 
-    $t->run_daemon($pebble,
-        '-config', "$d/$pebble_config",
-        '-dnsserver', '127.0.0.1:' . $dns_port);
+	$t->run_daemon($pebble,
+		'-config', "$d/$pebble_config",
+		'-dnsserver', '127.0.0.1:' . $dns_port);
 
-    waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
-        or die("Couldn't start pebble");
+	waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
+		or die("Couldn't start pebble");
 }
 
 ###############################################################################
 
 sub challtestsrv_start {
-    my ($t) = @_;
+	my ($t) = @_;
 
-    $t->run_daemon($challtestsrv,
-        '-management', ":$challtestsrv_mgmt_port",
-        '-defaultIPv6', "",
-        '-dns01', ":$dns_port",
-        '-http01', "",
-        '-https01', "",
-        '-doh', "",
-        '-tlsalpn01', "",
-    );
+	$t->run_daemon($challtestsrv,
+		'-management', ":$challtestsrv_mgmt_port",
+		'-defaultIPv6', '',
+		'-dns01', ":$dns_port",
+		'-http01', '',
+		'-https01', '',
+		'-doh', '',
+		'-tlsalpn01', '',
+	);
 
-    $t->waitforsocket("0.0.0.0:$challtestsrv_mgmt_port")
-        or die("Couldn't start challtestsrv");
+	$t->waitforsocket("0.0.0.0:$challtestsrv_mgmt_port")
+		or die("Couldn't start challtestsrv");
 }
 
 ###############################################################################
@@ -322,7 +314,7 @@ sub waitforsslsocket {
 		my $s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => $peer,
-            SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
 		);
 
 		return 1 if defined $s;
@@ -331,25 +323,5 @@ sub waitforsslsocket {
 	}
 
 	return undef;
-}
-
-###############################################################################
-
-sub get_page {
-    my ($host) = @_;
-
-    my $s = IO::Socket::INET->new(
-        Proto => 'tcp',
-        PeerAddr => "$host",
-    )
-    or die "Can't connect to $host: $!\n";
-
-    my $r = http(<<EOF, socket => $s, SSL => 1);
-GET / HTTP/1.0
-Host: $host
-
-EOF
-
-    return http_content($r);
 }
 

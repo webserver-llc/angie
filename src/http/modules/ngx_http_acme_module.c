@@ -379,7 +379,7 @@ static void ngx_http_acme_empty_handler(ngx_event_t *ev);
 static void ngx_http_acme_dns_handler(ngx_connection_t *c);
 static void ngx_http_acme_dns_close(ngx_connection_t *c);
 static void ngx_http_acme_dns_resend(ngx_event_t *wev);
-static ssize_t ngx_http_acme_parse_dns_request(ngx_connection_t *c);
+static ssize_t ngx_http_acme_parse_dns_request(ngx_connection_t *c, char **err);
 static ngx_buf_t *ngx_http_acme_create_dns_response(ngx_connection_t *c,
     size_t quest_size);
 static ngx_buf_t *ngx_http_acme_create_dns_error_response(ngx_connection_t *c);
@@ -3525,14 +3525,15 @@ ngx_http_acme_get_shared_key_auth(ngx_pool_t *pool, ngx_str_t *token,
 static void
 ngx_http_acme_dns_handler(ngx_connection_t *c)
 {
+    char                       *err;
     ssize_t                     n;
     ngx_buf_t                  *b;
     ngx_http_acme_main_conf_t  *amcf;
 
-    n = ngx_http_acme_parse_dns_request(c);
+    n = ngx_http_acme_parse_dns_request(c, &err);
 
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
-                   "acme status: dns-01 challenge handler: %z", n);
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "acme status: dns-01 challenge handler: %z (%s)", n, err);
 
     amcf = ngx_http_acme_get_main_conf();
 
@@ -3613,12 +3614,8 @@ ngx_http_acme_dns_close(ngx_connection_t *c)
 
 
 static ssize_t
-ngx_http_acme_parse_dns_request(ngx_connection_t *c)
+ngx_http_acme_parse_dns_request(ngx_connection_t *c, char **err)
 {
-#if (NGX_DEBUG)
-    const char *err = "";
-#endif
-
     ssize_t     len;
     u_char     *p, *end;
     ngx_int_t   rc;
@@ -3631,9 +3628,7 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
     if (end - p <= 12 || ntohs(*(u_short*)&p[4]) != 1
         || ntohs(*(u_short*)&p[6]) != 0 || ntohs(*(u_short*)&p[8]) != 0)
     {
-#if (NGX_DEBUG)
-        err = "malformed query";
-#endif
+        *err = "malformed query";
         goto failed;
     }
 
@@ -3641,18 +3636,14 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
 
     do {
         if ((*p & 0xc0) != 0) {
-#if (NGX_DEBUG)
-            err = "compressed message (not supported)";
-#endif
+            *err = "compressed message (not supported)";
             goto failed;
         }
 
         len = *p++;
 
         if (end - p <= len) {
-#if (NGX_DEBUG)
-            err = "malformed query";
-#endif
+            *err = "malformed query";
             goto failed;
         }
 
@@ -3661,40 +3652,32 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c)
     } while (len);
 
     if (end - p < 4) {
-#if (NGX_DEBUG)
-        err = "malformed query";
-#endif
+        *err = "malformed query";
         goto failed;
     }
 
     rc = NGX_DECLINED;
 
     if (ntohs(*(u_short*)p) != 16) {
-#if (NGX_DEBUG)
-        err = "not a TXT record";
-#endif
+        *err = "not a TXT record";
         goto failed;
     }
 
     p += 2;
 
     if (ntohs(*(u_short*)p) != 1) {
-#if (NGX_DEBUG)
-        err = "not an IN class";
-#endif
+        *err = "not an IN class";
         goto failed;
     }
 
     p += 2;
 
+    *err = "ok";
+
     return (p - c->buffer->start);
 
 failed:
 
-#if (NGX_DEBUG)
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
-                   "acme status: DNS query error: %s", err);
-#endif
     return rc;
 }
 
@@ -5596,9 +5579,7 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_OK;
     }
 
-    if (cli->enabled == NGX_CONF_UNSET_UINT) {
-        cli->enabled = 1;
-    }
+    ngx_conf_init_uint_value(cli->enabled, 1);
 
     if (cli->private_key.type == NGX_KT_UNSUPPORTED) {
         cli->private_key.type = NGX_KT_EC;
@@ -5634,21 +5615,13 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return "has an unsupported key_type/key_bits combination";
     }
 
-    if (cli->renew_before_expiry == NGX_CONF_UNSET) {
-        cli->renew_before_expiry = 60 * 60 * 24 * 30;
-    }
+    ngx_conf_init_value(cli->renew_before_expiry, 60 * 60 * 24 * 30);
 
-    if (cli->retry_after_error == NGX_CONF_UNSET) {
-        cli->retry_after_error = 60 * 60 * 2;
-    }
+    ngx_conf_init_value(cli->retry_after_error, 60 * 60 * 2)
 
-    if (cli->max_cert_size == NGX_CONF_UNSET_SIZE) {
-        cli->max_cert_size = 8 * 1024;
-    }
+    ngx_conf_init_size_value(cli->max_cert_size, 8 * 1024);
 
-    if (cli->challenge == NGX_CONF_UNSET_UINT) {
-        cli->challenge = NGX_AC_HTTP_01;
-    }
+    ngx_conf_init_uint_value(cli->challenge, NGX_AC_HTTP_01);
 
     ngx_memzero(&u, sizeof(ngx_url_t));
 

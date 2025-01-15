@@ -617,7 +617,27 @@ sub waitforsocket($) {
 	for (1 .. 50) {
 		my $s = IO::Socket::INET->new(
 			Proto => 'tcp',
-			PeerAddr => $peer
+			PeerAddr => $peer,
+		);
+
+		return 1 if defined $s;
+
+		select undef, undef, undef, 0.1;
+	}
+
+	return undef;
+}
+
+sub waitforsslsocket($) {
+	my ($self, $peer) = @_;
+
+	# wait for socket to accept connections
+
+	for (1 .. 50) {
+		my $s = IO::Socket::SSL->new(
+			Proto => 'tcp',
+			PeerAddr => $peer,
+			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
 		);
 
 		return 1 if defined $s;

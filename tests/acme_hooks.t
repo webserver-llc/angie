@@ -9,7 +9,6 @@
 use warnings;
 use strict;
 
-use IO::Socket::SSL;
 use Socket qw/ CRLF /;
 use Test::More;
 
@@ -34,7 +33,7 @@ my $acme_server_dir = defined $ENV{PEBBLE_PATH}
 	? $ENV{PEBBLE_PATH}
 	: $ENV{HOME} . '/go/bin';
 
-my $t = Test::Nginx->new()->has(qw/acme/);
+my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
 
 my $d = $t->testdir();
 
@@ -346,7 +345,7 @@ EOF
 		'-config', "$d/$pebble_config",
 		'-dnsserver', '127.0.0.1:' . $dns_port);
 
-	waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
+	$t->waitforsslsocket("0.0.0.0:$pebble_mgmt_port")
 		or die("Couldn't start pebble");
 }
 
@@ -439,28 +438,6 @@ sub hook_handler {
 	}
 
 	FCGI::CloseSocket($socket);
-}
-
-###############################################################################
-
-sub waitforsslsocket {
-	my ($peer) = @_;
-
-	# analogously to Nginx::waitforsocket()
-
-	for (1 .. 50) {
-		my $s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => $peer,
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE()
-		);
-
-		return 1 if defined $s;
-
-		select undef, undef, undef, 0.1;
-	}
-
-	return undef;
 }
 
 ###############################################################################

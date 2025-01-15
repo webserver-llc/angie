@@ -155,13 +155,14 @@ $conf_clients
 }
 ";
 
-$t->plan(scalar @clients);
-
 $t->write_file_expand('nginx.conf', $conf);
 
 pebble_start($t);
 
-$t->run();
+$t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
+	. 'directives are not supported on this platform', 1);
+
+$t->plan(scalar @clients);
 
 my $renewed_count = 0;
 my $loop_start = time();

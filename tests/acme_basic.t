@@ -33,8 +33,6 @@ my $acme_server_dir = defined $ENV{PEBBLE_PATH}
 
 my $t = Test::Nginx->new()->has(qw/acme/);
 
-plan(skip_all => 'LibreSSL') if $t->has_module('LibreSSL');
-
 my $d = $t->testdir();
 
 my $pebble = "$acme_server_dir/pebble";
@@ -111,12 +109,13 @@ http {
 
 EOF
 
-$t->plan(1);
-
 challtestsrv_start($t);
 pebble_start($t);
 
-$t->run();
+$t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
+	. 'directives are not supported on this platform', 1);
+
+$t->plan(1);
 
 subtest 'obtaining and renewing a certificate' => sub {
 	my $cert_file = "$d/acme_client/test/certificate.pem";

@@ -178,6 +178,7 @@ struct ngx_acme_client_s {
     ngx_http_acme_sh_cert_t    *sh_cert;
     ngx_http_core_loc_conf_t   *hook_clcf;
     ngx_http_conf_ctx_t        *hook_ctx;
+    ngx_uint_t                  renew_on_load;
 };
 
 
@@ -4776,7 +4777,11 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
         ngx_memcpy(shc->data_start, "data:", 5);
 
-        if (shc->len != 5) {
+        if (cli->renew_on_load) {
+            s = "forced renewal of";
+            cli->renew_time = ngx_time();
+
+        } else if (shc->len != 5) {
             t = ngx_http_acme_cert_validity(cli, 1);
 
             if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
@@ -5569,6 +5574,13 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
+        if (ngx_strncmp(value[i].data, "renew_on_load", 13) == 0) {
+
+            cli->renew_on_load = 1;
+
+            continue;
+        }
+
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "invalid parameter \"%V\"", &value[i]);
 
@@ -5622,6 +5634,8 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_init_size_value(cli->max_cert_size, 8 * 1024);
 
     ngx_conf_init_uint_value(cli->challenge, NGX_AC_HTTP_01);
+
+    ngx_conf_init_uint_value(cli->renew_on_load, 0);
 
     ngx_memzero(&u, sizeof(ngx_url_t));
 
@@ -6060,6 +6074,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     cli->retry_after_error = NGX_CONF_UNSET;
     cli->max_cert_size = NGX_CONF_UNSET_SIZE;
     cli->challenge = NGX_CONF_UNSET_UINT;
+    cli->renew_on_load = NGX_CONF_UNSET_UINT;
     cli->account_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.type = NGX_KT_UNSUPPORTED;

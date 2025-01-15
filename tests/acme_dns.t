@@ -54,16 +54,12 @@ my @keys = (
 	{ type => 'ecdsa', bits => 256 },
 );
 
-my @challenges = ('dns');
-
 my $domain_count = 1;
 
 # Each iteration creates 2 clients, one with the RSA key type, the other with
 # the ECDSA. Each subsequent iteration also assigns a different challenge type.
 for (1 .. 2) {
 	my $n = $_;
-
-	my $chlg = $challenges[($n - 1) % @challenges];
 
 	my $srv = {
 		domains => [],
@@ -75,18 +71,16 @@ for (1 .. 2) {
 		$domain_count++;
 	}
 
-	if ($chlg eq 'dns-01') {
-		# The dns-01 validation method allows wildcard domain names.
-		push @{ $srv->{domains} }, "*.angie-test${domain_count}.com";
-		$domain_count++;
-	}
+	# The dns-01 validation method allows wildcard domain names.
+	push @{ $srv->{domains} }, "*.angie-test${domain_count}.com";
+	$domain_count++;
 
 	for my $key (@keys) {
 		my $cli = {
 			name => "test${n}_$key->{type}",
 			key_type => $key->{type},
 			key_bits => $key->{bits},
-			challenge => $chlg,
+			challenge => 'dns',
 			renewed => 0,
 			enddate => "n/a",
 		};

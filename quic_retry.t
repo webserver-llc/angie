@@ -124,7 +124,7 @@ is($frame->{error}, 11, 'retry token decrypt error');
 
 # resending client Initial packets after receiving a Retry packet
 # to simulate server Initial packet loss triggering its retransmit,
-# used to create extra nginx connections before 8f7e6d8c061e,
+# used to create extra nginx connections before 1bc204a3a (1.25.3),
 # caught by CRYPTO stream mismatch among server Initial packets
 
 TODO: {

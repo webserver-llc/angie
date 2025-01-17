@@ -449,7 +449,7 @@ is($frame->{headers}->{':status'}, 413,
 	'request body without content-length many pad - limited');
 
 # absent request body is not buffered with client_body_in_file_only off
-# see e02f1977846b for details
+# see 27c7ed683 for details
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ path => '/off/t.html' });

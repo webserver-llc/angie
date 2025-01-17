@@ -151,7 +151,7 @@ undef $s;
 $s = upgrade_connect(noheader => 1);
 ok(!$s, "handshake noupgrade");
 
-# bytes sent on upgraded connection, fixed in c2f309fb7ad2 (1.7.11)
+# bytes sent on upgraded connection, fixed in c2c9a1c03 (1.7.11)
 # verify with 1) data actually read by client, 2) expected data from backend
 
 $t->stop();

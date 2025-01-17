@@ -99,7 +99,7 @@ like(get($us2, 8080), qr/x-bar/, 'off - underscore first');
 like(get($bad, 8080), qr/x-bar/, 'off - bad');
 like(get($bad2, 8080), qr/x-bar/, 'off - bad first');
 
-# ignore_invalid_headers off; headers parsing post 8f55cb5c7e79
+# ignore_invalid_headers off; headers parsing post 3c84e4b70 (1.17.5)
 
 unlike(http('GET /v HTTP/1.0' . CRLF
 	. 'Host: localhost' . CRLF

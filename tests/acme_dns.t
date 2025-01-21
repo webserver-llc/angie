@@ -86,6 +86,10 @@ for (1..2) {
         $domain_count++;
     }
 
+    # ".example.com" is equivalent to "example.com *.example.com".
+    push @{ $srv->{domains} }, ".angie-test${domain_count}.com";
+    $domain_count++;
+
     for my $key (@keys) {
         my $cli = {
             name => "test${n}_$key->{type}",
@@ -169,7 +173,7 @@ $t->run();
 my $renewed_count = 0;
 my $loop_start = time();
 
-for (1 .. 20 * @clients) {
+for (1 .. 30 * @clients) {
 
     for my $cli (@clients) {
         if (!$cli->{renewed}) {
@@ -195,7 +199,7 @@ for (1 .. 20 * @clients) {
 
     last if $renewed_count == @clients;
 
-    if (!$renewed_count && time() - $loop_start > 20) {
+    if (!$renewed_count && time() - $loop_start > 30) {
         # If none of the clients has renewed during this time,
         # then there's probably no need to wait longer.
         print("$0: Quitting on timeout ...\n");

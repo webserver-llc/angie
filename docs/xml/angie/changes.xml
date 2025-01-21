@@ -7,6 +7,18 @@
 
 <changes ver="1.8.2" date="">
 
+<change type="bugfix">
+<para lang="ru">
+использование доменных имён, начинающихся с точки, в директиве
+"server_name" могло привести к ошибке обновления сертификата по
+протоколу ACME.
+</para>
+<para lang="en">
+certificate renewal via the ACME protocol could fail for server
+names prefixed with a dot in the "server_name" directive.
+</para>
+</change>
+
 </changes>
 
 

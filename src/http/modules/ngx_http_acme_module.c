@@ -4283,9 +4283,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             sn = cscf->server_names.elts;
 
             for (n = 0; n < cscf->server_names.nelts; n++) {
-                s = &sn[n].name;
+                name = sn[n].name;
 
-                if (!s->len) {
+                if (!name.len) {
                     /* may contain an empty server_name */
                     continue;
                 }
@@ -4295,7 +4295,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                 {
                     ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                                        "unsupported domain format \"%V\" used "
-                                       "by ACME client \"%V\", ignored", s,
+                                       "by ACME client \"%V\", ignored", &name,
                                        &cli->name);
                     continue;
                 }
@@ -4305,7 +4305,27 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                     return NGX_ERROR;
                 }
 
-                *s = sn[n].name;
+                if (name.data[0] != '.') {
+                    *s = name;
+                    continue;
+                }
+
+                s->data = name.data + 1;
+                s->len = name.len - 1;
+
+                s = ngx_array_push(cli->domains);
+                if (s == NULL) {
+                    return NGX_ERROR;
+                }
+
+                s->data = ngx_pnalloc(cf->pool, name.len + 1);
+                if (s->data == NULL) {
+                    return NGX_ERROR;
+                }
+
+                s->data[0] = '*';
+                ngx_memcpy(s->data + 1, name.data, name.len);
+                s->len = name.len + 1;
             }
         }
     }
@@ -4572,12 +4592,15 @@ ngx_http_acme_check_server_name(ngx_http_server_name_t *sn,
         return NGX_ERROR;
     }
 
-    if (p[0] == '*' && p[1] == '.') {
-        if (wildcard_allowed) {
-            p += 2;
-            len -= 2;
+    if ((*p == '*' || *p == '.') && !wildcard_allowed) {
+        return NGX_ERROR;
+    }
 
-        } else {
+    if (*p == '*') {
+        p++;
+        len--;
+
+        if (*p != '.') {
             return NGX_ERROR;
         }
     }

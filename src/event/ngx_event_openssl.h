@@ -84,7 +84,6 @@
 #endif
 
 
-typedef struct ngx_ssl_cache_s  ngx_ssl_cache_t;
 typedef struct ngx_ssl_ocsp_s   ngx_ssl_ocsp_t;
 
 

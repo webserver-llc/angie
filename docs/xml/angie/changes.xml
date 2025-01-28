@@ -30,6 +30,15 @@ names prefixed with a dot in the "server_name" directive.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+теперь директиву "ssl_early_data" можно использовать в stream-модуле.
+</para>
+<para lang="en">
+now the "ssl_early_data" directive can be used in the "stream" module.
+</para>
+</change>
+
 </changes>
 
 

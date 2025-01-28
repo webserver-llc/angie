@@ -299,6 +299,13 @@ static ngx_command_t  ngx_stream_ssl_commands[] = {
       offsetof(ngx_stream_ssl_srv_conf_t, stapling_verify),
       NULL },
 
+    { ngx_string("ssl_early_data"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_ssl_srv_conf_t, early_data),
+      NULL },
+
     { ngx_string("ssl_conf_command"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE2,
       ngx_conf_set_keyval_slot,
@@ -937,6 +944,7 @@ ngx_stream_ssl_create_srv_conf(ngx_conf_t *cf)
     sscf->passwords = NGX_CONF_UNSET_PTR;
     sscf->conf_commands = NGX_CONF_UNSET_PTR;
     sscf->prefer_server_ciphers = NGX_CONF_UNSET;
+    sscf->early_data = NGX_CONF_UNSET;
     sscf->reject_handshake = NGX_CONF_UNSET;
     sscf->verify = NGX_CONF_UNSET_UINT;
     sscf->verify_depth = NGX_CONF_UNSET_UINT;
@@ -973,6 +981,7 @@ ngx_stream_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->prefer_server_ciphers,
                          prev->prefer_server_ciphers, 0);
 
+    ngx_conf_merge_value(conf->early_data, prev->early_data, 0);
     ngx_conf_merge_value(conf->reject_handshake, prev->reject_handshake, 0);
 
     ngx_conf_merge_bitmask_value(conf->protocols, prev->protocols,
@@ -1201,6 +1210,10 @@ ngx_stream_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
             return NGX_CONF_ERROR;
         }
 
+    }
+
+    if (ngx_ssl_early_data(cf, &conf->ssl, conf->early_data) != NGX_OK) {
+        return NGX_CONF_ERROR;
     }
 
     if (ngx_ssl_conf_commands(cf, &conf->ssl, conf->conf_commands) != NGX_OK) {

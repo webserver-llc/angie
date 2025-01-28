@@ -19,6 +19,7 @@ typedef struct {
     ngx_msec_t       handshake_timeout;
 
     ngx_flag_t       prefer_server_ciphers;
+    ngx_flag_t       early_data;
     ngx_flag_t       reject_handshake;
 
     ngx_ssl_t        ssl;

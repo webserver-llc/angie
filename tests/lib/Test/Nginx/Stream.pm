@@ -12,7 +12,7 @@ use warnings;
 use strict;
 
 use base qw/ Exporter /;
-our @EXPORT_OK = qw/ stream dgram sequential_daemon /;
+our @EXPORT_OK = qw/ stream dgram /;
 
 use Test::More qw//;
 use IO::Select;
@@ -92,11 +92,18 @@ sub write {
 
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_write($extra{write_timeout} || 1.5)) {
-		my $n = $s->syswrite($message);
-		last unless $n;
-		log_out(substr($message, 0, $n));
+		my $bytes_written = $s->syswrite($message);
 
-		$message = substr($message, $n);
+		unless (defined $bytes_written) {
+			Test::More::note("write(): error while writing to socket: $!");
+			last;
+		}
+
+		last if $bytes_written == 0;
+
+		log_out(substr($message, 0, $bytes_written));
+
+		$message = substr($message, $bytes_written);
 		last unless length $message;
 	}
 
@@ -113,8 +120,13 @@ sub read {
 
 	$s->blocking(0);
 	while (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
-		my $n = $s->sysread($buf, 1024);
-		next if !defined $n && $!{EWOULDBLOCK};
+		my $bytes_read = $s->sysread($buf, 1024);
+
+		Test::More::note("read(): error while reading from socket: $!")
+			if !defined $bytes_read;
+
+		next if !defined $bytes_read && $!{EWOULDBLOCK};
+
 		last;
 	}
 
@@ -169,44 +181,6 @@ sub socket {
 }
 
 ###############################################################################
-
-sub sequential_daemon {
-	my $port  = shift;
-	my $proto = shift // 'tcp';
-
-	my $server = IO::Socket::INET->new(
-		Proto     => $proto,
-		LocalAddr => '127.0.0.1',
-		LocalPort => $port,
-		Listen    => 5,
-		Reuse     => 1
-	)
-		or die "Can't create listening socket: $!\n";
-
-	local $SIG{PIPE} = 'IGNORE';
-
-	while (my $client = $server->accept()) {
-		$client->autoflush(1);
-
-		my $client_port = $client->sockport();
-		log2c("(new connection to $client_port)");
-
-		$client->sysread(my $buffer, 65536) or next;
-		log2i("|| << $client_port $buffer");
-
-		$buffer = $client->sockport();
-		log2o("|| >> $client_port $buffer");
-
-		$client->syswrite($buffer);
-
-		$client->shutdown(SHUT_WR);
-		log2c("(connection to $client_port closed)")
-	}
-}
-
-sub log2i { Test::Nginx::log_core('|| <<', @_); }
-sub log2o { Test::Nginx::log_core('|| >>', @_); }
-sub log2c { Test::Nginx::log_core('||', @_); }
 
 1;
 

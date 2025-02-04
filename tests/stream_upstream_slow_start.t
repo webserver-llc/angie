@@ -15,8 +15,8 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Nginx::Stream qw/stream sequential_daemon/;
-use Test::Utils qw/get_json hash_like/;
+use Test::Nginx::Stream qw/stream/;
+use Test::Utils qw/get_json hash_like stream_daemon/;
 
 ###############################################################################
 
@@ -68,8 +68,8 @@ http {
 EOF
 
 
-$t->run_daemon(\&sequential_daemon, port(8081));
-$t->run_daemon(\&sequential_daemon, port(8082));
+$t->run_daemon(\&stream_daemon, port(8081));
+$t->run_daemon(\&stream_daemon, port(8082));
 
 $t->run();
 
@@ -99,13 +99,13 @@ $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "unavailable", "backend 2 is now unavailable");
 
 # revive the peer
-$t->run_daemon(\&sequential_daemon, port(8081));
-$t->run_daemon(\&sequential_daemon, port(8082));
+$t->run_daemon(\&stream_daemon, port(8081));
+$t->run_daemon(\&stream_daemon, port(8082));
 
 select undef, undef, undef, 3;
 
-stream('127.0.0.1:' . port(8090))->io('.');
-stream('127.0.0.1:' . port(8090))->io('.');
+stream('127.0.0.1:' . port(8090))->io('.$');
+stream('127.0.0.1:' . port(8090))->io('.$');
 
 # expect peer to be in 'recovery' state due to slow start
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p1");
@@ -132,7 +132,7 @@ sub many {
 
 	my %ports;
 	for (1 .. $count) {
-		my $res = stream('127.0.0.1:' . $port)->io('.');
+		my $res = stream('127.0.0.1:' . $port)->io('.$');
 		if ($res && $res =~ /(\d{4})$/) {
 			$ports{$1} = 0 unless defined $ports{$1};
 			$ports{$1}++;

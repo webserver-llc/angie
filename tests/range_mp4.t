@@ -48,8 +48,8 @@ http {
 EOF
 
 plan(skip_all => 'no lavfi')
-	unless grep /lavfi/, `ffmpeg -nostdin -loglevel quiet -formats`;
-system('ffmpeg -loglevel quiet -y '
+	unless grep /lavfi/, `ffmpeg -loglevel quiet -formats`;
+system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
 	. "-pix_fmt yuv420p -c:v libx264 ${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";

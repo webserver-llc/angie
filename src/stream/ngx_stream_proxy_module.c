@@ -136,6 +136,8 @@ static ngx_int_t ngx_stream_proxy_ssl_certificate(ngx_stream_session_t *s);
 #endif
 static ngx_int_t ngx_stream_proxy_merge_ssl(ngx_conf_t *cf,
     ngx_stream_proxy_srv_conf_t *conf, ngx_stream_proxy_srv_conf_t *prev);
+static ngx_int_t ngx_stream_proxy_preserve_ssl_passwords(ngx_conf_t *cf,
+    ngx_stream_proxy_srv_conf_t *conf, ngx_stream_proxy_srv_conf_t *prev);
 static ngx_int_t ngx_stream_proxy_set_ssl(ngx_conf_t *cf,
     ngx_stream_proxy_srv_conf_t *pscf);
 #if (NGX_STREAM_PROXY_MULTICERT)
@@ -2588,6 +2590,10 @@ ngx_stream_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
                               prev->ssl_certificate_key, NULL);
 #endif
 
+    if (ngx_stream_proxy_preserve_ssl_passwords(cf, conf, prev) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
     ngx_conf_merge_ptr_value(conf->ssl_certificate_cache,
                               prev->ssl_certificate_cache, NULL);
 
@@ -2668,6 +2674,64 @@ ngx_stream_proxy_merge_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *conf,
 
 
 static ngx_int_t
+ngx_stream_proxy_preserve_ssl_passwords(ngx_conf_t *cf,
+    ngx_stream_proxy_srv_conf_t *conf, ngx_stream_proxy_srv_conf_t *prev)
+{
+    ngx_uint_t  preserve;
+
+#if (NGX_STREAM_PROXY_MULTICERT)
+    if (conf->ssl_certificates == NULL)
+#else
+    if (conf->ssl_certificate == NULL
+        || conf->ssl_certificate->value.len == 0
+        || conf->ssl_certificate_key == NULL)
+#endif
+    {
+        return NGX_OK;
+    }
+
+#if (NGX_STREAM_PROXY_MULTICERT)
+    if (conf->ssl_certificate_values == NULL
+        || conf->ssl_certificate_key_values == NULL)
+#else
+    if (conf->ssl_certificate->lengths == NULL
+        && conf->ssl_certificate_key->lengths == NULL)
+#endif
+    {
+        if (conf->ssl_passwords && conf->ssl_passwords->pool == NULL) {
+            /* un-preserve empty password list */
+            conf->ssl_passwords = NULL;
+        }
+
+        return NGX_OK;
+    }
+
+    if (conf->ssl_passwords && conf->ssl_passwords->pool != cf->temp_pool) {
+        /* already preserved */
+        return NGX_OK;
+    }
+
+    preserve = (conf->ssl_passwords == prev->ssl_passwords) ? 1 : 0;
+
+    conf->ssl_passwords = ngx_ssl_preserve_passwords(cf, conf->ssl_passwords);
+    if (conf->ssl_passwords == NULL) {
+        return NGX_ERROR;
+    }
+
+    /*
+     * special handling to keep a preserved ssl_passwords copy
+     * in the previous configuration to inherit it to all children
+     */
+
+    if (preserve) {
+        prev->ssl_passwords = conf->ssl_passwords;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
 {
     ngx_pool_cleanup_t  *cln;
@@ -2719,16 +2783,9 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
             return NGX_ERROR;
         }
 
-        if (pscf->ssl_certificate->lengths
-            || pscf->ssl_certificate_key->lengths)
+        if (pscf->ssl_certificate->lengths == NULL
+            && pscf->ssl_certificate_key->lengths == NULL)
         {
-            pscf->ssl_passwords =
-                           ngx_ssl_preserve_passwords(cf, pscf->ssl_passwords);
-            if (pscf->ssl_passwords == NULL) {
-                return NGX_ERROR;
-            }
-
-        } else {
             if (ngx_ssl_certificate(cf, pscf->ssl,
                                     &pscf->ssl_certificate->value,
                                     &pscf->ssl_certificate_key->value,

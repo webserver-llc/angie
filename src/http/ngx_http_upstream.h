@@ -484,6 +484,12 @@ char *ngx_http_upstream_connection_drop_set_slot(ngx_conf_t *cf,
 ngx_int_t ngx_http_upstream_hide_headers_hash(ngx_conf_t *cf,
     ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev,
     ngx_str_t *default_hide_headers, ngx_hash_init_t *hash);
+#if (NGX_HTTP_SSL)
+ngx_int_t ngx_http_upstream_merge_ssl_passwords(ngx_conf_t *cf,
+    ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev);
+ngx_int_t ngx_http_upstream_preserve_ssl_passwords(ngx_conf_t *cf,
+    ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev);
+#endif
 
 #if (NGX_HTTP_V3)
 void ngx_http_v3_upstream_close_request_stream(ngx_connection_t *c,

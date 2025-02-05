@@ -52,6 +52,8 @@ EOF
 
 plan(skip_all => 'no lavfi')
 	unless grep /lavfi/, `ffmpeg -loglevel quiet -formats`;
+plan(skip_all => 'no libx264')
+	unless grep /libx264/, `ffmpeg -loglevel quiet -encoders`;
 system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
 	. '-f lavfi -i testsrc=duration=20:size=320x200:rate=15 '

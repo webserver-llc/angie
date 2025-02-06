@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -267,7 +268,7 @@ foreach my $name ('rsa') {
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
 $t->run_daemon(\&http_daemon, $t, port(8083));
-$t->run()->plan(15);
+$t->run()->plan(14);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
@@ -408,10 +409,6 @@ like(get('ec-end', ses => $s),
 # regression test for self-signed
 
 like(get('root', port => 8447), qr/200 OK.*SUCCESS/s, 'ocsp one');
-
-# check for errors
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

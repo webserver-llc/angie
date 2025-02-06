@@ -28,7 +28,7 @@ my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)
 $t->has(qw/http_v3/);
 $t->prepare_ssl();
 
-$t->plan(52)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(51)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -311,8 +311,6 @@ like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
 like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
 
 $t->stop();
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

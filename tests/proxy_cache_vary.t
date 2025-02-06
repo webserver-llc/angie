@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for http proxy cache, the Vary header.
@@ -22,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy cache gzip rewrite/)
-	->plan(52)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(51)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -292,8 +293,6 @@ like(get1('/cold?vary=x,y', 'x:1'), qr/HIT/, 'cold first');
 like(get1('/cold?vary=x,y&xtra=1', 'x:2'), qr/HIT/, 'cold second');
 
 $t->stop();
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

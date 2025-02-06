@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -240,7 +241,7 @@ $t->write_file('ec-end-int.crt',
 	$t->read_file('ec-end.crt') . $t->read_file('int.crt'));
 
 $t->run_daemon(\&http_daemon, $t);
-$t->try_run('no ssl_stapling')->plan(10);
+$t->try_run('no ssl_stapling')->plan(9);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 
@@ -285,13 +286,9 @@ is(staple(8448, 'ECDSA'), '1 0', 'file success');
 
 ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
-TODO: {
-local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
+# broken TLSv1.3 sigalgs in LibreSSL
+$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
 	if $t->has_module('LibreSSL') && test_tls13();
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
-
-}
 
 ###############################################################################
 

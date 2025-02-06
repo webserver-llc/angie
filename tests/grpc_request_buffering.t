@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -23,7 +24,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 grpc mirror proxy/)->plan(12);
+my $t = Test::Nginx->new()->has(qw/http http_v2 grpc mirror proxy/)->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -104,8 +105,6 @@ is(eval(join '+', map { $_->{length} } grep { $_->{type} eq "DATA" } @$frames),
 $frames = $f->{http_end}();
 is(eval(join '+', map { $_->{length} } grep { $_->{type} eq "DATA" } @$frames),
 	465, 'preserve_output - last body bytes');
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crits');
 
 ###############################################################################
 

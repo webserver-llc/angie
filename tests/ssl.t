@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Andrey Zelenkov
 # (C) Nginx, Inc.
@@ -27,7 +28,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite proxy socket_ssl/)
-	->has_daemon('openssl')->plan(21);
+	->has_daemon('openssl')->plan(20);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -274,8 +275,6 @@ $t->stop();
 
 like($t->read_file('ssl.log'), qr/^(TLS|SSL)v(\d|\.)+$/m,
 	'log ssl variable on lingering close');
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

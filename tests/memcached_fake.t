@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Test for memcached backend with fake daemon.
@@ -22,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite memcached ssi/)->plan(3)
+my $t = Test::Nginx->new()->has(qw/http rewrite memcached ssi/)->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -68,8 +69,6 @@ $t->waitforsocket('127.0.0.1:' . port(8081))
 like(http_get('/'), qr/SEE-THIS/, 'memcached split trailer');
 
 like(http_get('/ssi.html'), qr/SEE-THIS/, 'memcached ssi var');
-
-like(`grep -F '[error]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no errors');
 
 ###############################################################################
 

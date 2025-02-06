@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Andrey Zelenkov
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
@@ -24,7 +25,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
-	->has_daemon('openssl')->plan(8);
+	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -194,8 +195,6 @@ is(test_reuse(8448), 0, 'cache none not reused');
 is(test_reuse(8449), 0, 'cache off not reused');
 
 $t->stop();
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
 
 ###############################################################################
 

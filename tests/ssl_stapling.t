@@ -40,7 +40,7 @@ plan(skip_all => 'no OCSP stapling')
 plan(skip_all => 'no OCSP stapling')
 	if not $t->has_module('sni');
 
-$t->plan(10)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(9)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -296,16 +296,12 @@ is(staple(8448, 'ECDSA'), '1 0', 'file success');
 
 ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
-TODO: {
-local $TODO = 'broken TLSv1.3 sigalgs in LibreSSL'
+# broken TLSv1.3 sigalgs in LibreSSL
+$t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
 	if $t->has_module('LibreSSL')
 		&& !Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER")
 		&& not $t->has_feature('libressl:4.0.0')
 		&& test_tls13();
-
-like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crit');
-
-}
 
 ###############################################################################
 

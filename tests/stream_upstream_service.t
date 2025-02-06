@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -26,6 +27,14 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone/);
+
+$t->skip_errors_check('crit',
+	qr/connect\(\) to \[fe80::1\]:\d{4,} failed/,
+	qr/connect\(\) to \[fe80::2\]:\d{4,} failed/
+);
+
+$t->skip_errors_check('crit', "Can't assign requested address")
+	if $^O eq 'freebsd';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

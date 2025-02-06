@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2024 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -28,6 +29,9 @@ select STDOUT; $| = 1;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http proxy upstream_zone/);
+
+$t->skip_errors_check('crit', "Can't assign requested address")
+	if $^O eq 'freebsd';
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

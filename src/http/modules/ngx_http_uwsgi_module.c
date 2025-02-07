@@ -2620,7 +2620,8 @@ ngx_http_uwsgi_set_ssl(ngx_conf_t *cf, ngx_http_uwsgi_loc_conf_t *uwcf)
 
         if (ngx_ssl_trusted_certificate(cf, uwcf->upstream.ssl,
                                         &uwcf->ssl_trusted_certificate,
-                                        uwcf->ssl_verify_depth)
+                                        uwcf->ssl_verify_depth,
+                                        uwcf->no_check_time)
             != NGX_OK)
         {
             return NGX_ERROR;

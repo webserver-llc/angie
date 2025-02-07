@@ -2649,7 +2649,8 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
 
         if (ngx_ssl_trusted_certificate(cf, pscf->ssl,
                                         &pscf->ssl_trusted_certificate,
-                                        pscf->ssl_verify_depth)
+                                        pscf->ssl_verify_depth,
+                                        pscf->no_check_time)
             != NGX_OK)
         {
             return NGX_ERROR;

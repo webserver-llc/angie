@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+вся функциональность nginx 1.27.4 за исключение директивы
+"keepalive_min_timeout" (аналогичный функционал существует с версии 1.8.0).
+</para>
+<para lang="en">
+all functionality of nginx 1.27.4 except the "keepalive_min_timeout" directive
+(similar feature exists since version 1.8.0).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 параметр "renew_on_load" директивы "acme_client", позволяющий форсировать
 обновление сертификата при загрузке конфигурации.
 </para>

@@ -49,11 +49,11 @@ EOF
 
 plan(skip_all => 'no lavfi')
 	unless grep /lavfi/, `ffmpeg -loglevel quiet -formats`;
-plan(skip_all => 'no libx264')
-	unless grep /libx264/, `ffmpeg -loglevel quiet -encoders`;
+plan(skip_all => 'no libx264 or libopenh264')
+	unless grep /libx264|libopenh264/, `ffmpeg -loglevel quiet -encoders`;
 system('ffmpeg -nostdin -loglevel quiet -y '
 	. '-f lavfi -i testsrc=duration=10:size=320x200:rate=15 '
-	. "-pix_fmt yuv420p -c:v libx264 ${\($t->testdir())}/test.mp4") == 0
+	. "-pix_fmt yuv420p -c:v h264 ${\($t->testdir())}/test.mp4") == 0
 	or die "Can't create mp4 file: $!";
 
 $t->run()->plan(13);

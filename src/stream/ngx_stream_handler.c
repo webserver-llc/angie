@@ -742,7 +742,7 @@ ngx_api_stream_session_codes_handler(ngx_api_entry_data_t data,
 #if (NGX_STREAM_SSL)
 
 static ngx_int_t
-ngx_api_stream_ssl_handler(ngx_api_entry_data_t data,ngx_api_ctx_t *actx,
+ngx_api_stream_ssl_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {
     ngx_stream_stats_zone_node_t *stats_zone = ctx;
@@ -753,6 +753,7 @@ ngx_api_stream_ssl_handler(ngx_api_entry_data_t data,ngx_api_ctx_t *actx,
 
     return NGX_DECLINED;
 }
+
 
 void
 ngx_stream_add_ssl_handshake_stats(ngx_connection_t *c,

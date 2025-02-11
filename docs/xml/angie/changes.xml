@@ -25,6 +25,17 @@ the fix was ported from nginx 1.27.4.
 
 <change type="bugfix">
 <para lang="ru">
+запросы к API для получения статистики зон с переменными могли приводить к
+блокировке рабочих процессов в модулях HTTP и stream.
+</para>
+<para lang="en">
+API requests to retrieve statistics from zones with variables could cause
+worker processes in the HTTP and stream modules to become blocked.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 использование доменных имён, начинающихся с точки, в директиве
 "server_name" могло привести к ошибке обновления сертификата по
 протоколу ACME.

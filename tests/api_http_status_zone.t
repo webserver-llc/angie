@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_api http_ssl map socket_ssl_sni/)
 	->has(qw/sni/)
-	->has_daemon('openssl')->plan(1860)
+	->has_daemon('openssl')->plan(2124)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -406,6 +406,12 @@ sub check_single_zone {
 		"check 'single' server zone");
 	ok(check_stats($j->{http}{location_zones}{single}, 10),
 		"check 'single' location zone");
+
+	$j = get_json('/status/http/server_zones/single');
+	ok(check_stats($j, 10), "check 'single' server zone directly");
+
+	$j = get_json('/status/http/location_zones/single');
+	ok(check_stats($j, 10), "check 'single' location zone directly");
 }
 
 sub test_single_zone {
@@ -487,6 +493,12 @@ sub check_host_zone {
 		my $a_zone = "$_.$a";
 		my $b_zone = "$_.$b";
 
+		my $zj = get_json("/status/http/server_zones/$a_zone");
+		ok(check_stats($zj, 2), "check '$a_zone' server zone directly");
+
+		$zj = get_json("/status/http/server_zones/$b_zone");
+		ok(check_stats($zj, 2), "check '$b_zone' server zone directly");
+
 		ok(check_stats($server_zones->{$a_zone}, 2),
 			"check '$a_zone' server zone");
 		ok(check_stats($server_zones->{$b_zone}, 2),
@@ -496,6 +508,12 @@ sub check_host_zone {
 			"'f.$a_zone' server zone does not exist");
 		ok(not (exists $server_zones->{"f.$b_zone"}),
 			"'f.$b_zone' server zone does not exist");
+
+		$zj = get_json("/status/http/location_zones/$a_zone");
+		ok(check_stats($zj, 2), "check '$a_zone' location zone directly");
+
+		$zj = get_json("/status/http/location_zones/$b_zone");
+		ok(check_stats($zj, 2), "check '$b_zone' location zone directly");
 
 		ok(check_stats($location_zones->{$a_zone}, 2),
 			"check '$a_zone' location zone");

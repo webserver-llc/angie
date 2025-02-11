@@ -646,6 +646,7 @@ ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx)
 {
     ngx_int_t                     rc;
+    ngx_str_t                     path;
     ngx_api_iter_ctx_t            ictx;
     ngx_stream_stats_zone_t      *zone;
     ngx_stream_core_main_conf_t  *cmcf;
@@ -653,24 +654,39 @@ ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
     cmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
                                                  ngx_stream_core_module);
 
-    zone = cmcf->server_zones;
-    if (zone == NULL) {
-        return NGX_DECLINED;
-    }
+    rc = NGX_DECLINED;
 
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_stream_server_zone_entries;
-    ictx.elts = zone;
 
-    zone->current_node = zone->sh->first_node;
-    ngx_rwlock_rlock(&zone->sh->lock);
+    path = actx->path;
 
-    rc = ngx_api_object_iterate(ngx_api_stream_server_zones_iter, &ictx, actx);
+    for (zone = cmcf->server_zones; zone; zone = zone->next) {
+        ictx.elts = zone;
 
-    zone = ictx.elts;
+        ngx_rwlock_rlock(&zone->sh->lock);
 
-    if (rc != NGX_OK && zone != NULL) {
+        zone->current_node = zone->sh->first_node;
+
+        rc = ngx_api_object_iterate(ngx_api_stream_server_zones_iter,
+                                    &ictx, actx);
+
         ngx_rwlock_unlock(&zone->sh->lock);
+
+        /* single zone */
+        if (path.len != 0) {
+
+            if (rc == NGX_API_NOT_FOUND) {
+                actx->path = path;
+                continue;
+            }
+
+            break;
+        }
+
+        if (rc != NGX_OK) {
+            break;
+        }
     }
 
     return rc;
@@ -684,32 +700,17 @@ ngx_api_stream_server_zones_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
     ngx_stream_stats_zone_node_t  *stats_zone;
 
     zone = ictx->elts;
+    stats_zone = zone->current_node;
 
-    if (zone == NULL) {
+    if (stats_zone == NULL) {
         return NGX_DECLINED;
     }
 
-    stats_zone = zone->current_node;
-
     ictx->entry.name.data = stats_zone->data;
     ictx->entry.name.len = stats_zone->len;
-
     ictx->ctx = stats_zone;
 
     zone->current_node = stats_zone->next;
-
-    if (stats_zone->next == NULL) {
-        ngx_rwlock_unlock(&zone->sh->lock);
-
-        zone = zone->next;
-
-        ictx->elts = zone;
-
-        if (zone != NULL) {
-            zone->current_node = zone->sh->first_node;
-            ngx_rwlock_rlock(&zone->sh->lock);
-        }
-    }
 
     return NGX_OK;
 }

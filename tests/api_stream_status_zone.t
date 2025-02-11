@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http_api stream stream_ssl_preread/)
 	->has(qw/stream_ssl stream_return stream_map socket_ssl_sni stream_pass/)
 	->has(qw/rewrite sni/)
-	->has_daemon('openssl')->plan(2206)
+	->has_daemon('openssl')->plan(2274)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -381,12 +381,22 @@ sub check_server_cert_type_zone {
 		"check 'server_cert_type' zone");
 	ok(check_stats_ssl($server_zones->{cert_}, 0), "check 'cert_' zone");
 
-	for (1 .. 2) {
-		ok(check_stats_ssl($server_zones->{cert_RSA}, 2),
-			"check 'cert_RSA' zone");
-		ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
-			"check 'cert_ECDSA' zone");
-	}
+	ok(check_stats_ssl($server_zones->{cert_RSA}, 2),
+		"check 'cert_RSA' zone");
+	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
+		"check 'cert_ECDSA' zone");
+
+	ok(check_stats_ssl($server_zones->{cert_RSA}, 2), "check 'cert_RSA' zone");
+	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
+		"check 'cert_ECDSA' zone");
+
+	$j = get_json('/status/stream/server_zons/cert_RSA');
+	ok(check_stats_ssl($server_zones->{cert_RSA}, 2),
+		"check 'cert_RSA' zone directly");
+
+	$j = get_json('/status/stream/server_zons/cert_ECDSA');
+	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
+		"check 'cert_ECDSA' zone directly");
 }
 
 sub test_server_cert_type_zone {

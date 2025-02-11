@@ -7,6 +7,17 @@
 
 <changes ver="1.9.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+запросы к API для получения статистики зон с переменными могли приводить к
+блокировке рабочих процессов в модулях HTTP и stream.
+</para>
+<para lang="en">
+API requests to retrieve statistics from zones with variables could cause
+worker processes in the HTTP and stream modules to become blocked.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 вся функциональность nginx 1.27.4 за исключение директивы

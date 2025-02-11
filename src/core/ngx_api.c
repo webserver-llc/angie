@@ -190,6 +190,9 @@ ngx_api_object_iterate(ngx_api_iter_pt iter, ngx_api_iter_ctx_t *ictx,
     if (ngx_api_next_segment(&actx->path, &name) == NGX_OK) {
         obj = NULL;
 
+    } else if (actx->out != NULL) {
+        obj = actx->out;
+
     } else {
         obj = ngx_data_new_object(actx->pool);
         if (obj == NULL) {

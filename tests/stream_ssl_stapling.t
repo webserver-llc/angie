@@ -288,7 +288,8 @@ ok(!staple(8449, 'ECDSA'), 'ocsp error');
 
 # broken TLSv1.3 sigalgs in LibreSSL
 $t->skip_errors_check('crit', 'SSL_do_handshake\(\) failed')
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL') && test_tls13()
+	and not $t->has_feature('libressl:4.0.0');
 
 ###############################################################################
 

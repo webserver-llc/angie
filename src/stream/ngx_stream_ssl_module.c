@@ -1841,10 +1841,10 @@ ngx_stream_add_ssl_stats(ngx_connection_t *c, ngx_stream_server_stats_t *stats)
         ngx_stream_add_ssl_handshake_stats(c, stats, 1);
 
     } else if (c->read->timedout) {
-        (void) ngx_atomic_fetch_add(&stats->ssl_timedout, 1);
+        (void) ngx_atomic_fetch_add(&stats->ssl.timedout, 1);
 
     } else {
-        (void) ngx_atomic_fetch_add(&stats->ssl_failed, 1);
+        (void) ngx_atomic_fetch_add(&stats->ssl.failed, 1);
     }
 }
 

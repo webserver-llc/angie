@@ -40,25 +40,25 @@ static ngx_api_entry_t  ngx_api_stream_server_zone_ssl_entries[] = {
     {
         .name      = ngx_string("handshaked"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_handshaked)
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl.handshaked)
     },
 
     {
         .name      = ngx_string("reuses"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_reuses)
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl.reuses)
     },
 
     {
         .name      = ngx_string("timedout"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_timedout)
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl.timedout)
     },
 
     {
         .name      = ngx_string("failed"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_stream_server_stats_t, ssl_failed)
+        .data.off  = offsetof(ngx_stream_server_stats_t, ssl.failed)
     },
 
     ngx_api_null_entry
@@ -759,10 +759,10 @@ void
 ngx_stream_add_ssl_handshake_stats(ngx_connection_t *c,
     ngx_stream_server_stats_t *stats, int num)
 {
-    (void) ngx_atomic_fetch_add(&stats->ssl_handshaked, 1);
+    (void) ngx_atomic_fetch_add(&stats->ssl.handshaked, 1);
 
     if (SSL_session_reused(c->ssl->connection)) {
-        (void) ngx_atomic_fetch_add(&stats->ssl_reuses, 1);
+        (void) ngx_atomic_fetch_add(&stats->ssl.reuses, 1);
     }
 }
 

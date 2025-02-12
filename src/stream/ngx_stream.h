@@ -135,10 +135,7 @@ typedef struct {
     ngx_atomic_t                   received;
     ngx_atomic_t                   sent;
 #if (NGX_STREAM_SSL)
-    ngx_atomic_t                   ssl_handshaked;
-    ngx_atomic_t                   ssl_reuses;
-    ngx_atomic_t                   ssl_timedout;
-    ngx_atomic_t                   ssl_failed;
+    ngx_ssl_stats_t                ssl;
 #endif
 } ngx_stream_server_stats_t;
 

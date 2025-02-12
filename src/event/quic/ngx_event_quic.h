@@ -30,6 +30,8 @@
 
 
 typedef ngx_int_t (*ngx_quic_init_pt)(ngx_connection_t *c);
+typedef ngx_int_t (*ngx_quic_ssl_handshake_pt)(ngx_connection_t *c,
+    ngx_quic_conf_t *qcf, ngx_int_t rc);
 typedef void (*ngx_quic_shutdown_pt)(ngx_connection_t *c);
 
 typedef ngx_int_t (*ngx_quic_init_ssl_pt)(ngx_connection_t *c, void *data);
@@ -64,7 +66,7 @@ typedef struct {
 } ngx_quic_buffer_t;
 
 
-typedef struct {
+struct ngx_quic_conf_s {
     ngx_ssl_t                     *ssl;
 
     ngx_flag_t                     retry;
@@ -83,11 +85,12 @@ typedef struct {
 
     ngx_quic_init_pt               init;
     ngx_quic_shutdown_pt           shutdown;
+    ngx_quic_ssl_handshake_pt      post_ssl_handshake;
 
     u_char                         av_token_key[NGX_QUIC_AV_KEY_LEN];
     u_char                         sr_token_key[NGX_QUIC_SR_KEY_LEN];
     ngx_str_t                      alpn;
-} ngx_quic_conf_t;
+};
 
 
 struct ngx_quic_stream_s {

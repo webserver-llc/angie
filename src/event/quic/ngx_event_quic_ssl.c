@@ -404,29 +404,13 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
 
 
 static ngx_int_t
-ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
-    enum ssl_encryption_level_t level)
+ngx_quic_ssl_handshake(ngx_connection_t *c)
 {
     int                     n, sslerr;
-    ngx_buf_t              *b;
-    ngx_chain_t            *cl;
     ngx_ssl_conn_t         *ssl_conn;
-    ngx_quic_frame_t       *frame;
     ngx_quic_connection_t  *qc;
 
-    qc = ngx_quic_get_connection(c);
-
     ssl_conn = c->ssl->connection;
-
-    for (cl = data; cl; cl = cl->next) {
-        b = cl->buf;
-
-        if (!SSL_provide_quic_data(ssl_conn, level, b->pos, b->last - b->pos)) {
-            ngx_ssl_error(NGX_LOG_INFO, c->log, 0,
-                          "SSL_provide_quic_data() failed");
-            return NGX_ERROR;
-        }
-    }
 
     n = SSL_do_handshake(ssl_conn);
 
@@ -453,6 +437,8 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
     }
 
     if (n <= 0 || SSL_in_init(ssl_conn)) {
+        qc = ngx_quic_get_connection(c);
+
         if (ngx_quic_keys_available(qc->keys, ssl_encryption_early_data, 0)
             && qc->client_tp_done)
         {
@@ -461,7 +447,7 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
             }
         }
 
-        return NGX_OK;
+        return NGX_AGAIN;
     }
 
 #if (NGX_DEBUG)
@@ -476,6 +462,51 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
 #endif
 
     c->ssl->handshaked = 1;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
+    enum ssl_encryption_level_t level)
+{
+    ngx_int_t               rc;
+    ngx_buf_t              *b;
+    ngx_chain_t            *cl;
+    ngx_ssl_conn_t         *ssl_conn;
+    ngx_quic_frame_t       *frame;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    ssl_conn = c->ssl->connection;
+
+    for (cl = data; cl; cl = cl->next) {
+        b = cl->buf;
+
+        if (!SSL_provide_quic_data(ssl_conn, level, b->pos, b->last - b->pos)) {
+            ngx_ssl_error(NGX_LOG_INFO, c->log, 0,
+                          "SSL_provide_quic_data() failed");
+            return NGX_ERROR;
+        }
+    }
+
+    rc = ngx_quic_ssl_handshake(c);
+
+    if (qc->conf->post_ssl_handshake
+        && qc->conf->post_ssl_handshake(c, qc->conf, rc) != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    if (rc == NGX_AGAIN) {
+        return NGX_OK;
+    }
+
+    if (rc != NGX_OK) {
+        return NGX_ERROR;
+    }
 
     if (qc->client) {
         if (level != ssl_encryption_application) {

@@ -87,6 +87,17 @@
 typedef struct ngx_ssl_ocsp_s  ngx_ssl_ocsp_t;
 
 
+#if (NGX_API)
+
+typedef struct {
+    ngx_atomic_t                handshaked;
+    ngx_atomic_t                reuses;
+    ngx_atomic_t                timedout;
+    ngx_atomic_t                failed;
+} ngx_ssl_stats_t;
+
+#endif
+
 struct ngx_ssl_s {
     SSL_CTX                    *ctx;
     ngx_log_t                  *log;

@@ -231,25 +231,25 @@ static ngx_api_entry_t  ngx_api_http_server_zone_ssl_entries[] = {
     {
         .name      = ngx_string("handshaked"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_http_server_stats_t, ssl_handshaked)
+        .data.off  = offsetof(ngx_http_server_stats_t, ssl.handshaked)
     },
 
     {
         .name      = ngx_string("reuses"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_http_server_stats_t, ssl_reuses)
+        .data.off  = offsetof(ngx_http_server_stats_t, ssl.reuses)
     },
 
     {
         .name      = ngx_string("timedout"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_http_server_stats_t, ssl_timedout)
+        .data.off  = offsetof(ngx_http_server_stats_t, ssl.timedout)
     },
 
     {
         .name      = ngx_string("failed"),
         .handler   = ngx_api_struct_atomic_handler,
-        .data.off  = offsetof(ngx_http_server_stats_t, ssl_failed)
+        .data.off  = offsetof(ngx_http_server_stats_t, ssl.failed)
     },
 
     ngx_api_null_entry
@@ -1066,10 +1066,10 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
                 ngx_http_add_ssl_handshake_stats(c->ssl->connection, stats, 1);
 
             } else if (c->read->timedout) {
-                (void) ngx_atomic_fetch_add(&stats->ssl_timedout, 1);
+                (void) ngx_atomic_fetch_add(&stats->ssl.timedout, 1);
 
             } else {
-                (void) ngx_atomic_fetch_add(&stats->ssl_failed, 1);
+                (void) ngx_atomic_fetch_add(&stats->ssl.failed, 1);
             }
         }
     }
@@ -4735,10 +4735,10 @@ static void
 ngx_http_add_ssl_handshake_stats(ngx_ssl_conn_t *ssl_conn,
     ngx_http_server_stats_t *stats, int num)
 {
-    (void) ngx_atomic_fetch_add(&stats->ssl_handshaked, num);
+    (void) ngx_atomic_fetch_add(&stats->ssl.handshaked, num);
 
     if (SSL_session_reused(ssl_conn)) {
-        (void) ngx_atomic_fetch_add(&stats->ssl_reuses, num);
+        (void) ngx_atomic_fetch_add(&stats->ssl.reuses, num);
     }
 }
 

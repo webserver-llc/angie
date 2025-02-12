@@ -291,6 +291,10 @@ struct ngx_quic_connection_s {
     ngx_quic_init_ssl_pt              init_ssl;
     void                             *init_ssl_data;
 
+#if (NGX_API)
+    ngx_ssl_stats_t                  *ssl_stats;
+#endif
+
     unsigned                          error_app:1;
     unsigned                          send_timer_set:1;
     unsigned                          closing:1;

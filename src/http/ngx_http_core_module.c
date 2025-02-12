@@ -3558,7 +3558,7 @@ ngx_http_core_postconfiguration(ngx_conf_t *cf)
             addr = port[p].addrs.elts;
             for (a = 0; a < port[p].addrs.nelts; a++) {
 
-                if (!addr[a].opt.ssl) {
+                if (!addr[a].opt.ssl && !addr[a].opt.quic) {
                     continue;
                 }
 

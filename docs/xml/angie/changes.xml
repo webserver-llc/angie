@@ -7,6 +7,22 @@
 
 <changes ver="1.8.2" date="">
 
+<change type="security">
+<para lang="ru">
+недостаточная проверка в обработке виртуальных серверов при использовании SNI
+в TLSv1.3 позволяла повторно использовать SSL-сессию в контексте другого
+виртуального сервера, чтобы обойти проверку клиентских SSL-сертификатов
+(CVE-2025-23419);
+исправление портировано из nginx 1.27.4.
+</para>
+<para lang="en">
+insufficient validation while handling virtual servers with TLSv1.3 SNI allowed
+to reuse SSL sessions in a different virtual server and thus bypass client SSL
+certificate verification (CVE-2025-23419);
+the fix was ported from nginx 1.27.4.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 использование доменных имён, начинающихся с точки, в директиве

@@ -4,10 +4,14 @@ package Test::Nginx::Config;
 
 # Module for nginx config.
 
+# TODO indents between some elements, comments
+
 ###############################################################################
 
 use warnings;
 use strict;
+
+use Test::More;
 
 our $THESAURUS = {
 	order => [qw(globals pid error_log daemon worker_processes events stream
@@ -21,40 +25,45 @@ our $THESAURUS = {
 			order => [qw(worker_connections)],
 		},
 		stream => {
-			order => [qw(globals upstreams servers)],
+			order => [qw(globals upstream server)],
 			children => {
-				globals => {hide_name => 1, delimiter => ''},
-				upstreams => {
-					singular => 'upstream',
-					order => [qw(zone balancer response_time_factor servers)],
+				globals => {
+					hide_name => 1, delimiter => '',
+					default_value => '%%TEST_GLOBALS_STREAM%%',
+				},
+				upstream => {
+					order => [qw(zone balancer response_time_factor server)],
 					children => {
 						balancer => {hide_name => 1},
-						servers  => {singular => 'server'},
 					},
 				},
-				servers => {
-					singular => 'server',
-					order    => [qw(listen return proxy_pass)],
+				server => {
+					order => [qw(listen return proxy_pass)],
 				},
 			}
 		},
 		http => {
-			order => [qw(globals servers)],
+			order => [qw(globals resolver upstream server)],
 			children => {
 				globals => {
 					hide_name => 1, delimiter => '',
 					default_value => '%%TEST_GLOBALS_HTTP%%'
 				},
-				servers => {
-					singular => 'server',
-					order    => [qw(listen location)],
+				upstream => {
+					order => [qw(zone balancer server)],
+					children => {
+						balancer => {hide_name => 1},
+					},
+				},
+				server => {
+					order => [qw(listen server_name location add_header)],
 					children => {
 						location => {
-							order => [qw(uri return)],
+							order => [qw(uri internal return proxy_pass)],
 							children => {
 								uri => {hide_name => 1},
 							}
-						}
+						},
 					}
 				},
 			},
@@ -71,57 +80,97 @@ sub new {
 		daemon           => 'off',
 		worker_processes => '1',
 		events           => {},
-		%{$config // {}}, # TODO: smart merge
+		%{ $config // {} },
 	};
 
 	return $self;
 }
 
-# TODO this only works for one depth level
 sub update {
 	my ($self, $new_config) = @_;
-	$self->{config} = { %{$self->{config}}, %$new_config };
+	$self->add($new_config, 1);
 }
 
-sub add_element {
-	my ($self, $element) = @_;
+sub add_api_server {
+	my $self = shift;
 
-	while (my ($name, $elem) = each %$element) {
-		$self->_add_child_to_hash($self->{config}, $name, $elem);
+	$self->add_http_server(
+		{
+			listen => '127.0.0.1:8080',
+			location => [{
+				name => '/api/',
+				uri  => 'api /',
+			}],
+		}
+	);
+}
+
+sub add {
+	my ($self, $elements, $rewrite) = @_;
+
+	while (my ($name, $element) = each %{ $elements }) {
+		$self->_add_child(
+			config => $self->{config}, $name => $element, $rewrite);
 	}
 }
 
-sub _add_child_to_hash {
-	my ($self, $parent, $child_name, $child) = @_;
+sub _add_child {
+	my ($self, $parent_name, $parent, $child_name, $child, $rewrite) = @_;
 
 	unless (defined $parent->{$child_name}) {
 		$parent->{$child_name} = $child;
 		return;
 	}
 
-	# TODO smart merge
 	if (ref $child eq 'HASH') {
-		for my $k (sort keys %$child) {
-			my $v = $child->{$k};
-			$self->_add_child_to_hash($parent->{$child_name}, $k, $v);
+		while (my ($k, $v) = each %{ $child }) {
+			$self->_add_child(
+				$child_name => $parent->{$child_name}, $k => $v, $rewrite);
 		}
-
 	} elsif (ref $child eq 'ARRAY') {
-		# TODO append if not defined
-		push @{$parent->{$child_name}}, $child;
-
+		if ($parent_name eq 'http' && $child_name eq 'server') {
+			$self->add_http_server($child, $parent);
+		} else {
+			if ($rewrite) {
+				$parent->{$child_name} = $child;
+			} else {
+				push @{ $parent->{$child_name} }, @{ $child };
+			}
+		}
 	} else {
-
+		if ($rewrite) {
+			$parent->{$child_name} = $child;
+		} else {
+			# ambiguity
+			die "Can't add $child_name to $parent_name.\n"
+				. "(old value: $parent->{$child_name}, new value: $child";
+		}
 	}
 
 	return;
+}
+
+sub add_http_server {
+	my ($self, $server, $parent) = @_;
+
+	$self->{config}{http} //= {server => []};
+	$parent //= $self->{config}{http}{server};
+
+	if (ref $server eq 'ARRAY') {
+		foreach my $elem (@{ $server }) {
+			$self->add_http_server($elem);
+		}
+		return;
+	}
+
+	push @{ $parent }, $server;
 }
 
 sub convert_to_string {
 	my ($self) = @_;
 
 	my $config_string = '';
-	for my $child (@{$THESAURUS->{order}}) {
+	for my $child (@{ $THESAURUS->{order} }) {
 		$config_string .= append_child(
 			$self->{config}{$child}, $child, $THESAURUS->{children}{$child}, ''
 		);
@@ -131,42 +180,77 @@ sub convert_to_string {
 }
 
 sub append_child {
-	my ($config_section, $config_section_name, $thesaurus, $indent) = @_;
+	my ($config_section, $config_section_name, $thesaurus, $indent, $inline) = @_;
 
 	$config_section //= $thesaurus->{default_value};
 
 	return '' unless defined $config_section;
 
+	$config_section =~ s/\s+$//; # remove trailing spaces
+
 	$thesaurus //= {};
 
 	my $config_string = '';
 
+	$inline = $inline // $thesaurus->{inline} // 0;
+
 	if (ref $config_section eq 'HASH') {
-		my $name = $config_section->{name} // '';
+		if ($inline) {
+			$config_string .= $indent . $config_section_name;
+			for my $child_name (@{ $thesaurus->{order} }) {
+				$config_string .= append_child(
+					$config_section->{$child_name}, $child_name,
+					$thesaurus->{children}{$child_name}, ' ', 1
+				);
+			}
+			$config_string .= ";\n";
 
-		$config_string .= "\n" . $indent . $config_section_name . " $name {\n";
+		} else {
 
-		for my $child_name (@{$thesaurus->{order}}) {
-			$config_string .= append_child(
-				$config_section->{$child_name}, $child_name,
-				$thesaurus->{children}{$child_name}, $indent . (' ' x 4)
-			);
+			my $name = $config_section->{name} // '';
+
+			$config_string .= "\n" . $indent . $config_section_name
+				. " $name {\n";
+
+			if (defined $config_section->{_as_is}) {
+				$config_string .= $config_section->{_as_is};
+			}
+
+			for my $child_name (@{ $thesaurus->{order} }) {
+				$config_string .= append_child(
+					$config_section->{$child_name}, $child_name,
+					$thesaurus->{children}{$child_name}, $indent . (' ' x 4)
+				);
+			}
+			$config_string .= $indent . "}\n";
 		}
-		$config_string .= $indent . "}\n";
 
 	} elsif (ref $config_section eq 'ARRAY') {
-		for my $child (@{$config_section}) {
-			$config_string .= append_child(
-				$child, $thesaurus->{singular}, $thesaurus, $indent);
+		for my $child (@{ $config_section }) {
+			$config_string .= append_child($child,
+				$config_section_name,
+				$thesaurus, $indent, $inline
+			);
 		}
 
 	} else {
-		my $delimiter =
-			(defined $thesaurus->{delimiter}) ? $thesaurus->{delimiter} : ';';
+		my $hide_name = $thesaurus->{hide_name};
+
+		if ($thesaurus->{boolean}) {
+			return '' unless $config_section;
+
+			$hide_name = 1;
+			$config_section = $config_section_name;
+		}
+
+		my $delimiter = (defined $thesaurus->{delimiter})
+			? $thesaurus->{delimiter}
+			: ($inline ? '' : ';');
 
 		$config_string .= $indent
-			. ($thesaurus->{hide_name} ? '' : $config_section_name . ' ' )
-			. $config_section . $delimiter . "\n";
+			. ($hide_name ? '' : $config_section_name)
+			. ($thesaurus->{use_equal_sign} ? '=' : ($hide_name ? '' : ' '))
+			. $config_section . $delimiter . ($inline ? '' : "\n");
 	}
 
 	return $config_string;

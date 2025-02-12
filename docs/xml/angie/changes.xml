@@ -52,6 +52,26 @@ names prefixed with a dot in the "server_name" directive.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+HTTP/3-запросы не учитывались при подсчёте статистики; проблема появилась
+в 1.8.0.
+</para>
+<para lang="en">
+HTTP/3 requests were not included in the statistics calculation; the bug had
+appeared in 1.8.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+SSL-статистика не считалась при включении протокола QUIC.
+</para>
+<para lang="en">
+SSL statistics were not calculated when the QUIC protocol was enabled.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 теперь директиву "ssl_early_data" можно использовать в stream-модуле.

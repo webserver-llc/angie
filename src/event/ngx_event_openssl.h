@@ -107,6 +107,10 @@ struct ngx_ssl_s {
 
     ngx_rbtree_t                staple_rbtree;
     ngx_rbtree_node_t           staple_sentinel;
+
+#if (NGX_API)
+    void                       *status_zone;
+#endif
 };
 
 

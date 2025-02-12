@@ -11,6 +11,16 @@
 #include <ngx_http.h>
 
 
+#if (NGX_API && NGX_HTTP_SSL)
+
+#define ngx_http_server_stats(ssl_stats)                                      \
+    ((ssl_stats) == NULL) ? NULL                                              \
+                          : ((u_char *) (ssl_stats)                           \
+                            - offsetof(ngx_http_server_stats_t, ssl))
+
+#endif
+
+
 static void ngx_http_wait_request_handler(ngx_event_t *ev);
 static ngx_http_request_t *ngx_http_alloc_request(ngx_connection_t *c);
 static void ngx_http_process_request_line(ngx_event_t *rev);
@@ -1023,9 +1033,7 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
     ngx_http_connection_t     *hc;
 #endif
 #if (NGX_API)
-    ngx_http_request_t        *r;
-    ngx_http_stats_zone_t     *stats_zone;
-    ngx_http_server_stats_t   *stats;
+    ngx_ssl_stats_t           *ssl_stats;
     ngx_http_core_srv_conf_t  *cscf;
 #endif
 
@@ -1038,41 +1046,9 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
 #if (NGX_API)
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
-    if (cscf->status_zone != NULL) {
-        stats = NULL;
-        stats_zone = cscf->status_zone->zone;
+    ssl_stats = ngx_http_calculate_ssl_statistic(c, cscf->status_zone);
 
-        if (stats_zone->count == 1) {
-            stats = &stats_zone->sh->first_node->stats.server;
-
-        } else {
-            r = ngx_http_alloc_request(c);
-            if (r != NULL) {
-                r->logged = 1;
-
-                stats = ngx_http_get_server_stats(r, cscf->status_zone);
-
-                ngx_http_free_request(r, 0);
-
-                c->log->action = "SSL handshaking";
-                c->destroyed = 0;
-            }
-        }
-
-        if (stats != NULL) {
-            hc->server_stats = stats;
-
-            if (c->ssl->handshaked) {
-                ngx_http_add_ssl_handshake_stats(c->ssl->connection, stats, 1);
-
-            } else if (c->read->timedout) {
-                (void) ngx_atomic_fetch_add(&stats->ssl.timedout, 1);
-
-            } else {
-                (void) ngx_atomic_fetch_add(&stats->ssl.failed, 1);
-            }
-        }
-    }
+    hc->server_stats = ngx_http_server_stats(ssl_stats);
 #endif
 
     if (c->ssl->handshaked) {
@@ -2254,58 +2230,11 @@ ngx_http_process_request_header(ngx_http_request_t *r)
 
 #if (NGX_API)
     {
-#if (NGX_HTTP_SSL)
-    ngx_ssl_conn_t            *ssl_conn;
-    ngx_http_server_stats_t   *ostats;
-#endif
+        ngx_http_core_srv_conf_t  *cscf;
 
-    ngx_http_connection_t     *hc;
-    ngx_http_server_stats_t   *stats;
-    ngx_http_core_srv_conf_t  *cscf;
+        cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
 
-    cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
-
-    if (cscf->status_zone != NULL) {
-        stats = ngx_http_get_server_stats(r, cscf->status_zone);
-
-        hc = r->http_connection;
-
-        if (stats != NULL) {
-#if (NGX_HTTP_SSL)
-            if (r->connection->ssl != NULL) {
-                ostats = hc->server_stats;
-                ssl_conn = r->connection->ssl->connection;
-
-                /*
-                 * If the variable associated with the 'status_zone' directive
-                 * changes or acquires a value after establishing an
-                 * SSL handshake, we move the SSL statistics from the old
-                 * value to the new one, or, if no previous statistics exist,
-                 * we add new ones.
-                 */
-
-                if (ostats != NULL) {
-                    if (stats != ostats) {
-                        ngx_http_add_ssl_handshake_stats(ssl_conn, ostats, -1);
-                        ngx_http_add_ssl_handshake_stats(ssl_conn, stats, 1);
-                    }
-
-                } else {
-                    ngx_http_add_ssl_handshake_stats(ssl_conn, stats, 1);
-                }
-            }
-#endif
-
-            hc->server_stats = stats;
-
-            ngx_http_add_request_stats(r, stats);
-        }
-#if (NGX_HTTP_SSL)
-        else if (hc->server_stats != NULL) {
-            ngx_http_add_request_stats(r, hc->server_stats);
-        }
-#endif
-    }
+        ngx_http_calculate_request_statistic(r, cscf->status_zone);
     }
 #endif
 
@@ -4389,6 +4318,133 @@ ngx_http_log_error_handler(ngx_http_request_t *r, ngx_http_request_t *sr,
 
 
 #if (NGX_API)
+
+void
+ngx_http_calculate_request_statistic(ngx_http_request_t *r, void *status_zone)
+{
+#if (NGX_HTTP_SSL)
+    ngx_ssl_conn_t            *ssl_conn;
+#if (NGX_HTTP_V3)
+    ngx_ssl_stats_t          **ssl_stats;
+#endif
+    ngx_connection_t          *c;
+    ngx_http_server_stats_t   *ostats;
+#endif /* NGX_HTTP_SSL */
+
+    ngx_http_connection_t     *hc;
+    ngx_http_server_stats_t   *stats;
+
+    if (status_zone == NULL) {
+        return;
+    }
+
+    stats = ngx_http_get_server_stats(r, status_zone);
+
+    hc = r->http_connection;
+
+#if (NGX_HTTP_SSL)
+    c = r->connection;
+
+#if (NGX_HTTP_V3)
+    if (c->quic) {
+        ssl_stats = ngx_quic_get_ssl_stats(c->quic->parent);
+        hc->server_stats = ngx_http_server_stats(*ssl_stats);
+    }
+#endif
+
+#endif /* NGX_HTTP_SSL */
+
+    if (stats != NULL) {
+#if (NGX_HTTP_SSL)
+        if (c->ssl != NULL) {
+            ostats = hc->server_stats;
+            ssl_conn = c->ssl->connection;
+
+            /*
+             * If the variable associated with the 'status_zone' directive
+             * changes or acquires a value after establishing an
+             * SSL handshake, we move the SSL statistics from the old
+             * value to the new one, or, if no previous statistics exist,
+             * we add new ones.
+             */
+
+            if (ostats != NULL) {
+                if (stats != ostats) {
+                    ngx_http_add_ssl_handshake_stats(ssl_conn, ostats, -1);
+                    ngx_http_add_ssl_handshake_stats(ssl_conn, stats, 1);
+                }
+
+            } else {
+                ngx_http_add_ssl_handshake_stats(ssl_conn, stats, 1);
+            }
+        }
+#endif
+
+        hc->server_stats = stats;
+
+        ngx_http_add_request_stats(r, stats);
+    }
+#if (NGX_HTTP_SSL)
+    else if (hc->server_stats != NULL) {
+        ngx_http_add_request_stats(r, hc->server_stats);
+    }
+#endif
+}
+
+
+#if (NGX_HTTP_SSL)
+
+ngx_ssl_stats_t *
+ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
+    ngx_http_status_zone_t *status_zone)
+{
+    ngx_http_request_t       *r;
+    ngx_http_stats_zone_t    *stats_zone;
+    ngx_http_server_stats_t  *stats;
+
+    if (status_zone == NULL) {
+        return NULL;
+    }
+
+    stats = NULL;
+    stats_zone = status_zone->zone;
+
+    if (stats_zone->count == 1) {
+        stats = &stats_zone->sh->first_node->stats.server;
+
+    } else {
+        r = ngx_http_alloc_request(c);
+        if (r != NULL) {
+            r->logged = 1;
+
+            stats = ngx_http_get_server_stats(r, status_zone);
+
+            ngx_http_free_request(r, 0);
+
+            c->log->action = "SSL handshaking";
+            c->destroyed = 0;
+        }
+    }
+
+    if (stats == NULL) {
+        return NULL;
+    }
+
+    if (c->ssl->handshaked) {
+        ngx_http_add_ssl_handshake_stats(c->ssl->connection, stats, 1);
+
+    } else if (c->read->timedout) {
+        (void) ngx_atomic_fetch_add(&stats->ssl.timedout, 1);
+
+    } else {
+        (void) ngx_atomic_fetch_add(&stats->ssl.failed, 1);
+    }
+
+    return &stats->ssl;
+}
+
+#endif
+
 
 static ngx_int_t
 ngx_api_status_zone_iterate(ngx_api_ctx_t *actx, ngx_http_stats_zone_t *zones,

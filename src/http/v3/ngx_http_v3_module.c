@@ -21,6 +21,10 @@ static char *ngx_http_v3_merge_srv_conf(ngx_conf_t *cf, void *parent,
     void *child);
 static char *ngx_http_quic_host_key(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+#if (NGX_API)
+static ngx_int_t ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c,
+    ngx_quic_conf_t *qcf, ngx_int_t rc);
+#endif
 
 
 static ngx_command_t  ngx_http_v3_commands[] = {
@@ -259,6 +263,9 @@ ngx_http_v3_create_srv_conf(ngx_conf_t *cf)
 
     h3scf->quic.init = ngx_http_v3_init;
     h3scf->quic.shutdown = ngx_http_v3_shutdown;
+#if (NGX_API)
+    h3scf->quic.post_ssl_handshake = ngx_http_v3_calculate_ssl_statistic;
+#endif
 
     return h3scf;
 }
@@ -339,6 +346,9 @@ ngx_http_v3_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     sscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_ssl_module);
     conf->quic.ssl = &sscf->ssl;
+#if (NGX_API)
+    conf->quic.ssl->status_zone = cscf->status_zone;
+#endif
 
     return NGX_CONF_OK;
 }
@@ -443,3 +453,25 @@ failed:
 
     return NGX_CONF_ERROR;
 }
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_quic_conf_t *qcf,
+    ngx_int_t rc)
+{
+    ngx_ssl_stats_t  **ssl_stats;
+
+    if (rc == NGX_AGAIN) {
+        return NGX_OK;
+    }
+
+    ssl_stats = ngx_quic_get_ssl_stats(c);
+
+    *ssl_stats = ngx_http_calculate_ssl_statistic(c, qcf->ssl->status_zone);
+
+    return NGX_OK;
+}
+
+#endif

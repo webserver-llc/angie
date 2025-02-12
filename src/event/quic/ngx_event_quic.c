@@ -2030,3 +2030,18 @@ ngx_quic_shutdown_quic(ngx_connection_t *c)
         ngx_quic_finalize_connection(c, qc->shutdown_code, qc->shutdown_reason);
     }
 }
+
+
+#if (NGX_API)
+
+ngx_ssl_stats_t **
+ngx_quic_get_ssl_stats(ngx_connection_t *c)
+{
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    return &qc->ssl_stats;
+}
+
+#endif

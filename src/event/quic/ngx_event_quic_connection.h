@@ -318,6 +318,10 @@ struct ngx_quic_connection_s {
     unsigned                          client:1;
     unsigned                          switch_keys:1;
     unsigned                          retry_handled:1;
+#if (NGX_QUIC_OPENSSL_API)
+    unsigned                          read_level:2;
+    unsigned                          write_level:2;
+#endif
 };
 
 

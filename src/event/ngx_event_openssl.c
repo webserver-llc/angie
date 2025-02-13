@@ -670,7 +670,7 @@ ngx_ssl_connection_certificate(ngx_connection_t *c, ngx_pool_t *pool,
     ngx_str_t *cert, ngx_str_t *key, ngx_ssl_cache_t *cache,
     ngx_array_t *passwords)
 {
-    char            *err;
+    char            *err, *key_func_n;
     X509            *x509;
     u_long           n;
     EVP_PKEY        *pkey;
@@ -774,19 +774,15 @@ retry:
     if (type == NGX_SSL_NTLS_CERT_SIGN) {
 
         if (SSL_use_sign_PrivateKey(c->ssl->connection, pkey) == 0) {
-            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
-                          "SSL_use_sign_PrivateKey(\"%s\") failed", key->data);
-            EVP_PKEY_free(pkey);
-            return NGX_ERROR;
+            key_func_n = "SSL_use_sign_PrivateKey";
+            goto pkey_error;
         }
 
     } else if (type == NGX_SSL_NTLS_CERT_ENC) {
 
         if (SSL_use_enc_PrivateKey(c->ssl->connection, pkey) == 0) {
-            ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
-                          "SSL_use_enc_PrivateKey(\"%s\") failed", key->data);
-            EVP_PKEY_free(pkey);
-            return NGX_ERROR;
+            key_func_n = "SSL_use_enc_PrivateKey";
+            goto pkey_error;
         }
 
     } else
@@ -794,29 +790,35 @@ retry:
 #endif
 
     if (SSL_use_PrivateKey(c->ssl->connection, pkey) == 0) {
-        EVP_PKEY_free(pkey);
-
-        /* there can be mismatched pairs on uneven cache update */
-
-        n = ERR_peek_last_error();
-
-        if (ERR_GET_LIB(n) == ERR_LIB_X509
-            && ERR_GET_REASON(n) == X509_R_KEY_VALUES_MISMATCH
-            && mask == 0)
-        {
-            ERR_clear_error();
-            mask = NGX_SSL_CACHE_INVALIDATE;
-            goto retry;
-        }
-
-        ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
-                      "SSL_use_PrivateKey(\"%s\") failed", key->data);
-        return NGX_ERROR;
+        key_func_n = "SSL_use_PrivateKey";
+        goto pkey_error;
     }
 
     EVP_PKEY_free(pkey);
 
     return NGX_OK;
+
+pkey_error:
+
+    EVP_PKEY_free(pkey);
+
+    /* there can be mismatched pairs on uneven cache update */
+
+    n = ERR_peek_last_error();
+
+    if (ERR_GET_LIB(n) == ERR_LIB_X509
+        && ERR_GET_REASON(n) == X509_R_KEY_VALUES_MISMATCH
+        && mask == 0)
+    {
+        ERR_clear_error();
+        mask = NGX_SSL_CACHE_INVALIDATE;
+        goto retry;
+    }
+
+    ngx_ssl_error(NGX_LOG_ERR, c->log, 0,
+                  "%s(\"%s\") failed", key_func_n, key->data);
+
+    return NGX_ERROR;
 }
 
 

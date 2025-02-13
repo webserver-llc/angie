@@ -25,44 +25,43 @@ the fix was ported from nginx 1.27.4.
 
 <change type="bugfix">
 <para lang="ru">
-запросы к API для получения статистики зон с переменными могли приводить к
-блокировке рабочих процессов в модулях HTTP и stream.
+запросы к API для получения значений статистики из отдельной зоны, которая была
+задана через переменные, могли приводить к зацикливанию рабочего процесса.
 </para>
 <para lang="en">
-API requests to retrieve statistics from zones with variables could cause
-worker processes in the HTTP and stream modules to become blocked.
+API requests to retrieve statistic values from an individual zone, which was set
+via variables, could cause a worker process to enter an infinite loop.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-HTTP/3-запросы не учитывались при подсчёте статистики; проблема появилась
-в 1.8.0.
+HTTP/3-запросы не учитывались в зонах статистики;
+проблема появилась в 1.8.0.
 </para>
 <para lang="en">
-HTTP/3 requests were not included in the statistics calculation; the bug had
-appeared in 1.8.0.
+HTTP/3 requests were not counted in zone statistics;
+the bug had appeared in 1.8.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-SSL-статистика не считалась при включении протокола QUIC.
+TLS-согласования по протоколу QUIC не учитывались в статистике по SSL.
 </para>
 <para lang="en">
-SSL statistics were not calculated when the QUIC protocol was enabled.
+TLS handshakes using QUIC protocol were not counted in SSL statistics.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-использование доменных имён, начинающихся с точки, в директиве
-"server_name" могло привести к ошибке обновления сертификата по
-протоколу ACME.
+использование доменных имён, начинающихся с точки, в директиве "server_name"
+могло привести к ошибке обновления сертификата по протоколу ACME.
 </para>
 <para lang="en">
-certificate renewal via the ACME protocol could fail for server
-names prefixed with a dot in the "server_name" directive.
+certificate renewal via the ACME protocol could fail for server names prefixed
+with a dot in the "server_name" directive.
 </para>
 </change>
 

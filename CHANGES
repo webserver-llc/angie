@@ -1,4 +1,25 @@
 
+Changes with Angie 1.8.2                                         13 Feb 2025
+
+    *) Security: insufficient validation while handling virtual servers with
+       TLSv1.3 SNI allowed to reuse SSL sessions in a different virtual
+       server and thus bypass client SSL certificate verification
+       (CVE-2025-23419); the fix was ported from nginx 1.27.4.
+
+    *) Bugfix: API requests to retrieve statistic values from an individual
+       zone, which was set via variables, could cause a worker process to
+       enter an infinite loop.
+
+    *) Bugfix: HTTP/3 requests were not counted in zone statistics; the bug
+       had appeared in 1.8.0.
+
+    *) Bugfix: TLS handshakes using QUIC protocol were not counted in SSL
+       statistics.
+
+    *) Bugfix: certificate renewal via the ACME protocol could fail for
+       server names prefixed with a dot in the "server_name" directive.
+
+
 Changes with Angie 1.8.1                                         28 Dec 2024
 
     *) Bugfix: using the "status_zone" directive in the "server" block of
@@ -90,7 +111,7 @@ Changes with Angie 1.8.0                                         19 Dec 2024
     *) Bugfix: HTTP/3 proxy settings specified in "http" or "server" level
        might be ignored.
 
-    *) Bugfix: the "proxy_client_certificate" directive didn't work when
+    *) Bugfix: the "proxy_ssl_certificate" directive didn't work when
        proxying via HTTP/3 with NTLS support enabled.
 
 

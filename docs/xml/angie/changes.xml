@@ -81,6 +81,20 @@ now the "ssl_early_data" directive can be used in the "stream" module.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+ошибка "no valid domain name defined for ACME client" теперь
+возникает, только если ACME-клиент указан в блоке server,
+но ни один из доменов этого сервера из списка не соответствует
+требованиям ACME.
+</para>
+<para lang="en">
+the "no valid domain name defined for ACME client" error is now
+issued only if no valid (i.e. ACME-compliant) domain name is found
+in any of the "server" blocks the ACME client is referenced in.
+</para>
+</change>
+
 </changes>
 
 

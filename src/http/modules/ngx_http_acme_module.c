@@ -6014,7 +6014,7 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     cli_p = ngx_array_push(&ascf->clients);
     if (cli_p == NULL) {
-        return NULL;
+        return NGX_CONF_ERROR;
     }
 
     *cli_p = cli;

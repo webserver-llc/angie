@@ -155,7 +155,6 @@ struct ngx_acme_client_s {
     ngx_log_t                  *log;
     ngx_str_t                   name;
     ngx_str_t                   path;
-    ngx_uint_t                  enabled;
     ngx_uint_t                  cf_line;
     ngx_str_t                   cf_filename;
     ngx_str_t                   server;
@@ -178,7 +177,9 @@ struct ngx_acme_client_s {
     ngx_http_acme_sh_cert_t    *sh_cert;
     ngx_http_core_loc_conf_t   *hook_clcf;
     ngx_http_conf_ctx_t        *hook_ctx;
-    ngx_uint_t                  renew_on_load;
+
+    unsigned                    enabled:1;
+    unsigned                    renew_on_load:1;
 };
 
 
@@ -5614,8 +5615,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_OK;
     }
 
-    ngx_conf_init_uint_value(cli->enabled, 1);
-
     if (cli->private_key.type == NGX_KT_UNSUPPORTED) {
         cli->private_key.type = NGX_KT_EC;
     }
@@ -5649,16 +5648,6 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     {
         return "has an unsupported key_type/key_bits combination";
     }
-
-    ngx_conf_init_value(cli->renew_before_expiry, 60 * 60 * 24 * 30);
-
-    ngx_conf_init_value(cli->retry_after_error, 60 * 60 * 2)
-
-    ngx_conf_init_size_value(cli->max_cert_size, 8 * 1024);
-
-    ngx_conf_init_uint_value(cli->challenge, NGX_AC_HTTP_01);
-
-    ngx_conf_init_uint_value(cli->renew_on_load, 0);
 
     ngx_memzero(&u, sizeof(ngx_url_t));
 
@@ -6084,7 +6073,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 
     cli->log = cf->log;
     cli->name = *name;
-    cli->enabled = NGX_CONF_UNSET_UINT;
+    cli->enabled = 1;
     cli->cf_line = cf->conf_file->line;
     cli->cf_filename = cf->conf_file->file.name;
 
@@ -6093,11 +6082,11 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
         return NULL;
     }
 
-    cli->renew_before_expiry = NGX_CONF_UNSET;
-    cli->retry_after_error = NGX_CONF_UNSET;
-    cli->max_cert_size = NGX_CONF_UNSET_SIZE;
-    cli->challenge = NGX_CONF_UNSET_UINT;
-    cli->renew_on_load = NGX_CONF_UNSET_UINT;
+    cli->renew_before_expiry = 60 * 60 * 24 * 30;
+    cli->retry_after_error = 60 * 60 * 2;
+    cli->max_cert_size = 8 * 1024;
+    cli->challenge = NGX_AC_HTTP_01;
+    cli->renew_on_load = 0;
     cli->account_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.file.fd = NGX_INVALID_FILE;
     cli->private_key.type = NGX_KT_UNSUPPORTED;

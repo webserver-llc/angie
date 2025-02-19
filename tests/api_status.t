@@ -119,6 +119,11 @@ my %test_cases = (
 
 		my $with_debug = $t->has_module('--with-debug');
 
+		my $build;
+		if ($t->{_configure_args} =~ /--build=(?|'([^']+)'|(\S+))/) {
+			$build = $1;
+		}
+
 		my $num_re  = re(qr/^\d+$/);
 		my $time_re
 			= re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
@@ -147,6 +152,7 @@ my %test_cases = (
 				generation => $num_re,
 				load_time  => $time_re,
 				version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
+				(defined $build) ? (build => $build) : (),
 			}),
 			connections => superhashof({
 				accepted => $num_re,

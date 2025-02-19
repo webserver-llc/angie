@@ -27,10 +27,7 @@ plan(skip_all => '127.0.0.3 local address required')
 
 my $t = Test::Nginx->new()
 	->has(qw/http proxy rewrite upstream_sticky/)
-	->has_daemon("dnsmasq")
-	->plan(24);
-
-$t->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -167,75 +164,18 @@ http {
 
 EOF
 
-
-my $d = $t->testdir();
-
-
 # TODO: use substituted ports for parallel execution for DNS server
-$t->write_file_expand('dns.conf', <<'EOF');
-# listen on this port
-port=5252
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts
-EOF
+my %addrs = (
+    'b1.example.com' => ['127.0.0.1', '::1'],
+    'b2.example.com' => ['127.0.0.2', '::1'],
+    'b3.example.com' => ['127.0.0.3', '::1'],
+    'b4.example.com' => ['127.0.0.4', '::1'],
+    'b5.example.com' => ['127.0.0.5', '127.0.0.6' ,'::1']
+);
 
-# ipv6 entries are stubs for resolver
-$t->write_file_expand('test_hosts', <<'EOF');
-127.0.0.1  b1.example.com
-127.0.0.2  b2.example.com
-127.0.0.3  b3.example.com
-127.0.0.4  b4.example.com
+$t->start_resolver(5252, \%addrs);
 
-127.0.0.5  b5.example.com
-127.0.0.6  b5.example.com
-
-::1 b1.example.com
-::1 b2.example.com
-::1 b3.example.com
-::1 b4.example.com
-::1 b5.example.com
-EOF
-
-$t->write_file_expand('dns2.conf', <<'EOF');
-# listen on this port
-port=5252
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts2
-# return NXDOMAIN for this
-address=/b3.example.com/
-address=/b4.example.com/
-address=/b5.example.com/
-EOF
-
-$t->write_file_expand('test_hosts2', <<'EOF');
-127.0.0.1  b1.example.com
-127.0.0.2  b2.example.com
-::1 b1.example.com
-::1 b2.example.com
-EOF
-
-my $dconf = $t->testdir() . "/dns.conf";
-
-$t->run_daemon('dnsmasq', '-C', "$d/dns.conf", '-k',
-	"--log-facility=$d/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5252, 'b1.example.com', '127.0.0.1');
-
-# let the dnsmasq execute;
-
-
-$t->run();
+$t->run()->plan(24);
 
 my @ports = my ($p1, $p2, $p3, $p4, $p5) =
 	(port(8081), port(8082), port(8083), port(8084), port(8085));
@@ -259,10 +199,14 @@ my %bmap = collect_cookies("/backend_");
 tc1("sticky with zone and resolve");
 
 # remove b3..b5 from DNS to trigger removal of sticky-enabled peer
-$t->stop_daemons();
-$t->run_daemon('dnsmasq', '-C', "$d/dns2.conf", '-k',
-	"--log-facility=$d/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5252, 'b1.example.com', '127.0.0.1');
+
+%addrs = (
+    'b1.example.com' => ['127.0.0.1', '::1'],
+    'b2.example.com' => ['127.0.0.2', '::1'],
+);
+
+my @nxaddrs = ('b3.example.com', 'b4.example.com', 'b5.example.com');
+$t->restart_resolver(5252, \%addrs, {nxaddrs => \@nxaddrs});
 
 # let angie resolve
 select undef, undef, undef, 2;

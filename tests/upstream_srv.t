@@ -26,7 +26,6 @@ select STDOUT; $| = 1;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()->has(qw/http http_api proxy upstream_zone/)
-	->has_daemon("dnsmasq")->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -89,87 +88,24 @@ http {
 
 EOF
 
-my $tdir = $t->testdir();
+my ($port1, $port2) = (port(8081), port(8082));
 
 # TODO: use substituted ports for parallel execution for DNS server
-$t->write_file_expand('dns.conf', <<'EOF');
-# listen on this port
-port=5454
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts
+my %addrs = (
+    'b1.example.com' => ['127.0.0.1', '::1'],
+    'b2.example.com' => ['127.0.0.2', '::1']
+);
 
-# SRV records
-srv-host=_http._tcp.backends.example.com,b1.example.com,%%PORT_8081%%
-srv-host=_http._tcp.backends.example.com,b2.example.com,%%PORT_8082%%
-EOF
+my @srv_records = (
+    "_http._tcp.backends.example.com,b1.example.com,$port1",
+    "_http._tcp.backends.example.com,b2.example.com,$port2"
+);
 
-# ipv6 entries are stubs for resolver
-$t->write_file_expand('test_hosts', <<'EOF');
-127.0.0.1  b1.example.com
-127.0.0.2  b2.example.com
-::1 b1.example.com
-::1 b2.example.com
-EOF
+$t->start_resolver(5454, \%addrs, {srvs => \@srv_records});
 
-$t->write_file_expand('dns2.conf', <<'EOF');
-# listen on this port
-port=5454
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts2
-
-# return NXDOMAIN for this
-address=/b2.example.com/
-
-# SRV records
-srv-host=_http._tcp.backends.example.com,b1.example.com,%%PORT_8081%%
-srv-host=_http._tcp.backends.example.com,b2.example.com,%%PORT_8082%%
-EOF
-
-$t->write_file_expand('test_hosts2', <<'EOF');
-127.0.0.1  b1.example.com
-::1 b1.example.com
-EOF
-
-$t->write_file_expand('dns3.conf', <<'EOF');
-# listen on this port
-port=5454
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts2
-
-# return NXDOMAIN for this
-address=/backends.example.com/
-
-EOF
-
-my $dconf = $t->testdir()."/dns.conf";
-
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
-
-$t->run();
+$t->run()->plan(4);
 
 ###############################################################################
-
-my ($port1, $port2) = (port(8081), port(8082));
 
 # wait for nginx resolver to complete query
 for (1 .. 50) {
@@ -188,12 +124,13 @@ is($j->{'server'}, 'backends.example.com', 'b2 address resolved from srv');
 my $s = http_start_uri('/u/slow'); # connects to b1
 my $s2 = http_start_uri('/u/slow'); # connects to b2
 
-$t->stop_daemons();
-
 # start DNS server with new config, b2 disappears from backends.example.com
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns2.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
+%addrs = (
+    'b1.example.com' => ['127.0.0.1', '::1']
+);
+
+$t->restart_resolver(5454, \%addrs, {srvs => \@srv_records,
+	nxaddrs => ['b2.example.com']});
 
 # let various resolve timers run
 select undef, undef, undef, 2;
@@ -204,21 +141,15 @@ is($j->{'error'}, 'PathNotFound', 'b2.example.com disappeared');
 my $res = http_end($s);
 my $res2 = http_end($s2);
 
-
-# whole backends.example.com disappears
-$t->stop_daemons();
-
 # start DNS server with new config,
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns3.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5454, 'b1.example.com', '127.0.0.1');
+# whole backends.example.com disappears
+$t->restart_resolver(5454, \%addrs, {nxaddrs => ['backends.example.com']});
 
 # let various resolve timers run
 select undef, undef, undef, 2;
 
 $j = get_json("/api/status/http/upstreams/u/peers");
 is(%$j, 0, "example.com disappeared");
-
 
 ###############################################################################
 

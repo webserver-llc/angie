@@ -26,7 +26,6 @@ plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()
 	->has(qw/http proxy upstream_zone/)
-	->has_daemon("dnsmasq")->plan(2)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -69,57 +68,26 @@ http {
 
 EOF
 
-my $tdir = $t->testdir();
+# TODO: use substituted ports for parallel execution for DNS server
+my $addrs = {'test.example.com' => ['127.0.0.1']};
+$t->start_resolver(5858, $addrs);
 
-$t->write_file_expand('dnsmasq1.conf', <<'EOF');
-port=5858
-listen-address=127.0.0.1
-no-dhcp-interface=
-no-hosts
-no-resolv
-addn-hosts=%%TESTDIR%%/host1.txt
-
-EOF
-
-$t->write_file_expand('dnsmasq2.conf', <<'EOF');
-port=5858
-listen-address=127.0.0.1
-no-dhcp-interface=
-no-hosts
-no-resolv
-addn-hosts=%%TESTDIR%%/host2.txt
-
-EOF
-
-$t->write_file_expand('host1.txt', <<'EOF');
-127.0.0.1  test.example.com
-
-EOF
-
-$t->write_file_expand('host2.txt', <<'EOF');
-127.0.0.2  test.example.com
-
-EOF
-
-$t->run_dnsmasq('dnsmasq1.conf');
 $t->run_daemon(\&http_daemon, port(8081), $t);
-
-$t->wait_for_resolver('127.0.0.1', 5858, 'test.example.com', '127.0.0.1');
 $t->waitforsocket('127.0.0.1:' . port(8081));
 
-$t->run();
+$t->run()->plan(2);
 
 ###############################################################################
 
 like(http_get('/on'), qr/502/, 'Connection drop on');
 
-$t->restart_dnsmasq('dnsmasq1.conf');
+$t->restart_resolver(5858, $addrs);
 
 wait_peer('127.0.0.1');
 
 like(http_get('/off'), qr/200/, 'Connection drop off');
 
-$t->stop_dnsmasq();
+$t->stop_resolver();
 
 ###############################################################################
 
@@ -151,7 +119,7 @@ sub http_daemon {
 		$uri = $1 if $headers =~ /^\S+\s+([^ ]+)\s+HTTP/i;
 
 		if ($uri eq '/on' or $uri eq '/off') {
-			$t->restart_dnsmasq('dnsmasq2.conf');
+			$t->restart_resolver(5858, {'test.example.com' => ['127.0.0.2']});
 			wait_peer('127.0.0.2');
 		}
 

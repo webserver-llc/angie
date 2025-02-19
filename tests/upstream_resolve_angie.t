@@ -26,14 +26,13 @@ select STDOUT; $| = 1;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api proxy upstream_zone --with-debug/)
-	->has_daemon("dnsmasq");
+	->has(qw/http http_api proxy upstream_zone --with-debug/);
 
 # see https://trac.nginx.org/nginx/ticket/1831
 plan(skip_all => "perl >= 5.32 required")
 	if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(16)->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -152,95 +151,19 @@ http {
 
 EOF
 
-my $tdir = $t->testdir();
-
 # TODO: use substituted ports for parallel execution for DNS server
-$t->write_file_expand('dns.conf', <<'EOF');
-# listen on this port
-port=5353
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts
-EOF
+my %addrs = (
+    'foo.example.com'    => ['127.0.0.1', '::1'],
+    'bar.example.com'    => ['127.0.0.2', '::1'],
+    'backup.example.com' => ['127.0.0.3', '127.0.0.4', '::1'],
+    'baz.example.com'    => ['127.0.0.5', '::1'],
+    'qux.example.com'    => ['127.0.0.6'],
+    'multi.example.com'  => ['127.0.0.2', '127.0.0.6']
+);
 
-$t->write_file_expand('dns2.conf', <<'EOF');
-# listen on this port
-port=5353
-# no need for dhcp
-no-dhcp-interface=
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts2
-# return NXDOMAIN for this
-address=/backup.example.com/
-EOF
+$t->start_resolver(5353, \%addrs);
 
-$t->write_file_expand('dns3.conf', <<'EOF');
-# listen on this port
-port=5353
-# no need for dhcp
-no-dhcp-interface=
-# return NXDOMAIN instead of REFUSED when name is not found
-server=/example.com/
-# do not read /etc/hosts
-no-hosts
-# do not read /etc/resolv.conf
-no-resolv
-# take records from this file
-addn-hosts=%%TESTDIR%%/test_hosts3
-# return NXDOMAIN for this
-address=/backup.example.com/
-EOF
-
-
-# ipv6 entries are stubs for resolver
-$t->write_file_expand('test_hosts', <<'EOF');
-127.0.0.1  foo.example.com
-127.0.0.2  bar.example.com
-127.0.0.3  backup.example.com
-127.0.0.4  backup.example.com
-127.0.0.5  baz.example.com
-127.0.0.6  qux.example.com
-::1 foo.example.com
-::1 bar.example.com
-::1 backup.example.com
-::1 baz.example.com
-127.0.0.2  multi.example.com
-127.0.0.6  multi.example.com
-EOF
-
-$t->write_file_expand('test_hosts2', <<'EOF');
-127.0.0.3  foo.example.com
-127.0.0.4  bar.example.com
-127.0.0.5  baz.example.com
-::1 foo.example.com
-::1 bar.example.com
-::1 baz.example.com
-EOF
-
-$t->write_file_expand('test_hosts3', <<'EOF');
-127.0.0.3  foo.example.com
-127.0.0.4  bar.example.com
-::1 foo.example.com
-::1 bar.example.com
-EOF
-
-my $dconf = $t->testdir()."/dns.conf";
-
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-
-$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.1');
-
-$t->run();
+$t->run()->plan(16);
 
 ###############################################################################
 
@@ -311,7 +234,7 @@ is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
 # now stop DNS daemon to prevent resolving, reload nginx
 # and verify upstreams are still accessible
 
-$t->stop_daemons();
+$t->stop_resolver();
 $t->reload('/api/status/angie/generation');
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
@@ -322,9 +245,14 @@ is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
 
 
 # start DNS server with new config, addresses changed
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns2.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
+%addrs = (
+    'foo.example.com' => ['127.0.0.3', '::1'],
+    'bar.example.com' => ['127.0.0.4', '::1'],
+    'baz.example.com' => ['127.0.0.5', '::1']
+);
+my @nxaddrs = ('backup.example.com');
+
+$t->start_resolver(5353, \%addrs, {nxaddrs => \@nxaddrs});
 
 # reload nginx to force resolve
 $t->reload('/api/status/angie/generation');
@@ -384,12 +312,17 @@ is($j->{'refs'}, 2, "2 long requests to backend started, ref");
 #	- stop the DNS server
 #	- restart it with new config without baz.example.com
 
-$t->stop_daemons();
+$t->stop_resolver();
 
 # start DNS server with new config, addresses changed
-$t->run_daemon('dnsmasq', '-C', "$tdir/dns3.conf", '-k',
-	"--log-facility=$tdir/dns.log", '-q');
-$t->wait_for_resolver('127.0.0.1', 5353, 'foo.example.com', '127.0.0.3');
+%addrs = (
+    'foo.example.com' => ['127.0.0.3', '::1'],
+    'bar.example.com' => ['127.0.0.4', '::1'],
+);
+my @nxservers = ('example.com');
+
+$t->start_resolver(5353, \%addrs, {nxaddrs => \@nxaddrs,
+	nxservers => \@nxservers});
 
 # 4) wait for resolve timer to occure (resolver_timeout is 1s for u2)
 select undef, undef, undef, 2;

@@ -233,7 +233,7 @@ ngx_json_parse_value(ngx_data_item_t **item_p, u_char *start, u_char *end,
         /* fall through */
 
     default:
-        if (ch - '0' <= 9) {
+        if ((u_char) (ch - '0') <= 9) {
             p = ngx_json_parse_number(item_p, start, end, pool, error);
 
             if (p == NULL) {

@@ -1403,7 +1403,7 @@ ngx_ssl_preserve_passwords(ngx_conf_t *cf, ngx_array_t *passwords)
     ngx_pool_cleanup_t  *cln;
     static ngx_array_t   empty_passwords;
 
-    if (passwords == NULL) {
+    if (passwords == NULL || passwords->nelts == 0) {
 
         /*
          * If there are no passwords, an empty array is used

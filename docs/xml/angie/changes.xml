@@ -95,6 +95,17 @@ in any of the "server" blocks the ACME client is referenced in.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при сборке с поддержкой NTLS наследование клиентских сертификатов
+с переменными на уровень location в прокси-модуле работало некорректно.
+</para>
+<para lang="en">
+if built with NTLS support inheritance of client certificates with variables
+to the location level in the proxy module dir not work correctly.
+</para>
+</change>
+
 </changes>
 
 

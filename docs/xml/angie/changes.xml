@@ -106,6 +106,17 @@ to the location level in the proxy module dir not work correctly.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+новый статус "busy" у проксируемых серверов в API статистики, означающий,
+что число запросов на сервер достигло ограничения, заданного опцией "max_conns".
+</para>
+<para lang="en">
+new "busy" state for upstream peers in the statistics API, indicating that
+a peer is reached the limit configured by the "max_conns" option.
+</para>
+</change>
+
 </changes>
 
 

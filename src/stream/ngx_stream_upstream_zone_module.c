@@ -1113,6 +1113,9 @@ ngx_api_stream_upstream_peer_state_handler(ngx_api_entry_data_t data,
     } else if (peer->stats.downstart != 0) {
         ngx_str_set(&state, "unavailable");
 
+    } else if (peer->max_conns && peer->conns >= peer->max_conns) {
+        ngx_str_set(&state, "busy");
+
     } else if (ngx_current_msec - peer->slow_time < peer->slow_start) {
         ngx_str_set(&state, "recovering");
 

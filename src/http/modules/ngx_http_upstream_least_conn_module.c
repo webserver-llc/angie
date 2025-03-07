@@ -249,33 +249,9 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
+    ngx_http_upstream_use_rr_peer(pc, rrp, best, p);
+
     best->current_weight -= total;
-
-    if (now - best->checked > best->fail_timeout) {
-        best->checked = now;
-    }
-
-    pc->sockaddr = best->sockaddr;
-    pc->socklen = best->socklen;
-    pc->name = &best->name;
-#if (NGX_HTTP_UPSTREAM_SID)
-    pc->sid = best->sid;
-#endif
-
-    best->conns++;
-
-    rrp->current = best;
-    ngx_http_upstream_rr_peer_ref(peers, best);
-
-    n = p / (8 * sizeof(uintptr_t));
-    m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
-
-    rrp->tried[n] |= m;
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    best->stats.requests++;
-    best->stats.selected = now;
-#endif
 
     ngx_http_upstream_rr_peers_unlock(peers);
 

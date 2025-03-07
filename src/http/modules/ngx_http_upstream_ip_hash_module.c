@@ -244,31 +244,11 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
-    rrp->current = peer;
-    ngx_http_upstream_rr_peer_ref(rrp->peers, peer);
-
-    pc->sockaddr = peer->sockaddr;
-    pc->socklen = peer->socklen;
-    pc->name = &peer->name;
-#if (NGX_HTTP_UPSTREAM_SID)
-    pc->sid = peer->sid;
-#endif
-
-    peer->conns++;
-
-    if (now - peer->checked > peer->fail_timeout) {
-        peer->checked = now;
-    }
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    peer->stats.requests++;
-    peer->stats.selected = now;
-#endif
+    ngx_http_upstream_use_rr_peer(pc, rrp, peer, p);
 
     ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
 
-    rrp->tried[n] |= m;
     iphp->hash = hash;
 
     return NGX_OK;

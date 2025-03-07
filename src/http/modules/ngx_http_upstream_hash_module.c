@@ -278,31 +278,10 @@ ngx_http_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
-    rrp->current = peer;
-    ngx_http_upstream_rr_peer_ref(rrp->peers, peer);
-
-    pc->sockaddr = peer->sockaddr;
-    pc->socklen = peer->socklen;
-    pc->name = &peer->name;
-#if (NGX_HTTP_UPSTREAM_SID)
-    pc->sid = peer->sid;
-#endif
-
-    peer->conns++;
-
-    if (now - peer->checked > peer->fail_timeout) {
-        peer->checked = now;
-    }
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    peer->stats.requests++;
-    peer->stats.selected = now;
-#endif
+    ngx_http_upstream_use_rr_peer(pc, rrp, peer, p);
 
     ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
-
-    rrp->tried[n] |= m;
 
     return NGX_OK;
 }
@@ -693,33 +672,9 @@ ngx_http_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
 
 found:
 
-    rrp->current = best;
-    ngx_http_upstream_rr_peer_ref(rrp->peers, best);
-
-    pc->sockaddr = best->sockaddr;
-    pc->socklen = best->socklen;
-    pc->name = &best->name;
-#if (NGX_HTTP_UPSTREAM_SID)
-    pc->sid = best->sid;
-#endif
-
-    best->conns++;
-
-    if (now - best->checked > best->fail_timeout) {
-        best->checked = now;
-    }
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    best->stats.requests++;
-    best->stats.selected = now;
-#endif
+    (void) ngx_http_upstream_use_rr_peer(pc, rrp, best, best_i);
 
     ngx_http_upstream_rr_peers_unlock(rrp->peers);
-
-    n = best_i / (8 * sizeof(uintptr_t));
-    m = (uintptr_t) 1 << best_i % (8 * sizeof(uintptr_t));
-
-    rrp->tried[n] |= m;
 
     return NGX_OK;
 }

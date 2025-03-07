@@ -301,31 +301,10 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
-    rrp->current = peer;
-    ngx_stream_upstream_rr_peer_ref(peers, peer);
-
-    if (now - peer->checked > peer->fail_timeout) {
-        peer->checked = now;
-    }
-
-    pc->sockaddr = peer->sockaddr;
-    pc->socklen = peer->socklen;
-    pc->name = &peer->name;
-#if (NGX_STREAM_UPSTREAM_SID)
-    pc->sid = peer->sid;
-#endif
-
-    peer->conns++;
-
-#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
-    peer->stats.conns++;
-    peer->stats.selected = now;
-#endif
+    ngx_stream_upstream_use_rr_peer(pc, rrp, peer, i);
 
     ngx_stream_upstream_rr_peer_unlock(peers, peer);
     ngx_stream_upstream_rr_peers_unlock(peers);
-
-    rrp->tried[n] |= m;
 
     return NGX_OK;
 }
@@ -416,8 +395,7 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
         if (prev) {
             if (peer->conns * prev->weight > prev->conns * peer->weight) {
                 peer = prev;
-                n = p / (8 * sizeof(uintptr_t));
-                m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
+                i = p;
             }
 
             break;
@@ -434,30 +412,9 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
         }
     }
 
-    rrp->current = peer;
-    ngx_stream_upstream_rr_peer_ref(peers, peer);
-
-    if (now - peer->checked > peer->fail_timeout) {
-        peer->checked = now;
-    }
-
-    pc->sockaddr = peer->sockaddr;
-    pc->socklen = peer->socklen;
-    pc->name = &peer->name;
-#if (NGX_STREAM_UPSTREAM_SID)
-    pc->sid = peer->sid;
-#endif
-
-    peer->conns++;
-
-#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
-    peer->stats.conns++;
-    peer->stats.selected = now;
-#endif
+    ngx_stream_upstream_use_rr_peer(pc, rrp, peer, i);
 
     ngx_stream_upstream_rr_peers_unlock(peers);
-
-    rrp->tried[n] |= m;
 
     return NGX_OK;
 }

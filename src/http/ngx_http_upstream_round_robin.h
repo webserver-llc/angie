@@ -306,6 +306,9 @@ ngx_int_t ngx_http_upstream_create_round_robin_peer(ngx_http_request_t *r,
     ngx_http_upstream_resolved_t *ur);
 ngx_int_t ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc,
     void *data);
+void ngx_http_upstream_use_rr_peer(ngx_peer_connection_t *pc,
+    ngx_http_upstream_rr_peer_data_t *rrp, ngx_http_upstream_rr_peer_t *peer,
+    ngx_uint_t index);
 void ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t state);
 

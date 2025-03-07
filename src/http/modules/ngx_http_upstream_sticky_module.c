@@ -209,29 +209,10 @@ again:
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "sticky: found matching peer %ui", i);
 
-        rrp->current = peer;
-        ngx_http_upstream_rr_peer_ref(peers, peer);
-
-        pc->sockaddr = peer->sockaddr;
-        pc->socklen = peer->socklen;
-        pc->name = &peer->name;
-        pc->sid = peer->sid;
-
-        peer->conns++;
-
-        if (now - peer->checked > peer->fail_timeout) {
-            peer->checked = now;
-        }
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-        peer->stats.requests++;
-        peer->stats.selected = now;
-#endif
+        ngx_http_upstream_use_rr_peer(pc, rrp, peer, i);
 
         ngx_http_upstream_rr_peer_unlock(peers, peer);
         ngx_http_upstream_rr_peers_unlock(peers);
-
-        rrp->tried[n] |= m;
 
         return NGX_OK;
     }

@@ -246,7 +246,7 @@ static ngx_int_t
 ngx_stream_upstream_init_sticky(ngx_conf_t *cf,
     ngx_stream_upstream_srv_conf_t *us)
 {
-    ngx_stream_upstream_sticky_srv_conf_t  *scf;
+    ngx_stream_upstream_sticky_srv_conf_t   *scf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_STREAM, cf->log, 0, "sticky: init");
 
@@ -272,6 +272,9 @@ static ngx_int_t
 ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
     ngx_stream_upstream_srv_conf_t *us)
 {
+    ngx_int_t                               *vars;
+    ngx_uint_t                               i;
+    ngx_stream_variable_value_t             *vv;
     ngx_stream_upstream_sticky_srv_conf_t   *scf;
     ngx_stream_upstream_sticky_peer_data_t  *sp;
 
@@ -296,30 +299,6 @@ ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
     sp->original_get_peer = s->upstream->peer.get;
     s->upstream->peer.get = ngx_stream_upstream_get_sticky_peer;
 
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_stream_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
-{
-    ngx_stream_upstream_rr_peer_data_t  *rrp = data;
-
-    ngx_int_t                                rc, *vars;
-    ngx_uint_t                               i;
-    ngx_stream_session_t                    *s;
-    ngx_stream_variable_value_t             *vv;
-    ngx_stream_upstream_sticky_srv_conf_t   *scf;
-    ngx_stream_upstream_sticky_peer_data_t  *sp;
-
-    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0, "sticky: get peer");
-
-    s = pc->ctx;
-
-    sp = ngx_stream_get_module_ctx(s, ngx_stream_upstream_sticky_module);
-
-    scf = ngx_stream_conf_upstream_srv_conf(s->upstream->upstream,
-                                            ngx_stream_upstream_sticky_module);
     sp->hint.len = 0;
 
     vars = scf->lookup_vars.elts;
@@ -335,7 +314,7 @@ ngx_stream_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
         sp->hint.data = vv->data;
         sp->hint.len = vv->len;
 
-        ngx_log_debug2(NGX_LOG_DEBUG_STREAM, pc->log, 0,
+        ngx_log_debug2(NGX_LOG_DEBUG_STREAM, s->connection->log, 0,
                        "sticky: extracted hint %V from variable %ui",
                        &sp->hint, i);
         break;
@@ -349,6 +328,25 @@ ngx_stream_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
     } else {
         sp->salt.len = 0;
     }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_stream_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
+{
+    ngx_stream_upstream_rr_peer_data_t  *rrp = data;
+
+    ngx_int_t                                rc;
+    ngx_stream_session_t                    *s;
+    ngx_stream_upstream_sticky_peer_data_t  *sp;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0, "sticky: get peer");
+
+    s = pc->ctx;
+
+    sp = ngx_stream_get_module_ctx(s, ngx_stream_upstream_sticky_module);
 
     rc = ngx_stream_upstream_sticky_select_peer(rrp, sp, pc);
 

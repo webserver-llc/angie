@@ -134,6 +134,17 @@ remain available.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+новый параметр "uri" в директиве "acme_hook", который позволяет модифицировать
+строку запроса к hook-приложению с использованием переменных.
+</para>
+<para lang="en">
+new "uri" parameter for the "acme_hook" directive allowing to customize
+the hook request string using variables.
+</para>
+</change>
+
 </changes>
 
 

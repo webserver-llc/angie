@@ -14,6 +14,7 @@ use strict;
 
 use Socket qw/ CRLF /;
 use Test::More;
+use Test::Deep qw/ eq_deeply /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -109,6 +110,7 @@ my $conf_hooks = '';
 
 my $account_key = '';
 my $email = '';
+my $uri = '';
 
 for my $e (@clients) {
 	$conf_clients .= "    acme_client $e->{name} "
@@ -116,11 +118,19 @@ for my $e (@clients) {
 		. "key_type=$e->{key_type} key_bits=$e->{key_bits} "
 		. "$account_key $email;\n";
 
-	# for a change...
-	$email = ($email eq '' ) ? "email=admin\@angie-test.com" : '';
 	$account_key = "account_key=$d/acme_client/$clients[0]->{name}/account.key";
 
-	$conf_hooks .= "            acme_hook $e->{name};\n";
+	$conf_hooks .= "            acme_hook $e->{name} $uri;\n";
+
+	# The even clients have "email" and "uri" parameters -- for a change...
+	$email = ($email eq '' ) ? "email=admin\@angie-test.com" : '';
+	$uri = ($uri eq '' ) ? "uri=/?client=\$acme_hook_client"
+			. "&hook=\$acme_hook_name"
+			. "&challenge=\$acme_hook_challenge"
+			. "&domain=\$acme_hook_domain"
+			. "&token=\$acme_hook_token"
+			. "&keyauth=\$acme_hook_keyauth"
+		: '';
 }
 
 for my $e (@servers) {
@@ -159,6 +169,8 @@ http {
         location / {
             internal;
 
+            error_log hook.log debug;
+
 $conf_hooks
             fastcgi_pass localhost:$hook_port;
 
@@ -168,6 +180,8 @@ $conf_hooks
             fastcgi_param ACME_DOMAIN           \$acme_hook_domain;
             fastcgi_param ACME_TOKEN            \$acme_hook_token;
             fastcgi_param ACME_KEYAUTH          \$acme_hook_keyauth;
+
+            fastcgi_param REQUEST_URI           \$request_uri;
         }
     }
 
@@ -193,7 +207,7 @@ $t->run_daemon(\&hook_handler, $hook_port);
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform', 1);
 
-$t->plan(scalar @clients);
+$t->plan(scalar @clients + 2);
 
 my $renewed_count = 0;
 my $loop_start = time();
@@ -238,6 +252,16 @@ for my $cli (@clients) {
 		"(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
 }
 
+$t->stop();
+
+my $s = $t->read_file('hook.log');
+
+my $used_uri = $s =~ /X-URI_STATUS:/;
+my $bad_uri = $s =~ /X-URI_STATUS: 0/;
+
+ok($used_uri, 'used uri parameter');
+ok(!$bad_uri, 'valid uri parameter');
+
 ###############################################################################
 
 sub hook_add {
@@ -273,28 +297,60 @@ sub hook_remove {
 	}
 }
 
+sub check_uri {
+	# This function parses $uri and checks whether its parameters
+	# match those in %h.
+	my ($uri, %h) = @_;
+
+	# discard '/?'
+	$uri = substr $uri, 2;
+
+	my %h2;
+	for my $s (split(/&/, $uri)) {
+		my ($k, $v) = split(/=/, $s);
+		$h2{$k} = $v;
+	}
+
+	return eq_deeply(\%h, \%h2);
+}
+
 sub hook_handler {
 	my $hook_port = shift;
 
 	my $socket = FCGI::OpenSocket(":$hook_port", 5);
 	my $req = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
+	my $uri_status = -1;
 
 	while ($req->Accept() >= 0) {
-		my $client = $ENV{ACME_CLIENT};
-		my $hook = $ENV{ACME_HOOK};
-		my $challenge = $ENV{ACME_CHALLENGE};
-		my $domain = $ENV{ACME_DOMAIN};
-		my $token = $ENV{ACME_TOKEN};
-		my $keyauth = $ENV{ACME_KEYAUTH};
+		my %h = (
+			client => $ENV{ACME_CLIENT},
+			hook => $ENV{ACME_HOOK},
+			challenge => $ENV{ACME_CHALLENGE},
+			domain => $ENV{ACME_DOMAIN},
+			token => $ENV{ACME_TOKEN},
+			keyauth => $ENV{ACME_KEYAUTH},
+		);
 
-		if ($hook eq 'add') {
-			hook_add($challenge, $hook, $domain, $token, $keyauth);
+		if ($h{hook} eq 'add') {
+			hook_add($h{challenge}, $h{hook}, $h{domain}, $h{token}, $h{keyauth});
 
-		} elsif ($hook eq 'remove') {
-			hook_remove($challenge, $hook, $domain, $token, $keyauth);
+		} elsif ($h{hook} eq 'remove') {
+			hook_remove($h{challenge}, $h{hook}, $h{domain}, $h{token}, $h{keyauth});
 
 		} else {
 			print "Status: 400\r\n";
+		}
+
+		# When the "uri" parameter is used, we check whether REQUEST_URI
+		# contains all the data from the hook variables and write this info to
+		# the debug log using an X-URI_STATUS header.
+		# TODO: Is there a better way?
+		my $uri = $ENV{REQUEST_URI};
+
+		if ($uri ne '/') {
+			$uri_status = check_uri($uri, %h) if $uri_status != 0;
+
+			print "X-URI_STATUS: $uri_status\r\n";
 		}
 
 		print "\r\n";

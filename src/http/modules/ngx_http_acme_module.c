@@ -177,6 +177,7 @@ struct ngx_acme_client_s {
     ngx_http_acme_sh_cert_t    *sh_cert;
     ngx_http_core_loc_conf_t   *hook_clcf;
     ngx_http_conf_ctx_t        *hook_ctx;
+    ngx_http_complex_value_t   *hook_uri;
 
     unsigned                    enabled:1;
     unsigned                    renew_on_load:1;
@@ -312,6 +313,7 @@ static ngx_acme_client_t *ngx_http_acme_nearest_client(
 static ngx_http_acme_session_t *ngx_http_acme_create_session(
     ngx_acme_client_t *cli);
 static void ngx_http_acme_destroy_session(ngx_http_acme_session_t **ses);
+static ngx_int_t ngx_http_acme_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_http_acme_postconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_http_acme_check_server_name(ngx_http_server_name_t *sn,
     int wildcard_allowed);
@@ -480,7 +482,7 @@ static ngx_command_t  ngx_http_acme_commands[] = {
       NULL },
 
     { ngx_string("acme_hook"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE12,
       ngx_http_acme_hook,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
@@ -498,7 +500,7 @@ static ngx_command_t  ngx_http_acme_commands[] = {
 
 
 static ngx_http_module_t  ngx_http_acme_module_ctx = {
-    NULL,                                  /* preconfiguration */
+    ngx_http_acme_preconfiguration,        /* preconfiguration */
     ngx_http_acme_postconfiguration,       /* postconfiguration */
 
     ngx_http_acme_create_main_conf,        /* create main configuration */
@@ -2317,6 +2319,7 @@ static ngx_int_t
 ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
 {
     ngx_int_t                   rc;
+    ngx_str_t                   uri;
     ngx_acme_client_t          *cli;
     ngx_http_request_t         *r;
     ngx_http_acme_main_conf_t  *amcf;
@@ -2343,6 +2346,15 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
     if (r == NULL) {
         ngx_http_acme_connection_cleanup(&ses->connection);
         return NGX_ERROR;
+    }
+
+    if (cli->hook_uri != NULL) {
+        if (ngx_http_complex_value(r, cli->hook_uri, &uri) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        r->uri = uri;
+        r->unparsed_uri = uri;
     }
 
     ses->request_result = NGX_BUSY;
@@ -4217,6 +4229,25 @@ ngx_http_acme_connection_cleanup(ngx_connection_t *c)
 
 
 static ngx_int_t
+ngx_http_acme_preconfiguration(ngx_conf_t *cf)
+{
+    ngx_http_variable_t  *var, *v;
+
+    for (var = ngx_http_acme_hook_vars; var->name.len; var++) {
+        v = ngx_http_add_variable(cf, &var->name, var->flags);
+        if (v == NULL) {
+            return NGX_ERROR;
+        }
+
+        v->get_handler = var->get_handler;
+        v->data = var->data;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 {
     size_t                       shm_size, sz;
@@ -4226,7 +4257,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_acme_client_t           *cli, **cli_p;
     ngx_pool_cleanup_t          *cln;
     ngx_http_handler_pt         *h;
-    ngx_http_variable_t         *v, *var;
+    ngx_http_variable_t         *v;
     ngx_http_conf_port_t        *port;
     ngx_http_server_name_t      *sn;
     ngx_http_acme_srv_conf_t    *ascf;
@@ -4578,16 +4609,6 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
     v->get_handler = ngx_http_acme_server_variable;
     v->data = (uintptr_t) &amcf->acme_server_var;
-
-    for (var = ngx_http_acme_hook_vars; var->name.len; var++) {
-        v = ngx_http_add_variable(cf, &var->name, var->flags);
-        if (v == NULL) {
-            return NGX_ERROR;
-        }
-
-        v->get_handler = var->get_handler;
-        v->data = var->data;
-    }
 
     if (shm_size != 0) {
         ngx_http_next_header_filter = ngx_http_top_header_filter;
@@ -6048,8 +6069,9 @@ ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static char *
 ngx_http_acme_hook(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_str_t                  *value;
-    ngx_acme_client_t          *cli;
+    ngx_str_t                         *value;
+    ngx_acme_client_t                 *cli;
+    ngx_http_compile_complex_value_t   ccv;
 
     value = cf->args->elts;
 
@@ -6067,6 +6089,35 @@ ngx_http_acme_hook(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     cli->hook_clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
     cli->hook_ctx = cf->ctx;
+
+    if (cf->args->nelts == 2) {
+        return NGX_CONF_OK;
+    }
+
+    if (ngx_strncmp(value[2].data, "uri=", 4) != 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid parameter \"%V\"", &value[2]);
+
+        return NGX_CONF_ERROR;
+    }
+
+    value[2].data += 4;
+    value[2].len -= 4;
+
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[2];
+    ccv.complex_value = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
+    if (ccv.complex_value == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    cli->hook_uri = ccv.complex_value;
 
     return NGX_CONF_OK;
 }

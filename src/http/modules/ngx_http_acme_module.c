@@ -5387,13 +5387,27 @@ ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
     ngx_acme_client_t *cli = (ngx_acme_client_t *) data;
-
+    /* We can use the certificate key only when the certificate is available. */
     v->valid = 1;
     v->no_cacheable = 0;
-    v->not_found = 0;
+    v->not_found = (cli->sh_cert == NULL);
 
-    v->len = cli->private_key.file_size + 5 /* 5 = size of "data:" prefix */;
-    v->data = cli->private_key_data;
+    if (v->not_found) {
+        return NGX_OK;
+    }
+
+    ngx_rwlock_rlock(&cli->sh_cert->lock);
+
+    if (cli->sh_cert->len == 0) {
+        v->not_found = 1;
+
+    } else {
+        /* 5 = size of "data:" prefix */
+        v->len = cli->private_key.file_size + 5;
+        v->data = cli->private_key_data;
+    }
+
+    ngx_rwlock_unlock(&cli->sh_cert->lock);
 
     return NGX_OK;
 }

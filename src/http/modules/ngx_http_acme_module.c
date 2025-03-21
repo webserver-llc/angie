@@ -2320,6 +2320,7 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
 {
     ngx_int_t                   rc;
     ngx_str_t                   uri;
+    ngx_uint_t                  level;
     ngx_acme_client_t          *cli;
     ngx_http_request_t         *r;
     ngx_http_acme_main_conf_t  *amcf;
@@ -2360,7 +2361,8 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
     ses->request_result = NGX_BUSY;
     ngx_str_null(&amcf->acme_server_var);
 
-    DBG_HTTP((cli, "--- hook notify (%V)", &ngx_acme_hook_names[hook]));
+    ngx_log_error(NGX_LOG_INFO, ses->log, 0, "ACME hook %V: request sent",
+                  &ngx_acme_hook_names[ses->hook]);
 
     ngx_http_acme_finalize_request(r, cli->hook_clcf->handler(r));
 
@@ -2368,14 +2370,21 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
 
     rc = ses->request_result;
 
-    if (rc == NGX_OK
-        && (ses->status_code < NGX_HTTP_OK
-           || ses->status_code >= NGX_HTTP_SPECIAL_RESPONSE))
-    {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0,
-                      "ACME hook returned status code %i, renewal aborted",
-                      ses->status_code);
-        rc = NGX_ERROR;
+    if (rc == NGX_OK) {
+        if (ses->status_code < NGX_HTTP_OK
+            || ses->status_code >= NGX_HTTP_SPECIAL_RESPONSE)
+        {
+            rc = NGX_ERROR;
+            level = (ses->hook == NGX_AH_ADD) ? NGX_LOG_ERR : NGX_LOG_WARN;
+
+        } else {
+            level = NGX_LOG_INFO;
+        }
+
+        ngx_log_error(level, ses->log, 0,
+                      "ACME hook %V: response received, status code: %i%s",
+                      &ngx_acme_hook_names[ses->hook], ses->status_code,
+                      level == NGX_LOG_ERR ? ", renewal aborted" : "");
     }
 
     ses->hook_added = (hook == NGX_AH_ADD) && (rc == NGX_OK);
@@ -3306,10 +3315,6 @@ challenge_found:
 
         NGX_ACME_SPAWN(authorize, hook_notify, (ses, NGX_AH_REMOVE), rc);
 
-        if (rc != NGX_OK) {
-            NGX_ACME_TERMINATE(authorize, NGX_ERROR);
-        }
-
         goto next_auth;
     }
 
@@ -3349,10 +3354,6 @@ poll_challenge_status:
                    &ses->ident));
 
         NGX_ACME_SPAWN(authorize, hook_notify, (ses, NGX_AH_REMOVE), rc);
-
-        if (rc != NGX_OK) {
-            NGX_ACME_TERMINATE(authorize, NGX_ERROR);
-        }
 
         goto next_auth;
     }

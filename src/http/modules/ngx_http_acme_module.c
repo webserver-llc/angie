@@ -2330,7 +2330,7 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
 
     NGX_ACME_BEGIN(hook_notify);
 
-    if (cli->hook_clcf == NULL || cli->hook_clcf->handler == NULL) {
+    if (cli->hook_clcf == NULL) {
         return NGX_OK;
     }
 
@@ -4401,6 +4401,14 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                                "ACME client \"%V\" is not defined but "
                                "referenced in %V:%ui", &cli->name,
                                &cli->cf_filename, cli->cf_line);
+            return NGX_ERROR;
+        }
+
+        if (cli->hook_clcf != NULL && cli->hook_clcf->handler == NULL) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "no request handler configured in the "
+                               "\"location\" block with ACME hook for client "
+                               "\"%V\"", &cli->name);
             return NGX_ERROR;
         }
 

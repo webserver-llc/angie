@@ -117,6 +117,23 @@ a peer is reached the limit configured by the "max_conns" option.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+параметр "enabled=off" в директиве "acme" теперь отключает только обновление
+сертификата для данного клиента, но сохраняет весь остальной функционал; так,
+остаются доступными доступ к сертификату (если он есть) и ключу через
+переменные $acme_cert_*, использование переменных $acme_hook_* и другие
+возможности.
+</para>
+<para lang="en">
+the "enabled=off" parameter in the "acme" directive now disables only
+certificate renewal for the given client while preserving all other
+functionality; access to the certificate (if available) and the key via the
+$acme_cert_* variables, the use of $acme_hook_* variables, and other features
+remain available.
+</para>
+</change>
+
 </changes>
 
 

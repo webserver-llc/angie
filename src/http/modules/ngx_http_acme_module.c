@@ -4270,7 +4270,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     amcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_acme_module);
 
     if (amcf->ctx == NULL) {
-        /* no clients, nothing to do */
+        /* no enabled clients, nothing to do */
         return NGX_OK;
     }
 
@@ -5775,7 +5775,7 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     cli->server_url = u;
 
-    if (amcf->ctx == NULL) {
+    if (cli->enabled && amcf->ctx == NULL) {
         if (ngx_http_acme_create_conf_ctx(cf, amcf) != NGX_OK) {
             return NGX_CONF_ERROR;
         }

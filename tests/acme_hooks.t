@@ -259,9 +259,14 @@ my $s = $t->read_file('hook.log');
 my $used_uri = $s =~ /X-URI_STATUS:/;
 my $bad_uri = $s =~ /X-URI_STATUS: 0/;
 
+SKIP: {
+
+skip "no --with-debug", 2 unless $t->has_module('--with-debug');
+
 ok($used_uri, 'used uri parameter');
 ok(!$bad_uri, 'valid uri parameter');
 
+}
 ###############################################################################
 
 sub hook_add {

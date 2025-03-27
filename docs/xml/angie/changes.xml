@@ -7,17 +7,6 @@
 
 <changes ver="1.9.0" date="">
 
-<change type="bugfix">
-<para lang="ru">
-запросы к API для получения статистики зон с переменными могли приводить к
-блокировке рабочих процессов в модулях HTTP и stream.
-</para>
-<para lang="en">
-API requests to retrieve statistics from zones with variables could cause
-worker processes in the HTTP and stream modules to become blocked.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 вся функциональность nginx 1.27.4 за исключение директивы
@@ -37,38 +26,6 @@ all functionality of nginx 1.27.4 except the "keepalive_min_timeout" directive
 <para lang="en">
 the "renew_on_load" parameter of the "acme_client" directive allowing
 to force renew a certificate on config load.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-использование доменных имён, начинающихся с точки, в директиве
-"server_name" могло привести к ошибке обновления сертификата по
-протоколу ACME.
-</para>
-<para lang="en">
-certificate renewal via the ACME protocol could fail for server
-names prefixed with a dot in the "server_name" directive.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-HTTP/3-запросы не учитывались при подсчёте статистики; проблема появилась
-в 1.8.0.
-</para>
-<para lang="en">
-HTTP/3 requests were not included in the statistics calculation; the bug had
-appeared in 1.8.0.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-SSL-статистика не считалась при включении протокола QUIC.
-</para>
-<para lang="en">
-SSL statistics were not calculated when the QUIC protocol was enabled.
 </para>
 </change>
 
@@ -142,6 +99,69 @@ remain available.
 <para lang="en">
 new "uri" parameter for the "acme_hook" directive allowing to customize
 the hook request string using variables.
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.8.2" date="2025-02-13">
+
+<change type="security">
+<para lang="ru">
+недостаточная проверка в обработке виртуальных серверов при использовании SNI
+в TLSv1.3 позволяла повторно использовать SSL-сессию в контексте другого
+виртуального сервера, чтобы обойти проверку клиентских SSL-сертификатов
+(CVE-2025-23419);
+исправление портировано из nginx 1.27.4.
+</para>
+<para lang="en">
+insufficient validation while handling virtual servers with TLSv1.3 SNI allowed
+to reuse SSL sessions in a different virtual server and thus bypass client SSL
+certificate verification (CVE-2025-23419);
+the fix was ported from nginx 1.27.4.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+запросы к API для получения значений статистики из отдельной зоны, которая была
+задана через переменные, могли приводить к зацикливанию рабочего процесса.
+</para>
+<para lang="en">
+API requests to retrieve statistic values from an individual zone, which was set
+via variables, could cause a worker process to enter an infinite loop.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+HTTP/3-запросы не учитывались в зонах статистики;
+проблема появилась в 1.8.0.
+</para>
+<para lang="en">
+HTTP/3 requests were not counted in zone statistics;
+the bug had appeared in 1.8.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+TLS-согласования по протоколу QUIC не учитывались в статистике по SSL.
+</para>
+<para lang="en">
+TLS handshakes using QUIC protocol were not counted in SSL statistics.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+использование доменных имён, начинающихся с точки, в директиве "server_name"
+могло привести к ошибке обновления сертификата по протоколу ACME.
+</para>
+<para lang="en">
+certificate renewal via the ACME protocol could fail for server names prefixed
+with a dot in the "server_name" directive.
 </para>
 </change>
 

@@ -2737,8 +2737,8 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 
         } else {
             ses->kid = ses->location;
-            ngx_log_error(NGX_LOG_NOTICE, ses->log, 0, "ACME account ID: \"%V\"",
-                          &ses->kid);
+            ngx_log_error(NGX_LOG_NOTICE, ses->log, 0,
+                          "ACME account ID: \"%V\"", &ses->kid);
             rc = NGX_OK;
         }
 
@@ -3043,7 +3043,8 @@ certificate:
     fd = ses->client->certificate_file.fd;
 
     if (lseek(fd, 0, SEEK_SET) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno, "lseek(\"%V\") failed",
+        ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno,
+                      "lseek(\"%V\") failed",
                       &ses->client->certificate_file.name);
         return NGX_ERROR;
     }
@@ -6034,7 +6035,9 @@ ngx_http_acme_merge_conf_ctx_fix(ngx_conf_t *cf, ngx_module_t *module,
             conf = ctx->srv_conf[ctx_index];
             prev = prev_ctx->srv_conf[ctx_index];
 
-        } else if (mod->merge_loc_conf && cmd->conf == NGX_HTTP_LOC_CONF_OFFSET) {
+        } else if (mod->merge_loc_conf
+                   && cmd->conf == NGX_HTTP_LOC_CONF_OFFSET)
+        {
             conf = ctx->loc_conf[ctx_index];
             prev = prev_ctx->loc_conf[ctx_index];
 
@@ -6110,7 +6113,8 @@ ngx_http_acme_hook(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    cli->hook_clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    cli->hook_clcf = ngx_http_conf_get_module_loc_conf(cf,
+                                                       ngx_http_core_module);
     cli->hook_ctx = cf->ctx;
 
     if (cf->args->nelts == 2) {

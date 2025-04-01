@@ -1,4 +1,12 @@
 
+Changes with Angie 1.8.3                                         02 Apr 2025
+
+    *) Bugfix: the "status_zone" statistics in the HTTP module's "server"
+       block could be miscalculated if requests within the same connection
+       belonged to different statistics zones, or if an error occurred
+       during early request processing; the bug had appeared in 1.8.2.
+
+
 Changes with Angie 1.8.2                                         13 Feb 2025
 
     *) Security: insufficient validation while handling virtual servers with

@@ -494,14 +494,14 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
 
     rc = ngx_quic_ssl_handshake(c);
 
-    if (qc->conf->post_ssl_handshake
-        && qc->conf->post_ssl_handshake(c, qc->conf, rc) != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
     if (rc == NGX_AGAIN) {
         return NGX_OK;
+    }
+
+    if (qc->conf->post_ssl_handshake
+        && qc->conf->post_ssl_handshake(c, qc->streams.initialized) != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     if (rc != NGX_OK) {

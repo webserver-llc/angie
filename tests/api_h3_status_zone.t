@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()
 	->has(qw/http http_api http_ssl http_v3 map socket_ssl_sni/)
 	->has(qw/sni/)
-	->has_daemon('openssl')->plan(1999)
+	->has_daemon('openssl')->plan(1983)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -202,6 +202,26 @@ http {
             return 200;
         }
     }
+
+    server {
+        server_name a.com;
+        listen %%PORT_8097_UDP%% quic;
+        status_zone a_sni_host;
+
+        location / {
+            return 200;
+        }
+    }
+
+    server {
+        server_name b.com;
+        listen %%PORT_8097_UDP%% quic;
+        status_zone b_sni_host;
+
+        location / {
+            return 200;
+        }
+    }
 }
 
 EOF
@@ -243,6 +263,7 @@ test_host_zone();
 test_host_uri_zone();
 test_single_zone();
 test_sni_zone();
+test_sni_host_zone();
 
 # Check all previous states
 check_uri_zone();
@@ -251,6 +272,7 @@ check_host_zone();
 check_host_uri_zone();
 check_single_zone();
 check_sni_zone();
+check_sni_host_zone();
 
 ###############################################################################
 
@@ -319,8 +341,8 @@ sub check_single_zone {
 
 sub test_single_zone {
 	for (1 .. 5) {
-		get_host('/', 8085, 'localhost');
-		get_host('/', 8086, 'localhost');
+		get('/', 8085);
+		get('/', 8086);
 	}
 
 	check_single_zone();
@@ -364,15 +386,15 @@ sub check_sni_zone {
 
 sub test_sni_zone {
 	for (1 .. 5) {
-		get_sni('/', 8087, "$_.sni.$a");
-		get_sni('/', 8088, "$_.sni.$b");
+		get('/', 8087, "$_.sni.$a");
+		get('/', 8088, "$_.sni.$b");
 	}
 
 	for (1 .. 5) {
-		get_sni('/', 8087, "$_.sni.$a");
-		get_sni('/', 8087, "f.$_.sni.$a");
-		get_sni('/', 8088, "$_.sni.$b");
-		get_sni('/', 8088, "f.$_.sni.$b");
+		get('/', 8087, "$_.sni.$a");
+		get('/', 8087, "f.$_.sni.$a");
+		get('/', 8088, "$_.sni.$b");
+		get('/', 8088, "f.$_.sni.$b");
 	}
 
 	check_sni_zone();
@@ -384,9 +406,12 @@ sub check_host_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats_ssl($server_zones->{a_host}, 5),
+	ok($server_zones->{'*.a.example.com'}{ssl}{handshaked} == 30,
+		"check '*.a.example.com' zone ssl stats");
+
+	ok(check_stats($server_zones->{a_host}, 5),
 		"check 'a_host' server zone");
-	ok(check_stats_ssl($server_zones->{b_host}, 5),
+	ok(check_stats($server_zones->{b_host}, 5),
 		"check 'b_host' server zone");
 
 	ok(check_stats($location_zones->{a_host}, 5),
@@ -399,14 +424,14 @@ sub check_host_zone {
 		my $b_zone = "$_.$b";
 
 		my $zj = get_json("/status/http/server_zones/$a_zone");
-		ok(check_stats_ssl($zj, 2), "check '$a_zone' server zone directly");
+		ok(check_stats($zj, 2), "check '$a_zone' server zone directly");
 
 		$zj = get_json("/status/http/server_zones/$b_zone");
-		ok(check_stats_ssl($zj, 2), "check '$b_zone' server zone directly");
+		ok(check_stats($zj, 2), "check '$b_zone' server zone directly");
 
-		ok(check_stats_ssl($server_zones->{$a_zone}, 2),
+		ok(check_stats($server_zones->{$a_zone}, 2),
 			"check '$a_zone' server zone");
-		ok(check_stats_ssl($server_zones->{$b_zone}, 2),
+		ok(check_stats($server_zones->{$b_zone}, 2),
 			"check '$b_zone' server zone");
 
 		ok(not (exists $server_zones->{"f.$a_zone"}),
@@ -434,15 +459,15 @@ sub check_host_zone {
 
 sub test_host_zone {
 	for (1 .. 5) {
-		get_host('/', 8084, "$_.$a");
-		get_host('/', 8084, "$_.$b");
+		get('/', 8084, host => "$_.$a");
+		get('/', 8084, host => "$_.$b");
 	}
 
 	for (1 .. 5) {
-		get_host('/', 8084, "$_.$a");
-		get_host('/', 8084, "f.$_.$a");
-		get_host('/', 8084, "$_.$b");
-		get_host('/', 8084, "f.$_.$b");
+		get('/', 8084, host => "$_.$a");
+		get('/', 8084, host => "f.$_.$a");
+		get('/', 8084, host => "$_.$b");
+		get('/', 8084, host => "f.$_.$b");
 	}
 
 	check_host_zone();
@@ -478,20 +503,20 @@ sub check_uri_zone {
 sub test_uri_zone {
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
-			get_host("/$i.$j", 8080 + $j, 'localhost');
+			get("/$i.$j", 8080 + $j);
 		}
 	}
 
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
-			get_host("/$i.$j.f", 8080 + $j, 'localhost');
+			get("/$i.$j.f", 8080 + $j);
 		}
 	}
 
 	my $uri = '/' . ('a' x 254);
 
 	for my $i (1 .. 3) {
-		get_host($uri, 8081, 'localhost');
+		get($uri, 8081);
 		$uri .= 'a';
 	}
 
@@ -519,11 +544,11 @@ sub check_locations_zone {
 
 sub test_locations_zone {
 	for (1 .. 20) {
-		get_host("/location_$_", 8096, 'localhost');
+		get("/location_$_", 8096);
 	}
 
 	for (1 .. 10) {
-		get_host("/location_$_", 8096, 'localhost');
+		get("/location_$_", 8096);
 	}
 
 	check_locations_zone();
@@ -535,11 +560,14 @@ sub check_host_uri_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats_ssl($server_zones->{hosts}, 0), "check 'hosts' server zone");
+	ok($server_zones->{'*.example.com'}{ssl}{handshaked} == 50,
+		"check '*.a.example.com' zone ssl stats");
+
+	ok(check_stats($server_zones->{hosts}, 0), "check 'hosts' server zone");
 	ok(check_stats($server_zones->{localhost}, 10),
 		"check 'localhost' server zone");
-	ok(check_stats_ssl($server_zones->{$a}, 20), "check '$a' server zone");
-	ok(check_stats_ssl($server_zones->{$b}, 20), "check '$b' server zone");
+	ok(check_stats($server_zones->{$a}, 20), "check '$a' server zone");
+	ok(check_stats($server_zones->{$b}, 20), "check '$b' server zone");
 
 	ok(check_stats($location_zones->{uris}, 10),
 		"check 'uris' location zone");
@@ -563,55 +591,51 @@ sub check_host_uri_zone {
 
 sub test_host_uri_zone {
 	for (1 .. 5) {
-		get_host("/loc_$_.1", 8095, $a);
-		get_host("/loc_$_.2", 8095, $a);
+		get("/loc_$_.1", 8095, host => $a);
+		get("/loc_$_.2", 8095, 'localhost', $a);
 
-		get_host("/loc1", 8095, $a);
-		get_host("/loc2", 8095, $a);
+		get("/loc1", 8095, 'localhost', $a);
+		get("/loc2", 8095, 'localhost', $a);
 	}
 
 	for (1 .. 5) {
-		get_host("/loc_$_.1.f", 8095, $b);
-		get_host("/loc_$_.2.f", 8095, $b);
+		get("/loc_$_.1.f", 8095, 'localhost', $b);
+		get("/loc_$_.2.f", 8095, 'localhost', $b);
 
-		get_host("/loc1", 8095, $b);
-		get_host("/loc2", 8095, $b);
+		get("/loc1", 8095, 'localhost', $b);
+		get("/loc2", 8095, 'localhost', $b);
 	}
 
 	for (1 .. 5) {
-		get_host("/loc_$_.1", 8095, 'localhost');
-		get_host("/loc_$_.2", 8095, 'localhost');
+		get("/loc_$_.1", 8095);
+		get("/loc_$_.2", 8095);
 	}
 
 	check_host_uri_zone();
 }
 
-sub get_sni {
-	my ($uri, $port, $sni) = @_;
+sub check_sni_host_zone {
+	my $j = get_json('/status/');
 
-	my $s = Test::Nginx::HTTP3->new($port, sni => $sni);
-
-	$s->insert_literal(':path', $uri);
-
-	my $sid = $s->new_stream({ headers => [
-	{ name => ':method', value => 'GET', mode => 0 },
-	{ name => ':scheme', value => 'http', mode => 0 },
-	{ name => ':path', value => $uri, mode => 0, dyn => 1 },
-	{ name => ':authority', value => 'localhost', mode => 4 }]});
-
-	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-	@$frames = grep { $_->{type} =~ "HEADERS|DATA" } @$frames;
-
-	my $frame = shift @$frames;
-
-	is($frame->{headers}->{':status'}, 200,
-		"request OK, uri '$uri', sni '$sni'");
+	ok(check_stats_ssl($j->{http}{server_zones}{a_sni_host}, 1),
+		"check 'a_sni_host' server zone");
+	ok(check_stats_ssl($j->{http}{server_zones}{b_sni_host}, 1),
+		"check 'b_sni_host' server zone");
 }
 
-sub get_host {
-	my ($uri, $port, $host) = @_;
+sub test_sni_host_zone {
+	get('/', 8097, 'a.com', 'b.com');
+	get('/', 8097, 'b.com', 'a.com');
 
-	my $s = Test::Nginx::HTTP3->new($port);
+	check_sni_host_zone();
+}
+
+sub get {
+	my ($uri, $port, $sni, $host) = @_;
+	$sni ||= 'localhost';
+	$host ||= 'localhost';
+
+	my $s = Test::Nginx::HTTP3->new($port, sni => $sni);
 
 	$s->insert_literal(':path', $uri);
 
@@ -627,7 +651,7 @@ sub get_host {
 	my $frame = shift @$frames;
 
 	is($frame->{headers}->{':status'}, 200,
-		"request OK, uri '$uri', host '$host'");
+		"request OK, uri '$uri', sni '$sni', host '$host'");
 }
 
 ###############################################################################

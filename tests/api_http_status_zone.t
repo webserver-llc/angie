@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_api http_ssl map socket_ssl_sni/)
 	->has(qw/sni/)
-	->has_daemon('openssl')->plan(2124)
+	->has_daemon('openssl')->plan(2162)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -210,7 +210,7 @@ http {
 
     map $http_user_agent $map_ssl_user_agent {
         volatile;
-        "" proc_err;
+        "" handshakes;
         default $http_user_agent;
     }
 
@@ -258,6 +258,32 @@ http {
             return 200;
         }
     }
+
+    server {
+        ssl_certificate rsa.crt;
+        ssl_certificate_key rsa.key;
+
+        server_name a.com;
+        listen %%PORT_8097%% ssl;
+        status_zone a;
+
+        location / {
+            return 200;
+        }
+    }
+
+    server {
+        ssl_certificate rsa.crt;
+        ssl_certificate_key rsa.key;
+
+        server_name b.com;
+        listen %%PORT_8097%% ssl;
+        status_zone b;
+
+        location / {
+            return 200;
+        }
+    }
 }
 
 EOF
@@ -302,6 +328,7 @@ test_sni_zone();
 test_server_cert_type_zone();
 test_ssl_host_zone();
 test_ssl_user_agent_zone();
+test_ssl_deafult_host_zone();
 
 # Check all previous states
 check_uri_zone();
@@ -313,6 +340,7 @@ check_sni_zone();
 check_server_cert_type_zone();
 check_ssl_host_zone();
 check_ssl_user_agent_zone();
+check_ssl_deafult_host_zone();
 
 ###############################################################################
 
@@ -346,15 +374,19 @@ sub check_ssl_host_zone {
 
 	my $server_zones = $j->{http}{server_zones};
 
-	ok(check_stats_ssl($server_zones->{ssl_host}, 2),
+	ok(check_stats($server_zones->{ssl_host}, 2),
 		"check 'ssl_host' server zone");
-	ok(check_stats_ssl($server_zones->{'*.example.com'}, 0),
+	ok($server_zones->{ssl_host}{ssl}{handshaked} == 0, 'check ssl handshaked');
+
+	ok(check_stats($server_zones->{'*.example.com'}, 0),
 		"check '*.example.com' server zone");
+	ok($server_zones->{'*.example.com'}{ssl}{handshaked} == 5,
+		'check ssl handshaked');
 
 	for (1 .. 3) {
 		my $host_zone = "$_.example.com";
 
-		ok(check_stats_ssl($j->{http}{server_zones}{$host_zone}, 1),
+		ok(check_stats($j->{http}{server_zones}{$host_zone}, 1),
 			"check '$host_zone' server zone");
 	}
 }
@@ -684,23 +716,64 @@ sub test_host_uri_zone {
 sub check_ssl_user_agent_zone {
 	my $j = get_json('/status/');
 
-	ok(check_stats_ssl($j->{http}{server_zones}{user_agent}, 1),
+	my $user_agent_zone = $j->{http}{server_zones}{user_agent};
+
+	ok(check_stats($j->{http}{server_zones}{user_agent}, 1),
 		"check 'ssl_user_agent' zone");
+	ok($user_agent_zone->{ssl}{handshaked} == 0,
+		"check 'user_agent' zone ssl stats");
 }
 
 sub test_ssl_user_agent_zone {
 	my $s = ssl_connect(8094);
 	my $j = get_json('/status/');
 
-	my $proc_err_zone = $j->{http}{server_zones}{proc_err};
+	my $handshakes_zone = $j->{http}{server_zones}{handshakes};
 
-	ok(check_stats($proc_err_zone, 0), "check 'proc_err' zone stats");
-	ok($proc_err_zone->{ssl}{handshaked}, "check 'proc_err' zone ssl stats");
+	ok($handshakes_zone->{ssl}{handshaked} == 1,
+		"check 'handshakes' zone ssl stats");
+	ok(check_stats($handshakes_zone, 0), "check 'handshakes' zone stats");
 
 	$s->write("GET / HTTP/1.0\nUser-Agent: user_agent\n\n");
 	like($s->read(), qr/200 OK/, 'correct response');
 
 	check_ssl_user_agent_zone();
+}
+
+sub check_ssl_deafult_host_zone {
+	my $j = get_json('/status/');
+
+	my $a_zone = $j->{http}{server_zones}{a};
+	my $b_zone = $j->{http}{server_zones}{b};
+
+	ok($a_zone->{ssl}{handshaked} == 1, "check 'a' zone ssl stats");
+	ok($b_zone->{ssl}{handshaked} == 0, "check 'b' zone ssl stats");
+
+	ok(check_stats($a_zone, 1), "check 'a' zone stats");
+	ok(check_stats($b_zone, 1), "check 'b' zone stats");
+}
+
+sub test_ssl_deafult_host_zone {
+	my $s = ssl_connect(8097);
+
+	my $j = get_json('/status/');
+
+	my $a_zone = $j->{http}{server_zones}{a};
+	my $b_zone = $j->{http}{server_zones}{b};
+
+	ok($a_zone->{ssl}{handshaked} == 1, "check 'a' zone ssl stats");
+	ok($b_zone->{ssl}{handshaked} == 0, "check 'b' zone ssl stats");
+
+	ok(check_stats($a_zone, 0), "check 'a' zone stats");
+	ok(check_stats($b_zone, 0), "check 'b' zone stats");
+
+	like($s->io("GET / HTTP/1.1\nHost: a.com\n\n"), qr/200 OK/,
+		'correct response');
+
+	like($s->io("GET / HTTP/1.1\nHost: b.com\n\n"), qr/200 OK/,
+		'correct response');
+
+	check_ssl_deafult_host_zone();
 }
 
 sub get_sni {

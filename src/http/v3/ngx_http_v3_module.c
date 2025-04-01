@@ -23,7 +23,7 @@ static char *ngx_http_quic_host_key(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #if (NGX_API)
 static ngx_int_t ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c,
-    ngx_quic_conf_t *qcf, ngx_int_t rc);
+    ngx_uint_t initialized);
 #endif
 
 
@@ -346,9 +346,6 @@ ngx_http_v3_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 
     sscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_ssl_module);
     conf->quic.ssl = &sscf->ssl;
-#if (NGX_API)
-    conf->quic.ssl->status_zone = cscf->status_zone;
-#endif
 
     return NGX_CONF_OK;
 }
@@ -458,18 +455,18 @@ failed:
 #if (NGX_API)
 
 static ngx_int_t
-ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_quic_conf_t *qcf,
-    ngx_int_t rc)
+ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_uint_t initialized)
 {
-    ngx_ssl_stats_t  **ssl_stats;
+    ngx_http_connection_t     *hc;
+    ngx_http_core_srv_conf_t  *cscf;
 
-    if (rc == NGX_AGAIN) {
-        return NGX_OK;
+    hc = initialized ? ngx_http_quic_get_connection(c) : c->data;
+
+    cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
+
+    if (cscf->status_zone != NULL) {
+        ngx_http_calculate_ssl_statistic(c, cscf->status_zone);
     }
-
-    ssl_stats = ngx_quic_get_ssl_stats(c);
-
-    *ssl_stats = ngx_http_calculate_ssl_statistic(c, qcf->ssl->status_zone);
 
     return NGX_OK;
 }

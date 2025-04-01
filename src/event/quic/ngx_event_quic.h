@@ -31,7 +31,7 @@
 
 typedef ngx_int_t (*ngx_quic_init_pt)(ngx_connection_t *c);
 typedef ngx_int_t (*ngx_quic_ssl_handshake_pt)(ngx_connection_t *c,
-    ngx_quic_conf_t *qcf, ngx_int_t rc);
+    ngx_uint_t initialized);
 typedef void (*ngx_quic_shutdown_pt)(ngx_connection_t *c);
 
 typedef ngx_int_t (*ngx_quic_init_ssl_pt)(ngx_connection_t *c, void *data);
@@ -139,8 +139,5 @@ ngx_int_t ngx_quic_get_packet_dcid(ngx_log_t *log, u_char *data, size_t len,
     ngx_str_t *dcid);
 ngx_int_t ngx_quic_derive_key(ngx_log_t *log, const char *label,
     ngx_str_t *secret, ngx_str_t *salt, u_char *out, size_t len);
-#if (NGX_API)
-ngx_ssl_stats_t **ngx_quic_get_ssl_stats(ngx_connection_t *c);
-#endif
 
 #endif /* _NGX_EVENT_QUIC_H_INCLUDED_ */

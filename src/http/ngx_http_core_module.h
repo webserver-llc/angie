@@ -161,7 +161,7 @@ typedef struct {
 
 #if (NGX_API)
 
-typedef struct {
+struct ngx_http_server_stats_s {
     ngx_atomic_t               processing;
     ngx_atomic_t               requests;
     ngx_atomic_t               discarded;
@@ -171,7 +171,7 @@ typedef struct {
     ngx_ssl_stats_t            ssl;
 #endif
     ngx_atomic_t               responses[501];
-} ngx_http_server_stats_t;
+};
 
 
 typedef struct {
@@ -667,12 +667,12 @@ ngx_int_t ngx_http_link_multi_headers(ngx_http_request_t *r);
 #if (NGX_API)
 
 #if (NGX_HTTP_SSL)
-ngx_ssl_stats_t *ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
+void ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
     ngx_http_status_zone_t *status_zone);
 #endif
 
 void ngx_http_calculate_request_statistic(ngx_http_request_t *r,
-    void *status_zone);
+    ngx_http_status_zone_t *status_zone);
 
 #endif /* NGX_API */
 

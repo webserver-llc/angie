@@ -9,6 +9,7 @@ package Test::Nginx::ACME;
 use warnings;
 use strict;
 
+use POSIX qw/ waitpid WNOHANG /;
 use Test::Nginx qw/port/;
 
 # This module requires pebble and pebble-challtestsrv (see
@@ -105,6 +106,9 @@ sub start_pebble {
 	my $mgmt_port = $params->{mgmt_port} // port(15000);
 	my $tls_port  = $params->{tls_port}  // port(5001);
 	my $http_port = $params->{http_port} // port(5002);
+	my $dns_port = defined $params->{dns_port}
+		? $params->{dns_port}
+		: $self->{dns_port};
 
 	my $d = $self->{t}->testdir();
 
@@ -142,11 +146,36 @@ EOF
 
 	$self->{t}->run_daemon($pebble,
 		'-config', "$d/$pebble_config",
-		'-dnsserver', '127.0.0.1:' . $self->{dns_port}
+		'-dnsserver', '127.0.0.1:' . $dns_port
 	);
+
+	my $pid = $self->{t}->{_daemons}[-1];
 
 	$self->{t}->waitforsslsocket("0.0.0.0:$mgmt_port")
 		or die("Couldn't start pebble");
+
+	$self->{t}->{pebble} = $pid;
+}
+
+sub stop_pebble {
+	my ($self) = @_;
+
+	my $pid = $self->{t}->{pebble};
+
+	return unless $pid;
+
+	my $exited;
+
+	# Ctrl-C is the proper way to stop pebble
+	kill 'INT', $pid;
+	for (1 .. 900) {
+		$exited = waitpid($pid, WNOHANG) != 0;
+		last if $exited;
+		select undef, undef, undef, 0.1;
+	}
+
+	$self->_stop_pid($pid, 1) unless $exited;
+	undef $self->{t}->{pebble};
 }
 
 sub start_challtestsrv {
@@ -163,19 +192,48 @@ sub start_challtestsrv {
 	my $http_port = defined $params->{http_port}
 		? ':' . $params->{http_port}
 		: '';
+	my $dns_port = defined $params->{dns_port}
+		? $params->{dns_port}
+		: $self->{dns_port};
+
 
 	$self->{t}->run_daemon($challtestsrv,
 		'-management', ":$mgmt_port",
 		'-defaultIPv6', '',
-		'-dns01', ":$self->{dns_port}",
+		'-dns01', ":$dns_port",
 		'-http01', $http_port,
 		'-https01', '',
 		'-doh', '',
 		'-tlsalpn01', '',
 	);
 
+	my $pid = $self->{t}->{_daemons}[-1];
+
 	$self->{t}->waitforsocket("0.0.0.0:$mgmt_port")
 		or die("Couldn't start challtestsrv");
+
+	$self->{t}->{challtestsrv} = $pid;
+}
+
+sub stop_challtestsrv {
+	my ($self) = @_;
+
+	my $pid = $self->{t}->{challtestsrv};
+
+	return unless $pid;
+
+	my $exited;
+
+	# Ctrl-C is the proper way to stop challtestsrv
+	kill 'INT', $pid;
+	for (1 .. 900) {
+		$exited = waitpid($pid, WNOHANG) != 0;
+		last if $exited;
+		select undef, undef, undef, 0.1;
+	}
+
+	$self->_stop_pid($pid, 1) unless $exited;
+	undef $self->{t}->{challtestsrv};
 }
 
 1;

@@ -29,21 +29,6 @@ all functionality of nginx 1.27.4 except the "keepalive_min_timeout" directive
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-статистика "status_zone" в блоке "server" HTTP-модуля могла считаться
-некорректно, если на раннем этапе обработки запроса происходила ошибка или
-запросы попадали в разные зоны статистики в рамках одного соединения;
-ошибка появилась в 1.8.2.
-</para>
-<para lang="en">
-the "status_zone" statistics in the HTTP module's "server" block could be
-miscalculated if an error occurred during early request processing, or
-if requests within the same connection belonged to different statistics
-zones; the bug had appeared in 1.8.2.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 параметр "renew_on_load" директивы "acme_client", позволяющий форсировать
@@ -125,6 +110,26 @@ remain available.
 <para lang="en">
 new "uri" parameter for the "acme_hook" directive allowing to customize
 the hook request string using variables.
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.8.3" date="2025-04-02">
+
+<change type="bugfix">
+<para lang="ru">
+статистика "status_zone" в блоке "server" HTTP-модуля могла считаться
+некорректно, если запросы попадали в разные зоны статистики в рамках одного
+соединения или на раннем этапе обработки запроса происходила ошибка;
+проблема появилась в 1.8.2.
+</para>
+<para lang="en">
+the "status_zone" statistics in the HTTP module's "server" block could be
+miscalculated if requests within the same connection belonged to different
+statistics zones, or if an error occurred during early request processing;
+the bug had appeared in 1.8.2.
 </para>
 </change>
 

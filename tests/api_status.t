@@ -153,6 +153,7 @@ my %test_cases = (
 				load_time  => $time_re,
 				version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
 				(defined $build) ? (build => $build) : (),
+				build_time => $time_re,
 			}),
 			connections => superhashof({
 				accepted => $num_re,

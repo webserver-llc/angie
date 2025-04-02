@@ -24,4 +24,7 @@
 #define ngx_angie_sign     ('A' + 'n' + 'g' + 'i' + 'e')
 
 
+extern ngx_time_t  ngx_build_time;
+
+
 #endif /* _ANGIE_H_INCLUDED_ */

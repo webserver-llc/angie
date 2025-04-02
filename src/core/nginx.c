@@ -426,6 +426,8 @@ main(int argc, char *const *argv)
 static void
 ngx_show_version_info(void)
 {
+    u_char  time[sizeof("Wed, 31 Dec 1986 18:00:00 GMT")];
+
     if (ngx_show_version) {
         ngx_write_stderr("Angie version: " ANGIE_VER_BUILD NGX_LINEFEED);
     }
@@ -478,6 +480,11 @@ ngx_show_version_info(void)
 
     if (ngx_show_configure) {
         ngx_write_stderr("nginx version: " NGINX_VER NGX_LINEFEED);
+
+        ngx_write_stderr("built on ");
+        (void) ngx_http_time(time, ngx_build_time.sec);
+        ngx_write_fd(ngx_stderr, time, sizeof(time) - 1);
+        ngx_write_stderr(NGX_LINEFEED);
 
 #ifdef NGX_COMPILER
         ngx_write_stderr("built by " NGX_COMPILER NGX_LINEFEED);

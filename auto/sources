@@ -85,6 +85,8 @@ CORE_SRCS="src/core/nginx.c \
            src/core/ngx_proxy_protocol.c \
            src/core/ngx_syslog.c"
 
+CORE_BUILD_C="src/core/ngx_build.c"
+
 
 EVENT_MODULES="ngx_events_module ngx_event_core_module"
 

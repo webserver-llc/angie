@@ -86,6 +86,12 @@ static ngx_api_entry_t  ngx_api_angie_entries[] = {
 #endif
 
     {
+        .name      = ngx_string("build_time"),
+        .handler   = ngx_api_time_handler,
+        .data.tp   = &ngx_build_time
+    },
+
+    {
         .name      = ngx_string("address"),
         .handler   = ngx_api_angie_address_handler,
     },

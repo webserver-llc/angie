@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+отображение даты и времени сборки в поле "build_time" объект "/status/angie" API
+статистики, также в выводе ключа командной строки "-V".
+</para>
+<para lang="en">
+build time is now displayed via the "build_time" field of the "/status/angie"
+statistics API object and in the output of the "-V" command-line option.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 вся функциональность nginx 1.27.4 за исключение директивы
 "keepalive_min_timeout" (аналогичный функционал существует с версии 1.8.0).
 </para>

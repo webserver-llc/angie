@@ -141,6 +141,11 @@ ngx_all_srcs="$CORE_SRCS"
 
 # the core dependencies and include paths
 
+dirsep $CORE_BUILD_C
+core_build_c=$res
+src2obj $CORE_BUILD_C
+core_build_obj=$res
+
 fmt_deps $CORE_DEPS $NGX_AUTO_CONFIG_H $NGX_PCH
 ngx_deps=$res
 
@@ -298,6 +303,12 @@ ngx_link=${CORE_LINK:+$res}
 fmt_link $MAIN_LINK
 ngx_main_link=${MAIN_LINK:+$res}
 
+if test -n "$NGX_PCH"; then
+    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+else
+    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS)"
+fi
+
 
 cat << END                                                    >> $NGX_MAKEFILE
 
@@ -305,8 +316,9 @@ build:	binary modules manpage
 
 binary:	$NGX_OBJS${ngx_dirsep}angie$ngx_binext
 
-$NGX_OBJS${ngx_dirsep}angie$ngx_binext:	$ngx_deps$ngx_spacer
-	\$(LINK) $ngx_long_start$ngx_binout$NGX_OBJS${ngx_dirsep}angie$ngx_binext$ngx_long_cont$ngx_objs$ngx_libs$ngx_link$ngx_main_link
+$NGX_OBJS${ngx_dirsep}angie$ngx_binext:	$core_build_c$ngx_cont$ngx_deps$ngx_spacer
+	$ngx_cc -DANGIE_BUILD_TIMESTAMP=\`date +%s\`$ngx_tab$ngx_objout$core_build_obj$ngx_tab$core_build_c$NGX_AUX
+	\$(LINK) $ngx_long_start$ngx_binout$NGX_OBJS${ngx_dirsep}angie$ngx_binext$ngx_long_cont$core_build_obj$ngx_long_cont$ngx_objs$ngx_libs$ngx_link$ngx_main_link
 	$ngx_rcc
 $ngx_long_end
 
@@ -315,12 +327,6 @@ END
 
 
 # ngx_modules.c
-
-if test -n "$NGX_PCH"; then
-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
-else
-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS)"
-fi
 
 cat << END                                                    >> $NGX_MAKEFILE
 

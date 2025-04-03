@@ -97,10 +97,18 @@ ngx_os_init(ngx_log_t *log)
 void
 ngx_os_status(ngx_log_t *log)
 {
+    u_char  time[sizeof("Wed, 31 Dec 1986 18:00:00 GMT") - 1];
+
     ngx_log_error(NGX_LOG_NOTICE, log, 0, ANGIE_VER_BUILD);
 
+    (void) ngx_http_time(time, ngx_build_time.sec);
+
 #ifdef NGX_COMPILER
-    ngx_log_error(NGX_LOG_NOTICE, log, 0, "built by " NGX_COMPILER);
+    ngx_log_error(NGX_LOG_NOTICE, log, 0, "built on %*s by %s",
+                  sizeof(time), time, NGX_COMPILER);
+#else
+    ngx_log_error(NGX_LOG_NOTICE, log, 0, "built on %*s",
+                  sizeof(time), time);
 #endif
 
 #if (NGX_HAVE_OS_SPECIFIC_INIT)

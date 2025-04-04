@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -77,6 +78,7 @@ typedef struct {
 #define NGX_FILE_TRUNCATE        (O_CREAT|O_TRUNC)
 #define NGX_FILE_APPEND          (O_WRONLY|O_APPEND)
 #define NGX_FILE_NONBLOCK        O_NONBLOCK
+#define NGX_FILE_EXCL_LOCK       (O_CREAT|O_EXCL)
 
 #if (NGX_HAVE_OPENAT)
 #define NGX_FILE_NOFOLLOW        O_NOFOLLOW

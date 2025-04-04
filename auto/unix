@@ -847,6 +847,10 @@ ngx_feature_test="void *p;
                   if (p == MAP_FAILED) return 1;"
 . auto/feature
 
+if [ $ngx_found = yes ]; then
+    MAP_ANON_FOUND=YES
+fi
+
 
 ngx_feature='mmap("/dev/zero", MAP_SHARED)'
 ngx_feature_name="NGX_HAVE_MAP_DEVZERO"
@@ -862,6 +866,10 @@ ngx_feature_test='void *p; int  fd;
                   if (p == MAP_FAILED) return 1;'
 . auto/feature
 
+if [ $ngx_found = yes ]; then
+    MAP_DEVZERO_FOUND=YES
+fi
+
 
 ngx_feature="System V shared memory"
 ngx_feature_name="NGX_HAVE_SYSVSHM"
@@ -875,6 +883,10 @@ ngx_feature_test="int  id;
                   if (id == -1) return 1;
                   shmctl(id, IPC_RMID, NULL);"
 . auto/feature
+
+if [ $ngx_found = yes ]; then
+    NGX_HAVE_SYSVSHM=YES
+fi
 
 
 ngx_feature="POSIX semaphores"
@@ -1034,3 +1046,17 @@ ngx_feature_test='struct addrinfo *res;
                   if (getaddrinfo("localhost", NULL, NULL, &res) != 0) return 1;
                   freeaddrinfo(res)'
 . auto/feature
+
+
+if [ "$MAP_ANON_FOUND" = "YES" ] || [ "$MAP_DEVZERO_FOUND" = "YES" ]
+    then
+
+    if [ "$MAP_FIXED_NOREPLACE_FOUND" = "YES" ] \
+       || [ "$MAP_FIXED_EXCL_FOUND" = "YES" ]
+    then
+        have=NGX_HAVE_PERSISTENT_SHM . auto/have
+    fi
+
+elif [ "$NGX_HAVE_SYSVSHM" = "YES" ]; then
+    have=NGX_HAVE_PERSISTENT_SHM . auto/have
+fi

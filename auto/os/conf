@@ -1,7 +1,13 @@
 
+# Copyright (C) 2025 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
+
+MAP_ANON_FOUND=NO
+MAP_DEVZERO_FOUND=NO
+MAP_FIXED_NOREPLACE_FOUND=NO
+MAP_FIXED_EXCL_FOUND=NO
 
 echo "checking for $NGX_SYSTEM specific features"
 

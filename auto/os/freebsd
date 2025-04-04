@@ -94,3 +94,19 @@ if [ $version -ge 701000 ]; then
     echo " + cpuset_setaffinity() found"
     have=NGX_HAVE_CPUSET_SETAFFINITY . auto/have
 fi
+
+
+ngx_feature="mmap(MAP_FIXED|MAP_EXCL)"
+ngx_feature_name="NGX_HAVE_MAP_FIXED_EXCL"
+ngx_feature_run=no
+ngx_feature_incs="#include <sys/mman.h>"
+ngx_feature_path=
+ngx_feature_libs=
+ngx_feature_test="(void) mmap(NULL, 4096, PROT_READ|PROT_WRITE,
+                              MAP_FIXED|MAP_EXCL, -1, 0);"
+. auto/feature
+
+if [ $ngx_found = yes ]; then
+    MAP_FIXED_EXCL_FOUND=YES
+fi
+

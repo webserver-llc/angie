@@ -288,3 +288,20 @@ ngx_feature_test="socklen_t optlen = sizeof(int);
 
 
 CC_AUX_FLAGS="$cc_aux_flags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64"
+
+
+# Linux 4.17+
+ngx_feature="mmap(MAP_FIXED_NOREPLACE)"
+ngx_feature_name="NGX_HAVE_MAP_FIXED_NOREPLACE"
+ngx_feature_run=no
+ngx_feature_incs="#include <sys/mman.h>"
+ngx_feature_path=
+ngx_feature_libs=
+ngx_feature_test="(void) mmap(NULL, 4096, PROT_READ|PROT_WRITE,
+                              MAP_FIXED_NOREPLACE, -1, 0);"
+. auto/feature
+
+if [ $ngx_found = yes ]; then
+    MAP_FIXED_NOREPLACE_FOUND=YES
+fi
+

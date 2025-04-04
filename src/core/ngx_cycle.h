@@ -25,9 +25,11 @@
 
 typedef struct {
     ngx_str_t                 name;
+    ngx_str_t                 file;
     ssize_t                   size;
     size_t                    min_size;
     unsigned                  is_count:1;
+    unsigned                  restorable:1;
 } ngx_shm_zone_params_t;
 
 

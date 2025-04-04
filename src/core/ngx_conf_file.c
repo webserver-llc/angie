@@ -1574,6 +1574,27 @@ ngx_conf_parse_zone_spec(ngx_conf_t *cf, ngx_shm_zone_params_t *zp,
             continue;
         }
 
+        if (ngx_strncmp(param.data, "file=", 5) == 0) {
+
+            if (!zp->restorable) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "this zone cannot be serialized using file");
+                return NGX_ERROR;
+            }
+
+            param.data += 5;
+            param.len -= 5;
+
+            if (param.len == 0) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "empty zone file name");
+                return NGX_ERROR;
+            }
+
+            zp->file = param;
+            continue;
+        }
+
     bad_param:
 
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,

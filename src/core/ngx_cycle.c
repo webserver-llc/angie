@@ -18,10 +18,18 @@ static ngx_int_t ngx_pidfile_changed(ngx_str_t *name1, ngx_str_t *name2,
     ngx_log_t *log);
 static ngx_int_t ngx_shared_memory_find(ngx_conf_t *cf, ngx_str_t *name,
     size_t size, void *tag, ngx_shm_zone_t **out);
+static ngx_inline ngx_int_t ngx_fn_extend(ngx_pool_t *pool, ngx_str_t *fn,
+    ngx_str_t *base, const char *ext);
 static ngx_int_t ngx_test_lockfile(u_char *file, ngx_log_t *log);
 static void ngx_clean_old_cycles(ngx_event_t *ev);
 static void ngx_shutdown_timer_handler(ngx_event_t *ev);
 static void ngx_show_loaded_modules_info(ngx_cycle_t *cycle);
+
+static ngx_int_t ngx_shm_zone_restore(ngx_shm_zone_t *zone);
+static ngx_int_t ngx_shm_zone_file_acquire(ngx_shm_zone_state_t *zstate,
+    ngx_uint_t wr);
+static void ngx_shm_zone_file_release(ngx_shm_zone_state_t *zstate,
+    ngx_uint_t discard);
 
 
 volatile ngx_cycle_t  *ngx_cycle;
@@ -452,6 +460,11 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
 
         shm_zone[i].shm.log = cycle->log;
 
+        if (shm_zone[i].state) {
+            shm_zone[i].state->file.log = cycle->log;
+            shm_zone[i].state->lock.log = cycle->log;
+        }
+
         opart = &old_cycle->shared_memory.part;
         oshm_zone = opart->elts;
 
@@ -515,11 +528,21 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
             goto failed;
         }
 
+        if (shm_zone[i].restore
+            && ngx_shm_zone_restore(&shm_zone[i]) != NGX_OK)
+        {
+            goto failed;
+        }
+
         if (shm_zone[i].init(&shm_zone[i], old_data) != NGX_OK) {
             goto failed;
         }
 
     shm_zone_found:
+
+        if (shm_zone[i].state) {
+            ngx_shm_zone_file_release(shm_zone[i].state, 0);
+        }
 
         continue;
     }
@@ -1439,6 +1462,157 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
 }
 
 
+ngx_shm_zone_t *
+ngx_shared_memory_add_ext(ngx_conf_t *cf, ngx_shm_zone_params_t *zp)
+{
+    u_char                   *addr;
+    ngx_int_t                 rc;
+    ngx_str_t                *sign;
+    ngx_file_t               *file, *lock;
+    ngx_shm_zone_t           *shm_zone;
+    ngx_shm_zone_state_t     *zstate;
+    ngx_slab_state_header_t   hdr;
+
+    addr = NULL;
+    zstate = NULL;
+    sign = NULL;
+
+    rc = ngx_shared_memory_find(cf, &zp->name, zp->size, zp->tag, &shm_zone);
+    if (rc == NGX_OK) {
+        return shm_zone;
+    }
+
+    if (rc == NGX_DECLINED) {
+        return NULL;
+    }
+
+    if (zp->file.len == 0) {
+        goto done;
+    }
+
+    if (zp->signature.len == 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "attempt to create restorable zone without signature");
+        return NULL;
+    }
+
+    sign = ngx_palloc(cf->pool, sizeof(ngx_str_t));
+    if (sign == NULL) {
+        return NULL;
+    }
+
+    sign->data = ngx_pnalloc(cf->pool, zp->signature.len);
+    if (sign->data == NULL) {
+        return NULL;
+    }
+
+    sign->len = zp->signature.len;
+    ngx_memcpy(sign->data, zp->signature.data, zp->signature.len);
+
+#if !defined(NGX_HAVE_PERSISTENT_SHM)
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "the file= parameter is specified, but "
+                       "Angie was built without support for "
+                       "the persistent shared memory");
+    return NULL;
+
+#endif
+
+    zstate = ngx_pcalloc(cf->pool, sizeof(ngx_shm_zone_state_t));
+    if (zstate == NULL) {
+        return NULL;
+    }
+
+    file = &zstate->file;
+
+    file->log = cf->cycle->log;
+
+    file->name = zp->file;
+    file->name.data[file->name.len] = 0;
+
+    lock = &zstate->lock;
+
+    lock->log = cf->cycle->log;
+    lock->fd = NGX_INVALID_FILE;
+
+    if (ngx_fn_extend(cf->pool, &lock->name, &file->name, ".lock") != NGX_OK) {
+        return NULL;
+    }
+
+    if (ngx_fn_extend(cf->pool, &zstate->tmp, &file->name, ".tmp") != NGX_OK) {
+        return NULL;
+    }
+
+    if (ngx_fn_extend(cf->pool, &zstate->old, &file->name, ".old") != NGX_OK) {
+        return NULL;
+    }
+
+    /*
+     * check the state file and obtain mmap address
+     * file is RW to be able to hold lock
+     */
+
+    rc = ngx_shm_zone_file_acquire(zstate, 0);
+    if (rc == NGX_ERROR) {
+        return NULL;
+    }
+
+    if (rc == NGX_OK) {
+        ngx_memzero(&hdr, sizeof(ngx_slab_state_header_t));
+        hdr.signature = zp->signature;
+
+        rc = ngx_slab_read_header(&hdr, file);
+
+        ngx_shm_zone_file_release(zstate, rc != NGX_OK);
+
+        if (rc != NGX_OK) {
+            ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                               "the zone state file \"%V\" was discarded "
+                               "due to incompatible content. It is renamed "
+                               "to \"%V\".old and need to be handled manually",
+                               &file->name, &file->name);
+
+            goto done;
+        }
+
+        addr = hdr.addr;
+
+        if (hdr.size != (size_t) zp->size) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "on-disk size of restorable memory zone \"%V\" "
+                               "is %ui bytes and does not match specified "
+                               "%ui bytes in the configuration file",
+                               &zp->name, zp->size, hdr.size);
+            return NULL;
+        }
+
+    } /* else: zone file does not exists, lock is not held */
+
+done:
+
+    shm_zone = ngx_list_push(&cf->cycle->shared_memory);
+
+    if (shm_zone == NULL) {
+        return NULL;
+    }
+
+    ngx_memzero(shm_zone, sizeof(ngx_shm_zone_t));
+
+    shm_zone->shm.log = cf->cycle->log;
+    shm_zone->shm.addr = addr;
+    shm_zone->shm.size = zp->size;
+    shm_zone->shm.name = zp->name;
+    shm_zone->tag = zp->tag;
+    shm_zone->state = zstate;
+    shm_zone->signature = sign;
+    /* additional step needed: read shm pages from file */
+    shm_zone->restore = addr ? 1 : 0;
+
+    return shm_zone;
+}
+
+
 static ngx_int_t
 ngx_shared_memory_find(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag,
     ngx_shm_zone_t **out)
@@ -1496,6 +1670,30 @@ ngx_shared_memory_find(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag,
     }
 
     return NGX_DONE;
+}
+
+
+static ngx_inline ngx_int_t
+ngx_fn_extend(ngx_pool_t *pool, ngx_str_t *fn, ngx_str_t *base,
+    const char *ext)
+{
+    u_char  *p;
+    size_t   len;
+
+    len = ngx_strlen(ext);
+
+    fn->data = ngx_pnalloc(pool, base->len + len + 1);
+    if (fn->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    fn->len = base->len + len;
+
+    p = ngx_cpymem(fn->data, base->data, base->len);
+    p = ngx_cpymem(p, ext, len);
+    *p = 0;
+
+    return NGX_OK;
 }
 
 
@@ -1616,4 +1814,278 @@ ngx_show_loaded_modules_info(ngx_cycle_t *cycle)
         ngx_write_stderr(cycle->modules[i]->name);
         ngx_write_stderr(NGX_LINEFEED);
     }
+}
+
+
+static ngx_int_t
+ngx_shm_zone_restore(ngx_shm_zone_t *zone)
+{
+    ngx_int_t                 rc;
+    ngx_file_t               *file;
+    ngx_slab_state_header_t   hdr;
+
+    file = &zone->state->file;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, file->log, 0,
+                   "restoring zone state from \"%V\" at %p",
+                   &file->name, zone->shm.addr);
+
+    if (ngx_shm_zone_file_acquire(zone->state, 0) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    ngx_memzero(&hdr, sizeof(ngx_slab_state_header_t));
+
+    hdr.addr = zone->shm.addr;
+    hdr.signature = *zone->signature;
+
+    rc = ngx_slab_restore_pool(&hdr, file);
+
+    /*
+     * files are NOT discarded here in case of bad header or something;
+     * the file signature was verified on zone creation and zone address
+     * was read successfuly. If we get error here, something very bad
+     * is going on (corrupted fs/disk, other processes touching files...)
+     *
+     * in any case, we are in a codepath that expects zone content to be
+     * restored at the specific address, and we failed to do it;
+     * it's too late to ignore state and use fresh empty zone
+     */
+    ngx_shm_zone_file_release(zone->state, 0);
+
+    if (rc != NGX_OK) {
+        ngx_log_error(NGX_LOG_CRIT, file->log, 0,
+                      "failed to restore zone from \"%V\"", &file->name);
+        return rc;
+    }
+
+    /* the module must restore own state from existings shm */
+    zone->shm.exists = 1;
+
+    return NGX_OK;
+}
+
+
+void
+ngx_save_zones(ngx_cycle_t *cycle)
+{
+    ngx_file_t                tmpfile, *file;
+    ngx_int_t                 rc;
+    ngx_uint_t                i;
+    ngx_shm_zone_t           *shm_zone, *zone;
+    ngx_list_part_t          *part;
+    ngx_slab_state_header_t   hdr;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "ngx_save_zones()");
+
+    part = &cycle->shared_memory.part;
+    shm_zone = part->elts;
+
+    for (i = 0; /* void */ ; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+            part = part->next;
+            shm_zone = part->elts;
+            i = 0;
+        }
+
+        zone = &shm_zone[i];
+
+        if (zone->state == NULL) {
+            continue;
+        }
+
+        file = &zone->state->file;
+
+        ngx_log_debug1(NGX_LOG_DEBUG_CORE, cycle->log, 0,
+                       "saving zone state to \"%V\"", &file->name);
+
+        ngx_memzero(&tmpfile, sizeof(ngx_file_t));
+
+        tmpfile.name = zone->state->tmp;
+        tmpfile.log = cycle->log;
+
+        if (ngx_shm_zone_file_acquire(zone->state, 1) == NGX_OK) {
+
+            tmpfile.fd = ngx_open_file(tmpfile.name.data, NGX_FILE_WRONLY,
+                                       NGX_FILE_TRUNCATE,
+                                       NGX_FILE_DEFAULT_ACCESS);
+
+            if (tmpfile.fd == NGX_INVALID_FILE) {
+                ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
+                              "unable to save zone to \"%V\": "
+                              ngx_open_file_n " \"%s\" failed",
+                              &file->name, tmpfile.name.data);
+                goto next;
+            }
+
+            ngx_memzero(&hdr, sizeof(ngx_slab_state_header_t));
+
+            hdr.addr = zone->shm.addr;
+            hdr.signature = *zone->signature;
+
+            rc = ngx_slab_save_pool(&hdr, &tmpfile);
+
+            if (ngx_close_file(tmpfile.fd) == NGX_FILE_ERROR) {
+                ngx_log_error(NGX_LOG_ERR, cycle->log, ngx_errno,
+                              ngx_close_file_n " \"%s\" failed",
+                              tmpfile.name.data);
+            }
+
+            if (rc != NGX_OK) {
+                ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
+                              "unable to save zone to \"%V\"", &file->name);
+
+                if (ngx_delete_file(tmpfile.name.data) == NGX_FILE_ERROR) {
+                    ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
+                                  ngx_delete_file_n " %s failed",
+                                  tmpfile.name.data);
+                }
+
+                goto next;
+            }
+
+            if (ngx_rename_file(tmpfile.name.data, file->name.data)
+                == NGX_FILE_ERROR)
+            {
+                ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
+                              "unable to save zone to \"%V\": "
+                              ngx_rename_file_n " %s to %s failed",
+                              &file->name, tmpfile.name.data, file->name.data);
+
+                /* fall through */
+            }
+
+    next:
+            ngx_shm_zone_file_release(zone->state, 0);
+        }
+    }
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "ngx_save_zones() done");
+}
+
+
+static ngx_int_t
+ngx_shm_zone_file_acquire(ngx_shm_zone_state_t *zstate, ngx_uint_t wr)
+{
+    ngx_err_t    err;
+    ngx_file_t  *file, *lock;
+
+    file = &zstate->file;
+    lock = &zstate->lock;
+
+    if (lock->fd != NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_WARN, lock->log, 0,
+                      "attempt to acquire lock \"%V\" that is already held",
+                      &lock->name);
+        return NGX_OK;
+    }
+
+    lock->fd = ngx_open_file(lock->name.data, NGX_FILE_EXCL_LOCK,
+                             NGX_FILE_OPEN, NGX_FILE_DEFAULT_ACCESS);
+
+    if (lock->fd == NGX_INVALID_FILE) {
+        /* TODO: perform some retries ? */
+
+        ngx_log_error(NGX_LOG_ERR, lock->log, 0,
+                      ngx_open_file_n" \"%V\" failed, cannot lock zone",
+                      &lock->name);
+        return NGX_ERROR;
+    }
+
+    /* lock is held */
+
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, lock->log, 0,
+                   "acquired lock on \"%V\" write:%d", &lock->name, wr);
+
+    if (wr) {
+        /* got lock, write will happen to temp file */
+        return NGX_OK;
+    }
+
+    file->fd = ngx_open_file(file->name.data, NGX_FILE_RDONLY,
+                             NGX_FILE_OPEN, NGX_FILE_DEFAULT_ACCESS);
+
+    if (file->fd == NGX_INVALID_FILE) {
+        err = ngx_errno;
+
+        if (err == NGX_ENOENT) {
+
+            ngx_log_debug1(NGX_LOG_DEBUG_CORE, lock->log, 0,
+                           "zone state file \"%V\" does not exist, "
+                           "releasing lock",
+                           &file->name);
+
+            /* no state file, release lock */
+            ngx_shm_zone_file_release(zstate, 0);
+            return NGX_DECLINED;
+        }
+
+        ngx_log_error(NGX_LOG_ERR, file->log, err,
+                      ngx_open_file_n" \"%V\" failed", &file->name);
+
+        ngx_shm_zone_file_release(zstate, 0);
+        return NGX_ERROR;
+    }
+
+    /* got lock, file is open */
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_shm_zone_file_release(ngx_shm_zone_state_t *zstate, ngx_uint_t discard)
+{
+    ngx_file_t  *file, *lock;
+
+    file = &zstate->file;
+    lock = &zstate->lock;
+
+    if (file->fd != NGX_INVALID_FILE) {
+        if (ngx_close_file(file->fd) == NGX_FILE_ERROR) {
+            ngx_log_error(NGX_LOG_ERR, file->log, ngx_errno,
+                          ngx_close_file_n " \"%V\" failed", &file->name);
+        }
+
+        file->fd = NGX_INVALID_FILE;
+
+        if (discard) {
+
+            /*
+             * the file is bad due to some reasons and we need to rename it
+             * so that user can decide what to do with data
+             */
+
+            if (ngx_rename_file(file->name.data, zstate->old.data)
+                == NGX_FILE_ERROR)
+            {
+                ngx_log_error(NGX_LOG_ERR, file->log, ngx_errno,
+                              ngx_rename_file_n " \"%V\" to \"%V\" failed",
+                              &file->name, &zstate->old);
+            }
+        }
+    }
+
+    if (lock->fd == NGX_INVALID_FILE) {
+        return;
+    }
+
+    if (ngx_delete_file(lock->name.data) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_CRIT, lock->log, ngx_errno,
+                      ngx_delete_file_n " \"%V\" failed", &lock->name);
+    }
+
+    if (ngx_close_file(lock->fd) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, lock->log, ngx_errno,
+                      ngx_close_file_n " \"%V\" failed", &lock->name);
+    }
+
+    lock->fd = NGX_INVALID_FILE;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, lock->log, 0,
+                   "released lock on \"%V\"", &lock->name);
 }

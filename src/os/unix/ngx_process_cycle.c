@@ -238,6 +238,22 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
 
         if (ngx_change_binary) {
             ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "changing binary");
+
+            /*
+             * flush zones, so that new binary gets recent state;
+             *
+             * zones are always saved on master exit and restored only
+             * at master start. new configuration only reads header
+             * which does not change since state file creation.
+             *
+             * on binary upgrade, the master that exits last (new or old),
+             * rewrites zones on disk. This is not a problem, since they
+             * will be not re-read by any running master, and before starting
+             * a new one they will be flushed here. Or, the process will
+             * be stoppped fully and will save zones.
+             */
+            ngx_save_zones(cycle);
+
             ngx_new_binary = ngx_exec_new_binary(cycle, ngx_argv);
             ngx_change_binary = 0;
         }
@@ -680,6 +696,8 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
     }
 
     ngx_close_listening_sockets(cycle);
+
+    ngx_save_zones(cycle);
 
     /*
      * Copy ngx_cycle->log related data to the special static exit cycle,

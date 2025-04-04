@@ -1117,7 +1117,7 @@ ngx_slab_write_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
 
     n = ngx_write_file(file, buf, sizeof(buf), 0);
     if (n < 0) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ERR, file->log, ngx_errno,
                       "failed to write slab header into \"%V\"", &file->name);
 
         return NGX_ERROR;
@@ -1125,7 +1125,7 @@ ngx_slab_write_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
 
     n = ngx_write_file(file, sign->data, sign->len, NGX_SLAB_HEADER_LEN);
     if (n < 0) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ERR, file->log, ngx_errno,
                       "failed to write zone signature into \"%V\"",
                       &file->name);
 
@@ -1152,7 +1152,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     }
 
     if ((size_t) n < NGX_SLAB_HEADER_LEN) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "zone file \"%V\" is too small", &file->name);
         return NGX_ERROR;
     }
@@ -1161,7 +1161,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     end = buf + n;
 
     if (ngx_slab_header_next_token(&token, &p, end) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to get magick from zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
@@ -1170,7 +1170,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     if (token.len != NGX_SLAB_MAGICK_LEN
         || ngx_strncmp(token.data, NGX_SLAB_MAGICK, NGX_SLAB_MAGICK_LEN) != 0)
     {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "bad magick in zone file \"%V\"", &file->name);
         return NGX_ERROR;
     }
@@ -1178,7 +1178,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     /* zone address */
 
     if (ngx_slab_header_next_hexnum(&addr, &p, end, file->log) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to get addr from zone file \"%V\"", &file->name);
         return NGX_ERROR;
     }
@@ -1188,7 +1188,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     /* zone size */
 
     if (ngx_slab_header_next_hexnum(&size, &p, end, file->log) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to get size from zone file \"%V\"", &file->name);
         return NGX_ERROR;
     }
@@ -1198,7 +1198,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     /* data offset in file */
 
     if (ngx_slab_header_next_hexnum(&off, &p, end, file->log) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to get offset from zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
@@ -1208,14 +1208,14 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
 
     /* signature len */
     if (ngx_slab_header_next_hexnum(&size, &p, end, file->log) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to get signature length from zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
     }
 
     if (hdr->signature.len != size) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "signature differs in size: expected %ui found %ui "
                       "in zone file \"%V\"",
                       hdr->signature.len, size, &file->name);
@@ -1224,7 +1224,7 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
 
     /* reuse header buf which is big enough for any practical signature */
     if (size > sizeof(buf)) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "signature length is too big in zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
@@ -1239,18 +1239,18 @@ ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     }
 
     if ((size_t) n != sign.len) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to read full signature from zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
     }
 
     if (ngx_strncmp(hdr->signature.data, sign.data, sign.len) != 0) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "the signature differs: expected: \"%V\" found \"%V\" "
                       "in zone file \"%V\"",
                       &hdr->signature, &sign, &file->name);
-        return NGX_ERROR;
+        return NGX_DECLINED;
     }
 
     ngx_log_debug5(NGX_LOG_DEBUG_CORE, file->log, 0,
@@ -1453,7 +1453,7 @@ ngx_slab_restore_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file)
     n = ngx_read_file(file, (u_char *) &fpool, sizeof(ngx_slab_pool_t),
                       hdr->offset);
     if (n < 0) {
-        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+        ngx_log_error(NGX_LOG_ERR, file->log, 0,
                       "failed to read metadata from zone file \"%V\"",
                       &file->name);
         return NGX_ERROR;
@@ -1497,7 +1497,7 @@ ngx_slab_restore_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file)
         n = ngx_read_file(file, ngx_slab_parts[i].dst, ngx_slab_parts[i].size,
                           ngx_slab_parts[i].offset);
         if (n < 0) {
-            ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+            ngx_log_error(NGX_LOG_ERR, file->log, 0,
                           "failed to read %z slab bytes at offset %O "
                           "from zone file \"%V\"", ngx_slab_parts[i].size,
                            ngx_slab_parts[i].offset, &file->name);

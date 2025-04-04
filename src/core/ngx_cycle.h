@@ -27,10 +27,21 @@ typedef struct {
     ngx_str_t                 name;
     ngx_str_t                 file;
     ssize_t                   size;
+    void                     *tag;
+    ngx_str_t                 signature;
+
     size_t                    min_size;
     unsigned                  is_count:1;
     unsigned                  restorable:1;
 } ngx_shm_zone_params_t;
+
+
+typedef struct {
+    ngx_file_t                file;
+    ngx_file_t                lock;
+    ngx_str_t                 tmp;
+    ngx_str_t                 old;
+} ngx_shm_zone_state_t;
 
 
 typedef struct ngx_shm_zone_s  ngx_shm_zone_t;
@@ -43,8 +54,11 @@ struct ngx_shm_zone_s {
     ngx_shm_zone_init_pt      init;
     void                     *tag;
     void                     *sync;
+    ngx_shm_zone_state_t     *state;
+    ngx_str_t                *signature;
     unsigned                  noreuse:1;
     unsigned                  noslab:1;
+    unsigned                  restore:1;
 };
 
 
@@ -152,7 +166,10 @@ ngx_pid_t ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv);
 ngx_cpuset_t *ngx_get_cpu_affinity(ngx_uint_t n);
 ngx_shm_zone_t *ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name,
     size_t size, void *tag);
+ngx_shm_zone_t *ngx_shared_memory_add_ext(ngx_conf_t *cf,
+    ngx_shm_zone_params_t *zp);
 void ngx_set_shutdown_timer(ngx_cycle_t *cycle);
+void ngx_save_zones(ngx_cycle_t *cycle);
 
 
 extern volatile ngx_cycle_t  *ngx_cycle;

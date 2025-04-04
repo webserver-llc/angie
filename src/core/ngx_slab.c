@@ -70,12 +70,38 @@
 
 #endif
 
+
+#define NGX_SLAB_SIGN ngx_value(NGX_PTR_SIZE) ":"                             \
+                      ngx_value(NGX_SIG_ATOMIC_T_SIZE) ":"                    \
+                      NGX_MODULE_SIGNATURE_20 ":"                             \
+                      NGX_MODULE_SIGNATURE_21
+
+#define NGX_SLAB_MAGICK_TXT  "angie-shm-001:" NGX_SLAB_SIGN
+#define NGX_SLAB_MAGICK      ((u_char *) NGX_SLAB_MAGICK_TXT)
+#define NGX_SLAB_MAGICK_LEN  (sizeof(NGX_SLAB_MAGICK_TXT) - 1)
+#define NGX_SLAB_HEADER_LEN  (NGX_SLAB_MAGICK_LEN + NGX_INT64_LEN * 4 + 5)
+
+#define addr_to_u64(ptr)     ((uint64_t) (uintptr_t) ptr)
+#define u64_to_addr(val)     ((void *) (uintptr_t) val)
+
+
 static ngx_slab_page_t *ngx_slab_alloc_pages(ngx_slab_pool_t *pool,
     ngx_uint_t pages);
 static void ngx_slab_free_pages(ngx_slab_pool_t *pool, ngx_slab_page_t *page,
     ngx_uint_t pages);
 static void ngx_slab_error(ngx_slab_pool_t *pool, ngx_uint_t level,
     char *text);
+
+static ngx_int_t ngx_slab_save_pages(ngx_slab_pool_t *pool, off_t header_off,
+    ngx_file_t *file);
+static ngx_int_t ngx_slab_read_pages(ngx_slab_pool_t *pool, ngx_file_t *file,
+    off_t meta_offset);
+static ngx_int_t ngx_slab_write_header(ngx_slab_state_header_t *hdr,
+    ngx_file_t *file);
+static ngx_int_t ngx_slab_header_next_token(ngx_str_t *token, u_char **p,
+    u_char *end);
+static ngx_int_t ngx_slab_header_next_hexnum(uint64_t *res, u_char **p,
+    u_char *end, ngx_log_t *log);
 
 
 static ngx_uint_t  ngx_slab_max_size;
@@ -1051,3 +1077,496 @@ ngx_api_slab_slot_free_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 }
 
 #endif
+
+
+static ngx_int_t
+ngx_slab_write_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
+{
+    size_t            len, size;
+    ssize_t           n;
+    ngx_str_t        *sign;
+    ngx_slab_pool_t  *pool;
+
+    u_char            buf[NGX_SLAB_HEADER_LEN];
+
+    pool = (ngx_slab_pool_t *) hdr->addr;
+    sign = &hdr->signature;
+
+    size = (u_char *) pool->end - (u_char *) pool;
+
+    /*
+     * header format (ASCII):
+     *  "magic_id;<hex_addr>;<hex_size>;<data_offset>;<sign_len>;[fill]"
+     * Example:
+     *  "angie-shm-001;7cdef54;16384;42;33;***"
+     *
+     * Signature is written right after header, then data
+     */
+
+    /* offset to slab data from file start */
+    hdr->offset = NGX_SLAB_HEADER_LEN + sign->len;
+
+    len = ngx_sprintf(buf, "%s;%xL;%xL;%xL;%xL;", NGX_SLAB_MAGICK,
+                      addr_to_u64(pool), size, hdr->offset, sign->len)
+          - buf;
+
+    /* fill in the rest of buf with asterisks, so we always have full header */
+    if (len < sizeof(buf)) {
+        ngx_memset(buf + len, '*' ,sizeof(buf) - len);
+    }
+
+    n = ngx_write_file(file, buf, sizeof(buf), 0);
+    if (n < 0) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, ngx_errno,
+                      "failed to write slab header into \"%V\"", &file->name);
+
+        return NGX_ERROR;
+    }
+
+    n = ngx_write_file(file, sign->data, sign->len, NGX_SLAB_HEADER_LEN);
+    if (n < 0) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, ngx_errno,
+                      "failed to write zone signature into \"%V\"",
+                      &file->name);
+
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file)
+{
+    u_char     *p, *end;
+    ssize_t     n;
+    ngx_str_t   token, sign;
+    uint64_t    addr, size, off;
+
+    u_char      buf[NGX_SLAB_HEADER_LEN];
+
+    n = ngx_read_file(file, buf, sizeof(buf), 0);
+    if (n == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    if ((size_t) n < NGX_SLAB_HEADER_LEN) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "zone file \"%V\" is too small", &file->name);
+        return NGX_ERROR;
+    }
+
+    p = buf;
+    end = buf + n;
+
+    if (ngx_slab_header_next_token(&token, &p, end) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to get magick from zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    if (token.len != NGX_SLAB_MAGICK_LEN
+        || ngx_strncmp(token.data, NGX_SLAB_MAGICK, NGX_SLAB_MAGICK_LEN) != 0)
+    {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "bad magick in zone file \"%V\"", &file->name);
+        return NGX_ERROR;
+    }
+
+    /* zone address */
+
+    if (ngx_slab_header_next_hexnum(&addr, &p, end, file->log) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to get addr from zone file \"%V\"", &file->name);
+        return NGX_ERROR;
+    }
+
+    hdr->addr = u64_to_addr(addr);
+
+    /* zone size */
+
+    if (ngx_slab_header_next_hexnum(&size, &p, end, file->log) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to get size from zone file \"%V\"", &file->name);
+        return NGX_ERROR;
+    }
+
+    hdr->size = size;
+
+    /* data offset in file */
+
+    if (ngx_slab_header_next_hexnum(&off, &p, end, file->log) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to get offset from zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    hdr->offset = off;
+
+    /* signature len */
+    if (ngx_slab_header_next_hexnum(&size, &p, end, file->log) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to get signature length from zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    if (hdr->signature.len != size) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "signature differs in size: expected %ui found %ui "
+                      "in zone file \"%V\"",
+                      hdr->signature.len, size, &file->name);
+        return NGX_ERROR;
+    }
+
+    /* reuse header buf which is big enough for any practical signature */
+    if (size > sizeof(buf)) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "signature length is too big in zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    sign.len = size;
+    sign.data = buf;
+
+    n = ngx_read_file(file, buf, sign.len, NGX_SLAB_HEADER_LEN);
+    if (n == NGX_ERROR) {
+        return NGX_ERROR;
+    }
+
+    if ((size_t) n != sign.len) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to read full signature from zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    if (ngx_strncmp(hdr->signature.data, sign.data, sign.len) != 0) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "the signature differs: expected: \"%V\" found \"%V\" "
+                      "in zone file \"%V\"",
+                      &hdr->signature, &sign, &file->name);
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug5(NGX_LOG_DEBUG_CORE, file->log, 0,
+                   "restored zone addr:%p size:%ui off:%O sign:\"%V\" "
+                   "from header of zone file \"%V\"",
+                   hdr->addr, hdr->size, hdr->offset, &sign, &file->name);
+
+    return NGX_OK;
+}
+
+
+static ngx_inline ngx_int_t
+ngx_slab_header_next_token(ngx_str_t *token, u_char **p, u_char *end)
+{
+    token->data = *p;
+
+    *p = ngx_strlchr(*p, end, ';');
+
+    if (*p == NULL) {
+        return NGX_ERROR;
+    }
+
+    token->len = *p - token->data;
+
+    (*p)++;
+
+    return NGX_OK;
+}
+
+
+static ngx_inline ngx_int_t
+ngx_slab_header_next_hexnum(uint64_t *res, u_char **p, u_char *end,
+    ngx_log_t *log)
+{
+    ngx_int_t  num;
+    ngx_str_t  token;
+
+    if (ngx_slab_header_next_token(&token, p, end) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    num = ngx_hextoi(token.data, token.len);
+    if (num == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+                      "shm zone file header number conversion failed");
+        return NGX_ERROR;
+    }
+
+    if (num == 0) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+                      "shm zone zero number in file");
+        return NGX_ERROR;
+    }
+
+    *res = (uint64_t) num;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_slab_save_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file)
+{
+    ssize_t           len, n;
+    ngx_slab_pool_t  *pool;
+
+    pool = hdr->addr;
+
+    ngx_shmtx_lock(&pool->mutex);
+
+    /* file start with a magic and base address */
+    if (ngx_slab_write_header(hdr, file) != NGX_OK) {
+        goto failed;
+    }
+
+    /* to keep it simple, dump all pool metadata; read will use needed */
+    len = (u_char *) pool->start - (u_char *) pool;
+
+    /* next is slab metadata */
+    n = ngx_write_file(file, (u_char *) pool, len, hdr->offset);
+    if (n < 0) {
+        goto failed;
+    }
+
+    ngx_log_debug3(NGX_LOG_DEBUG_CORE, file->log, 0,
+                   "saved %z bytes metadata at offset %O to zone file \"%V\"",
+                   n, hdr->offset, &file->name);
+
+    /* next are slab pages, each at page offset from metadata start */
+
+    if (ngx_slab_save_pages(pool, hdr->offset, file) != NGX_OK) {
+        goto failed;
+    }
+
+    ngx_shmtx_unlock(&pool->mutex);
+
+    return NGX_OK;
+
+failed:
+
+    ngx_shmtx_unlock(&pool->mutex);
+
+    return NGX_ERROR;
+}
+
+
+static ngx_int_t
+ngx_slab_save_pages(ngx_slab_pool_t *pool, off_t header_off, ngx_file_t *file)
+{
+    off_t             off;
+    ssize_t           n;
+    void             *page_addr;
+    ngx_uint_t        i, npages;
+    ngx_slab_page_t  *page;
+#if (NGX_DEBUG)
+    ngx_uint_t        pages_saved;
+
+    pages_saved = 0;
+#endif
+
+    npages = ((char *) pool->end - (char *) pool->start) / ngx_pagesize;
+
+    for (i = 0; i < npages; i++) {
+
+        page = &pool->pages[i];
+
+        if (page->slab == 0) {
+            continue;
+        }
+
+#if (NGX_DEBUG)
+        pages_saved++;
+#endif
+
+        page_addr = (void *) ngx_slab_page_addr(pool, page);
+
+        off = (u_char *) page_addr - (u_char *) pool;
+        off += header_off;
+
+        n = ngx_write_file(file, (u_char *) page_addr, ngx_pagesize, off);
+        if (n < 0) {
+            return NGX_ERROR;
+        }
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, file->log, 0,
+                   "saved %ui slab pages to zone file \"%V\"",
+                   pages_saved, &file->name);
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_slab_restore_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file)
+{
+    size_t           ns;
+    ssize_t          n;
+    ngx_uint_t       i;
+    ngx_slab_pool_t  fpool, *pool;
+
+    /*
+     * we are are restoring from file:
+     *
+     * metadata (at hdr.offset):
+     * +---------------------------------------------+
+     * |- head of free page list and free page count |
+     * |- pointers to users' data and log context    |
+     * |- array of slots                             |
+     * |- array of stats                             |
+     * |- array of pages metadata                    |
+     * +---------------------------------------------+
+     *
+     * - pages itself (at offset from pool start + metadata offset)
+     */
+
+    if (ngx_slab_read_header(hdr, file) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    pool = (ngx_slab_pool_t *) hdr->addr;
+
+    if ((u_char *) pool != hdr->addr) {
+        /*
+         * due to some reasons we failed to allocate pool at requested address,
+         * or we somehow confused addresses and we are now trying to restore
+         * the pool into the wrong address.
+         *
+         * should not happen normally; this is the last place to check
+         * before things will explode
+         */
+
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "attempt to restore pool into incorrect address, file "
+                      "\"%V\"", &file->name);
+
+        return NGX_ERROR;
+    }
+
+    n = ngx_read_file(file, (u_char *) &fpool, sizeof(ngx_slab_pool_t),
+                      hdr->offset);
+    if (n < 0) {
+        ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                      "failed to read metadata from zone file \"%V\"",
+                      &file->name);
+        return NGX_ERROR;
+    }
+
+    ngx_shmtx_lock(&pool->mutex);
+
+    /* head of list of pages */
+    pool->free = fpool.free;
+    pool->pages = fpool.pages;
+    pool->last = fpool.last;
+
+    /* number of free pages */
+    pool->pfree = fpool.pfree;
+
+    /* allocated by pool users from pool */
+    pool->data = fpool.data;
+    pool->log_ctx = fpool.log_ctx;
+
+    ns = ngx_pagesize_shift - pool->min_shift;
+
+#define ngx_slab_offset(pool, addr) \
+    ((((u_char *) addr) - ((u_char *) pool)) + hdr->offset)
+
+#define ngx_slab_part(pool, addr, size) \
+    { (u_char *) addr, size, ngx_slab_offset(pool, addr) }
+
+    struct {
+        u_char    *dst;
+        size_t     size;
+        off_t      offset;
+    } ngx_slab_parts[] = {
+        ngx_slab_part(pool, ngx_slab_slots(pool), sizeof(ngx_slab_page_t) * ns),
+        ngx_slab_part(pool, pool->stats, sizeof(ngx_slab_stat_t) * ns),
+        ngx_slab_part(pool, pool->pages,
+                      sizeof(ngx_slab_page_t) * pool->pages->slab)
+    };
+
+    for (i = 0; i < sizeof(ngx_slab_parts) / sizeof(ngx_slab_parts[0]); i++) {
+
+        n = ngx_read_file(file, ngx_slab_parts[i].dst, ngx_slab_parts[i].size,
+                          ngx_slab_parts[i].offset);
+        if (n < 0) {
+            ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                          "failed to read %z slab bytes at offset %O "
+                          "from zone file \"%V\"", ngx_slab_parts[i].size,
+                           ngx_slab_parts[i].offset, &file->name);
+            goto failed;
+        }
+    }
+
+    if (ngx_slab_read_pages(pool, file, hdr->offset) != NGX_OK) {
+        goto failed;
+    }
+
+    ngx_shmtx_unlock(&pool->mutex);
+
+    return NGX_OK;
+
+failed:
+
+    ngx_shmtx_unlock(&pool->mutex);
+
+    return NGX_ERROR;
+}
+
+
+static ngx_int_t
+ngx_slab_read_pages(ngx_slab_pool_t *pool, ngx_file_t *file, off_t meta_offset)
+{
+    off_t             off;
+    void             *page_addr;
+    ssize_t           n;
+    ngx_uint_t        i, npages;
+    ngx_slab_page_t  *page;
+#if (NGX_DEBUG)
+    ngx_uint_t        pages_read;
+
+    pages_read = 0;
+#endif
+
+    npages = ((char *) pool->end - (char *) pool->start) / ngx_pagesize;
+
+    for (i = 0; i < npages; i++) {
+
+        page = &pool->pages[i];
+
+        if (page->slab == 0) {
+            continue;
+        }
+
+        page_addr = (void *) ngx_slab_page_addr(pool, page);
+
+        off = (u_char *) page_addr - (u_char *) pool;
+        off += meta_offset;
+
+        n = ngx_read_file(file, (u_char *) page_addr, ngx_pagesize, off);
+        if (n < 0) {
+            ngx_log_error(NGX_LOG_ALERT, file->log, 0,
+                          "failed to read page at offset %O "
+                          "from zone file \"%V\"", off, &file->name);
+
+            return NGX_ERROR;
+        }
+
+#if (NGX_DEBUG)
+        pages_read++;
+#endif
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_CORE, file->log, 0,
+                   "restored %ui slab pages from zone file \"%V\"",
+                   pages_read, &file->name);
+
+    return NGX_OK;
+}

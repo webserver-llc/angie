@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -59,6 +60,14 @@ typedef struct {
 } ngx_slab_pool_t;
 
 
+typedef struct {
+    void             *addr;
+    size_t            size;
+    off_t             offset;
+    ngx_str_t         signature;
+} ngx_slab_state_header_t;
+
+
 void ngx_slab_sizes_init(void);
 void ngx_slab_init(ngx_slab_pool_t *pool);
 void *ngx_slab_alloc(ngx_slab_pool_t *pool, size_t size);
@@ -67,6 +76,10 @@ void *ngx_slab_calloc(ngx_slab_pool_t *pool, size_t size);
 void *ngx_slab_calloc_locked(ngx_slab_pool_t *pool, size_t size);
 void ngx_slab_free(ngx_slab_pool_t *pool, void *p);
 void ngx_slab_free_locked(ngx_slab_pool_t *pool, void *p);
+
+ngx_int_t ngx_slab_save_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file);
+ngx_int_t ngx_slab_read_header(ngx_slab_state_header_t *hdr, ngx_file_t *file);
+ngx_int_t ngx_slab_restore_pool(ngx_slab_state_header_t *hdr, ngx_file_t *file);
 
 
 #endif /* _NGX_SLAB_H_INCLUDED_ */

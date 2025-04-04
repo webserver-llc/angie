@@ -5618,11 +5618,11 @@ ngx_http_stats_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 static char *
 ngx_http_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    u_char                             *p;
     size_t                              shsize;
-    ngx_str_t                          *value, type, zname, shname, c;
+    ngx_str_t                          *value, type, zname, shname;
     ngx_uint_t                          count;
     ngx_shm_zone_t                     *shm_zone;
+    ngx_shm_zone_params_t               zp;
     ngx_http_stats_zone_t             **zonep, *zone;
     ngx_http_status_zone_t            **cf_status_zone, *status_zone;
     ngx_http_core_srv_conf_t           *cscf;
@@ -5684,28 +5684,22 @@ ngx_http_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             return NGX_CONF_ERROR;
         }
 
-        zname.data = value[2].data + 5;
+        value[2].data += 5;
+        value[2].len -= 5;
 
-        p = (u_char *) ngx_strchr(zname.data, ':');
+        ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
 
-        if (p == NULL) {
-            zname.len = value[2].len - 5;
+        zp.is_count = 1;
+        zp.size = NGX_CONF_UNSET;
 
-        } else {
-            zname.len = p - zname.data;
+        if (ngx_conf_parse_zone_spec(cf, &zp, &value[2]) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
 
-            c.data = p + 1;
-            c.len = value[2].data + value[2].len - c.data;
+        zname = zp.name;
 
-            count = ngx_atoi(c.data, c.len);
-
-            if (count == (ngx_uint_t) NGX_ERROR) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid zone elements count \"%V\"",
-                                   &value[2]);
-                return NGX_CONF_ERROR;
-            }
-
+        if (zp.size != -1) {
+            count = zp.size;
             count++;
 
             shsize = NGX_HTTP_STATS_ZONE_SIZE * count

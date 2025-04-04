@@ -5539,6 +5539,7 @@ ngx_http_proxy_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_proxy_loc_conf_t *plcf = conf;
 
     ngx_str_t                         *value;
+    ngx_shm_zone_params_t              zp;
     ngx_http_complex_value_t           cv;
     ngx_http_compile_complex_value_t   ccv;
 
@@ -5582,7 +5583,15 @@ ngx_http_proxy_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_OK;
     }
 
-    plcf->upstream.cache_zone = ngx_shared_memory_add(cf, &value[1], 0,
+    ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
+
+    zp.size = NGX_CONF_UNSET;
+
+    if (ngx_conf_parse_zone_spec(cf, &zp, &value[1]) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    plcf->upstream.cache_zone = ngx_shared_memory_add(cf, &zp.name, 0,
                                                       &ngx_http_proxy_module);
     if (plcf->upstream.cache_zone == NULL) {
         return NGX_CONF_ERROR;

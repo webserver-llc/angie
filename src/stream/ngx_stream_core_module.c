@@ -1590,11 +1590,11 @@ ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_stream_core_srv_conf_t *cscf = conf;
 
-    u_char                               *p;
     size_t                                shsize;
     ngx_int_t                             count;
-    ngx_str_t                            *value, shname, zname, c;
+    ngx_str_t                            *value, shname, zname;
     ngx_shm_zone_t                       *shm_zone;
+    ngx_shm_zone_params_t                 zp;
     ngx_stream_stats_zone_t             **zonep, *zone;
     ngx_stream_status_zone_t             *status_zone;
     ngx_stream_core_main_conf_t          *cmcf;
@@ -1632,28 +1632,22 @@ ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             return NGX_CONF_ERROR;
         }
 
-        zname.data = value[2].data + 5;
+        value[2].data += 5;
+        value[2].len -= 5;
 
-        p = (u_char *) ngx_strchr(zname.data, ':');
+        ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
 
-        if (p == NULL) {
-            zname.len = value[2].len - 5;
+        zp.is_count = 1;
+        zp.size = NGX_CONF_UNSET;
 
-        } else {
-            zname.len = p - zname.data;
+        if (ngx_conf_parse_zone_spec(cf, &zp, &value[2]) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
 
-            c.data = p + 1;
-            c.len = value[2].data + value[2].len - c.data;
+        zname = zp.name;
 
-            count = ngx_atoi(c.data, c.len);
-
-            if (count == NGX_ERROR) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid zone elements count \"%V\"",
-                                   &value[2]);
-                return NGX_CONF_ERROR;
-            }
-
+        if (zp.size != -1) {
+            count = zp.size;
             count++;
 
             shsize = NGX_STREAM_STATS_ZONE_SIZE * count

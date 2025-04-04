@@ -292,8 +292,8 @@ ngx_module_t  ngx_stream_upstream_zone_module = {
 static char *
 ngx_stream_upstream_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ssize_t                           size;
     ngx_str_t                        *value;
+    ngx_shm_zone_params_t             zp;
     ngx_stream_upstream_srv_conf_t   *uscf;
     ngx_stream_upstream_main_conf_t  *umcf;
 
@@ -302,32 +302,21 @@ ngx_stream_upstream_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     value = cf->args->elts;
 
-    if (!value[1].len) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "invalid zone name \"%V\"", &value[1]);
+    ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
+
+    zp.min_size = 8 * ngx_pagesize;
+
+    if (cf->args->nelts == 3) {
+        if (ngx_conf_parse_zone_size(cf, &zp, &value[2]) != NGX_OK) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    if (ngx_conf_parse_zone_spec(cf, &zp, &value[1]) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
 
-    if (cf->args->nelts == 3) {
-        size = ngx_parse_size(&value[2]);
-
-        if (size == NGX_ERROR) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "invalid zone size \"%V\"", &value[2]);
-            return NGX_CONF_ERROR;
-        }
-
-        if (size < (ssize_t) (8 * ngx_pagesize)) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "zone \"%V\" is too small", &value[1]);
-            return NGX_CONF_ERROR;
-        }
-
-    } else {
-        size = 0;
-    }
-
-    uscf->shm_zone = ngx_shared_memory_add(cf, &value[1], size,
+    uscf->shm_zone = ngx_shared_memory_add(cf, &zp.name, zp.size,
                                            &ngx_stream_upstream_module);
     if (uscf->shm_zone == NULL) {
         return NGX_CONF_ERROR;

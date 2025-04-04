@@ -23,6 +23,14 @@
 #define NGX_DEBUG_POINTS_ABORT  2
 
 
+typedef struct {
+    ngx_str_t                 name;
+    ssize_t                   size;
+    size_t                    min_size;
+    unsigned                  is_count:1;
+} ngx_shm_zone_params_t;
+
+
 typedef struct ngx_shm_zone_s  ngx_shm_zone_t;
 
 typedef ngx_int_t (*ngx_shm_zone_init_pt) (ngx_shm_zone_t *zone, void *data);

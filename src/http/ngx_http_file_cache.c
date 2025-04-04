@@ -2556,7 +2556,6 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     off_t                   max_size, min_free;
     u_char                 *last, *p;
     time_t                  inactive;
-    ssize_t                 size;
     ngx_str_t               s, name, *value;
     ngx_int_t               loader_files, manager_files;
     ngx_msec_t              loader_sleep, manager_sleep, loader_threshold,
@@ -2564,6 +2563,7 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_uint_t              i, n, use_temp_path;
     ngx_array_t            *caches;
     ngx_http_file_cache_t  *cache, **ce;
+    ngx_shm_zone_params_t   zp;
 
     cache = ngx_pcalloc(cf->pool, sizeof(ngx_http_file_cache_t));
     if (cache == NULL) {
@@ -2588,7 +2588,6 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     manager_threshold = 200;
 
     name.len = 0;
-    size = 0;
     max_size = NGX_MAX_OFF_T_VALUE;
     min_free = 0;
 
@@ -2603,6 +2602,10 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (ngx_conf_full_name(cf->cycle, &cache->path->name, 0) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
+
+    ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
+    zp.min_size = 2 * ngx_pagesize;
+    zp.size = NGX_CONF_UNSET;
 
     for (i = 2; i < cf->args->nelts; i++) {
 
@@ -2664,32 +2667,10 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         if (ngx_strncmp(value[i].data, "keys_zone=", 10) == 0) {
 
-            name.data = value[i].data + 10;
+            value[i].data += 10;
+            value[i].len -= 10;
 
-            p = (u_char *) ngx_strchr(name.data, ':');
-
-            if (p == NULL) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid keys zone size \"%V\"", &value[i]);
-                return NGX_CONF_ERROR;
-            }
-
-            name.len = p - name.data;
-
-            s.data = p + 1;
-            s.len = value[i].data + value[i].len - s.data;
-
-            size = ngx_parse_size(&s);
-
-            if (size == NGX_ERROR) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid keys zone size \"%V\"", &value[i]);
-                return NGX_CONF_ERROR;
-            }
-
-            if (size < (ssize_t) (2 * ngx_pagesize)) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "keys zone \"%V\" is too small", &value[i]);
+            if (ngx_conf_parse_zone_spec(cf, &zp, &value[i]) != NGX_OK) {
                 return NGX_CONF_ERROR;
             }
 
@@ -2838,7 +2819,7 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    if (name.len == 0 || size == 0) {
+    if (zp.name.len == 0 || zp.size == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "\"%V\" must have \"keys_zone\" parameter",
                            &cmd->name);
@@ -2861,7 +2842,7 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    cache->shm_zone = ngx_shared_memory_add(cf, &name, size, cmd->post);
+    cache->shm_zone = ngx_shared_memory_add(cf, &zp.name, zp.size, cmd->post);
     if (cache->shm_zone == NULL) {
         return NGX_CONF_ERROR;
     }

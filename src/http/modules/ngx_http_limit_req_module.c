@@ -976,11 +976,11 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     u_char                            *p;
     size_t                             len;
-    ssize_t                            size;
-    ngx_str_t                         *value, name, s;
+    ngx_str_t                         *value;
     ngx_int_t                          rate, scale;
     ngx_uint_t                         i;
     ngx_shm_zone_t                    *shm_zone;
+    ngx_shm_zone_params_t              zp;
     ngx_http_limit_req_ctx_t          *ctx;
     ngx_http_compile_complex_value_t   ccv;
 
@@ -1001,41 +1001,21 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    size = 0;
+    ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
+
+    zp.min_size = 8 * ngx_pagesize;
+
     rate = 1;
     scale = 1;
-    name.len = 0;
 
     for (i = 2; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "zone=", 5) == 0) {
 
-            name.data = value[i].data + 5;
+            value[i].data += 5;
+            value[i].len -= 5;
 
-            p = (u_char *) ngx_strchr(name.data, ':');
-
-            if (p == NULL) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid zone size \"%V\"", &value[i]);
-                return NGX_CONF_ERROR;
-            }
-
-            name.len = p - name.data;
-
-            s.data = p + 1;
-            s.len = value[i].data + value[i].len - s.data;
-
-            size = ngx_parse_size(&s);
-
-            if (size == NGX_ERROR) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "invalid zone size \"%V\"", &value[i]);
-                return NGX_CONF_ERROR;
-            }
-
-            if (size < (ssize_t) (8 * ngx_pagesize)) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "zone \"%V\" is too small", &value[i]);
+            if (ngx_conf_parse_zone_spec(cf, &zp, &value[i]) != NGX_OK) {
                 return NGX_CONF_ERROR;
             }
 
@@ -1071,7 +1051,7 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    if (name.len == 0) {
+    if (zp.name.len == 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "\"%V\" must have \"zone\" parameter",
                            &cmd->name);
@@ -1080,7 +1060,7 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     ctx->rate = rate * 1000 / scale;
 
-    shm_zone = ngx_shared_memory_add(cf, &name, size,
+    shm_zone = ngx_shared_memory_add(cf, &zp.name, zp.size,
                                      &ngx_http_limit_req_module);
     if (shm_zone == NULL) {
         return NGX_CONF_ERROR;
@@ -1091,7 +1071,7 @@ ngx_http_limit_req_zone(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "%V \"%V\" is already bound to key \"%V\"",
-                           &cmd->name, &name, &ctx->key.value);
+                           &cmd->name, &zp.name, &ctx->key.value);
         return NGX_CONF_ERROR;
     }
 
@@ -1113,9 +1093,10 @@ ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_limit_req_loc_conf_t *lrlcf = conf;
 
     ngx_int_t                    burst, delay;
-    ngx_str_t                   *value, s;
+    ngx_str_t                   *value;
     ngx_uint_t                   i;
     ngx_shm_zone_t              *shm_zone;
+    ngx_shm_zone_params_t        zp;
     ngx_http_limit_req_limit_t  *limit, *limits;
 
     value = cf->args->elts;
@@ -1124,14 +1105,20 @@ ngx_http_limit_req(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     burst = 0;
     delay = 0;
 
+    ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
+
     for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "zone=", 5) == 0) {
 
-            s.len = value[i].len - 5;
-            s.data = value[i].data + 5;
+            value[i].data += 5;
+            value[i].len -= 5;
 
-            shm_zone = ngx_shared_memory_add(cf, &s, 0,
+            if (ngx_conf_parse_zone_spec(cf, &zp, &value[i]) != NGX_OK) {
+                return NGX_CONF_ERROR;
+            }
+
+            shm_zone = ngx_shared_memory_add(cf, &zp.name, 0,
                                              &ngx_http_limit_req_module);
             if (shm_zone == NULL) {
                 return NGX_CONF_ERROR;

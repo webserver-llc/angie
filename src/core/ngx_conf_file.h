@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -291,5 +292,9 @@ char *ngx_conf_set_bufs_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 char *ngx_conf_set_enum_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 char *ngx_conf_set_bitmask_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+ngx_int_t ngx_conf_parse_zone_size(ngx_conf_t *cf, ngx_shm_zone_params_t *zp,
+    ngx_str_t *value);
+ngx_int_t ngx_conf_parse_zone_spec(ngx_conf_t *cf, ngx_shm_zone_params_t *zp,
+    ngx_str_t *value);
 
 #endif /* _NGX_CONF_FILE_H_INCLUDED_ */

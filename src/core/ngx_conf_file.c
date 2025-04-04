@@ -1485,3 +1485,113 @@ ngx_conf_check_num_bounds(ngx_conf_t *cf, void *post, void *data)
 
     return NGX_CONF_ERROR;
 }
+
+
+ngx_int_t
+ngx_conf_parse_zone_size(ngx_conf_t *cf, ngx_shm_zone_params_t *zp,
+    ngx_str_t *value)
+{
+    ssize_t     size;
+    ngx_uint_t  count;
+
+    if (zp->is_count) {
+          count = ngx_atoi(value->data, value->len);
+
+          if (count == (ngx_uint_t) NGX_ERROR) {
+              ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                 "invalid zone elements count \"%V\"", value);
+              return NGX_ERROR;
+          }
+
+          zp->size = count;
+
+          return NGX_OK;
+    }
+
+    size = ngx_parse_size(value);
+
+    if (size == NGX_ERROR) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid zone size \"%V\"", value);
+        return NGX_ERROR;
+    }
+
+    zp->size = size;
+
+    if (zp->min_size) {
+
+        if (zp->size < (ssize_t) zp->min_size) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "zone \"%V\" is too small, "
+                               "at least %z bytes expected",
+                               &zp->name, zp->min_size);
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_conf_parse_zone_spec(ngx_conf_t *cf, ngx_shm_zone_params_t *zp,
+    ngx_str_t *value)
+{
+    u_char      *p, *ch;
+    ngx_str_t    param;
+    ngx_uint_t   i;
+
+    p = value->data;
+
+    for (i = 0; p ; i++) {
+
+        ch = (u_char *) ngx_strchr(p, ':');
+        param.data = p;
+
+        if (ch == NULL) {
+            param.len = value->len - (p - value->data);
+            p = ch;
+
+        } else {
+            param.len = ch - p;
+            p = ++ch;
+        }
+
+        if (param.len == 0) {
+            goto bad_param;
+        }
+
+        if (i == 0) {
+            zp->name = param;
+            continue;
+        }
+
+        if (i == 1) {
+            if (ngx_conf_parse_zone_size(cf, zp, &param) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+            continue;
+        }
+
+    bad_param:
+
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid zone specification \"%V\"", value);
+
+        return NGX_ERROR;
+    }
+
+    if (zp->name.len == 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "empty zone name");
+        return NGX_ERROR;
+    }
+
+    if (zp->size == NGX_CONF_UNSET && zp->min_size) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "zone size is not specified");
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}

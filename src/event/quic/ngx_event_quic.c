@@ -531,6 +531,10 @@ ngx_quic_client_start(ngx_connection_t *c, ngx_quic_header_t *pkt)
 
     ngx_quic_congestion_reset(qc);
 
+    qc->max_frames = (qc->conf->max_concurrent_streams_uni
+                      + qc->conf->max_concurrent_streams_bidi)
+                     * qc->conf->stream_buffer_size / 2000;
+
     if (qc->pto.timer_set) {
         ngx_del_timer(&qc->pto);
     }
@@ -658,6 +662,10 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     qc->streams.client.bidi.max = qc->tp.initial_max_streams_bidi;
 
     ngx_quic_congestion_reset(qc);
+
+    qc->max_frames = (conf->max_concurrent_streams_uni
+                      + conf->max_concurrent_streams_bidi)
+                     * conf->stream_buffer_size / 2000;
 
     if (!qc->client) {
         if (pkt->validated && pkt->retried) {

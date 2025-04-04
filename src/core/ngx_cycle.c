@@ -1428,17 +1428,12 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
         return NULL;
     }
 
-    shm_zone->data = NULL;
+    ngx_memzero(shm_zone, sizeof(ngx_shm_zone_t));
+
     shm_zone->shm.log = cf->cycle->log;
-    shm_zone->shm.addr = NULL;
     shm_zone->shm.size = size;
     shm_zone->shm.name = *name;
-    shm_zone->shm.exists = 0;
-    shm_zone->init = NULL;
     shm_zone->tag = tag;
-    shm_zone->noreuse = 0;
-    shm_zone->noslab = 0;
-    shm_zone->file = NULL;
 
     return shm_zone;
 }

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -566,6 +567,8 @@ ngx_event_module_init(ngx_cycle_t *cycle)
            + cl;         /* ngx_stat_waiting */
 
 #endif
+
+    ngx_memzero(&shm, sizeof(ngx_shm_t));
 
     shm.size = size;
     ngx_str_set(&shm.name, "angie_shared_zone");

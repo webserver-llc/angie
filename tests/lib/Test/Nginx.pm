@@ -421,6 +421,23 @@ sub try_run($$) {
 	return $self;
 }
 
+sub retry_run($$) {
+	my ($self, $attempts) = @_;
+
+	for my $k (1 .. $attempts) {
+		$k = $k + 1;
+		eval {
+			open OLDERR, ">&", \*STDERR; close STDERR;
+			$self->run();
+			open STDERR, ">&", \*OLDERR;
+		};
+
+		return $self unless $@;
+		print("# attempt to run #$k/$attempts failed\n");
+	}
+	return 0;
+}
+
 sub plan($) {
 	my ($self, $plan) = @_;
 

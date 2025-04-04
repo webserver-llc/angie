@@ -271,6 +271,11 @@ ngx_http_file_cache_init(ngx_shm_zone_t *shm_zone, void *data)
         cache->bsize = ngx_fs_bsize(cache->path->name.data);
         cache->max_size /= cache->bsize;
 
+        /* if zone was restored, this points to previous binary */
+        cache->sh->rbtree.insert = ngx_http_file_cache_rbtree_insert_value;
+        /* if zone was restored, slab was re-created, restore zero */
+        cache->shpool->log_nomem = 0;
+
         return NGX_OK;
     }
 
@@ -2606,6 +2611,22 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_memzero(&zp, sizeof(ngx_shm_zone_params_t));
     zp.min_size = 2 * ngx_pagesize;
     zp.size = NGX_CONF_UNSET;
+    zp.restorable = 1;
+    zp.tag = cmd->post;
+
+    s.len = sizeof(NGX_HTTP_CACHE_SH_SIGNATURE) + NGX_INT64_LEN * 2 + 3;
+
+    s.data = ngx_pnalloc(cf->pool, s.len);
+    if (s.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    s.len = ngx_sprintf(s.data, "%s:%z:%z;", NGX_HTTP_CACHE_SH_SIGNATURE,
+                        sizeof(ngx_http_file_cache_node_t),
+                        sizeof(ngx_http_file_cache_sh_t))
+            - s.data;
+
+    zp.signature = s;
 
     for (i = 2; i < cf->args->nelts; i++) {
 
@@ -2842,7 +2863,7 @@ ngx_http_file_cache_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    cache->shm_zone = ngx_shared_memory_add(cf, &zp.name, zp.size, cmd->post);
+    cache->shm_zone = ngx_shared_memory_add_ext(cf, &zp);
     if (cache->shm_zone == NULL) {
         return NGX_CONF_ERROR;
     }

@@ -133,6 +133,21 @@ the bug had appeared in 1.8.2.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+в директиве "proxy_cache" теперь можно задать файл, в котором будет
+храниться содержимое зоны разделяемой памяти. При старте зона
+разделяемой памяти восстанавливается из этого файла по старом адресу.
+Это позволяет ускорить загрузку кеша.
+</para>
+<para lang="en">
+a state file can be specified in the "proxy_cache" directive.
+The file holds the contents of the shared memory zone.  At startup, the zone
+is restored to the old address using the contents of the file.
+This improves cache loading time.
+</para>
+</change>
+
 </changes>
 
 

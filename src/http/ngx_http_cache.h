@@ -31,12 +31,37 @@
 #define NGX_HTTP_CACHE_VERSION       5
 
 
+#if (NGX_API)
+#define NGX_HTTP_CACHE_SIGN_API  "1"
+#else
+#define NGX_HTTP_CACHE_SIGN_API  "0"
+#endif
+
+#if defined(NGX_HTTP_CACHE_MAX_SHARDS)
+#define NGX_HTTP_CACHE_SIGN_SHARDS "1"
+#else
+#define NGX_HTTP_CACHE_SIGN_SHARDS "0"
+#endif
+
+#define NGX_HTTP_CACHE_SH_SIGNATURE                                           \
+    "http-proxy-cache:"                                                                        \
+    ngx_value(NGX_PTR_SIZE) ":"                                               \
+    ngx_value(NGX_SIG_ATOMIC_T_SIZE) ":"                                      \
+    ngx_value(NGX_TIME_T_SIZE) ":"                                            \
+    ngx_value(NGX_HTTP_CACHE_KEY_LEN) ":"                                     \
+    NGX_HTTP_CACHE_SIGN_API ":" NGX_HTTP_CACHE_SIGN_SHARDS "1"
+
+
 typedef struct {
     ngx_uint_t                       status;
     time_t                           valid;
 } ngx_http_cache_valid_t;
 
 
+/*
+ * this struct is saved into zone state file;
+ * update NGX_HTTP_CACHE_SH_SIGNATURE if required
+ */
 typedef struct {
     ngx_rbtree_node_t                node;
     ngx_queue_t                      queue;
@@ -157,6 +182,10 @@ typedef struct {
 #endif
 
 
+/*
+ * this struct is saved into zone state file;
+ * update NGX_HTTP_CACHE_SH_SIGNATURE if required
+ */
 typedef struct {
     ngx_rbtree_t                     rbtree;
     ngx_rbtree_node_t                sentinel;

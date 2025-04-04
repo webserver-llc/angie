@@ -16,6 +16,8 @@ static ngx_int_t ngx_init_zone_pool(ngx_cycle_t *cycle,
     ngx_shm_zone_t *shm_zone);
 static ngx_int_t ngx_pidfile_changed(ngx_str_t *name1, ngx_str_t *name2,
     ngx_log_t *log);
+static ngx_int_t ngx_shared_memory_find(ngx_conf_t *cf, ngx_str_t *name,
+    size_t size, void *tag, ngx_shm_zone_t **out);
 static ngx_int_t ngx_test_lockfile(u_char *file, ngx_log_t *log);
 static void ngx_clean_old_cycles(ngx_event_t *ev);
 static void ngx_shutdown_timer_handler(ngx_event_t *ev);
@@ -1408,6 +1410,44 @@ ngx_reopen_files(ngx_cycle_t *cycle, ngx_uid_t user)
 ngx_shm_zone_t *
 ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
 {
+    ngx_int_t         rc;
+    ngx_shm_zone_t   *shm_zone;
+
+    rc = ngx_shared_memory_find(cf, name, size, tag, &shm_zone);
+    if (rc == NGX_OK) {
+        return shm_zone;
+    }
+
+    if (rc == NGX_DECLINED) {
+        return NULL;
+    }
+
+    shm_zone = ngx_list_push(&cf->cycle->shared_memory);
+
+    if (shm_zone == NULL) {
+        return NULL;
+    }
+
+    shm_zone->data = NULL;
+    shm_zone->shm.log = cf->cycle->log;
+    shm_zone->shm.addr = NULL;
+    shm_zone->shm.size = size;
+    shm_zone->shm.name = *name;
+    shm_zone->shm.exists = 0;
+    shm_zone->init = NULL;
+    shm_zone->tag = tag;
+    shm_zone->noreuse = 0;
+    shm_zone->noslab = 0;
+    shm_zone->file = NULL;
+
+    return shm_zone;
+}
+
+
+static ngx_int_t
+ngx_shared_memory_find(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag,
+    ngx_shm_zone_t **out)
+{
     ngx_uint_t        i;
     ngx_shm_zone_t   *shm_zone;
     ngx_list_part_t  *part;
@@ -1441,7 +1481,7 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
                             "the shared memory zone \"%V\" is "
                             "already declared for a different use",
                             &shm_zone[i].shm.name);
-            return NULL;
+            return NGX_DECLINED;
         }
 
         if (shm_zone[i].shm.size == 0) {
@@ -1453,30 +1493,14 @@ ngx_shared_memory_add(ngx_conf_t *cf, ngx_str_t *name, size_t size, void *tag)
                             "the size %uz of shared memory zone \"%V\" "
                             "conflicts with already declared size %uz",
                             size, &shm_zone[i].shm.name, shm_zone[i].shm.size);
-            return NULL;
+            return NGX_DECLINED;
         }
 
-        return &shm_zone[i];
+        *out = &shm_zone[i];
+        return NGX_OK;
     }
 
-    shm_zone = ngx_list_push(&cf->cycle->shared_memory);
-
-    if (shm_zone == NULL) {
-        return NULL;
-    }
-
-    shm_zone->data = NULL;
-    shm_zone->shm.log = cf->cycle->log;
-    shm_zone->shm.addr = NULL;
-    shm_zone->shm.size = size;
-    shm_zone->shm.name = *name;
-    shm_zone->shm.exists = 0;
-    shm_zone->init = NULL;
-    shm_zone->tag = tag;
-    shm_zone->noreuse = 0;
-    shm_zone->noslab = 0;
-
-    return shm_zone;
+    return NGX_DONE;
 }
 
 

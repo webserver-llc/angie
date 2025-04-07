@@ -7,6 +7,19 @@
 
 <changes ver="1.10.0" date="">
 
+<change type="feature">
+<para lang="ru">
+поддержка приема соединений по протоколу MPTCP, включаемая с помощью опции
+"multipath" директивы "listen".<br/>
+Спасибо Максиму Дунину (freenginx), Максиму Дурову и Энтони Дорену.
+</para>
+<para lang="en">
+support for handling MPTCP connections with the "multipath" parameter of
+the "listen" directive.<br/>
+Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony Doeraene.
+</para>
+</change>
+
 </changes>
 
 

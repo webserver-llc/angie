@@ -150,6 +150,9 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 #if (NGX_HAVE_REUSEPORT)
     int                        reuseport;
 #endif
+#if (NGX_HAVE_MULTIPATH)
+    int                        protocol;
+#endif
 
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
@@ -338,6 +341,25 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 
 #endif
 
+#if (NGX_HAVE_MULTIPATH)
+
+        protocol = 0;
+        olen = sizeof(int);
+
+        if (getsockopt(ls[i].fd, SOL_SOCKET, SO_PROTOCOL,
+                       (void *) &protocol, &olen)
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
+                          "getsockopt(SO_PROTOCOL) %V failed, ignored",
+                          &ls[i].addr_text);
+
+        } else {
+            ls[i].multipath = (protocol == IPPROTO_MPTCP) ? 1 : 0;
+        }
+
+#endif
+
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
 
         ngx_memzero(&af, sizeof(struct accept_filter_arg));
@@ -406,7 +428,7 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
 {
-    int               reuseaddr;
+    int               reuseaddr, proto;
     ngx_uint_t        i, tries, failed;
     ngx_err_t         err;
     ngx_log_t        *log;
@@ -436,7 +458,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
 #if (NGX_HAVE_REUSEPORT)
 
-            if (ls[i].add_reuseport) {
+            if (ls[i].add_reuseport || ls[i].reopen) {
 
                 /*
                  * to allow transition from a socket without SO_REUSEPORT
@@ -472,6 +494,18 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
                 ls[i].add_reuseport = 0;
             }
+
+            if (ls[i].reopen) {
+
+                /*
+                 * to allow transition to Multipath TCP we set SO_REUSEPORT
+                 * on the old socket, and then open a new one
+                 */
+
+                ls[i].fd = (ngx_socket_t) -1;
+                ls[i].inherited = 0;
+                ls[i].previous->remain = 0;
+            }
 #endif
 
             if (ls[i].fd != (ngx_socket_t) -1) {
@@ -487,7 +521,15 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
                 continue;
             }
 
-            s = ngx_socket(ls[i].sockaddr->sa_family, ls[i].type, 0);
+            proto = 0;
+
+#if (NGX_HAVE_MULTIPATH)
+            if (ls[i].multipath) {
+                proto = IPPROTO_MPTCP;
+            }
+#endif
+
+            s = ngx_socket(ls[i].sockaddr->sa_family, ls[i].type, proto);
 
             if (s == (ngx_socket_t) -1) {
                 ngx_log_error(NGX_LOG_EMERG, log, ngx_socket_errno,
@@ -517,7 +559,7 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 
 #if (NGX_HAVE_REUSEPORT)
 
-            if (ls[i].reuseport && !ngx_test_config) {
+            if ((ls[i].reuseport || ls[i].reopen) && !ngx_test_config) {
                 int  reuseport;
 
                 reuseport = 1;

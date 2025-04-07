@@ -627,6 +627,12 @@ ngx_init_cycle(ngx_cycle_t *old_cycle)
                     }
 #endif
 
+#if (NGX_HAVE_MULTIPATH)
+                    if (ls[i].multipath != nls[n].multipath) {
+                        nls[n].reopen = 1;
+                    }
+#endif
+
                     break;
                 }
             }

@@ -57,6 +57,7 @@ struct ngx_listening_s {
     unsigned            open:1;
     unsigned            remain:1;
     unsigned            ignore:1;
+    unsigned            reopen:1;
 
     unsigned            bound:1;       /* already bound */
     unsigned            inherited:1;   /* inherited from previous process */
@@ -72,6 +73,7 @@ struct ngx_listening_s {
 #endif
     unsigned            reuseport:1;
     unsigned            add_reuseport:1;
+    unsigned            multipath:1;
     unsigned            keepalive:2;
     unsigned            quic:1;
 

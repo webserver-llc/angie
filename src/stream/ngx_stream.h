@@ -63,6 +63,7 @@ typedef struct {
 #endif
     unsigned                       deferred_accept:1;
     unsigned                       reuseport:1;
+    unsigned                       multipath:1;
     unsigned                       so_keepalive:2;
     unsigned                       proxy_protocol:1;
 

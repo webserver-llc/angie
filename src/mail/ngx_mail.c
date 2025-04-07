@@ -347,6 +347,10 @@ ngx_mail_optimize_servers(ngx_conf_t *cf, ngx_array_t *ports)
             ls->ipv6only = addr[i].opt.ipv6only;
 #endif
 
+#if (NGX_HAVE_MULTIPATH)
+            ls->multipath = addr[i].opt.multipath;
+#endif
+
             mport = ngx_palloc(cf->pool, sizeof(ngx_mail_port_t));
             if (mport == NULL) {
                 return NGX_CONF_ERROR;

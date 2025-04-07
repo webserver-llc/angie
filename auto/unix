@@ -536,6 +536,17 @@ ngx_feature_test="socklen_t optlen = sizeof(struct tcp_info);
 . auto/feature
 
 
+ngx_feature="IPPROTO_MPTCP"
+ngx_feature_name="NGX_HAVE_MULTIPATH"
+ngx_feature_run=no
+ngx_feature_incs="#include <sys/socket.h>
+                  #include <netinet/in.h>"
+ngx_feature_path=
+ngx_feature_libs=
+ngx_feature_test="socket(0, 0, IPPROTO_MPTCP)"
+. auto/feature
+
+
 ngx_feature="accept4()"
 ngx_feature_name="NGX_HAVE_ACCEPT4"
 ngx_feature_run=no

@@ -158,6 +158,16 @@ ngx_int_t ngx_api_stream_upstream_peer_struct_int64_handler(
 #endif
 
 
+#define ngx_stream_upstream_rr_is_failed(peer)                                \
+    (peer->max_fails && peer->fails >= peer->max_fails)
+
+#define ngx_stream_upstream_rr_is_fail_expired(peer)                          \
+    (ngx_time() - peer->checked > peer->fail_timeout)
+
+#define ngx_stream_upstream_rr_is_busy(peer)                                  \
+    (peer->max_conns && peer->conns >= peer->max_conns)
+
+
 #if (NGX_STREAM_UPSTREAM_ZONE)
 
 #define ngx_stream_upstream_rr_peers_rlock(peers)                             \

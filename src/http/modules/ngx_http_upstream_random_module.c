@@ -219,7 +219,6 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                                 now;
     uintptr_t                              m;
     ngx_uint_t                             i, n;
     ngx_http_request_t                    *r;
@@ -256,8 +255,6 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
     pc->cached = 0;
     pc->connection = NULL;
 
-    now = ngx_time();
-
     for ( ;; ) {
 
         i = ngx_http_upstream_peek_random_peer(peers, rcf);
@@ -278,15 +275,14 @@ ngx_http_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_http_upstream_rr_is_failed(peer)
+            && !ngx_http_upstream_rr_is_fail_expired(peer))
         {
             ngx_http_upstream_rr_peer_unlock(peers, peer);
             goto next;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_http_upstream_rr_is_busy(peer)) {
             ngx_http_upstream_rr_peer_unlock(peers, peer);
             goto next;
         }
@@ -315,7 +311,6 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_http_upstream_rr_peer_data_t *rrp = data;
 
-    time_t                                 now;
     uintptr_t                              m;
     ngx_uint_t                             i, n, p;
     ngx_http_request_t                    *r;
@@ -352,8 +347,6 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
     pc->cached = 0;
     pc->connection = NULL;
 
-    now = ngx_time();
-
     prev = NULL;
 
 #if (NGX_SUPPRESS_WARN)
@@ -381,14 +374,13 @@ ngx_http_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_http_upstream_rr_is_failed(peer)
+            && !ngx_http_upstream_rr_is_fail_expired(peer))
         {
             goto next;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_http_upstream_rr_is_busy(peer)) {
             goto next;
         }
 

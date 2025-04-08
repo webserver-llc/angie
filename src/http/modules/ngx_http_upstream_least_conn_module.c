@@ -102,7 +102,6 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                         now;
     uintptr_t                      m;
     ngx_int_t                      rc, total;
     ngx_int_t                      weight, best_weight, effective_weight;
@@ -119,8 +118,6 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 
     pc->cached = 0;
     pc->connection = NULL;
-
-    now = ngx_time();
 
     peers = rrp->peers;
 
@@ -156,14 +153,13 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
             continue;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_http_upstream_rr_is_failed(peer)
+            && !ngx_http_upstream_rr_is_fail_expired(peer))
         {
             continue;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_http_upstream_rr_is_busy(peer)) {
             continue;
         }
 
@@ -221,14 +217,13 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
                 continue;
             }
 
-            if (peer->max_fails
-                && peer->fails >= peer->max_fails
-                && now - peer->checked <= peer->fail_timeout)
+            if (ngx_http_upstream_rr_is_failed(peer)
+                && !ngx_http_upstream_rr_is_fail_expired(peer))
             {
                 continue;
             }
 
-            if (peer->max_conns && peer->conns >= peer->max_conns) {
+            if (ngx_http_upstream_rr_is_busy(peer)) {
                 continue;
             }
 

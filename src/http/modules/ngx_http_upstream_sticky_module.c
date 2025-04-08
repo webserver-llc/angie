@@ -119,7 +119,6 @@ ngx_http_upstream_sticky_select_peer(ngx_http_upstream_rr_peer_data_t *rrp,
     ngx_http_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc)
 {
     size_t       len;
-    time_t       now;
     u_char      *sid, hashed[NGX_HTTP_UPSTREAM_SID_LEN];
     ngx_str_t   *hint;
     uintptr_t    m;
@@ -143,8 +142,6 @@ ngx_http_upstream_sticky_select_peer(ngx_http_upstream_rr_peer_data_t *rrp,
                        "sticky: no hint provided");
         return NGX_DECLINED;
     }
-
-    now = ngx_time();
 
     peers = rrp->peers;
 
@@ -177,15 +174,14 @@ again:
             continue;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_http_upstream_rr_is_failed(peer)
+            && !ngx_http_upstream_rr_is_fail_expired(peer))
         {
             ngx_http_upstream_rr_peer_unlock(peers, peer);
             continue;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_http_upstream_rr_is_busy(peer)) {
             ngx_http_upstream_rr_peer_unlock(peers, peer);
             continue;
         }

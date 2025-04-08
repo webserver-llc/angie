@@ -148,7 +148,6 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                                  now;
     ngx_int_t                               w;
     uintptr_t                               m;
     ngx_uint_t                              i, n, p, hash;
@@ -180,8 +179,6 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
         return iphp->get_rr_peer(pc, rrp);
     }
 #endif
-
-    now = ngx_time();
 
     pc->cached = 0;
     pc->connection = NULL;
@@ -221,15 +218,14 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_http_upstream_rr_is_failed(peer)
+            && !ngx_http_upstream_rr_is_fail_expired(peer))
         {
             ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
             goto next;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_http_upstream_rr_is_busy(peer)) {
             ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
             goto next;
         }

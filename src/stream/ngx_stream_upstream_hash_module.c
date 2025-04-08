@@ -166,7 +166,6 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                                 now;
     u_char                                 buf[NGX_INT_T_LEN];
     size_t                                 size;
     uint32_t                               hash;
@@ -199,8 +198,6 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
         return hp->get_rr_peer(pc, rrp);
     }
 #endif
-
-    now = ngx_time();
 
     pc->connection = NULL;
 
@@ -254,15 +251,14 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
-        if (peer->max_fails
-            && peer->fails >= peer->max_fails
-            && now - peer->checked <= peer->fail_timeout)
+        if (ngx_stream_upstream_rr_is_failed(peer)
+            && !ngx_stream_upstream_rr_is_fail_expired(peer))
         {
             ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
             goto next;
         }
 
-        if (peer->max_conns && peer->conns >= peer->max_conns) {
+        if (ngx_stream_upstream_rr_is_busy(peer)) {
             ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
             goto next;
         }
@@ -549,7 +545,6 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                                 now;
     intptr_t                               m;
     ngx_str_t                             *server;
     ngx_int_t                              total;
@@ -593,7 +588,6 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
     }
 #endif
 
-    now = ngx_time();
     hcf = ngx_stream_conf_upstream_srv_conf(s->upstream->upstream,
                                             ngx_stream_upstream_hash_module);
     points = hcf->points;
@@ -625,14 +619,13 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
                 continue;
             }
 
-            if (peer->max_fails
-                && peer->fails >= peer->max_fails
-                && now - peer->checked <= peer->fail_timeout)
+            if (ngx_stream_upstream_rr_is_failed(peer)
+                && !ngx_stream_upstream_rr_is_fail_expired(peer))
             {
                 continue;
             }
 
-            if (peer->max_conns && peer->conns >= peer->max_conns) {
+            if (ngx_stream_upstream_rr_is_busy(peer)) {
                 continue;
             }
 

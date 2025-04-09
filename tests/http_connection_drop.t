@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()
-	->has(qw/http proxy upstream_zone/)
+	->has(qw/http http_api proxy upstream_zone/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

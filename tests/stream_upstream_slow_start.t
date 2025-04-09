@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-		->has(qw/proxy http_api upstream_zone stream/)
+		->has(qw/proxy http_api stream_upstream_zone stream/)
 		->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

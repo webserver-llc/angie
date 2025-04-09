@@ -27,6 +27,7 @@ select STDOUT; $| = 1;
 my $openssl = $ENV{'TEST_ANGIE_OPENSSL_BINARY'} || 'openssl';
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl/)
+	->has(qw/http rewrite/)
 	->has_daemon($openssl);
 
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')

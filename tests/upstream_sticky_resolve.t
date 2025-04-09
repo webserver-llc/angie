@@ -26,7 +26,7 @@ plan(skip_all => '127.0.0.3 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.3' );
 
 my $t = Test::Nginx->new()
-	->has(qw/http proxy rewrite upstream_sticky/)
+	->has(qw/http http_api proxy rewrite upstream_sticky upstream_zone/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

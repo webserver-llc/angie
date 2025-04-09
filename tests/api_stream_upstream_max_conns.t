@@ -24,7 +24,7 @@ use Test::Utils qw/ get_json /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream http http_api/)
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone http http_api/)
 	->plan(4);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

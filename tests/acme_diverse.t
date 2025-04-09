@@ -139,7 +139,13 @@ my $conf_hooks = '';
 
 my $account_key = '';
 my $email = '';
-my $uri = '';
+my $uri = "uri=/?client=\$acme_hook_client"
+	. "&hook=\$acme_hook_name"
+	. "&challenge=\$acme_hook_challenge"
+	. "&domain=\$acme_hook_domain"
+	. "&token=\$acme_hook_token"
+	. "&keyauth=\$acme_hook_keyauth"
+;
 
 for my $e (@clients) {
 	$conf_clients .= "    acme_client $e->{name} "
@@ -156,15 +162,8 @@ for my $e (@clients) {
 
 	$conf_hooks .= "            acme_hook $e->{name} $uri;\n" if $e->{hook};
 
-	# The even clients have "email" and "uri" parameters -- for a change...
+	# The even clients have an "email" parameter -- for a change...
 	$email = ($email eq '' ) ? "email=admin\@angie-test.com" : '';
-	$uri = ($uri eq '' ) ? "uri=/?client=\$acme_hook_client"
-			. "&hook=\$acme_hook_name"
-			. "&challenge=\$acme_hook_challenge"
-			. "&domain=\$acme_hook_domain"
-			. "&token=\$acme_hook_token"
-			. "&keyauth=\$acme_hook_keyauth"
-		: '';
 }
 
 for my $e (@servers) {
@@ -219,8 +218,6 @@ $conf_servers
 
         location / {
             internal;
-
-            error_log hook.log debug;
 
 $conf_hooks
             fastcgi_pass localhost:$hook_port;
@@ -373,7 +370,7 @@ $acme_helper->start_pebble({
 	http_port => $angie_http_port
 });
 
-$t->run_daemon(\&hook_handler, $hook_port);
+$t->run_daemon(\&hook_handler, $t, $hook_port);
 
 $n = 0;
 $cli_timeout = 40;
@@ -425,19 +422,15 @@ for my $cli (@clients) {
 
 $t->stop();
 
-my $s = $t->read_file('hook.log');
+my $s = '';
 
-my $used_uri = $s =~ /X-URI_STATUS:/;
-my $bad_uri = $s =~ /X-URI_STATUS: 0/;
+$s = $t->read_file('uri.txt') if -f $t->testdir() . '/uri.txt';
 
-SKIP: {
-
-skip "no --with-debug", 2 unless $t->has_module('--with-debug');
+my $used_uri = $s =~ /URI:/;
+my $bad_uri = !$used_uri or ($s =~ /URI: 0/);
 
 ok($used_uri, 'used uri parameter');
 ok(!$bad_uri, 'valid uri parameter');
-
-}
 
 ###############################################################################
 
@@ -492,7 +485,7 @@ sub check_uri {
 }
 
 sub hook_handler {
-	my $hook_port = shift;
+	my ($t, $hook_port) = @_;
 
 	my $socket = FCGI::OpenSocket(":$hook_port", 5);
 	my $req = FCGI::Request(\*STDIN, \*STDOUT, \*STDERR, \%ENV, $socket);
@@ -518,19 +511,20 @@ sub hook_handler {
 			print "Status: 400\r\n";
 		}
 
-		# When the "uri" parameter is used, we check whether REQUEST_URI
-		# contains all the data from the hook variables and write this info to
-		# the debug log using an X-URI_STATUS header.
-		# TODO: Is there a better way?
+		print "\r\n";
+
+		# Check whether REQUEST_URI contains all the data from the hook
+		# variables and write this info to a file.
 		my $uri = $ENV{REQUEST_URI};
 
-		if ($uri ne '/') {
-			$uri_status = check_uri($uri, %h) if $uri_status != 0;
+		$uri_status = check_uri($uri, %h) if $uri_status != 0;
 
-			print "X-URI_STATUS: $uri_status\r\n";
-		}
+		open my $f, '>>', $t->testdir() . '/uri.txt'
+			or die "Couldn't open uri.txt: $!";
 
-		print "\r\n";
+		print $f "URI: $uri_status\n";
+
+		close $f;
 	}
 
 	FCGI::CloseSocket($socket);

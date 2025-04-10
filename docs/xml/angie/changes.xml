@@ -9,38 +9,49 @@
 
 <change type="feature">
 <para lang="ru">
-в директиве "proxy_cache" теперь можно задать файл, в котором будет
-храниться содержимое зоны разделяемой памяти. При старте зона
-разделяемой памяти восстанавливается из этого файла по старому адресу.
-Это позволяет ускорить загрузку кеша.
+возможность задать файл в директиве "proxy_cache_path", в который между
+запусками сервера будет сохраняться содержимое зоны разделяемой памяти с
+индексом кэша; что избавляет от необходимости подгружать кэш после перезагрузки
+и позволяет практически сразу вернуть сервер в работу.
 </para>
 <para lang="en">
-a state file can be specified in the "proxy_cache" directive.
-The file holds the contents of the shared memory zone.  At startup, the zone
-is restored to the old address using the contents of the file.
-This improves cache loading time.
+the ability to specify a file in the "proxy_cache_path" directive, where the
+contents of the shared memory zone with the cache index will be saved between
+server startups; it eliminates the need to load up the cache after restart and
+allows to bring the server back online almost immediately.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-отображение даты и времени сборки в поле "build_time" объект "/status/angie" API
-статистики, также в выводе ключа командной строки "-V".
+поддержка механизма TLS 1.3 Early Data (0-RTT) в stream-модуле с помощью
+директивы "ssl_early_data".
 </para>
 <para lang="en">
-build time is now displayed via the "build_time" field of the "/status/angie"
-statistics API object and in the output of the "-V" command-line option.
+support of TLS 1.3 Early Data (0-RTT) in the "stream" module using the
+"ssl_early_data" directive.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.27.4 за исключение директивы
-"keepalive_min_timeout" (аналогичный функционал существует с версии 1.8.0).
+новый статус "busy" у проксируемых серверов в API статистики, означающий,
+что число запросов на сервер достигло ограничения, заданного опцией "max_conns".
 </para>
 <para lang="en">
-all functionality of nginx 1.27.4 except the "keepalive_min_timeout" directive
-(similar feature exists since version 1.8.0).
+new "busy" state for upstream peers in the statistics API, indicating that
+a peer has reached the limit configured by the "max_conns" option.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+параметр "uri=" в директиве "acme_hook", который позволяет переопределять
+строку запроса к внешнему приложению, в том числе, используя переменные.
+</para>
+<para lang="en">
+the "uri=" parameter in the "acme_hook" directive that allows to redefine
+the hook request URI and supports variables.
 </para>
 </change>
 
@@ -57,74 +68,64 @@ to force renew a certificate on config load.
 
 <change type="feature">
 <para lang="ru">
-теперь директиву "ssl_early_data" можно использовать в stream-модуле.
+отображение даты и времени сборки в поле "build_time" объекта "/status/angie"
+API статистики, а также в выводе ключа командной строки "-V".
 </para>
 <para lang="en">
-now the "ssl_early_data" directive can be used in the "stream" module.
+build time is now displayed via the "build_time" field of the "/status/angie"
+statistics API object and in the output of the "-V" command-line option.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.27.4, за исключением директивы
+"keepalive_min_timeout" (аналогичный функционал существует с версии 1.8.0).
+</para>
+<para lang="en">
+all functionality of nginx 1.27.4 except the "keepalive_min_timeout" directive
+(a similar feature has existed since version 1.8.0).
 </para>
 </change>
 
 <change type="change">
 <para lang="ru">
-ошибка "no valid domain name defined for ACME client" теперь
-возникает, только если ACME-клиент указан в блоке server,
-но ни один из доменов этого сервера из списка не соответствует
-требованиям ACME.
+параметр "enabled=off" в директиве "acme_client" теперь отключает только
+обновление сертификата для данного клиента, но сохраняет весь остальной
+функционал; так, остается возможность использовать ключ и сертификат (при
+наличии) через переменные $acme_cert_*, а использование переменных $acme_hook_*
+и директив "acme" - не приводит к ошибкам.
 </para>
 <para lang="en">
-the "no valid domain name defined for ACME client" error is now
-issued only if no valid (i.e. ACME-compliant) domain name is found
-in any of the "server" blocks the ACME client is referenced in.
+the "enabled=off" parameter in the "acme_client" directive now disables only
+certificate renewal for the given client while preserving all other
+functionality; the key and certificate (if available) can be accessed via the
+$acme_cert_* variables, while the use of $acme_hook_* variables and the "acme"
+directives doesn't cause errors.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+ошибка "no valid domain name defined for ACME client" теперь возникает, только
+если на ACME-клиент есть ссылка из директивы "acme" в блоке "server", но ни
+один из доменов этого сервера не соответствует требованиям ACME.
+</para>
+<para lang="en">
+the "no valid domain name defined for ACME client" error is now issued only if
+no valid (i.e. ACME-compliant) domain name is found in the "server" block that
+references an ACME client using the "acme" directive.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-при сборке с поддержкой NTLS наследование клиентских сертификатов
-с переменными на уровень location в прокси-модуле работало некорректно.
+при сборке с поддержкой NTLS наследование директив "proxy_ssl_certificate"
+и "proxy_ssl_certificate_key" с переменными работало некорректно.
 </para>
 <para lang="en">
-if built with NTLS support inheritance of client certificates with variables
-to the location level in the proxy module dir not work correctly.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-новый статус "busy" у проксируемых серверов в API статистики, означающий,
-что число запросов на сервер достигло ограничения, заданного опцией "max_conns".
-</para>
-<para lang="en">
-new "busy" state for upstream peers in the statistics API, indicating that
-a peer is reached the limit configured by the "max_conns" option.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-параметр "enabled=off" в директиве "acme" теперь отключает только обновление
-сертификата для данного клиента, но сохраняет весь остальной функционал; так,
-остаются доступными доступ к сертификату (если он есть) и ключу через
-переменные $acme_cert_*, использование переменных $acme_hook_* и другие
-возможности.
-</para>
-<para lang="en">
-the "enabled=off" parameter in the "acme" directive now disables only
-certificate renewal for the given client while preserving all other
-functionality; access to the certificate (if available) and the key via the
-$acme_cert_* variables, the use of $acme_hook_* variables, and other features
-remain available.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-новый параметр "uri" в директиве "acme_hook", который позволяет модифицировать
-строку запроса к hook-приложению с использованием переменных.
-</para>
-<para lang="en">
-new "uri" parameter for the "acme_hook" directive allowing to customize
-the hook request string using variables.
+if built with NTLS support, inheritance of the "proxy_ssl_certificate" and
+"proxy_ssl_certificate_key" directives with variables did not work properly.
 </para>
 </change>
 

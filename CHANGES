@@ -1,4 +1,50 @@
 
+Changes with Angie 1.9.0                                         11 Apr 2025
+
+    *) Feature: the ability to specify a file in the "proxy_cache_path"
+       directive, where the contents of the shared memory zone with the
+       cache index will be saved between server startups; it eliminates the
+       need to load up the cache after restart and allows to bring the
+       server back online almost immediately.
+
+    *) Feature: support of TLS 1.3 Early Data (0-RTT) in the "stream" module
+       using the "ssl_early_data" directive.
+
+    *) Feature: new "busy" state for upstream peers in the statistics API,
+       indicating that a peer has reached the limit configured by the
+       "max_conns" option.
+
+    *) Feature: the "uri=" parameter in the "acme_hook" directive that
+       allows to redefine the hook request URI and supports variables.
+
+    *) Feature: the "renew_on_load" parameter of the "acme_client" directive
+       allowing to force renew a certificate on config load.
+
+    *) Feature: build time is now displayed via the "build_time" field of
+       the "/status/angie" statistics API object and in the output of the
+       "-V" command-line option.
+
+    *) Feature: all functionality of nginx 1.27.4 except the
+       "keepalive_min_timeout" directive (a similar feature has existed
+       since version 1.8.0).
+
+    *) Change: the "enabled=off" parameter in the "acme_client" directive
+       now disables only certificate renewal for the given client while
+       preserving all other functionality; the key and certificate (if
+       available) can be accessed via the $acme_cert_* variables, while the
+       use of $acme_hook_* variables and the "acme" directives doesn't cause
+       errors.
+
+    *) Change: the "no valid domain name defined for ACME client" error is
+       now issued only if no valid (i.e. ACME-compliant) domain name is
+       found in the "server" block that references an ACME client using the
+       "acme" directive.
+
+    *) Bugfix: if built with NTLS support, inheritance of the
+       "proxy_ssl_certificate" and "proxy_ssl_certificate_key" directives
+       with variables did not work properly.
+
+
 Changes with Angie 1.8.3                                         02 Apr 2025
 
     *) Bugfix: the "status_zone" statistics in the HTTP module's "server"

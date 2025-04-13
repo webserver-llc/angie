@@ -67,6 +67,20 @@ http {
             proxy_ssl_certificate $arg_cert;
             proxy_ssl_certificate_key $arg_cert;
         }
+
+        location /complex/ {
+            proxy_ssl_certificate $arg_cert.example.com.crt;
+            proxy_ssl_certificate_key $arg_cert.example.com.key;
+            proxy_ssl_password_file password;
+
+            location /complex/1 {
+                proxy_pass https://127.0.0.1:8082/;
+            }
+
+            location /complex/2 {
+                proxy_pass https://127.0.0.1:8082/;
+            }
+        }
     }
 
     server {
@@ -139,7 +153,7 @@ sleep 1 if $^O eq 'MSWin32';
 $t->write_file('password', '3.example.com');
 $t->write_file('index.html', '');
 
-$t->run()->plan(5);
+$t->run()->plan(7);
 
 ###############################################################################
 
@@ -161,5 +175,16 @@ like(http_get('/optimized?cert=3'),
 
 like(http_get('/none'),
 	qr/X-Verify: NONE/ms, 'variable - no certificate');
+
+like(http_get('/complex/1?cert=3'),
+	qr/X-Verify: SUCCESS/ms, 'variable - inherited encrypted key 1st');
+
+SKIP: {
+skip 'leaves coredump', 1 unless $t->has_version('1.27.6')
+	or $ENV{TEST_ANGIE_UNSAFE};
+
+like(http_get('/complex/2?cert=3'),
+	qr/X-Verify: SUCCESS/ms, 'variable - inherited encrypted key 2nd');
+}
 
 ###############################################################################

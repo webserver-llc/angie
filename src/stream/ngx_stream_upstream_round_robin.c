@@ -599,7 +599,7 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     ngx_stream_upstream_rr_peer_data_t *rrp = data;
 
     ngx_int_t                        rc;
-    ngx_uint_t                       i, n, total;
+    ngx_uint_t                       i, total;
     ngx_stream_upstream_rr_peer_t   *peer;
     ngx_stream_upstream_rr_peers_t  *peers;
 
@@ -665,12 +665,7 @@ failed:
 
         rrp->peers = peers->next;
 
-        n = (rrp->peers->number + (8 * sizeof(uintptr_t) - 1))
-                / (8 * sizeof(uintptr_t));
-
-        for (i = 0; i < n; i++) {
-            rrp->tried[i] = 0;
-        }
+        ngx_stream_upstream_rr_reset_tried(rrp, rrp->peers->number);
 
         ngx_stream_upstream_rr_peers_unlock(peers);
 
@@ -701,9 +696,8 @@ static ngx_stream_upstream_rr_peer_t *
 ngx_stream_upstream_get_peer(ngx_stream_upstream_rr_peer_data_t *rrp,
     ngx_uint_t *tot, ngx_uint_t *idx)
 {
-    uintptr_t                       m;
     ngx_int_t                       total, effective_weight;
-    ngx_uint_t                      i, n, p;
+    ngx_uint_t                      i, p;
     ngx_stream_upstream_rr_peer_t  *peer, *best;
 
     best = NULL;
@@ -717,24 +711,7 @@ ngx_stream_upstream_get_peer(ngx_stream_upstream_rr_peer_data_t *rrp,
          peer;
          peer = peer->next, i++)
     {
-        n = i / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            continue;
-        }
-
-        if (peer->down) {
-            continue;
-        }
-
-        if (ngx_stream_upstream_rr_is_failed(peer)
-            && !ngx_stream_upstream_rr_is_fail_expired(peer))
-        {
-            continue;
-        }
-
-        if (ngx_stream_upstream_rr_is_busy(peer)) {
+        if (!ngx_stream_upstream_rr_peer_ready(rrp, peer, i)) {
             continue;
         }
 
@@ -780,7 +757,7 @@ ngx_stream_upstream_use_rr_peer(ngx_peer_connection_t *pc,
 
     now = ngx_time();
 
-    if (now - peer->checked > peer->fail_timeout) {
+    if (ngx_stream_upstream_rr_is_fail_expired(peer)) {
         peer->checked = now;
     }
 

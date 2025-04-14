@@ -170,8 +170,7 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
     size_t                                 size;
     uint32_t                               hash;
     ngx_int_t                              w;
-    uintptr_t                              m;
-    ngx_uint_t                             n, p;
+    ngx_uint_t                             p;
     ngx_stream_session_t                  *s;
     ngx_stream_upstream_rr_peer_t         *peer;
     ngx_stream_upstream_hash_peer_data_t  *hp;
@@ -230,38 +229,16 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
             p++;
         }
 
-        n = p / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            goto next;
-        }
-
         ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
         ngx_log_debug2(NGX_LOG_DEBUG_STREAM, pc->log, 0,
                        "get hash peer, value:%uD, peer:%ui", hp->hash, p);
 
-        if (peer->down) {
-            ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
+        if (ngx_stream_upstream_rr_peer_ready(rrp, peer, p)) {
+            break;
         }
 
-        if (ngx_stream_upstream_rr_is_failed(peer)
-            && !ngx_stream_upstream_rr_is_fail_expired(peer))
-        {
-            ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
-        }
-
-        if (ngx_stream_upstream_rr_is_busy(peer)) {
-            ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
-        }
-
-        break;
-
-    next:
+        ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
 
         if (++hp->tries > 20) {
             ngx_stream_upstream_rr_peers_unlock(rrp->peers);
@@ -541,10 +518,9 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
-    intptr_t                               m;
     ngx_str_t                             *server;
     ngx_int_t                              total;
-    ngx_uint_t                             i, n, best_i;
+    ngx_uint_t                             i, best_i;
     ngx_stream_session_t                  *s;
     ngx_stream_upstream_rr_peer_t         *peer, *best;
     ngx_stream_upstream_chash_point_t     *point;
@@ -600,24 +576,7 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
              peer;
              peer = peer->next, i++)
         {
-            n = i / (8 * sizeof(uintptr_t));
-            m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-            if (rrp->tried[n] & m) {
-                continue;
-            }
-
-            if (peer->down) {
-                continue;
-            }
-
-            if (ngx_stream_upstream_rr_is_failed(peer)
-                && !ngx_stream_upstream_rr_is_fail_expired(peer))
-            {
-                continue;
-            }
-
-            if (ngx_stream_upstream_rr_is_busy(peer)) {
+            if (!ngx_stream_upstream_rr_peer_ready(rrp, peer, i)) {
                 continue;
             }
 

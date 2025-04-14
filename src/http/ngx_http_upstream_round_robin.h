@@ -363,4 +363,50 @@ ngx_http_upstream_throttle_peer(ngx_http_upstream_rr_peer_t *peer)
 }
 
 
+static ngx_inline void
+ngx_http_upstream_rr_reset_tried(ngx_http_upstream_rr_peer_data_t *rrp,
+    ngx_uint_t number)
+{
+    ngx_uint_t  i, n;
+
+    n = (number + (8 * sizeof(uintptr_t) - 1)) / (8 * sizeof(uintptr_t));
+
+    for (i = 0; i < n; i++) {
+        rrp->tried[i] = 0;
+    }
+}
+
+
+static ngx_inline ngx_uint_t
+ngx_http_upstream_rr_peer_ready(ngx_http_upstream_rr_peer_data_t *rrp,
+    ngx_http_upstream_rr_peer_t *peer, ngx_uint_t index)
+{
+    uintptr_t   m;
+    ngx_uint_t  n;
+
+    n = index / (8 * sizeof(uintptr_t));
+    m = (uintptr_t) 1 << index % (8 * sizeof(uintptr_t));
+
+    if (rrp->tried[n] & m) {
+        return 0;
+    }
+
+    if (peer->down) {
+        return 0;
+    }
+
+    if (ngx_http_upstream_rr_is_failed(peer)
+        && !ngx_http_upstream_rr_is_fail_expired(peer))
+    {
+        return 0;
+    }
+
+    if (ngx_http_upstream_rr_is_busy(peer)) {
+        return 0;
+    }
+
+    return 1;
+}
+
+
 #endif /* _NGX_HTTP_UPSTREAM_ROUND_ROBIN_H_INCLUDED_ */

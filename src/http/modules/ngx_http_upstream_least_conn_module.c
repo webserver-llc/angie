@@ -102,10 +102,9 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    uintptr_t                      m;
     ngx_int_t                      rc, total;
     ngx_int_t                      weight, best_weight, effective_weight;
-    ngx_uint_t                     i, n, p, many, factor;
+    ngx_uint_t                     i, p, many, factor;
     ngx_http_upstream_rr_peer_t   *peer, *best;
     ngx_http_upstream_rr_peers_t  *peers;
 
@@ -140,24 +139,7 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
          peer;
          peer = peer->next, i++)
     {
-        n = i / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            continue;
-        }
-
-        if (peer->down) {
-            continue;
-        }
-
-        if (ngx_http_upstream_rr_is_failed(peer)
-            && !ngx_http_upstream_rr_is_fail_expired(peer))
-        {
-            continue;
-        }
-
-        if (ngx_http_upstream_rr_is_busy(peer)) {
+        if (!ngx_http_upstream_rr_peer_ready(rrp, peer, i)) {
             continue;
         }
 
@@ -197,14 +179,7 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
              peer;
              peer = peer->next, i++)
         {
-            n = i / (8 * sizeof(uintptr_t));
-            m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-            if (rrp->tried[n] & m) {
-                continue;
-            }
-
-            if (peer->down) {
+            if (!ngx_http_upstream_rr_peer_ready(rrp, peer, i)) {
                 continue;
             }
 
@@ -212,16 +187,6 @@ ngx_http_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
             weight = peer->weight * factor;
 
             if (peer->conns * best_weight != best->conns * weight) {
-                continue;
-            }
-
-            if (ngx_http_upstream_rr_is_failed(peer)
-                && !ngx_http_upstream_rr_is_fail_expired(peer))
-            {
-                continue;
-            }
-
-            if (ngx_http_upstream_rr_is_busy(peer)) {
                 continue;
             }
 
@@ -258,12 +223,7 @@ failed:
 
         rrp->peers = peers->next;
 
-        n = (rrp->peers->number + (8 * sizeof(uintptr_t) - 1))
-                / (8 * sizeof(uintptr_t));
-
-        for (i = 0; i < n; i++) {
-            rrp->tried[i] = 0;
-        }
+        ngx_http_upstream_rr_reset_tried(rrp, rrp->peers->number);
 
         ngx_http_upstream_rr_peers_unlock(peers);
 

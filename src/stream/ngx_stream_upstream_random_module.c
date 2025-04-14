@@ -219,8 +219,7 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
-    uintptr_t                                m;
-    ngx_uint_t                               i, n;
+    ngx_uint_t                               i;
     ngx_stream_session_t                    *s;
     ngx_stream_upstream_rr_peer_t           *peer;
     ngx_stream_upstream_rr_peers_t          *peers;
@@ -259,35 +258,13 @@ ngx_stream_upstream_get_random_peer(ngx_peer_connection_t *pc, void *data)
 
         peer = rcf->ranges[i].peer;
 
-        n = i / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            goto next;
-        }
-
         ngx_stream_upstream_rr_peer_lock(peers, peer);
 
-        if (peer->down) {
-            ngx_stream_upstream_rr_peer_unlock(peers, peer);
-            goto next;
+        if (ngx_stream_upstream_rr_peer_ready(rrp, peer, i)) {
+            break;
         }
 
-        if (ngx_stream_upstream_rr_is_failed(peer)
-            && !ngx_stream_upstream_rr_is_fail_expired(peer))
-        {
-            ngx_stream_upstream_rr_peer_unlock(peers, peer);
-            goto next;
-        }
-
-        if (ngx_stream_upstream_rr_is_busy(peer)) {
-            ngx_stream_upstream_rr_peer_unlock(peers, peer);
-            goto next;
-        }
-
-        break;
-
-    next:
+        ngx_stream_upstream_rr_peer_unlock(peers, peer);
 
         if (++rp->tries > 20) {
             ngx_stream_upstream_rr_peers_unlock(peers);
@@ -309,8 +286,7 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
-    uintptr_t                                m;
-    ngx_uint_t                               i, n, p;
+    ngx_uint_t                               i, p;
     ngx_stream_session_t                    *s;
     ngx_stream_upstream_rr_peer_t           *peer, *prev;
     ngx_stream_upstream_rr_peers_t          *peers;
@@ -359,24 +335,7 @@ ngx_stream_upstream_get_random2_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
-        n = i / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << i % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            goto next;
-        }
-
-        if (peer->down) {
-            goto next;
-        }
-
-        if (ngx_stream_upstream_rr_is_failed(peer)
-            && !ngx_stream_upstream_rr_is_fail_expired(peer))
-        {
-            goto next;
-        }
-
-        if (ngx_stream_upstream_rr_is_busy(peer)) {
+        if (!ngx_stream_upstream_rr_peer_ready(rrp, peer, i)) {
             goto next;
         }
 

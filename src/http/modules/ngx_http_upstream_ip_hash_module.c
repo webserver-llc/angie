@@ -149,8 +149,7 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
     ngx_int_t                               w;
-    uintptr_t                               m;
-    ngx_uint_t                              i, n, p, hash;
+    ngx_uint_t                              i, p, hash;
     ngx_http_request_t                     *r;
     ngx_http_upstream_rr_peer_t            *peer;
     ngx_http_upstream_ip_hash_peer_data_t  *iphp;
@@ -197,38 +196,16 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
             p++;
         }
 
-        n = p / (8 * sizeof(uintptr_t));
-        m = (uintptr_t) 1 << p % (8 * sizeof(uintptr_t));
-
-        if (rrp->tried[n] & m) {
-            goto next;
-        }
-
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, pc->log, 0,
-                       "get ip hash peer, hash: %ui %04XL", p, (uint64_t) m);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                       "get ip hash peer, hash: %ui", p);
 
         ngx_http_upstream_rr_peer_lock(rrp->peers, peer);
 
-        if (peer->down) {
-            ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
+        if (ngx_http_upstream_rr_peer_ready(rrp, peer, p)) {
+            break;
         }
 
-        if (ngx_http_upstream_rr_is_failed(peer)
-            && !ngx_http_upstream_rr_is_fail_expired(peer))
-        {
-            ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
-        }
-
-        if (ngx_http_upstream_rr_is_busy(peer)) {
-            ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
-            goto next;
-        }
-
-        break;
-
-    next:
+        ngx_http_upstream_rr_peer_unlock(rrp->peers, peer);
 
         if (++iphp->tries > 20) {
             ngx_http_upstream_rr_peers_unlock(rrp->peers);

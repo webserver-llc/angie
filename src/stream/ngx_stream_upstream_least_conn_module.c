@@ -119,11 +119,9 @@ ngx_stream_upstream_get_least_conn_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_stream_upstream_rr_peers_wlock(peers);
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
-    if (peers->generation && rrp->generation != *peers->generation) {
+    if (ngx_stream_upstream_conf_changed(peers, rrp)) {
         goto busy;
     }
-#endif
 
     best = NULL;
     total = 0;
@@ -273,16 +271,12 @@ failed:
 
         ngx_stream_upstream_rr_peers_wlock(peers);
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
-        if (peers->generation && rrp->generation != *peers->generation) {
+        if (ngx_stream_upstream_conf_changed(peers, rrp)) {
             goto busy;
         }
-#endif
     }
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
 busy:
-#endif
 
     ngx_stream_upstream_rr_peers_unlock(peers);
 

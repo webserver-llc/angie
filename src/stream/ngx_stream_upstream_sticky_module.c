@@ -137,12 +137,10 @@ again:
 
     ngx_stream_upstream_rr_peers_rlock(peers);
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
-    if (peers->generation && rrp->generation != *peers->generation) {
+    if (ngx_stream_upstream_conf_changed(peers, rrp)) {
         ngx_stream_upstream_rr_peers_unlock(peers);
         return NGX_BUSY;
     }
-#endif
 
     for (peer = peers->peer, i = 0;
          peer;

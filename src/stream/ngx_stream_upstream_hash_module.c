@@ -190,14 +190,10 @@ ngx_stream_upstream_get_hash_peer(ngx_peer_connection_t *pc, void *data)
         return hp->get_rr_peer(pc, rrp);
     }
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
-    if (rrp->peers->generation
-        && rrp->generation != *rrp->peers->generation)
-    {
+    if (ngx_stream_upstream_conf_changed(rrp->peers, rrp)) {
         ngx_stream_upstream_rr_peers_unlock(rrp->peers);
         return hp->get_rr_peer(pc, rrp);
     }
-#endif
 
     pc->connection = NULL;
 
@@ -578,15 +574,11 @@ ngx_stream_upstream_get_chash_peer(ngx_peer_connection_t *pc, void *data)
         return NGX_BUSY;
     }
 
-#if (NGX_STREAM_UPSTREAM_ZONE)
-    if (rrp->peers->generation
-        && rrp->generation != *rrp->peers->generation)
-    {
+    if (ngx_stream_upstream_conf_changed(rrp->peers, rrp)) {
         pc->name = rrp->peers->name;
         ngx_stream_upstream_rr_peers_unlock(rrp->peers);
         return NGX_BUSY;
     }
-#endif
 
     hcf = ngx_stream_conf_upstream_srv_conf(s->upstream->upstream,
                                             ngx_stream_upstream_hash_module);

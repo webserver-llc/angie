@@ -214,6 +214,9 @@ ngx_int_t ngx_api_http_upstream_peer_struct_int64_handler(
 #define ngx_http_upstream_rr_peer_ref(peers, peer)                            \
     (peer)->refs++;
 
+#define ngx_http_upstream_conf_changed(peers, rrp)                            \
+    (peers->generation && rrp->generation != *peers->generation)
+
 
 static ngx_inline void
 ngx_http_upstream_rr_peer_free_locked(ngx_http_upstream_rr_peers_t *peers,
@@ -298,6 +301,7 @@ ngx_http_upstream_rr_peer_unref(ngx_http_upstream_rr_peers_t *peers,
 #define ngx_http_upstream_rr_peer_unlock(peers, peer)
 #define ngx_http_upstream_rr_peer_ref(peers, peer)
 #define ngx_http_upstream_rr_peer_unref(peers, peer)  NGX_OK
+#define ngx_http_upstream_conf_changed(peers, rrp)  0
 
 #endif
 

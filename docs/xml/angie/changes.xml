@@ -9,6 +9,18 @@
 
 <change type="bugfix">
 <para lang="ru">
+в stream-модуле не останавливался отсчет времени неработоспособности, когда
+проксируемый сервер возвращался в работоспособное состояние по факту успешной
+установки соединения.
+</para>
+<para lang="en">
+the upstream's down time counting is not stopped when server recovers while
+succesfully connection.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 HTTP/3 запросы могли зависать и завершаться по таймауту;
 исправление портировано из nginx 1.29.0.
 </para>

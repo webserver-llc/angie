@@ -28,6 +28,8 @@ static ngx_stream_upstream_rr_peer_t *ngx_stream_upstream_get_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp, ngx_uint_t *tot, ngx_uint_t *idx);
 static void ngx_stream_upstream_notify_round_robin_peer(
     ngx_peer_connection_t *pc, void *data, ngx_uint_t type);
+static ngx_inline void ngx_stream_upstream_recover_round_robin_peer(
+    ngx_stream_upstream_rr_peer_t *peer);
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
 static void ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
     ngx_stream_upstream_rr_peer_t *peer, ngx_uint_t state);
@@ -866,17 +868,15 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 
     } else {
 
-        /* mark peer live if check passed */
+        /*
+         * Mark peer live if check passed.  This code is for UDP only.  In a
+         * case of TCP the peer is marked alive within notify() function
+         * immediately after succesfully connection.  It allows to update peer
+         * state faster for the long time connections.
+         */
 
-        if (peer->accessed < peer->checked) {
-
-            if (peer->slow_start
-                && ngx_stream_upstream_rr_is_failed(peer))
-            {
-                peer->slow_time = ngx_current_msec;
-            }
-
-            peer->fails = 0;
+        if (pc->connection->type != SOCK_STREAM) {
+            ngx_stream_upstream_recover_round_robin_peer(peer);
         }
     }
 
@@ -914,20 +914,42 @@ ngx_stream_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
         ngx_stream_upstream_rr_peers_rlock(rrp->peers);
         ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
-        if (peer->accessed < peer->checked) {
-
-            if (peer->slow_start
-                && ngx_stream_upstream_rr_is_failed(peer))
-            {
-                peer->slow_time = ngx_current_msec;
-            }
-
-            peer->fails = 0;
-        }
+        ngx_stream_upstream_recover_round_robin_peer(peer);
 
         ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
         ngx_stream_upstream_rr_peers_unlock(rrp->peers);
     }
+}
+
+
+static ngx_inline void
+ngx_stream_upstream_recover_round_robin_peer(
+    ngx_stream_upstream_rr_peer_t *peer)
+{
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    ngx_time_t  *tp;
+#endif
+
+    if (peer->accessed >= peer->checked) {
+        return;
+    }
+
+    if (peer->slow_start && ngx_stream_upstream_rr_is_failed(peer)) {
+        peer->slow_time = ngx_current_msec;
+    }
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    if (peer->stats.downstart != 0) {
+
+        tp = ngx_timeofday();
+        peer->stats.downtime += (uint64_t) tp->sec * 1000
+                                + tp->msec
+                                - peer->stats.downstart;
+        peer->stats.downstart = 0;
+    }
+#endif
+
+    peer->fails = 0;
 }
 
 
@@ -957,17 +979,6 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
 
             tp = ngx_timeofday();
             peer->stats.downstart = (uint64_t) tp->sec * 1000 + tp->msec;
-        }
-
-    } else if (peer->accessed < peer->checked) {
-
-        if (peer->stats.downstart != 0) {
-
-            tp = ngx_timeofday();
-            peer->stats.downtime += (uint64_t) tp->sec * 1000
-                                    + tp->msec
-                                    - peer->stats.downstart;
-            peer->stats.downstart = 0;
         }
     }
 

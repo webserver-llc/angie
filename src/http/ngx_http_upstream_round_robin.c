@@ -26,6 +26,8 @@ static ngx_inline ngx_int_t ngx_http_upstream_set_round_robin_peer(
     ngx_http_upstream_server_t *server);
 static ngx_http_upstream_rr_peer_t *ngx_http_upstream_get_peer(
     ngx_http_upstream_rr_peer_data_t *rrp, ngx_uint_t *tot, ngx_uint_t *idx);
+static ngx_inline void ngx_http_upstream_recover_round_robin_peer(
+    ngx_http_upstream_rr_peer_t *peer);
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
 static void ngx_http_upstream_stat(ngx_peer_connection_t *pc,
     ngx_http_upstream_rr_peer_t *peer, ngx_uint_t state);
@@ -859,16 +861,7 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 
         /* mark peer live if check passed */
 
-        if (peer->accessed < peer->checked) {
-
-            if (peer->slow_start
-                && ngx_http_upstream_rr_is_failed(peer))
-            {
-                peer->slow_time = ngx_current_msec;
-            }
-
-            peer->fails = 0;
-        }
+        ngx_http_upstream_recover_round_robin_peer(peer);
     }
 
     peer->conns--;
@@ -886,6 +879,37 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     if (pc->tries) {
         pc->tries--;
     }
+}
+
+
+static ngx_inline void
+ngx_http_upstream_recover_round_robin_peer(
+    ngx_http_upstream_rr_peer_t *peer)
+{
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
+    ngx_time_t  *tp;
+#endif
+
+    if (peer->accessed >= peer->checked) {
+        return;
+    }
+
+    if (peer->slow_start && ngx_http_upstream_rr_is_failed(peer)) {
+        peer->slow_time = ngx_current_msec;
+    }
+
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
+    if (peer->stats.downstart != 0) {
+
+        tp = ngx_timeofday();
+        peer->stats.downtime += (uint64_t) tp->sec * 1000
+                                + tp->msec
+                                - peer->stats.downstart;
+        peer->stats.downstart = 0;
+    }
+#endif
+
+    peer->fails = 0;
 }
 
 
@@ -916,17 +940,6 @@ ngx_http_upstream_stat(ngx_peer_connection_t *pc,
 
             tp = ngx_timeofday();
             peer->stats.downstart = (uint64_t) tp->sec * 1000 + tp->msec;
-        }
-
-    } else if (peer->accessed < peer->checked) {
-
-        if (peer->stats.downstart != 0) {
-
-            tp = ngx_timeofday();
-            peer->stats.downtime += (uint64_t) tp->sec * 1000
-                                    + tp->msec
-                                    - peer->stats.downstart;
-            peer->stats.downstart = 0;
         }
     }
 

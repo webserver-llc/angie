@@ -1319,6 +1319,23 @@ if [ $STREAM != NO ]; then
 
         . auto/module
     fi
+
+    if [ $STREAM_ACME = YES ]; then
+
+        if [ $HTTP_ACME != YES ]; then
+            echo "$0: error: ngx_stream_acme_module requires ngx_http_acme_module"
+            exit 1
+        fi
+
+        ngx_module_name=ngx_stream_acme_module
+        ngx_module_incs=
+        ngx_module_deps=
+        ngx_module_srcs=src/stream/ngx_stream_acme_module.c
+        ngx_module_libs=
+        ngx_module_link=$STREAM_ACME
+
+        . auto/module
+    fi
 fi
 
 

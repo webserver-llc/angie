@@ -9,6 +9,7 @@
 #include <ngx_http.h>
 #include <ngx_fiber.h>
 
+#include <ngx_acme.h>
 
 /* Some timeout constants */
 
@@ -444,9 +445,6 @@ static ngx_uint_t ngx_dec_count(ngx_int_t i);
 static int ngx_clone_table_elt(ngx_pool_t *pool, ngx_str_t *dst,
     ngx_table_elt_t *src);
 
-static ngx_int_t ngx_acme_add_server_names(ngx_conf_t *cf,
-    ngx_acme_client_t *cli, ngx_array_t *server_names, u_char *cf_file_name,
-    ngx_uint_t cf_line);
 
 static const ngx_str_t ngx_acme_challenge_names[] = {
     ngx_string("http"),
@@ -5282,36 +5280,8 @@ static ngx_int_t
 ngx_http_acme_cert_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_acme_client_t *cli = (ngx_acme_client_t *) data;
-
-    v->valid = 1;
-    v->no_cacheable = 0;
-    v->not_found = (cli->sh_cert == NULL);
-
-    if (v->not_found) {
-        return NGX_OK;
-    }
-
-    ngx_rwlock_rlock(&cli->sh_cert->lock);
-
-    if (cli->sh_cert->len == 0) {
-        v->not_found = 1;
-
-    } else {
-        /* 5 = size of "data:" prefix */
-        v->len = cli->sh_cert->len + 5;
-
-        v->data = ngx_pnalloc(r->pool, v->len);
-        if (v->data != NULL) {
-            ngx_memcpy(v->data, "data:", 5);
-            ngx_memcpy(v->data + 5, cli->sh_cert->data_start,
-                       cli->sh_cert->len);
-        }
-    }
-
-    ngx_rwlock_unlock(&cli->sh_cert->lock);
-
-    return (v->not_found || v->data != NULL) ? NGX_OK : NGX_ERROR;
+    return ngx_acme_handle_cert_variable(r->pool, v,
+                                         (ngx_acme_client_t *) data);
 }
 
 
@@ -5319,38 +5289,7 @@ static ngx_int_t
 ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-    ngx_acme_client_t *cli = (ngx_acme_client_t *) data;
-    /* We can use the certificate key only when the certificate is available. */
-    v->valid = 1;
-    v->no_cacheable = 0;
-    v->not_found = (cli->sh_cert == NULL);
-
-    if (v->not_found) {
-        return NGX_OK;
-    }
-
-    /*
-     * Once a certificate is loaded, it remains available. Therefore, if
-     * cli->sh_cert->len is non-zero, it will never become zero. However, if no
-     * certificate is present, a certificate may be obtained at any moment,
-     * causing cli->sh_cert->len to change from zero to non-zero. To handle
-     * this case safely, we must acquire a lock before checking its value again.
-     */
-    if (cli->sh_cert->len == 0) {
-        ngx_rwlock_rlock(&cli->sh_cert->lock);
-
-        v->not_found = (cli->sh_cert->len == 0);
-
-        ngx_rwlock_unlock(&cli->sh_cert->lock);
-    }
-
-    if (!v->not_found) {
-        /* 5 = size of "data:" prefix */
-        v->len = cli->private_key.file_size + 5;
-        v->data = cli->private_key_data;
-    }
-
-    return NGX_OK;
+    return ngx_acme_handle_cert_key_variable(v, (ngx_acme_client_t *) data);
 }
 
 
@@ -6308,7 +6247,25 @@ ngx_clone_table_elt(ngx_pool_t *pool, ngx_str_t *dst,
 }
 
 
-static ngx_int_t
+ngx_array_t *
+ngx_acme_clients(ngx_conf_t *cf)
+{
+    ngx_http_acme_main_conf_t  *amcf;
+
+    amcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_acme_module);
+
+    return amcf != NULL ? &amcf->clients : NULL;
+}
+
+
+ngx_str_t *
+ngx_acme_client_name(ngx_acme_client_t *cli)
+{
+    return &cli->name;
+}
+
+
+ngx_int_t
 ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     ngx_array_t *server_names, u_char *cf_file_name, ngx_uint_t cf_line)
 {
@@ -6450,3 +6407,78 @@ ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain) {
 
     return NGX_OK;
 }
+
+
+ngx_int_t
+ngx_acme_handle_cert_variable(ngx_pool_t *pool, ngx_variable_value_t *v,
+    ngx_acme_client_t *cli)
+{
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = (cli->sh_cert == NULL);
+
+    if (v->not_found) {
+        return NGX_OK;
+    }
+
+    ngx_rwlock_rlock(&cli->sh_cert->lock);
+
+    if (cli->sh_cert->len == 0) {
+        v->not_found = 1;
+
+    } else {
+        /* 5 = size of "data:" prefix */
+        v->len = cli->sh_cert->len + 5;
+
+        v->data = ngx_pnalloc(pool, v->len);
+        if (v->data != NULL) {
+            ngx_memcpy(v->data, "data:", 5);
+            ngx_memcpy(v->data + 5, cli->sh_cert->data_start,
+                       cli->sh_cert->len);
+        }
+    }
+
+    ngx_rwlock_unlock(&cli->sh_cert->lock);
+
+    return (v->not_found || v->data != NULL) ? NGX_OK : NGX_ERROR;
+}
+
+
+ngx_int_t
+ngx_acme_handle_cert_key_variable(ngx_variable_value_t *v,
+    ngx_acme_client_t *cli)
+{
+    /* We can use the certificate key only when the certificate is available. */
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = (cli->sh_cert == NULL);
+
+    if (v->not_found) {
+        return NGX_OK;
+    }
+
+    /*
+     * Once a certificate is loaded, it remains available. Therefore, if
+     * cli->sh_cert->len is non-zero, it will never become zero. However, if no
+     * certificate is present, a certificate may be obtained at any moment,
+     * causing cli->sh_cert->len to change from zero to non-zero. To handle
+     * this case safely, we must acquire a lock before checking its value again.
+     */
+    if (cli->sh_cert->len == 0) {
+        ngx_rwlock_rlock(&cli->sh_cert->lock);
+
+        v->not_found = (cli->sh_cert->len == 0);
+
+        ngx_rwlock_unlock(&cli->sh_cert->lock);
+    }
+
+    if (!v->not_found) {
+        /* 5 = size of "data:" prefix */
+        v->len = cli->private_key.file_size + 5;
+        v->data = cli->private_key_data;
+    }
+
+    return NGX_OK;
+}
+

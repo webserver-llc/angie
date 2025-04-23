@@ -29,6 +29,17 @@ all functionality of nginx 1.27.5.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка директивы "acme" и переменных "$acme_cert_*" и "$acme_cert_key_*"
+в stream.
+</para>
+<para lang="en">
+support for the "acme" directive and the "$acme_cert_*" and "$acme_cert_key_*"
+variables in the "stream" section.
+</para>
+</change>
+
 </changes>
 
 

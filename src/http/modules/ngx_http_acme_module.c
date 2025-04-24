@@ -4315,7 +4315,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                 }
 
                 if (ngx_http_acme_check_server_name(&sn[n],
-                                              cli->challenge != NGX_AC_HTTP_01))
+                                             cli->challenge != NGX_AC_HTTP_01))
                 {
                     ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                                        "unsupported domain format \"%V\" used "
@@ -4358,9 +4358,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                 cf->conf_file->line = cli->cf_line;
                 cf->conf_file->file.name = cli->cf_filename;
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                              "no valid domain name defined in server block at "
-                              "%s:%ui for ACME client \"%V\"",
-                              cscf->file_name, cscf->line, &cli->name);
+                                   "no valid domain name defined in server "
+                                   "block at %s:%ui for ACME client \"%V\"",
+                                   cscf->file_name, cscf->line, &cli->name);
                 return NGX_ERROR;
             }
         }
@@ -4458,7 +4458,70 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         ngx_strlow(name.data, name.data, name.len);
 
-        if (ngx_create_dir(cli->path.data, 0700) == NGX_FILE_ERROR) {
+        /*
+         * Regardless of whether the client is enabled, we must load its
+         * certificate (if available) and private key so they can be used for
+         * the $acme_cert_* variables.
+         */
+
+        for (v = ngx_http_acme_vars; v->name.len; v++) {
+            if (ngx_http_acme_add_client_var(cf, cli, v) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+
+        ngx_str_set(&name, "certificate.pem");
+
+        if (ngx_http_acme_init_file(cf, &cli->path, &name,
+                                    &cli->certificate_file)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+
+        /*
+         * Even if the certificate file exists, we cannot load it here
+         * because it must be stored in shared memory, which has not yet been
+         * allocated. Meanwhile, we determine its size.
+         */
+
+        cli->certificate_file_size =
+                               ngx_http_acme_file_size(&cli->certificate_file);
+
+        if (!cli->enabled && cli->certificate_file_size == 0) {
+            continue;
+        }
+
+        /*
+         * The following code executes if either of these conditions are met:
+         *
+         * 1. A certificate file is present (it must be used, even if
+         *    the client is disabled).
+         * 2. The client is enabled (a certificate will be obtained
+         *    or updated).
+         */
+
+        if (cli->certificate_file_size > NGX_ACME_MAX_SH_FILE) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "size of file \"%V\" exceeds %d bytes",
+                               &cli->certificate_file.name,
+                               NGX_ACME_MAX_SH_FILE);
+            return NGX_ERROR;
+        }
+
+        if (cli->certificate_file_size > cli->max_cert_size) {
+            cli->max_cert_size = cli->certificate_file_size;
+        }
+
+        sz = sizeof(ngx_http_acme_sh_cert_t)
+             + (cli->enabled ? cli->max_cert_size
+                             : cli->certificate_file_size);
+
+        shm_size += ngx_align(sz, NGX_ALIGNMENT);
+
+        if (cli->certificate_file_size == 0
+            && ngx_create_dir(cli->path.data, 0700) == NGX_FILE_ERROR)
+        {
             err = ngx_errno;
             if (err != NGX_EEXIST) {
                 ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
@@ -4478,11 +4541,6 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             }
         }
 
-        /*
-         * Regardless of whether the client is enabled, we must load its
-         * certificate (if available) and private key so they can be used for
-         * the $acme_cert_* variables.
-         */
         ngx_str_set(&name, "private.key");
 
         if (ngx_http_acme_key_init(cf, cli, &name, &cli->private_key)
@@ -4507,53 +4565,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         {
             return NGX_ERROR;
         }
-
-        ngx_str_set(&name, "certificate.pem");
-
-        if (ngx_http_acme_init_file(cf, &cli->path, &name,
-                                    &cli->certificate_file)
-            != NGX_OK)
-        {
-            return NGX_ERROR;
-        }
-
-        /*
-         * Even if the certificate file exists, we cannot load it here
-         * because it must be stored in shared memory, which has not yet been
-         * allocated. Meanwhile, we determine its size.
-         */
-        cli->certificate_file_size = ngx_http_acme_file_size(
-                                                 &cli->certificate_file);
-
-        if (cli->enabled || cli->certificate_file_size != 0) {
-            if (cli->certificate_file_size > NGX_ACME_MAX_SH_FILE) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                "size of file \"%V\" exceeds %d bytes",
-                                &cli->certificate_file.name,
-                                NGX_ACME_MAX_SH_FILE);
-                return NGX_ERROR;
-            }
-
-            if (cli->certificate_file_size > cli->max_cert_size) {
-                cli->max_cert_size = cli->certificate_file_size;
-            }
-
-            sz = sizeof(ngx_http_acme_sh_cert_t)
-                 + (cli->enabled ? cli->max_cert_size
-                                 : cli->certificate_file_size);
-
-            shm_size += ngx_align(sz, NGX_ALIGNMENT);
-        }
-
-        for (v = ngx_http_acme_vars; v->name.len; v++) {
-            if (ngx_http_acme_add_client_var(cf, cli, v) != NGX_OK) {
-                return NGX_ERROR;
-            }
-        }
     }
 
     if (amcf->handle_challenge) {
-
         if (amcf->handle_challenge & ((ngx_uint_t) 1 << NGX_AC_HTTP_01)) {
             n = 0;
 
@@ -4570,12 +4584,13 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
             if (!n) {
                 ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                               "this configuration requires a server listening "
-                               "on port 80 for ACME HTTP challenge");
+                                   "this configuration requires a server "
+                                   "listening on port 80 for ACME HTTP "
+                                   "challenge");
             }
 
             h = ngx_array_push(
-                              &cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
+                             &cmcf->phases[NGX_HTTP_POST_READ_PHASE].handlers);
             if (h == NULL) {
                 return NGX_ERROR;
             }

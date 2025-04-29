@@ -19,6 +19,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/trim/;
 
 ###############################################################################
 
@@ -51,8 +52,7 @@ $t->run();
 ###############################################################################
 
 subtest 'upgrade followed by termination of the old master process' => sub {
-	my $pid = $t->read_file('nginx.pid');
-	chomp($pid);
+	my $pid = trim($t->read_file('nginx.pid'));
 
 	# upgrade the executable on the fly
 	my $new_pid = upgrade($t, $pid)
@@ -77,8 +77,7 @@ subtest 'upgrade followed by termination of the new master process' => sub {
 	return
 		if $is_previous_subtest_failed;
 
-	my $pid = $t->read_file('nginx.pid');
-	chomp($pid);
+	my $pid = trim($t->read_file('nginx.pid'));
 
 	# upgrade the executable on the fly
 	my $new_pid = upgrade($t, $pid)
@@ -171,8 +170,7 @@ sub upgrade {
 	ok(-e "$d/nginx.pid", 'new master pid file exists')
 		or return;
 
-	my $new_pid = $t->read_file('nginx.pid');
-	chomp($new_pid);
+	my $new_pid = trim($t->read_file('nginx.pid'));
 
 	isnt($new_pid, $pid, "master pid changed from $pid to $new_pid")
 		or return;
@@ -215,7 +213,7 @@ sub read_error_log {
 
 	my @error_log;
 	for my $line (<$error_log_fh>) {
-		chomp $line;
+		$line = trim($line);
 		next if $line =~ /\[debug\]/;
 		note($line);
 		push @error_log, $line;
@@ -228,12 +226,17 @@ sub check_master_processes_pids {
 	my ($expected_processes, $tname) = @_;
 
 	my @master_processes = split(/\n/,
-		`ps axw | grep '$Test::Nginx::NGINX -p $d' | grep -v grep`);
+		`ps axwwo pid,ppid,command | grep '$Test::Nginx::NGINX -p $d' \\
+		| grep -v grep`);
 
 	my @pids;
 	foreach my $process (@master_processes) {
-		my @splitted = grep {$_ ne ''} split(/\s+/, $process);
-		push @pids, $splitted[0];
+		$process = trim($process);
+
+		my $pid = [split(/\s+/, $process)]->[0];
+
+		my $has_children = trim(`pgrep -P $pid | wc -l`);
+		push @pids, $pid if $has_children;
 	}
 
 	cmp_deeply(\@pids, bag(@{ $expected_processes}), $tname)

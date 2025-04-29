@@ -21,7 +21,7 @@ eval { require JSON; };
 plan(skip_all => "JSON is not installed") if $@;
 
 our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-	getconn hash_like stream_daemon /;
+	getconn hash_like stream_daemon trim /;
 
 sub _parse_response {
 	my $response = shift;
@@ -273,5 +273,11 @@ sub stream_daemon {
 sub log2i { Test::Nginx::log_core('|| <<', @_); }
 sub log2o { Test::Nginx::log_core('|| >>', @_); }
 sub log2c { Test::Nginx::log_core('||', @_); }
+
+sub trim {
+	my $string = shift;
+	$string =~ s/^\s+|\s+$//g;
+	return $string;
+}
 
 1;

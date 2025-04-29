@@ -27,8 +27,6 @@ my $t = Test::Nginx->new()->has(qw/http proxy/);
 plan(skip_all => "perl >= 5.32 required")
 	if ($t->has_module('perl') && $] < 5.032000);
 
-$t->plan(18);
-
 # mmap/munmap may fail due to ASLR and test does some retries
 $t->todo_alerts();
 
@@ -92,7 +90,10 @@ my $d = $t->testdir();
 
 # start with no state and empty cache
 
-$t->run();
+$t->try_run(
+	'Angie was built without support for the persistent shared memory', 1);
+
+$t->plan(18);
 
 # fill the cache with some requests:
 
@@ -162,7 +163,7 @@ http {
 
 EOF
 
-$t->retry_run(20);
+$t->retry_run(200);
 
 # the cache zone content is loaded from state file - check this
 
@@ -233,7 +234,7 @@ http {
 
 EOF
 
-$t->retry_run(20);
+$t->retry_run(200);
 
 # we still can add entries
 #

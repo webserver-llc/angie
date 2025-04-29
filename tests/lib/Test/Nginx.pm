@@ -425,12 +425,13 @@ sub retry_run($$) {
 	my ($self, $attempts) = @_;
 
 	for my $k (1 .. $attempts) {
-		$k = $k + 1;
 		eval {
 			open OLDERR, ">&", \*STDERR; close STDERR;
 			$self->run();
 			open STDERR, ">&", \*OLDERR;
 		};
+
+		$k = $k + 1;
 
 		return $self unless $@;
 		print("# attempt to run #$k/$attempts failed\n");

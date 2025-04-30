@@ -43,6 +43,7 @@ sub new {
 	$self->{token} = $extra{token} || '';
 	$self->{psk_list} = $extra{psk_list} || [];
 	$self->{early_data} = $extra{early_data};
+	$self->{send_ack} = 1;
 
 	$self->{sni} = exists $extra{sni} ? $extra{sni} : 'localhost';
 	$self->{cipher} = 0x1301;
@@ -1570,7 +1571,8 @@ sub handle_frames {
 		}
 	}
 
-	$self->{socket}->syswrite($self->encrypt_aead(build_ack($ack), $level));
+	my $send_ack = $self->encrypt_aead(build_ack($ack), $level);
+	$self->{socket}->syswrite($send_ack) if $self->{send_ack};
 
 	for my $pn (keys %$ack) {
 		$ack->{$pn} = $self->{pn}[0][$level] if $ack->{$pn} == -1;

@@ -24,8 +24,11 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_ssl http_v2 proxy cache socket_ssl/)
+	->has(qw/http http_ssl http_v2 proxy cache socket_ssl_alpn/)
 	->has_daemon('openssl');
+
+plan(skip_all => 'no ALPN support in OpenSSL')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:1.0.2');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -42,7 +45,7 @@ http {
     proxy_cache_path   %%TESTDIR%%/cache  keys_zone=NAME:1m;
 
     server {
-        listen       127.0.0.1:8080 http2 ssl sndbuf=32k;
+        listen       127.0.0.1:8443 http2 ssl sndbuf=32k;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -92,14 +95,13 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-plan(skip_all => 'no ALPN negotiation') unless defined getconn(port(8080));
 $t->plan(1);
 
 ###############################################################################
 
 # client cancels stream with a cacheable request sent to upstream causing alert
 
-my $s = getconn(port(8080));
+my $s = getconn();
 ok($s, 'ssl connection');
 
 my $sid = $s->new_stream();
@@ -107,7 +109,7 @@ $s->h2_rst($sid, 8);
 
 # large response may stuck in SSL buffer and won't be sent producing alert
 
-my $s2 = getconn(port(8080));
+my $s2 = getconn();
 $sid = $s2->new_stream({ path => '/tbig.html' });
 $s2->h2_window(2**30, $sid);
 $s2->h2_window(2**30);
@@ -119,17 +121,8 @@ $t->stop();
 ###############################################################################
 
 sub getconn {
-	my ($port) = @_;
-	my $s;
-
-	eval {
-		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
-			alpn => 'h2');
-		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
-			if $sock->alpn_selected();
-	};
-
-	return $s;
+	my $sock = http('', start => 1, SSL => 1, SSL_alpn_protocols => ['h2']);
+	Test::Nginx::HTTP2->new(undef, socket => $sock);
 }
 
 ###############################################################################

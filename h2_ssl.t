@@ -28,6 +28,9 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 socket_ssl_alpn/)
 	->has_daemon('openssl');
 
+plan(skip_all => 'no ALPN support in OpenSSL')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:1.0.2');
+
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -41,7 +44,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2 ssl;
+        listen       127.0.0.1:8443 http2 ssl;
         server_name  localhost;
 
         ssl_certificate_key localhost.key;
@@ -81,7 +84,6 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-plan(skip_all => 'no ALPN negotiation') unless defined getconn();
 $t->plan(4);
 
 ###############################################################################
@@ -110,7 +112,8 @@ is($frame->{headers}->{':status'}, 200, 'alpn to HTTP/2');
 # h2c preface on ssl-enabled socket is rejected as invalid HTTP/1.x request,
 # ensure that HTTP/2 auto-detection doesn't kick in
 
-like(http("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"), qr/Bad Request/,
+like(http("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n",
+	PeerAddr => '127.0.0.1:' . port(8443)), qr/Bad Request/,
 	'no h2c on ssl socket');
 
 # client cancels last stream after HEADERS has been created,
@@ -135,39 +138,13 @@ $t->stop();
 
 sub getconn {
 	my ($alpn) = @_;
-	$alpn = ['h2'] if !defined $alpn;
-
 	my $sock = get_ssl_socket($alpn);
-	my $s = Test::Nginx::HTTP2->new(undef, socket => $sock)
-		if $sock->alpn_selected();
+	Test::Nginx::HTTP2->new(undef, socket => $sock);
 }
 
 sub get_ssl_socket {
 	my ($alpn) = @_;
-	my $s;
-
-	eval {
-		local $SIG{ALRM} = sub { die "timeout\n" };
-		local $SIG{PIPE} = sub { die "sigpipe\n" };
-		alarm(8);
-		$s = IO::Socket::SSL->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1',
-			PeerPort => port(8080),
-			SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE(),
-			SSL_alpn_protocols => $alpn,
-			SSL_error_trap => sub { die $_[1] }
-		);
-		alarm(0);
-	};
-	alarm(0);
-
-	if ($@) {
-		log_in("died: $@");
-		return undef;
-	}
-
-	return $s;
+	return http('', start => 1, SSL => 1, SSL_alpn_protocols => $alpn);
 }
 
 ###############################################################################

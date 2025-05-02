@@ -92,7 +92,7 @@ open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
 open STDERR, ">&", \*OLDERR;
 
-plan(skip_all => 'no ALPN/NPN negotiation') unless defined getconn(port(8080));
+plan(skip_all => 'no ALPN negotiation') unless defined getconn(port(8080));
 $t->plan(1);
 
 ###############################################################################
@@ -127,15 +127,6 @@ sub getconn {
 			alpn => 'h2');
 		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
 			if $sock->alpn_selected();
-	};
-
-	return $s if defined $s;
-
-	eval {
-		my $sock = Test::Nginx::HTTP2::new_socket($port, SSL => 1,
-			npn => 'h2');
-		$s = Test::Nginx::HTTP2->new($port, socket => $sock)
-			if $sock->next_proto_negotiated();
 	};
 
 	return $s;

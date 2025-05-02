@@ -23,8 +23,12 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 rewrite socket_ssl/)
-	->has_daemon('openssl')->plan(4);
+my $t = Test::Nginx->new()
+	->has(qw/http http_ssl http_v2 rewrite socket_ssl_alpn/)
+	->has_daemon('openssl');
+
+plan(skip_all => 'no ALPN support in OpenSSL')
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:1.0.2');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -39,7 +43,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 ssl;
+        listen       127.0.0.1:8443 ssl;
         server_name  localhost;
 
         http2 on;
@@ -84,52 +88,27 @@ foreach my $name ('localhost') {
 
 $t->run();
 
+$t->plan(4);
+
 ###############################################################################
 
-my ($s, $sid, $frames, $frame);
+is(get('/h2'), 'h2', 'http2 variable');
+is(get('/sp'), 'HTTP/2.0', 'server_protocol variable');
+is(get('/scheme'), 'https', 'scheme variable');
+is(get('/https'), 'on', 'https variable');
 
-my $has_alpn = eval { Test::Nginx::HTTP2::new_socket(port(8080), SSL => 1,
-	alpn => 'h2')->alpn_selected() };
+###############################################################################
 
-SKIP: {
-skip 'OpenSSL ALPN support required', 4 unless $has_alpn;
+sub get {
+	my ($uri) = @_;
 
-# SSL/TLS connection
+	my $sock = http('', start => 1, SSL => 1, SSL_alpn_protocols => ['h2']);
+	my $s = Test::Nginx::HTTP2->new(undef, socket => $sock);
+	my $sid = $s->new_stream({ path => $uri });
+	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
-$s = Test::Nginx::HTTP2->new(port(8080), SSL => 1, alpn => 'h2');
-$sid = $s->new_stream({ path => '/h2' });
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, 'h2', 'http variable - alpn');
-
-# $server_protocol
-
-$s = Test::Nginx::HTTP2->new(port(8080), SSL => 1, alpn => 'h2');
-$sid = $s->new_stream({ path => '/sp' });
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, 'HTTP/2.0', 'server_protocol variable - alpn');
-
-# $scheme
-
-$s = Test::Nginx::HTTP2->new(port(8080), SSL => 1, alpn => 'h2');
-$sid = $s->new_stream({ path => '/scheme' });
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, 'https', 'scheme variable - alpn');
-
-# $https
-
-$s = Test::Nginx::HTTP2->new(port(8080), SSL => 1, alpn => 'h2');
-$sid = $s->new_stream({ path => '/https' });
-$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-($frame) = grep { $_->{type} eq "DATA" } @$frames;
-is($frame->{data}, 'on', 'https variable - alpn');
-
+	my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
+	return $frame->{data};
 }
 
 ###############################################################################

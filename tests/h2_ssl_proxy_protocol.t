@@ -90,7 +90,8 @@ my $sock = http($proxy, start => 1);
 http('', start => 1, socket => $sock, SSL => 1, SSL_alpn_protocols => ['h2']);
 
 SKIP: {
-skip 'no ALPN negotiation', 2 unless $sock->alpn_selected();
+skip 'no ALPN support in OpenSSL', 2
+	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:1.0.2');
 
 my $s = Test::Nginx::HTTP2->new(undef, socket => $sock);
 my $sid = $s->new_stream({ path => '/pp' });

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -28,7 +29,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite socket_ssl/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->skip_api_check();
 
 $t->plan(3)->write_file_expand('nginx.conf', <<'EOF');
 

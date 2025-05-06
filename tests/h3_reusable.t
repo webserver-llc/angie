@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -25,6 +26,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
 	->has_daemon('openssl')->plan(1)
+	->skip_api_check()
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

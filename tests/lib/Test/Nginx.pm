@@ -31,6 +31,10 @@ use POSIX qw/ waitpid WNOHANG /;
 use Socket qw/ CRLF /;
 use Test::More qw//;
 
+# we can't use 'use' here because of circular dependencies
+require Test::API;
+Test::API->import(qw/ api_status traverse_api_status /);
+
 ###############################################################################
 
 our $NGINX = defined $ENV{TEST_ANGIE_BINARY} ? $ENV{TEST_ANGIE_BINARY}
@@ -444,7 +448,7 @@ sub plan($) {
 
 	$plan += 1 if $ENV{TEST_ANGIE_VALGRIND};
 
-	Test::More::plan(tests => $plan + 4);
+	Test::More::plan(tests => $plan + 5);
 
 	return $self;
 }
@@ -463,6 +467,12 @@ sub skip_errors_check {
 	$self->{_errors_to_skip}{$level} //= [];
 	push @{ $self->{_errors_to_skip}{$level} }, @pattern;
 
+	return $self;
+}
+
+sub skip_api_check {
+	my $self = shift;
+	$self->{_api_skipped} = 1;
 	return $self;
 }
 
@@ -857,6 +867,8 @@ sub _stop_pid {
 sub stop() {
 	my ($self) = @_;
 
+	$self->test_api();
+
 	return $self unless $self->{_started};
 
 	my $pid = $self->read_file('nginx.pid');
@@ -944,6 +956,11 @@ sub write_file_expand($$) {
 	$content =~ s/%%PORT_(\d+)%%/port($1)/gmse;
 	$content =~ s/%%PORT_(\d+)_UDP%%/port($1, udp => 1)/gmse;
 
+	$content .= "%%AUTO_GENERATED_API1%%";
+
+	$content
+		=~ s/%%AUTO_GENERATED_API(\d*)%%/$self->auto_generated_api($1)/gmse;
+
 	return $self->write_file($name, $content);
 }
 
@@ -972,6 +989,51 @@ sub run_daemon($;@) {
 sub testdir() {
 	my ($self) = @_;
 	return $self->{_testdir};
+}
+
+sub auto_generated_api {
+	my ($self, $add_http) = @_;
+
+	return ''
+		if $self->{_api_added};
+
+	return ''
+		if $self->{_api_skipped};
+
+	return ''
+		unless $self->has_module('http_api') && $self->has_feature('unix');
+
+	eval { require IO::Socket::UNIX; };
+	return ''
+		if $@;
+
+	$self->{_api_added} = 1;
+	$self->{_api_location} = '/auto-generated-api/';
+	$self->{_api_socket} = $self->{_testdir} . '/api.sock';
+
+	my $auto_generated_api = <<EOF;
+
+    server {
+        listen unix:$self->{_api_socket};
+
+        location $self->{_api_location} {
+            api /status/;
+        }
+    }
+EOF
+
+	if ($add_http) {
+		my $http_globals = $self->test_globals_http();
+
+		return <<EOF;
+http {
+    $http_globals
+$auto_generated_api
+}
+EOF
+	} else {
+		return $auto_generated_api;
+	}
 }
 
 sub test_globals() {
@@ -1057,26 +1119,29 @@ sub test_globals_http() {
 	my $s = '';
 
 	$s .= "root $self->{_testdir};\n";
-	$s .= "access_log $self->{_testdir}/access.log;\n";
-	$s .= "client_body_temp_path $self->{_testdir}/client_body_temp;\n";
+	$s .= "    access_log $self->{_testdir}/access.log;\n";
+	$s .= "    client_body_temp_path $self->{_testdir}/client_body_temp;\n";
 
-	$s .= "fastcgi_temp_path $self->{_testdir}/fastcgi_temp;\n"
+	$s .= "    fastcgi_temp_path $self->{_testdir}/fastcgi_temp;\n"
 		if $self->has_module('fastcgi');
 
-	$s .= "proxy_temp_path $self->{_testdir}/proxy_temp;\n"
+	$s .= "    proxy_temp_path $self->{_testdir}/proxy_temp;\n"
 		if $self->has_module('proxy');
 
-	$s .= "uwsgi_temp_path $self->{_testdir}/uwsgi_temp;\n"
+	$s .= "    uwsgi_temp_path $self->{_testdir}/uwsgi_temp;\n"
 		if $self->has_module('uwsgi');
 
-	$s .= "scgi_temp_path $self->{_testdir}/scgi_temp;\n"
+	$s .= "    scgi_temp_path $self->{_testdir}/scgi_temp;\n"
 		if $self->has_module('scgi');
 
-	$s .= "acme_client_path $self->{_testdir}/acme_client;\n"
+	$s .= "    acme_client_path $self->{_testdir}/acme_client;\n"
 		if $self->has_module('acme');
 
 	$s .= $ENV{TEST_ANGIE_GLOBALS_HTTP}
 		if $ENV{TEST_ANGIE_GLOBALS_HTTP};
+
+	$s .= "%%AUTO_GENERATED_API%%"
+		unless $self->{_api_added};
 
 	$self->{_test_globals_http} = $s;
 }
@@ -1163,12 +1228,17 @@ sub http_start($;%) {
 		local $SIG{PIPE} = sub { die "sigpipe\n" };
 		alarm(8);
 
-		$s = $extra{socket} || IO::Socket::INET->new(
-			Proto => 'tcp',
-			PeerAddr => '127.0.0.1:' . port($port),
-			%extra
-		)
-			or die "Can't connect to nginx: $!\n";
+		if (%extra && defined $extra{unix_socket_params}) {
+			$s = IO::Socket::UNIX->new(%{ $extra{unix_socket_params} })
+				or die "Can't connect to nginx: $!\n";
+		} else {
+			$s = $extra{socket} || IO::Socket::INET->new(
+				Proto => 'tcp',
+				PeerAddr => '127.0.0.1:' . port($port),
+				%extra
+			)
+				or die "Can't connect to nginx: $!\n";
+		}
 
 		if ($extra{SSL}) {
 			require IO::Socket::SSL;
@@ -1351,6 +1421,41 @@ sub run_tests {
 	}
 
 	return $self;
+}
+
+sub test_api {
+	my $self = shift;
+
+	return
+		if !Test::More->builder->expected_tests || $self->{_api_checked};
+
+	SKIP: {
+		if ($self->{_api_skipped}) {
+			Test::More::skip 'API (can\'t check)', 1;
+		}
+
+		unless ($self->{_api_added}) {
+			Test::More::skip 'API (api is not configured)', 1;
+		}
+
+		unless ($self->{_started}) {
+			Test::More::skip 'API (the server is already stopped)', 1;
+		}
+
+		my $unix_socket_params = {
+			Peer => $self->{_api_socket},
+		};
+
+		my ($res, $details) = traverse_api_status($self->{_api_location},
+			api_status($self), unix_socket_params => $unix_socket_params);
+
+		my $ok = Test::More::ok($res, 'API');
+		unless ($ok) {
+			Test::More::diag(Test::More::explain($details));
+		}
+	}
+
+	$self->{_api_checked} = 1;
 }
 
 ###############################################################################

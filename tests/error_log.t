@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Nginx, Inc.
 
 # Tests for error_log.
@@ -25,7 +26,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http limit_req/)
-	->plan(25)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(25)->skip_api_check()->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 

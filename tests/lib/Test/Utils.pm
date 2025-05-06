@@ -42,31 +42,31 @@ sub _parse_response {
 }
 
 sub get_json {
-	my ($uri) = @_;
+	my ($uri, %extra) = @_;
 
-	my $res = _parse_response(http_get($uri));
+	my $res = _parse_response(http_get($uri, %extra));
 	return $res->{j};
 }
 
 sub put_json {
-	my ($uri, $jbody, $asis) = @_;
-	return send_json('PUT', $uri, $jbody, $asis);
+	my ($uri, $jbody, $asis, %extra) = @_;
+	return send_json('PUT', $uri, $jbody, $asis, %extra);
 }
 
 sub patch_json {
-	my ($uri, $jbody, $asis) = @_;
-	return send_json('PATCH', $uri, $jbody, $asis);
+	my ($uri, $jbody, $asis, %extra) = @_;
+	return send_json('PATCH', $uri, $jbody, $asis, %extra);
 }
 
 sub delete_json {
-	my ($uri) = @_;
+	my ($uri, %extra) = @_;
 
-	my $response = http_delete($uri);
+	my $response = http_delete($uri, %extra);
 	return _parse_response($response);
 }
 
 sub send_json {
-	my ($method, $uri, $jbody, $asis) = @_;
+	my ($method, $uri, $jbody, $asis, %extra) = @_;
 
 	my $payload;
 
@@ -78,7 +78,7 @@ sub send_json {
 		$payload = $jobj->encode($jbody);
 	}
 
-	my $response = http_body($method, $uri, $payload);
+	my $response = http_body($method, $uri, $payload, %extra);
 	return _parse_response($response);
 }
 

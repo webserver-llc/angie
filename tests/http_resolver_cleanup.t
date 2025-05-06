@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -55,6 +56,7 @@ http {
 
 EOF
 
+$t->skip_api_check();
 $t->run_daemon(\&dns_daemon, $t);
 $t->run()->waitforfile($t->testdir . '/' . port(8981));
 

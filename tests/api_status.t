@@ -18,14 +18,15 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/get_json put_json delete_json patch_json/;
+use Test::Nginx::Stream qw/stream/;
+use Test::Utils qw/get_json put_json delete_json patch_json stream_daemon/;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_api stream/)
+my $t = Test::Nginx->new()->has(qw/http http_api rewrite stream/)
 	->has(qw/upstream_zone stream_upstream_zone/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -46,9 +47,15 @@ http {
 
     upstream u1 {
         zone z1 256k;
-        server 127.0.0.1:%%PORT_8081%% sid=s1 max_conns=1;
-        server 127.0.0.1:%%PORT_8082%% sid=s2 max_conns=2 weight=2;
+        server 127.0.0.1:8081 sid=s1 max_conns=1;
+        server 127.0.0.1:8082 sid=s2 max_conns=2 weight=2 backup;
         keepalive 4;
+    }
+
+    server {
+        listen 127.0.0.1:8081;
+        listen 127.0.0.1:8082;
+        return 200 OK;
     }
 
     server {
@@ -61,10 +68,10 @@ http {
         access_log %%TESTDIR%%/access.log combined;
 
         location / {
-            root /usr/share/angie/html;
             status_zone location_zone;
             limit_conn limit_conn_zone 1;
             limit_req zone=limit_req_zone burst=5;
+            proxy_pass http://u1;
         }
 
         location /status/ {
@@ -80,21 +87,27 @@ http {
 stream {
     upstream u2 {
         zone z2 256k;
-        server 127.0.0.1:%%PORT_8081%% sid=s1 max_conns=1;
-        server 127.0.0.1:%%PORT_8082%% sid=s2 max_conns=2 weight=2;
+        server 127.0.0.1:8071 sid=s1 max_conns=1;
+        server 127.0.0.1:8072 sid=s2 max_conns=2 weight=2 backup;
     }
 
     server {
         server_name www.example.com;
         listen 127.0.0.1:8090;
-        status_zone http_server_zone;
+        status_zone stream_server_zone;
         proxy_pass u2;
     }
 }
 
 EOF
 
+$t->run_daemon(\&stream_daemon, port(8071));
+$t->run_daemon(\&stream_daemon, port(8072));
+
 $t->run();
+
+$t->waitforsocket('127.0.0.1:' . port(8071));
+$t->waitforsocket('127.0.0.1:' . port(8072));
 
 # to produce some stats
 get_json('/status/');
@@ -116,6 +129,9 @@ my %test_cases = (
 
 	'/status/' => sub {
 		my $t = shift;
+
+		http_get('/');
+		stream('127.0.0.1:' . port(8090))->io('....$');
 
 		my $with_debug = $t->has_module('--with-debug');
 
@@ -149,7 +165,7 @@ my %test_cases = (
 				config_files => {
 					$t->testdir . '/nginx.conf' => $t->read_file('nginx.conf'),
 				},
-				generation => $num_re,
+				generation => 1,
 				load_time  => $time_re,
 				version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
 				(defined $build) ? (build => $build) : (),
@@ -158,8 +174,8 @@ my %test_cases = (
 			connections => superhashof({
 				accepted => $num_re,
 				active   => $num_re,
-				dropped  => $num_re,
-				idle     => $num_re,
+				dropped  => 0,
+				idle     => 0,
 			}),
 			slabs => superhashof({
 				limit_conn_zone => $zone,
@@ -172,71 +188,73 @@ my %test_cases = (
 				caches => superhashof({
 					cache_zone => superhashof({
 						bypass => superhashof({
-							bytes             => $num_re,
-							bytes_written     => $num_re,
-							responses         => $num_re,
-							responses_written => $num_re
+							bytes             => 0,
+							bytes_written     => 0,
+							responses         => 0,
+							responses_written => 0,
 						}),
 						cold    => JSON::true(),
 						expired => superhashof({
-							bytes             => $num_re,
-							bytes_written     => $num_re,
-							responses         => $num_re,
-							responses_written => $num_re
+							bytes             => 0,
+							bytes_written     => 0,
+							responses         => 0,
+							responses_written => 0,
 						}),
 						hit => superhashof({
-							bytes     => $num_re,
-							responses => $num_re
+							bytes     => 0,
+							responses => 0,
 						}),
 						miss => superhashof({
-							bytes             => $num_re,
-							bytes_written     => $num_re,
-							responses         => $num_re,
-							responses_written => $num_re
+							bytes             => 2,
+							bytes_written     => 0,
+							responses         => 1,
+							responses_written => 0,
 						}),
 						revalidated => superhashof({
-							bytes     => $num_re,
-							responses => $num_re
+							bytes     => 0,
+							responses => 0,
 						}),
-						size  => $num_re,
+						size  => 0,
 						stale => superhashof({
-							bytes     => $num_re,
-							responses => $num_re
+							bytes     => 0,
+							responses => 0,
 						}),
 						updating => superhashof({
-							bytes     => $num_re,
-							responses => $num_re
+							bytes     => 0,
+							responses => 0,
 						}),
 					}),
 				}),
 				limit_conns => superhashof({
 					limit_conn_zone => superhashof({
-						exhausted => $num_re,
-						passed    => $num_re,
-						rejected  => $num_re,
-						skipped   => $num_re
+						exhausted => 0,
+						passed    => 1,
+						rejected  => 0,
+						skipped   => 0,
 					}),
 				}),
 				limit_reqs => superhashof({
 					limit_req_zone => superhashof({
-						delayed   => $num_re,
-						exhausted => $num_re,
-						passed    => $num_re,
-						rejected  => $num_re,
-						skipped   => $num_re,
+						delayed   => 0,
+						exhausted => 0,
+						passed    => 1,
+						rejected  => 0,
+						skipped   => 0,
 					}),
 				}),
 				location_zones => superhashof({
 					location_zone => superhashof({
 						data => superhashof({
-							received => $num_re,
-							sent     => $num_re
+							received => 32,
+							sent     => 144,
 						}),
 						requests => superhashof({
-							discarded => $num_re,
-							total     => $num_re
+							discarded => 0,
+							total     => 1,
 						}),
-						responses => superhashof({}),
+						responses => superhashof({
+							200 => 1,
+						}),
 					}),
 				}),
 				server_zones => superhashof({
@@ -246,7 +264,7 @@ my %test_cases = (
 							sent     => $num_re,
 						}),
 						requests => superhashof({
-							discarded  => $num_re,
+							discarded  => 0,
 							processing => $num_re,
 							total      => $num_re,
 						}),
@@ -259,25 +277,25 @@ my %test_cases = (
 				}),
 				upstreams => {
 					u1 => superhashof({
-						keepalive => $num_re,
+						keepalive => 0,
 						peers     => {
 							'127.0.0.1:' . port(8081) => superhashof({
 								backup => JSON::false(),
 								data   => superhashof({
-									received => $num_re,
-									sent     => $num_re,
+									received => 144,
+									sent     => 47,
 								}),
 								health => superhashof({
-									downtime => $num_re,
-									fails    => $num_re,
-									unavailable => $num_re,
+									downtime => 0,
+									fails    => 0,
+									unavailable => 0,
 								}),
 								max_conns => 1,
-								($with_debug ? (refs => $num_re) : ()),
+								($with_debug ? (refs => 0) : ()),
 								responses => superhashof({}),
 								selected  => superhashof({
-									current => $num_re,
-									total   => $num_re,
+									current => 0,
+									total   => 1,
 								}),
 								server => '127.0.0.1:' . port(8081),
 								sid    => 's1',
@@ -285,22 +303,22 @@ my %test_cases = (
 								weight => 1
 							}),
 							'127.0.0.1:' . port(8082) => superhashof({
-								backup => JSON::false(),
+								backup => JSON::true(),
 								data   => superhashof({
-									received => $num_re,
-									sent     => $num_re,
+									received => 0,
+									sent     => 0,
 								}),
 								health => superhashof({
-									downtime => $num_re,
-									fails    => $num_re,
-									unavailable => $num_re,
+									downtime => 0,
+									fails    => 0,
+									unavailable => 0,
 								}),
 								max_conns => 2,
-								($with_debug ? (refs => $num_re) : ()),
+								($with_debug ? (refs => 0) : ()),
 								responses => superhashof({}),
 								selected  => superhashof({
-									current => $num_re,
-									total   => 0
+									current => 0,
+									total   => 0,
 								}),
 								server => '127.0.0.1:' . port(8082),
 								sid    => 's2',
@@ -308,8 +326,8 @@ my %test_cases = (
 								weight => 2,
 							}),
 						},
-						($with_debug ? (zombies => $num_re) : ()),
-						($with_debug ? (zone    => 'z1')    : ()),
+						($with_debug ? (zombies => 0)    : ()),
+						($with_debug ? (zone    => 'z1') : ()),
 					}),
 				},
 			}),
@@ -317,83 +335,83 @@ my %test_cases = (
 			stream => superhashof({
 				limit_conns => superhashof({}),
 				server_zones => superhashof({
-					http_server_zone => superhashof({
+					stream_server_zone => superhashof({
 						data => superhashof({
-							received => $num_re,
-							sent     => $num_re,
+							received => 5,
+							sent     => length(port(8071)),
 						}),
 						connections => superhashof({
-							discarded  => $num_re,
-							processing => $num_re,
-							total      => $num_re,
-							passed     => $num_re,
+							discarded  => 0,
+							processing => 0,
+							total      => 1,
+							passed     => 0,
 						}),
 						sessions => superhashof({
-							bad_gateway         => $num_re,
-							forbidden           => $num_re,
-							internal_error      => $num_re,
-							invalid             => $num_re,
-							service_unavailable => $num_re,
-							success             => $num_re,
+							bad_gateway         => 0,
+							forbidden           => 0,
+							internal_error      => 0,
+							invalid             => 0,
+							service_unavailable => 0,
+							success             => 1,
 						}),
 					}),
 				}),
 				upstreams => {
 					u2 => {
 						peers => {
-							'127.0.0.1:' . port(8081) => superhashof({
+							'127.0.0.1:' . port(8071) => superhashof({
 								backup => JSON::false(),
 								data   => superhashof({
-									received => $num_re,
-									sent     => $num_re,
+									received => length(port(8071)),
+									sent     => 5,
 								}),
 								health => superhashof({
-									downtime => $num_re,
-									fails    => $num_re,
-									unavailable => $num_re,
+									downtime => 0,
+									fails    => 0,
+									unavailable => 0,
 								}),
 								max_conns => 1,
-								($with_debug ? (refs => $num_re) : ()),
+								($with_debug ? (refs => 0) : ()),
 								selected  => superhashof({
-									current => $num_re,
-									total   => $num_re,
+									current => 0,
+									total   => 1,
 								}),
-								server => '127.0.0.1:' . port(8081),
+								server => '127.0.0.1:' . port(8071),
 								sid    => 's1',
 								state  => 'up',
 								weight => 1
 							}),
-							'127.0.0.1:' . port(8082) => superhashof({
-								backup => JSON::false(),
+							'127.0.0.1:' . port(8072) => superhashof({
+								backup => JSON::true(),
 								data   => superhashof({
-									received => $num_re,
-									sent     => $num_re,
+									received => 0,
+									sent     => 0,
 								}),
 								health => superhashof({
-									downtime => $num_re,
-									fails    => $num_re,
-									unavailable => $num_re,
+									downtime => 0,
+									fails    => 0,
+									unavailable => 0,
 								}),
 								max_conns => 2,
-								($with_debug ? (refs => $num_re) : ()),
+								($with_debug ? (refs => 0) : ()),
 								selected  => superhashof({
-									current => $num_re,
+									current => 0,
 									total   => 0
 								}),
-								server => '127.0.0.1:' . port(8082),
+								server => '127.0.0.1:' . port(8072),
 								sid    => 's2',
 								state  => 'up',
 								weight => 2,
 							}),
 						},
-						($with_debug ? (zombies => $num_re) : ()),
-						($with_debug ? (zone    => 'z2')    : ()),
+						($with_debug ? (zombies => 0)    : ()),
+						($with_debug ? (zone    => 'z2') : ()),
 					},
 				},
 			}),
 		});
 
-		traverse_api('/status/', $status);
+		test_api('/status/', $status);
 	},
 );
 
@@ -403,18 +421,19 @@ $t->run_tests(\%test_cases);
 
 ###############################################################################
 
-sub traverse_api {
+sub test_api {
 	my ($uri, $expected) = @_;
 
-	my $get_res = get_json($uri);
+	my $api_status = get_json($uri);
+	note(explain($api_status));
 
-	cmp_deeply($get_res, $expected, "GET $uri OK")
+	cmp_deeply($api_status, $expected, "GET $uri OK")
 		or return;
 
 	if (ref $expected eq 'Test::Deep::SuperHash') {
 		$expected = $expected->{val};
 
-		my ($ok, $stack) = cmp_details($get_res, $expected);
+		my ($ok, $stack) = cmp_details($api_status, $expected);
 		diag("WARNING: GET $uri: " . deep_diag($stack))
 			unless $ok;
 	}
@@ -460,19 +479,6 @@ sub traverse_api {
 		"PATCH $uri error OK"
 	)
 		or return;
-
-	if (ref $expected eq 'Test::Deep::HashEach') {
-		for my $key (keys %{ $get_res }) {
-			traverse_api($uri . "$key/", $expected->{val})
-				or return;
-		}
-	} elsif (ref $expected eq 'HASH') {
-		while (my ($key, $value) = each %{ $expected }) {
-			next if $key eq 'config_files';
-			traverse_api($uri . "$key/", $value)
-				or return;
-		}
-	}
 
 	return 1;
 }

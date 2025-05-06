@@ -117,10 +117,6 @@ commonName=no.match.example.com
 subjectAltName = DNS:example.com,DNS:*.example.com
 EOF
 
-my $ssl_port1 = port(8443);
-my $ssl_port2 = port(8543);
-my $ssl_port3 = port(8643);
-
 foreach my $dir ($client_dir1, $client_dir2, $client_dir3) {
 	my $cert = "$dir/certificate.pem";
 	my $cert_key = "$dir/private.key";
@@ -139,9 +135,9 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 
 $t->plan(3);
 
-like(http_get('/a', SSL => 1, PeerAddr => '127.0.0.1:' . $ssl_port1),
+like(http_get('/a', SSL => 1, PeerAddr => '127.0.0.1:' . port(8443)),
 	qr/SECURED 1/, 'client disabled but certificate accessible');
-like(http_get('/b', SSL => 1, PeerAddr => '127.0.0.1:' . $ssl_port2),
+like(http_get('/b', SSL => 1, PeerAddr => '127.0.0.1:' . port(8543)),
 	qr/SECURED 2/, 'client unused but certificate accessible');
-like(http_get('/c', SSL => 1, PeerAddr => '127.0.0.1:' . $ssl_port3),
+like(http_get('/c', SSL => 1, PeerAddr => '127.0.0.1:' . port(8643)),
 	qr/SECURED 3/, 'invalid domain but certificate accessible');

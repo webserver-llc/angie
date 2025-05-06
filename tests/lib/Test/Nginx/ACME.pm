@@ -4,12 +4,15 @@ package Test::Nginx::ACME;
 
 # Utils for nginx ACME tests.
 
+# TODO we need check that pebble and challtestsrv are ready to accept requests
+
 ###############################################################################
 
 use warnings;
 use strict;
 
 use POSIX qw/ waitpid WNOHANG /;
+use Test::More;
 use Test::Nginx qw/port/;
 
 # This module requires pebble and pebble-challtestsrv (see
@@ -76,7 +79,7 @@ sub new {
 	my ($class, $params) = @_;
 	my $self = bless $params, $class;
 
-	die 'No Test::Nginx instance passed to newly created ACME helper object'
+	BAIL_OUT 'No Test::Nginx instance passed to newly created ACME helper object'
 		if !defined $self->{t} || ref $self->{t} ne 'Test::Nginx';
 
 	$self->{dns_port} //= port(8053);
@@ -103,9 +106,13 @@ sub start_pebble {
 	my $pebble_cert = 'pebble-cert.pem';
 	$self->{t}->write_file($pebble_cert, PEBBLE_CERT);
 
-	my $mgmt_port = $params->{mgmt_port} // port(15000);
-	my $tls_port  = $params->{tls_port}  // port(5001);
-	my $http_port = $params->{http_port} // port(5002);
+	my $mgmt_addr = defined $params->{mgmt_port}
+		? '0.0.0.0:' . $params->{mgmt_port}
+		: '';
+
+	my $tls_port    = $params->{tls_port}    // port(5001);
+	my $http_port   = $params->{http_port}   // port(5002);
+	my $pebble_port = $params->{pebble_port} // port(14000);
 	my $dns_port = defined $params->{dns_port}
 		? $params->{dns_port}
 		: $self->{dns_port};
@@ -121,8 +128,8 @@ sub start_pebble {
 	$self->{t}->write_file($pebble_config, <<"EOF");
 {
   "pebble": {
-    "listenAddress": "0.0.0.0:$params->{pebble_port}",
-    "managementListenAddress": "0.0.0.0:$mgmt_port",
+    "listenAddress": "0.0.0.0:$pebble_port",
+    "managementListenAddress": "$mgmt_addr",
     "certificate": "$d/$pebble_cert",
     "privateKey": "$d/$pebble_key",
     "httpPort": $http_port,
@@ -149,18 +156,31 @@ EOF
 		'-dnsserver', '127.0.0.1:' . $dns_port
 	);
 
-	my $pid = $self->{t}->{_daemons}[-1];
+	my $pid = $self->{t}{_daemons}[-1];
+	$self->{t}{pebble} = $pid;
 
-	$self->{t}->waitforsslsocket("0.0.0.0:$mgmt_port")
-		or die("Couldn't start pebble");
+	if ($mgmt_addr) {
+		unless ($self->{t}->waitforsslsocket($mgmt_addr)) {
+			$self->stop_pebble();
+			BAIL_OUT "Couldn't start pebble's management interface on "
+				. $mgmt_addr . ", pid $pid";
+		}
 
-	$self->{t}->{pebble} = $pid;
+		note("Pebble's management interface running on $mgmt_addr, pid $pid");
+	}
+
+	unless ($self->{t}->waitforsslsocket("0.0.0.0:$pebble_port")) {
+		$self->stop_pebble();
+		BAIL_OUT "Couldn't start pebble on 0.0.0.0:$pebble_port, pid $pid";
+	}
+
+	note("Pebble running on 0.0.0.0:$pebble_port, pid $pid");
 }
 
 sub stop_pebble {
 	my ($self) = @_;
 
-	my $pid = $self->{t}->{pebble};
+	my $pid = $self->{t}{pebble};
 
 	return unless $pid;
 
@@ -175,7 +195,9 @@ sub stop_pebble {
 	}
 
 	$self->_stop_pid($pid, 1) unless $exited;
-	undef $self->{t}->{pebble};
+	undef $self->{t}{pebble};
+
+	note("Pebble $pid stopped");
 }
 
 sub start_challtestsrv {
@@ -196,7 +218,7 @@ sub start_challtestsrv {
 		? $params->{dns_port}
 		: $self->{dns_port};
 
-
+	my $d = $self->{t}->testdir();
 	$self->{t}->run_daemon($challtestsrv,
 		'-management', ":$mgmt_port",
 		'-defaultIPv6', '',
@@ -207,18 +229,32 @@ sub start_challtestsrv {
 		'-tlsalpn01', '',
 	);
 
-	my $pid = $self->{t}->{_daemons}[-1];
+	my $pid = $self->{t}{_daemons}[-1];
 
-	$self->{t}->waitforsocket("0.0.0.0:$mgmt_port")
-		or die("Couldn't start challtestsrv");
+	$self->{t}{challtestsrv} = $pid;
 
-	$self->{t}->{challtestsrv} = $pid;
+	unless ($self->{t}->waitforsocket("0.0.0.0:$mgmt_port")) {
+		$self->stop_challtestsrv();
+		BAIL_OUT "Couldn't start challtestsrv's management interface on "
+			. "0.0.0.0:$mgmt_port, pid $pid";
+	}
+
+	note("Challtestsrv's management interface running on 0.0.0.0:$mgmt_port, "
+		. "pid $pid");
+
+	unless ($self->{t}->waitforsocket("127.0.0.1:$dns_port")) {
+		$self->stop_challtestsrv();
+		BAIL_OUT "Couldn't start challtestsrv's DNS server on "
+			. "127.0.0.1:$dns_port, pid $pid";
+	}
+
+	note("Challtestsrv's DNS server running on 127.0.0.1:$dns_port, pid $pid");
 }
 
 sub stop_challtestsrv {
 	my ($self) = @_;
 
-	my $pid = $self->{t}->{challtestsrv};
+	my $pid = $self->{t}{challtestsrv};
 
 	return unless $pid;
 
@@ -233,7 +269,9 @@ sub stop_challtestsrv {
 	}
 
 	$self->_stop_pid($pid, 1) unless $exited;
-	undef $self->{t}->{challtestsrv};
+	undef $self->{t}{challtestsrv};
+
+	note("Challtestsrv $pid stopped");
 }
 
 1;

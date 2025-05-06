@@ -37,7 +37,7 @@ my $d = $t->testdir();
 # "Address already in use" error).
 # While it is not entirely safe to use this port number, this shouldn't cause
 # problems in most cases.
-my $dns_port = 20053;
+my $dns_port = 13053;
 
 my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
 
@@ -127,11 +127,9 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 
 $t->plan(2);
 
-my $cert_file = "$d/acme_client/test/certificate.pem";
-
 my ($obtained, $empty_key) = (0, 0);
 
-for (1 .. 30) {
+for (1 .. 480) {
 	my $s = http_content(http_get('/', SSL => 1));
 
 	if (defined $s) {
@@ -144,7 +142,7 @@ for (1 .. 30) {
 		last if $obtained;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 ok($empty_key, 'key empty without certificate');

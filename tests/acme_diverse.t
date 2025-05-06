@@ -53,7 +53,7 @@ my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
 
 # XXX
 my $dns_port = 11053;
-my $angie_dns_port = 12053;
+my $angie_dns_port = 11153;
 
 my $acme_helper = Test::Nginx::ACME->new({
 	t => $t,
@@ -238,7 +238,6 @@ EOF
 # Step 1
 
 $acme_helper->start_challtestsrv({
-#	http_port => undef,
 	mgmt_port => $challtestsrv_mgmt_port
 });
 
@@ -247,14 +246,13 @@ $acme_helper->start_pebble({
 	http_port => $angie_http_port
 });
 
-$t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
+$t->run();
 
 $t->plan(scalar @clients + 2);
 
 my $renewed_count = 0;
 my $n = 0;
-my $cli_timeout = 20;
+my $cli_timeout = 360;
 my $loop_start = time();
 
 for (1 .. $cli_timeout * $http_chlg_count) {
@@ -266,7 +264,7 @@ for (1 .. $cli_timeout * $http_chlg_count) {
 
 		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-		if (-e $cert_file && -s $cert_file) {
+		if (-s $cert_file) {
 			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
 			next if $s eq '';
@@ -289,11 +287,11 @@ for (1 .. $cli_timeout * $http_chlg_count) {
 	if (!$n && time() - $loop_start > $cli_timeout) {
 		# If none of the clients has renewed during this time,
 		# then there's probably no need to wait longer.
-		note("$0: Quitting on timeout ...");
+		diag("$0: Quitting on timeout ...");
 		goto bad;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 $acme_helper->stop_pebble();
@@ -314,7 +312,7 @@ $acme_helper->start_pebble({
 
 
 $n = 0;
-$cli_timeout = 30;
+$cli_timeout = 360;
 $loop_start = time();
 
 for (1 .. $cli_timeout * $dns_chlg_count) {
@@ -326,7 +324,7 @@ for (1 .. $cli_timeout * $dns_chlg_count) {
 
 		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-		if (-e $cert_file && -s $cert_file) {
+		if (-s $cert_file) {
 			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
 			next if $s eq '';
@@ -349,11 +347,11 @@ for (1 .. $cli_timeout * $dns_chlg_count) {
 	if (!$n && time() - $loop_start > $cli_timeout) {
 		# If none of the clients has renewed during this time,
 		# then there's probably no need to wait longer.
-		note("$0: Quitting on timeout ...");
+		diag("$0: Quitting on timeout ...");
 		goto bad;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 $acme_helper->stop_pebble();
@@ -373,7 +371,7 @@ $acme_helper->start_pebble({
 $t->run_daemon(\&hook_handler, $t, $hook_port);
 
 $n = 0;
-$cli_timeout = 40;
+$cli_timeout = 360;
 $loop_start = time();
 
 for (1 .. $cli_timeout * $hook_chlg_count) {
@@ -383,7 +381,7 @@ for (1 .. $cli_timeout * $hook_chlg_count) {
 
 		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-		if (-e $cert_file && -s $cert_file) {
+		if (-s $cert_file) {
 			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
 			next if $s eq '';
@@ -406,11 +404,11 @@ for (1 .. $cli_timeout * $hook_chlg_count) {
 	if (!$n && time() - $loop_start > $cli_timeout) {
 		# If none of the clients has renewed during this time,
 		# then there's probably no need to wait longer.
-		note("$0: Quitting on timeout ...");
+		diag("$0: Quitting on timeout ...");
 		last;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 bad:

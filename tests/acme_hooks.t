@@ -39,7 +39,7 @@ my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
 # "Address already in use" error).
 # While it is not entirely safe to use this port number, this shouldn't cause
 # problems in most cases.
-my $dns_port = 10053;
+my $dns_port = 14053;
 
 my $acme_helper = Test::Nginx::ACME->new({
 	t => $t,
@@ -212,14 +212,14 @@ $t->plan(scalar @clients + 2);
 my $renewed_count = 0;
 my $loop_start = time();
 
-for (1 .. 20 * @clients) {
+for (1 .. 360 * @clients) {
 
 	for my $cli (@clients) {
 		next if $cli->{renewed};
 
 		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-		if (-e $cert_file && -s $cert_file) {
+		if (-s $cert_file) {
 			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
 			next if $s eq '';
@@ -237,14 +237,14 @@ for (1 .. 20 * @clients) {
 
 	last if $renewed_count == @clients;
 
-	if (!$renewed_count && time() - $loop_start > 20) {
+	if (!$renewed_count && time() - $loop_start > 60) {
 		# If none of the clients has renewed during this time,
 		# then there's probably no need to wait longer.
-		note("$0: Quitting on timeout ...");
+		diag("$0: Quitting on timeout ...");
 		last;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 for my $cli (@clients) {

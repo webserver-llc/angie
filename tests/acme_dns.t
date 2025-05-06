@@ -28,7 +28,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
 
 # XXX
-my $dns_port = 11053;
+my $dns_port = 12053;
 
 my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
 
@@ -142,22 +142,19 @@ EOF
 
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
-$t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
-
-$t->plan(scalar @clients);
+$t->run()->plan(scalar @clients);
 
 my $renewed_count = 0;
 my $loop_start = time();
 
-for (1 .. 30 * @clients) {
+for (1 .. 360 * @clients) {
 
 	for my $cli (@clients) {
 		next if $cli->{renewed};
 
 		my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
 
-		if (-e $cert_file && -s $cert_file) {
+		if (-s $cert_file) {
 			my $s = `openssl x509 -in $cert_file -enddate -noout|cut -d= -f 2`;
 
 			next if $s eq '';
@@ -175,14 +172,14 @@ for (1 .. 30 * @clients) {
 
 	last if $renewed_count == @clients;
 
-	if (!$renewed_count && time() - $loop_start > 30) {
+	if (!$renewed_count && time() - $loop_start > 360) {
 		# If none of the clients has renewed during this time,
 		# then there's probably no need to wait longer.
-		note("$0: Quitting on timeout ...");
+		diag("$0: Quitting on timeout ...");
 		last;
 	}
 
-	sleep 1;
+	select undef, undef, undef, 0.5;
 }
 
 for my $cli (@clients) {

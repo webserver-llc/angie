@@ -172,16 +172,14 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
     u_char                 *p, *end;
     size_t                  client_params_len;
     ngx_chain_t            *out;
+    unsigned int            alpn_len;
     const uint8_t          *client_params;
     ngx_quic_tp_t           peer_tp;
     ngx_quic_frame_t       *frame;
     ngx_connection_t       *c;
+    const unsigned char    *alpn_data;
     ngx_quic_send_ctx_t    *ctx;
     ngx_quic_connection_t  *qc;
-#if defined(TLSEXT_TYPE_application_layer_protocol_negotiation)
-    unsigned int            alpn_len;
-    const unsigned char    *alpn_data;
-#endif
 
     c = ngx_ssl_get_connection(ssl_conn);
     qc = ngx_quic_get_connection(c);
@@ -196,9 +194,7 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
          * here;
          */
 
-#if defined(TLSEXT_TYPE_application_layer_protocol_negotiation)
         if (!qc->client) {
-
             SSL_get0_alpn_selected(ssl_conn, &alpn_data, &alpn_len);
 
             if (alpn_len == 0) {
@@ -210,7 +206,6 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
                 return 0;
             }
         }
-#endif
 
         SSL_get_peer_quic_transport_params(ssl_conn, &client_params,
                                            &client_params_len);

@@ -199,11 +199,15 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
             SSL_get0_alpn_selected(ssl_conn, &alpn_data, &alpn_len);
 
             if (alpn_len == 0) {
-                qc->error = NGX_QUIC_ERR_CRYPTO(SSL_AD_NO_APPLICATION_PROTOCOL);
-                qc->error_reason = "unsupported protocol in ALPN extension";
+                if (qc->error == 0) {
+                    qc->error = NGX_QUIC_ERR_CRYPTO(
+                                               SSL_AD_NO_APPLICATION_PROTOCOL);
+                    qc->error_reason = "missing ALPN extension";
 
-                ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                              "quic unsupported protocol in ALPN extension");
+                    ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                                  "quic missing ALPN extension");
+                }
+
                 return 1;
             }
         }
@@ -247,11 +251,15 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
             }
 
             /* RFC 9001, 8.2.  QUIC Transport Parameters Extension */
-            qc->error = NGX_QUIC_ERR_CRYPTO(SSL_AD_MISSING_EXTENSION);
-            qc->error_reason = "missing transport parameters";
 
-            ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                          "missing transport parameters");
+            if (qc->error == 0) {
+                qc->error = NGX_QUIC_ERR_CRYPTO(SSL_AD_MISSING_EXTENSION);
+                qc->error_reason = "missing transport parameters";
+
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "missing transport parameters");
+            }
+
             return 1;
         }
     }

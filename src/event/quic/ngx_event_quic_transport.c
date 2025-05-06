@@ -282,7 +282,7 @@ ngx_int_t
 ngx_quic_parse_packet(ngx_quic_header_t *pkt)
 {
     if (!ngx_quic_long_pkt(pkt->flags)) {
-        pkt->level = ssl_encryption_application;
+        pkt->level = NGX_QUIC_ENCRYPTION_APPLICATION;
 
         if (ngx_quic_parse_short_header(pkt, NGX_QUIC_SERVER_CID_LEN) != NGX_OK)
         {
@@ -469,16 +469,16 @@ ngx_quic_parse_long_header_v1(ngx_quic_header_t *pkt)
             return NGX_ERROR;
         }
 
-        pkt->level = ssl_encryption_initial;
+        pkt->level = NGX_QUIC_ENCRYPTION_INITIAL;
 
     } else if (ngx_quic_pkt_zrtt(pkt->flags)) {
-        pkt->level = ssl_encryption_early_data;
+        pkt->level = NGX_QUIC_ENCRYPTION_EARLY_DATA;
 
     } else if (ngx_quic_pkt_hs(pkt->flags)) {
-        pkt->level = ssl_encryption_handshake;
+        pkt->level = NGX_QUIC_ENCRYPTION_HANDSHAKE;
 
     } else if (ngx_quic_pkt_retry(pkt->flags)) {
-        pkt->level = ssl_encryption_initial;
+        pkt->level = NGX_QUIC_ENCRYPTION_INITIAL;
 
         pkt->token.len = end - p;
 
@@ -617,7 +617,7 @@ ngx_quic_payload_size(ngx_quic_header_t *pkt, size_t pkt_len)
 
     /* flags, version, dcid and scid with lengths and zero-length token */
     len = 5 + 2 + pkt->dcid.len + pkt->scid.len
-          + (pkt->level == ssl_encryption_initial ? 1 : 0);
+          + (pkt->level == NGX_QUIC_ENCRYPTION_INITIAL ? 1 : 0);
 
     if (len > pkt_len) {
         return 0;
@@ -651,7 +651,7 @@ ngx_quic_create_long_header(ngx_quic_header_t *pkt, u_char *out,
     size_t   rem_len, tlen;
     u_char  *p, *start;
 
-    tlen = (pkt->level != ssl_encryption_initial)
+    tlen = (pkt->level != NGX_QUIC_ENCRYPTION_INITIAL)
                         ? 0
                         : ngx_quic_varint_len(pkt->token.len) + pkt->token.len;
 
@@ -675,7 +675,7 @@ ngx_quic_create_long_header(ngx_quic_header_t *pkt, u_char *out,
     *p++ = pkt->scid.len;
     p = ngx_cpymem(p, pkt->scid.data, pkt->scid.len);
 
-    if (pkt->level == ssl_encryption_initial) {
+    if (pkt->level == NGX_QUIC_ENCRYPTION_INITIAL) {
         ngx_quic_build_int(&p, pkt->token.len);
 
         if (pkt->token.len) {

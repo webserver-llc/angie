@@ -41,7 +41,7 @@ ngx_quic_handle_path_challenge_frame(ngx_connection_t *c,
     ngx_quic_frame_t       *fp;
     ngx_quic_connection_t  *qc;
 
-    if (pkt->level != ssl_encryption_application || pkt->path_challenged) {
+    if (pkt->level != NGX_QUIC_ENCRYPTION_APPLICATION || pkt->path_challenged) {
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
                        "quic ignoring PATH_CHALLENGE");
         return NGX_OK;
@@ -56,7 +56,7 @@ ngx_quic_handle_path_challenge_frame(ngx_connection_t *c,
         return NGX_ERROR;
     }
 
-    fp->level = ssl_encryption_application;
+    fp->level = NGX_QUIC_ENCRYPTION_APPLICATION;
     fp->type = NGX_QUIC_FT_PATH_RESPONSE;
     fp->u.path_response = *f;
 
@@ -94,7 +94,7 @@ ngx_quic_handle_path_challenge_frame(ngx_connection_t *c,
             return NGX_ERROR;
         }
 
-        fp->level = ssl_encryption_application;
+        fp->level = NGX_QUIC_ENCRYPTION_APPLICATION;
         fp->type = NGX_QUIC_FT_PING;
 
         ngx_quic_queue_frame(qc, fp);
@@ -178,7 +178,7 @@ valid:
     if (rst) {
         /* prevent old path packets contribution to congestion control */
 
-        ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+        ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
         qc->rst_pnum = ctx->pnum;
 
         ngx_quic_congestion_reset(qc);
@@ -543,7 +543,7 @@ ngx_quic_validate_path(ngx_connection_t *c, ngx_quic_path_t *path)
 
     (void) ngx_quic_send_path_challenge(c, path);
 
-    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+    ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
     pto = ngx_max(ngx_quic_pto(c, ctx), 1000);
 
     path->expires = ngx_current_msec + pto;
@@ -573,7 +573,7 @@ ngx_quic_send_path_challenge(ngx_connection_t *c, ngx_quic_path_t *path)
             return NGX_ERROR;
         }
 
-        frame->level = ssl_encryption_application;
+        frame->level = NGX_QUIC_ENCRYPTION_APPLICATION;
         frame->type = NGX_QUIC_FT_PATH_CHALLENGE;
 
         ngx_memcpy(frame->u.path_challenge.data, path->challenge[n], 8);
@@ -761,7 +761,7 @@ ngx_quic_expire_path_validation(ngx_connection_t *c, ngx_quic_path_t *path)
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
-    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+    ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
 
     if (++path->tries < NGX_QUIC_PATH_RETRIES) {
         pto = ngx_max(ngx_quic_pto(c, ctx), 1000) << path->tries;
@@ -824,7 +824,7 @@ ngx_quic_expire_path_mtu_delay(ngx_connection_t *c, ngx_quic_path_t *path)
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
-    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+    ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
 
     path->tries = 0;
 
@@ -870,7 +870,7 @@ ngx_quic_expire_path_mtu_discovery(ngx_connection_t *c, ngx_quic_path_t *path)
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
-    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+    ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
 
     if (++path->tries < NGX_QUIC_PATH_RETRIES) {
         rc = ngx_quic_send_path_mtu_probe(c, path);
@@ -916,13 +916,13 @@ ngx_quic_send_path_mtu_probe(ngx_connection_t *c, ngx_quic_path_t *path)
         return NGX_ERROR;
     }
 
-    frame->level = ssl_encryption_application;
+    frame->level = NGX_QUIC_ENCRYPTION_APPLICATION;
     frame->type = NGX_QUIC_FT_PING;
     frame->ignore_loss = 1;
     frame->ignore_congestion = 1;
 
     qc = ngx_quic_get_connection(c);
-    ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_application);
+    ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_APPLICATION);
     pnum = ctx->pnum;
 
     ngx_log_debug4(NGX_LOG_DEBUG_EVENT, c->log, 0,

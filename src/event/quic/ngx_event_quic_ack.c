@@ -37,7 +37,7 @@ typedef struct {
 static ngx_inline ngx_msec_t ngx_quic_time_threshold(ngx_quic_connection_t *qc);
 static uint64_t ngx_quic_packet_threshold(ngx_quic_send_ctx_t *ctx);
 static void ngx_quic_rtt_sample(ngx_connection_t *c, ngx_quic_ack_frame_t *ack,
-    enum ssl_encryption_level_t level, ngx_msec_t send_time);
+    ngx_uint_t level, ngx_msec_t send_time);
 static ngx_int_t ngx_quic_handle_ack_frame_range(ngx_connection_t *c,
     ngx_quic_send_ctx_t *ctx, uint64_t min, uint64_t max,
     ngx_quic_ack_stat_t *st);
@@ -111,7 +111,7 @@ ngx_quic_handle_ack_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     ctx = ngx_quic_get_send_ctx(qc, pkt->level);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                   "quic ngx_quic_handle_ack_frame level:%d", pkt->level);
+                   "quic ngx_quic_handle_ack_frame level:%ui", pkt->level);
 
     ack = &f->u.ack;
 
@@ -210,7 +210,7 @@ ngx_quic_handle_ack_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
 
 static void
 ngx_quic_rtt_sample(ngx_connection_t *c, ngx_quic_ack_frame_t *ack,
-    enum ssl_encryption_level_t level, ngx_msec_t send_time)
+    ngx_uint_t level, ngx_msec_t send_time)
 {
     ngx_msec_t              latest_rtt, ack_delay, adjusted_rtt, rttvar_sample;
     ngx_quic_connection_t  *qc;
@@ -263,7 +263,7 @@ ngx_quic_handle_ack_frame_range(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx,
 
     qc = ngx_quic_get_connection(c);
 
-    if (ctx->level == ssl_encryption_application) {
+    if (ctx->level == NGX_QUIC_ENCRYPTION_APPLICATION) {
         if (ngx_quic_handle_path_mtu(c, qc->path, min, max) != NGX_OK) {
             return NGX_ERROR;
         }
@@ -338,7 +338,7 @@ ngx_quic_handle_ack_frame_range(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx,
         ngx_post_event(&qc->push, &ngx_posted_events);
     }
 
-    if (qc->client && ctx->level == ssl_encryption_initial) {
+    if (qc->client && ctx->level == NGX_QUIC_ENCRYPTION_INITIAL) {
         /*
          * RFC 9002   6.2.1. Computing PTO
          *
@@ -663,7 +663,7 @@ ngx_quic_detect_lost(ngx_connection_t *c, ngx_quic_ack_stat_t *st)
             wait = start->send_time + thr - now;
 
             ngx_log_debug5(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                  "quic detect_lost pnum:%uL thr:%M pthr:%uL wait:%i level:%d",
+                  "quic detect_lost pnum:%uL thr:%M pthr:%uL wait:%i level:%ui",
                   start->pnum, thr, pkt_thr, (ngx_int_t) wait, start->level);
 
             if ((ngx_msec_int_t) wait > 0
@@ -816,7 +816,7 @@ ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
         switch (f->type) {
         case NGX_QUIC_FT_ACK:
         case NGX_QUIC_FT_ACK_ECN:
-            if (ctx->level == ssl_encryption_application) {
+            if (ctx->level == NGX_QUIC_ENCRYPTION_APPLICATION) {
                 /* force generation of most recent acknowledgment */
                 ctx->send_ack = NGX_QUIC_MAX_ACK_GAP;
             }
@@ -1087,7 +1087,7 @@ ngx_quic_set_lost_timer(ngx_connection_t *c)
 
     /* no lost packets and no in-flight packets */
     if (qc->client && !c->ssl->handshaked
-        && ngx_quic_keys_available(qc->keys, ssl_encryption_handshake, 1))
+        && ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_HANDSHAKE, 1))
     {
         /*
          * 6.2.2.1
@@ -1098,7 +1098,7 @@ ngx_quic_set_lost_timer(ngx_connection_t *c)
          * if there are no packets in flight.
          */
 
-        ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_handshake);
+        ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_HANDSHAKE);
 
         pto = (ngx_quic_pto(c, ctx) << qc->pto_count);
 
@@ -1126,7 +1126,7 @@ ngx_quic_pto(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
     duration = qc->avg_rtt;
     duration += ngx_max(4 * qc->rttvar, NGX_QUIC_TIME_GRANULARITY);
 
-    if (ctx->level == ssl_encryption_application && c->ssl->handshaked) {
+    if (ctx->level == NGX_QUIC_ENCRYPTION_APPLICATION && c->ssl->handshaked) {
         duration += qc->peer_tp.max_ack_delay;
     }
 
@@ -1217,11 +1217,11 @@ ngx_quic_pto_handler(ngx_event_t *ev)
 
     if (qc->client && !c->ssl->handshaked && !sent) {
 
-        if (ngx_quic_keys_available(qc->keys, ssl_encryption_handshake, 1)) {
-            ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_handshake);
+        if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_HANDSHAKE, 1)) {
+            ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_HANDSHAKE);
 
         } else {
-            ctx = ngx_quic_get_send_ctx(qc, ssl_encryption_initial);
+            ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_INITIAL);
         }
 
         if (ngx_quic_ping_peer(c, ctx) != NGX_OK) {
@@ -1519,7 +1519,7 @@ ngx_quic_generate_ack(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
         return NGX_OK;
     }
 
-    if (ctx->level == ssl_encryption_application) {
+    if (ctx->level == NGX_QUIC_ENCRYPTION_APPLICATION) {
 
         delay = ngx_current_msec - ctx->ack_delay_start;
         qc = ngx_quic_get_connection(c);

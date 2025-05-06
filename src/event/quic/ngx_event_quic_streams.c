@@ -929,7 +929,7 @@ ngx_quic_cancelable_stream(ngx_connection_t *c)
         qs->cancelable = 1;
 
         if (ngx_quic_can_shutdown(pc) == NGX_OK) {
-            ngx_reusable_connection(pc, 1);
+            ngx_reusable_connection(pc, !qc->client);
 
             if (qc->shutdown) {
                 ngx_quic_shutdown_quic(pc);
@@ -1396,7 +1396,7 @@ ngx_quic_close_stream(ngx_quic_stream_t *qs)
     }
 
     if (!pc->reusable && ngx_quic_can_shutdown(pc) == NGX_OK) {
-        ngx_reusable_connection(pc, 1);
+        ngx_reusable_connection(pc, !qc->client);
     }
 
     if (qc->shutdown) {

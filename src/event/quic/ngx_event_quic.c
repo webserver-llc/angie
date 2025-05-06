@@ -698,7 +698,7 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     }
 
     c->idle = 1;
-    ngx_reusable_connection(c, 1);
+    ngx_reusable_connection(c, !qc->client);
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic connection created");

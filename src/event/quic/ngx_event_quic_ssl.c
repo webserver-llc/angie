@@ -60,7 +60,7 @@ ngx_quic_set_read_secret(ngx_ssl_conn_t *ssl_conn,
     ngx_connection_t       *c;
     ngx_quic_connection_t  *qc;
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
     qc = ngx_quic_get_connection(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -90,7 +90,7 @@ ngx_quic_set_write_secret(ngx_ssl_conn_t *ssl_conn,
     ngx_connection_t       *c;
     ngx_quic_connection_t  *qc;
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
     qc = ngx_quic_get_connection(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -122,7 +122,7 @@ ngx_quic_set_encryption_secrets(ngx_ssl_conn_t *ssl_conn,
     const SSL_CIPHER       *cipher;
     ngx_quic_connection_t  *qc;
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
     qc = ngx_quic_get_connection(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -183,7 +183,7 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
     const unsigned char    *alpn_data;
 #endif
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
     qc = ngx_quic_get_connection(c);
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -294,7 +294,7 @@ ngx_quic_flush_flight(ngx_ssl_conn_t *ssl_conn)
 #if (NGX_DEBUG)
     ngx_connection_t  *c;
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic ngx_quic_flush_flight()");
@@ -310,7 +310,7 @@ ngx_quic_send_alert(ngx_ssl_conn_t *ssl_conn, enum ssl_encryption_level_t level,
     ngx_connection_t       *c;
     ngx_quic_connection_t  *qc;
 
-    c = ngx_ssl_get_connection((ngx_ssl_conn_t *) ssl_conn);
+    c = ngx_ssl_get_connection(ssl_conn);
 
     ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
                    "quic ngx_quic_send_alert() level:%s alert:%d",

@@ -20,6 +20,26 @@ Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony Doeraene.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.27.5.
+</para>
+<para lang="en">
+all functionality of nginx 1.27.5.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+HTTP/3 запросы могли зависать и завершаться по таймауту.
+исправление портировано из nginx 1.29.0.
+</para>
+<para lang="en">
+</para>
+HTTP/3 requests might stall and timeout.
+the fix was ported from nginx 1.29.0.
+</change>
+
 </changes>
 
 

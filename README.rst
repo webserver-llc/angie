@@ -75,6 +75,12 @@ On top of all the capabilities of
   <https://en.angie.software/angie/docs/configuration/modules/http/http_upstream/#reresolve>`_
   such lists from SRV DNS records.
 
+- Flushing the shared memory zone in `proxy_cache_path
+  <https://en.angie.software/angie/docs/configuration/modules/http/http_proxy/#proxy-cache-path>`_
+  on disk preserves the cache index contents between restarts and updates,
+  which eliminates the cache load delay and brings the server online even
+  faster.
+
 - `Session binding
   <https://en.angie.software/angie/docs/configuration/modules/http/http_upstream/#u-sticky>`_
   mode, which directs all requests within one session to the same proxied

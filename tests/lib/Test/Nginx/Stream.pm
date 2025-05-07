@@ -122,7 +122,7 @@ sub read {
 	while (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
 		my $bytes_read = $s->sysread($buf, 1024);
 
-		Test::More::note("read(): error while reading from socket: $!")
+		Test::More::note("$0: read(): error while reading from socket: $!")
 			if !defined $bytes_read;
 
 		next if !defined $bytes_read && $!{EWOULDBLOCK};

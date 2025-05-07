@@ -83,7 +83,7 @@ like(http_get('/on'), qr/502/, 'Connection drop on');
 
 $t->restart_resolver(5858, $addrs);
 
-wait_peer('127.0.0.1');
+wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 
 like(http_get('/off'), qr/200/, 'Connection drop off');
 
@@ -120,7 +120,7 @@ sub http_daemon {
 
 		if ($uri eq '/on' or $uri eq '/off') {
 			$t->restart_resolver(5858, {'test.example.com' => ['127.0.0.2']});
-			wait_peer('127.0.0.2');
+			wait_peer('127.0.0.2') or diag("$0: Peer is not ready");
 		}
 
 		print $client <<EOF;
@@ -137,11 +137,16 @@ sub wait_peer {
 	my ($peer) = @_;
 	$peer .= ':' . port(8081);
 
+	my $ok = 0;
 	for (1 .. 50) {
 		my $j = get_json('/api/status/http/upstreams/u/');
-		last if exists $j->{peers}{$peer};
+		if (exists $j->{peers}{$peer}) {
+			$ok = 1;
+			last;
+		}
 		select undef, undef, undef, 0.5;
 	}
+	return $ok;
 }
 
 ###############################################################################

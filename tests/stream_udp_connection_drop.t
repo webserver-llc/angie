@@ -86,9 +86,11 @@ my $addr_set2 = {'test.example.com' => ['127.0.0.2']};
 $t->start_resolver(5757, $addr_set1);
 
 $t->run_daemon(\&udp_daemon, port(8083), $t);
-$t->waitforfile($t->testdir . '/' . port(8083));
+$t->waitforfile($t->testdir() . '/' . port(8083));
 
 $t->run()->plan(5);
+
+wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 
 ###############################################################################
 
@@ -101,13 +103,14 @@ is($s->io('ping'), $real_port, 'Proxy connection 1');
 
 $t->restart_resolver(5757, $addr_set2);
 
-wait_peer('127.0.0.2');
+wait_peer('127.0.0.2') or diag("$0: Peer is not ready");
 
-isnt($s->io('ping'), $real_port, 'Connection drop on');
+is($s->io('ping', read_timeout => 3), '',
+	'Connection drop on - response is empty');
 
 $t->restart_resolver(5757, $addr_set1);
 
-wait_peer('127.0.0.1');
+wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 
 # Connection drop off
 $s = dgram('127.0.0.1:' . port(8082));
@@ -118,7 +121,7 @@ is($s->io('ping'), $real_port, 'Proxy connection 2');
 
 $t->restart_resolver(5757, $addr_set2);
 
-wait_peer('127.0.0.2');
+wait_peer('127.0.0.2') or diag("$0: Peer is not ready");
 
 is($s->io('ping'), $real_port, 'Connection drop off');
 is($s->io('ping'), $real_port, 'Connection drop off');
@@ -128,7 +131,6 @@ is($s->io('ping'), $real_port, 'Connection drop off');
 sub udp_daemon {
 	my ($port, $t) = @_;
 
-	my $recv_data;
 	my $socket = IO::Socket::INET->new(
 		LocalAddr => '127.0.0.1',
 		LocalPort => $port,
@@ -140,7 +142,7 @@ sub udp_daemon {
 	close $fh;
 
 	while (1) {
-		$socket->recv($recv_data, 1024);
+		$socket->recv(my $recv_data, 1024);
 		$socket->send($socket->peerport());
 	}
 }
@@ -149,11 +151,16 @@ sub wait_peer {
 	my ($peer) = @_;
 	$peer .= ':' . port(8083);
 
+	my $ok = 0;
 	for (1 .. 50) {
 		my $j = get_json('/api/status/stream/upstreams/u/');
-		last if exists $j->{peers}{$peer};
+		if (exists $j->{peers}{$peer}) {
+			$ok = 1;
+			last;
+		}
 		select undef, undef, undef, 0.5;
 	}
+	return $ok;
 }
 
 ###############################################################################

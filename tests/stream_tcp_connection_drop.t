@@ -91,7 +91,7 @@ is(stream_send(port(8081), 'ping'), '', 'Connection drop on');
 
 $t->restart_resolver(5959, $addrs);
 
-wait_peer('127.0.0.1');
+wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 
 is(stream_send(port(8082), 'ping'), 'pong', 'Connection drop off');
 
@@ -126,7 +126,7 @@ sub stream_daemon {
 
 		$t->restart_resolver(5959, {'test.example.com' => ['127.0.0.2']});
 
-		wait_peer('127.0.0.2');
+		wait_peer('127.0.0.2') or diag("$0: Peer is not ready");
 
 		$client->syswrite('pong');
 
@@ -138,11 +138,16 @@ sub wait_peer {
 	my ($peer) = @_;
 	$peer .= ':' . port(8083);
 
+	my $ok = 0;
 	for (1 .. 50) {
 		my $j = get_json('/api/status/stream/upstreams/u/');
-		last if exists $j->{peers}{$peer};
+		if (exists $j->{peers}{$peer}) {
+			$ok = 1;
+			last;
+		}
 		select undef, undef, undef, 0.5;
 	}
+	return $ok;
 }
 
 ###############################################################################

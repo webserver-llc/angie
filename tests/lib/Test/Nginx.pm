@@ -685,9 +685,6 @@ sub start_resolver {
 
 	$self->has_daemon('dnsmasq');
 
-	# just in case
-	$self->stop_resolver();
-
 	my $conf = << "EOF";
 # listen on this port
 port=$port
@@ -738,24 +735,31 @@ EOF
 	# wait for pid file to appear
 	$self->waitforfile("$d/dnsmasq.pid", $resolver_pid)
 		or die "Can't start dnsmasq on port $port";
-
-	$self->{resolver} = $resolver_pid;
 }
 
 sub stop_resolver {
 	my ($self) = @_;
 
-	my $pid = $self->{resolver};
-
-	# try to find dnsmasq pid
-	if (!$pid && -e $self->testdir() . '/dnsmasq.pid') {
+	my $pid;
+	if (-e $self->testdir() . '/dnsmasq.pid') {
 		$pid = $self->read_file('dnsmasq.pid');
 		chomp $pid;
 	}
 
-	return unless $pid;
+	unless ($pid) {
+		return;
+	}
 
 	$self->_stop_pid($pid, 1);
+
+	my $is_running = `ps -h $pid | grep -v defunct | wc -l`;
+	$is_running =~ s/^\s+|\s+$//g;
+
+	if ($is_running) {
+		Test::More::diag("$0: resolver $pid is not stopped!");
+		Test::More::diag(`ps -h $pid`);
+	}
+
 	undef $self->{resolver};
 }
 

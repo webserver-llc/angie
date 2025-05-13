@@ -442,7 +442,7 @@ ngx_quic_compat_message_callback(int write_p, int version, int content_type,
                        ngx_quic_level_name(level), len);
 
         if (com->method->add_handshake_data(ssl, level, buf, len) != 1) {
-            goto failed;
+            return;
         }
 
         break;
@@ -456,7 +456,7 @@ ngx_quic_compat_message_callback(int write_p, int version, int content_type,
                            ngx_quic_level_name(level), alert, len);
 
             if (com->method->send_alert(ssl, level, alert) != 1) {
-                goto failed;
+                return;
             }
         }
 
@@ -464,10 +464,6 @@ ngx_quic_compat_message_callback(int write_p, int version, int content_type,
     }
 
     return;
-
-failed:
-
-    ngx_post_event(&qc->close, &ngx_posted_events);
 }
 
 

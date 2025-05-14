@@ -429,7 +429,7 @@ ngx_quic_ssl_handshake(ngx_connection_t *c)
             return NGX_ERROR;
         }
 
-        if (qc->error != (ngx_uint_t) -1) {
+        if (qc->error) {
             ngx_connection_error(c, 0, "SSL_do_handshake() failed");
             ERR_clear_error();
             return NGX_ERROR;
@@ -718,7 +718,7 @@ ngx_quic_client_handshake(ngx_connection_t *c)
 
         qc = ngx_quic_get_connection(c);
 
-        if (qc->error != (ngx_uint_t) -1) {
+        if (qc->error) {
             ngx_connection_error(c, 0, "SSL_do_handshake() failed");
             ERR_clear_error();
             return NGX_ERROR;

@@ -78,7 +78,7 @@ ngx_quic_connstate_dbg(ngx_connection_t *c)
 
     if (qc) {
 
-        if (qc->error != (ngx_uint_t) -1) {
+        if (qc->error) {
             p = ngx_slprintf(p, last, "%s", qc->error_app ? " app" : "");
             p = ngx_slprintf(p, last, " error:%ui", qc->error);
 
@@ -1035,7 +1035,7 @@ ngx_quic_close_connection(ngx_connection_t *c, ngx_int_t rc)
              *  to terminate the connection immediately.
              */
 
-            if (qc->error == (ngx_uint_t) -1) {
+            if (qc->error == 0 && rc == NGX_ERROR) {
                 qc->error = NGX_QUIC_ERR_INTERNAL_ERROR;
                 qc->error_app = 0;
             }
@@ -1521,7 +1521,7 @@ ngx_quic_handle_payload(ngx_connection_t *c, ngx_quic_header_t *pkt)
 
     qc = ngx_quic_get_connection(c);
 
-    qc->error = (ngx_uint_t) -1;
+    qc->error = 0;
     qc->error_reason = 0;
 
     c->log->action = "decrypting packet";

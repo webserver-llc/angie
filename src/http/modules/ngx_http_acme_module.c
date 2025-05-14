@@ -201,7 +201,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_str_t                   acme_server_var;
     ngx_uint_t                  handle_challenge;
     ngx_connection_handler_pt   default_dns_handler;
-    ngx_int_t                   dns_port;
+    ngx_addr_t                 *dns_port;
 };
 
 
@@ -403,6 +403,8 @@ static char *ngx_http_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_http_acme_hook(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_acme_add_proxy_pass(ngx_conf_t *cf,
     ngx_http_acme_main_conf_t *amcf);
+static char *ngx_http_acme_dns_port(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 static ngx_int_t ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf);
 static ngx_int_t ngx_http_acme_create_conf_ctx(ngx_conf_t *cf,
     ngx_http_acme_main_conf_t *amcf);
@@ -458,11 +460,6 @@ static const ngx_str_t ngx_acme_hook_names[] = {
 };
 
 
-static ngx_conf_num_bounds_t ngx_http_acme_port_range = {
-    ngx_conf_check_num_bounds, 1, 65535
-};
-
-
 static ngx_command_t  ngx_http_acme_commands[] = {
 
     { ngx_string("acme_client_path"),
@@ -495,10 +492,10 @@ static ngx_command_t  ngx_http_acme_commands[] = {
 
     { ngx_string("acme_dns_port"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_http_acme_dns_port,
       NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_http_acme_main_conf_t, dns_port),
-      &ngx_http_acme_port_range },
+      0,
+      NULL },
 
       ngx_null_command
 };
@@ -5251,7 +5248,6 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
 
     ngx_memcpy(&amcf->log, cf->log, sizeof(ngx_log_t));
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
-    amcf->dns_port = NGX_CONF_UNSET;
 
     return amcf;
 }
@@ -5271,7 +5267,6 @@ ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf)
     }
 
     ngx_conf_init_size_value(amcf->max_key_auth_size, 2 * 1024);
-    ngx_conf_init_value(amcf->dns_port, 53);
 
     return NGX_CONF_OK;
 }
@@ -5846,25 +5841,27 @@ ngx_http_acme_add_proxy_pass(ngx_conf_t *cf, ngx_http_acme_main_conf_t *amcf)
 static ngx_int_t
 ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf)
 {
-    ngx_uint_t           i;
-    ngx_cycle_t         *cycle;
-    ngx_listening_t     *ls;
-    struct sockaddr_in   sa;
+    ngx_uint_t        i;
+    ngx_addr_t       *addr, tmp;
+    ngx_cycle_t      *cycle;
+    ngx_listening_t  *ls;
 
     cycle = amcf->cf->cycle;
 
-    ngx_memzero(&sa, sizeof(sa));
+    if (amcf->dns_port != NULL) {
+        addr = amcf->dns_port;
 
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(amcf->dns_port);
-    sa.sin_addr.s_addr = INADDR_ANY;
+    } else {
+        addr = &tmp;
+        ngx_parse_addr_port(cycle->pool, addr, (u_char *) "0.0.0.0:53", 10);
+    }
 
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
         if (ls[i].type == SOCK_DGRAM
             && ngx_cmp_sockaddr(ls[i].sockaddr, ls[i].socklen,
-                               (struct sockaddr *) &sa, sizeof(sa), 1)
+                                addr->sockaddr, addr->socklen, 1)
             == NGX_OK)
         {
             amcf->default_dns_handler = ls[i].handler;
@@ -5874,13 +5871,13 @@ ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf)
         }
     }
 
-    if (amcf->dns_port <= 1024 && geteuid() != 0) {
+    if (ngx_inet_get_port(addr->sockaddr) <= 1024 && geteuid() != 0) {
         ngx_conf_log_error(NGX_LOG_WARN, amcf->cf, 0,
                            "this configuration requires super-user privileges "
                            "to handle ACME DNS challenge");
     }
 
-    ls = ngx_create_listening(amcf->cf, (struct sockaddr*) &sa, sizeof(sa));
+    ls = ngx_create_listening(amcf->cf, addr->sockaddr, addr->socklen);
     if (ls == NULL) {
         return NGX_ERROR;
     }
@@ -6161,6 +6158,51 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     *cli_p = cli;
 
     return cli;
+}
+
+
+static char *
+ngx_http_acme_dns_port(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_acme_main_conf_t *amcf = conf;
+
+    u_char     buf[NGX_INT_T_LEN + 8];
+    ngx_str_t  value;
+    ngx_int_t  rc;
+
+    if (amcf->dns_port != NULL) {
+        return "is duplicate";
+    }
+
+    amcf->dns_port = ngx_pcalloc(cf->pool, sizeof(ngx_addr_t));
+    if (amcf->dns_port == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    value = ((ngx_str_t *) cf->args->elts)[1];
+
+    if (ngx_atoi(value.data, value.len) != NGX_ERROR) {
+        value.len = ngx_snprintf(buf, sizeof(buf), "0.0.0.0:%V", &value) - buf;
+        value.data = buf;
+    }
+
+    rc = ngx_parse_addr_port(cf->pool, amcf->dns_port, value.data, value.len);
+    if (rc == NGX_ERROR) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (rc != NGX_OK) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                           "invalid acme_dns_port value \"%V\"",
+                           &((ngx_str_t *) cf->args->elts)[1]);
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_inet_get_port(amcf->dns_port->sockaddr) == 0) {
+        ngx_inet_set_port(amcf->dns_port->sockaddr, 53);
+    }
+
+    return NGX_CONF_OK;
 }
 
 

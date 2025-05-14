@@ -64,6 +64,17 @@ could cause worker process crash.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+возможность задать в директиве "acme_dns_port" не только номер порта, но
+и IP-адрес; поддерживаются IPv4 и IPv6.
+</para>
+<para lang="en">
+support for IP addresses along with port numbers in the "acme_dns_port"
+directive; both IPv4 and IPv6 are allowed.
+</para>
+</change>
+
 </changes>
 
 

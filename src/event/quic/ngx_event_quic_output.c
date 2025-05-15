@@ -921,6 +921,15 @@ ngx_quic_send_cc(ngx_connection_t *c)
         return NGX_OK;
     }
 
+    if (qc->path == NULL) {
+        /*
+         * may happen with quic client if connection is closed early,
+         * no need to send any frames in this case since even
+         * client address is unknown
+         */
+        return NGX_OK;
+    }
+
     if (qc->closing
         && ngx_current_msec - qc->last_cc < NGX_QUIC_CC_MIN_INTERVAL)
     {

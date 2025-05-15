@@ -53,6 +53,17 @@ these domains under a single ACME client.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+ранняя ошибка при установлении HTTP/3 соединения с проксируемым сервером
+могла приводить к падению рабочего процесса.
+</para>
+<para lang="en">
+</para>
+early error while establishing HTTP/3 connection to a proxied server
+could cause worker process crash.
+</change>
+
 </changes>
 
 

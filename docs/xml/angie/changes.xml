@@ -40,6 +40,19 @@ active request count might be incorrect when using HTTP/3 client requests.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+наличие в директивах "server_name" одновременно wildcard-домена и совпадающих
+с ним доменов третьего уровня приводило к ошибке ACME-сервера при выпуске
+сертификата для этих доменов в рамках одного ACME-клиента.
+</para>
+<para lang="en">
+using both a wildcard domain and matching third-level domains in "server_name"
+directives could cause the ACME server to fail when issuing a certificate for
+these domains under a single ACME client.
+</para>
+</change>
+
 </changes>
 
 

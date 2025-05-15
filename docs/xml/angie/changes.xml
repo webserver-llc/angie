@@ -59,9 +59,9 @@ these domains under a single ACME client.
 могла приводить к падению рабочего процесса.
 </para>
 <para lang="en">
-</para>
 early error while establishing HTTP/3 connection to a proxied server
 could cause worker process crash.
+</para>
 </change>
 
 </changes>

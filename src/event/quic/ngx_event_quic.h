@@ -13,6 +13,21 @@
 #include <ngx_core.h>
 
 
+#if defined(SSL_R_MISSING_QUIC_TRANSPORT_PARAMETERS_EXTENSION) \
+    && !defined(BABASSL_VERSION_NUMBER)
+
+#define NGX_QUIC_QUICTLS_API                 1
+
+#elif (defined OPENSSL_IS_BORINGSSL || defined LIBRESSL_VERSION_NUMBER \
+       || defined BABASSL_VERSION_NUMBER || defined OPENSSL_IS_AWSLC)
+#define NGX_QUIC_BORINGSSL_API               1
+
+#else
+#define NGX_QUIC_BORINGSSL_API               1
+#define NGX_QUIC_OPENSSL_COMPAT              1
+#endif
+
+
 #define NGX_QUIC_MAX_UDP_PAYLOAD_SIZE        65527
 
 #define NGX_QUIC_DEFAULT_ACK_DELAY_EXPONENT  3

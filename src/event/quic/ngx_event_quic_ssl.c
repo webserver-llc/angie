@@ -37,7 +37,8 @@ static int ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
 static int ngx_quic_flush_flight(ngx_ssl_conn_t *ssl_conn);
 static int ngx_quic_send_alert(ngx_ssl_conn_t *ssl_conn,
     enum ssl_encryption_level_t level, uint8_t alert);
-static ngx_int_t ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
+static ngx_int_t ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level);
+static ngx_int_t ngx_quic_crypto_provide(ngx_connection_t *c, ngx_chain_t *out,
     enum ssl_encryption_level_t level);
 
 
@@ -372,7 +373,11 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     }
 
     if (f->offset == ctx->crypto.offset) {
-        if (ngx_quic_crypto_input(c, frame->data, pkt->level) != NGX_OK) {
+        if (ngx_quic_crypto_provide(c, frame->data, pkt->level) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        if (ngx_quic_handshake(c, pkt->level) != NGX_OK) {
             return NGX_ERROR;
         }
 
@@ -390,7 +395,11 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     cl = ngx_quic_read_buffer(c, &ctx->crypto, (uint64_t) -1);
 
     if (cl) {
-        if (ngx_quic_crypto_input(c, cl, pkt->level) != NGX_OK) {
+        if (ngx_quic_crypto_provide(c, cl, pkt->level) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        if (ngx_quic_handshake(c, pkt->level) != NGX_OK) {
             return NGX_ERROR;
         }
 
@@ -402,10 +411,11 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
 
 
 static ngx_int_t
-ngx_quic_ssl_handshake(ngx_connection_t *c)
+ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
 {
     int                     n, sslerr;
     ngx_ssl_conn_t         *ssl_conn;
+    ngx_quic_frame_t       *frame;
     ngx_quic_connection_t  *qc;
 
     qc = ngx_quic_get_connection(c);
@@ -449,7 +459,7 @@ ngx_quic_ssl_handshake(ngx_connection_t *c)
             }
         }
 
-        return NGX_AGAIN;
+        return NGX_OK;
     }
 
 #if (NGX_DEBUG)
@@ -465,48 +475,9 @@ ngx_quic_ssl_handshake(ngx_connection_t *c)
 
     c->ssl->handshaked = 1;
 
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
-    enum ssl_encryption_level_t level)
-{
-    ngx_int_t               rc;
-    ngx_buf_t              *b;
-    ngx_chain_t            *cl;
-    ngx_ssl_conn_t         *ssl_conn;
-    ngx_quic_frame_t       *frame;
-    ngx_quic_connection_t  *qc;
-
-    qc = ngx_quic_get_connection(c);
-
-    ssl_conn = c->ssl->connection;
-
-    for (cl = data; cl; cl = cl->next) {
-        b = cl->buf;
-
-        if (!SSL_provide_quic_data(ssl_conn, level, b->pos, b->last - b->pos)) {
-            ngx_ssl_error(NGX_LOG_ALERT, c->log, 0,
-                          "SSL_provide_quic_data() failed");
-            return NGX_ERROR;
-        }
-    }
-
-    rc = ngx_quic_ssl_handshake(c);
-
-    if (rc == NGX_AGAIN) {
-        return NGX_OK;
-    }
-
     if (qc->conf->post_ssl_handshake
         && qc->conf->post_ssl_handshake(c, qc->streams.initialized) != NGX_OK)
     {
-        return NGX_ERROR;
-    }
-
-    if (rc != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -573,6 +544,29 @@ ngx_quic_crypto_input(ngx_connection_t *c, ngx_chain_t *data,
 
     if (ngx_quic_init_streams(c) != NGX_OK) {
         return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_quic_crypto_provide(ngx_connection_t *c, ngx_chain_t *out,
+    enum ssl_encryption_level_t level)
+{
+    ngx_buf_t    *b;
+    ngx_chain_t  *cl;
+
+    for (cl = out; cl; cl = cl->next) {
+        b = cl->buf;
+
+        if (!SSL_provide_quic_data(c->ssl->connection, level, b->pos,
+                                   b->last - b->pos))
+        {
+            ngx_ssl_error(NGX_LOG_ALERT, c->log, 0,
+                          "SSL_provide_quic_data() failed");
+            return NGX_ERROR;
+        }
     }
 
     return NGX_OK;

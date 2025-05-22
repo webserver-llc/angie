@@ -13,10 +13,11 @@ BEGIN {
 }
 
 use Test::More;
-use Test::Deep qw/any re hash_each subhashof ignore cmp_details deep_diag/;
+use Test::Deep qw/any re hash_each subhashof cmp_details deep_diag/;
 
 use Test::Utils qw/get_json put_json delete_json patch_json/;
 
+# describes the maximum set of allowed fields
 sub api_status {
 	my $t = shift;
 
@@ -27,261 +28,215 @@ sub api_status {
 		$build = $1;
 	}
 
+	my $config = $t->read_file('nginx.conf');
+
 	my $num_re  = re(qr/^\d+$/);
 	my $time_re = re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
+	my $string_re = re(qr/^.+$/);
 
 	my $ssl = {
+		failed     => $num_re,
 		handshaked => $num_re,
 		reuses     => $num_re,
 		timedout   => $num_re,
-		failed     => $num_re,
 	};
 
-	my $status = subhashof({
-		angie => subhashof({
-			address      => ignore(),
-			config_files => ignore(),
-			generation   => $num_re,
-			load_time    => $time_re,
-			version      => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
-			build_time   => $time_re,
-			(defined $build) ? (build => $build) : (),
+	my $data = {
+		received => $num_re,
+		sent     => $num_re
+	};
+
+	my $cache_read = {
+		bytes     => $num_re,
+		responses => $num_re,
+	};
+
+	my $cache = {
+		%{ $cache_read },
+		bytes_written     => $num_re,
+		responses_written => $num_re
+	};
+
+	my $peer = {
+		backup    => any(JSON::false(), JSON::true()),
+		max_conns => $num_re,
+		($with_debug ? (refs => $num_re) : ()),
+		selected => subhashof({
+			current => $num_re,
+			total   => $num_re,
+			last    => $time_re,
 		}),
-		connections => subhashof({
+		server  => $string_re,
+		service => $string_re,
+		sid     => $string_re,
+		state   => $string_re,
+		weight  => $num_re,
+	};
+
+	my $limit_conns = hash_each({
+		exhausted => $num_re,
+		passed    => $num_re,
+		rejected  => $num_re,
+		skipped   => $num_re,
+	});
+
+	my $status = {
+		angie => {
+			address    => $string_re,
+			(defined $build) ? (build => $build) : (),
+			build_time => $time_re,
+			generation => $num_re,
+			load_time  => $time_re,
+			version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
+		},
+		connections => {
 			accepted => $num_re,
 			active   => $num_re,
 			dropped  => $num_re,
 			idle     => $num_re,
-		}),
-		slabs => hash_each(
-			subhashof({
-				pages => {
-					used => $num_re,
-					free => $num_re,
-				},
-				slots => hash_each({
-					fails => $num_re,
-					free  => $num_re,
-					reqs  => $num_re,
-					used  => $num_re,
-				}),
-			}),
-		),
-		http  => subhashof({
+		},
+		http => subhashof({
 			caches => hash_each(
 				subhashof({
-					size     => $num_re,
+					bypass   => $cache,
+					cold     => any(JSON::false(), JSON::true()),
+					expired  => $cache,
+					hit      => $cache_read,
 					max_size => $num_re,
-					cold     => JSON::true(),
-					hit => subhashof({
-						bytes     => $num_re,
-						responses => $num_re,
-					}),
-					stale => subhashof({
-						bytes     => $num_re,
-						responses => $num_re,
-					}),
-					updating => subhashof({
-						responses => $num_re,
-						bytes     => $num_re,
-					}),
-					revalidated => subhashof({
-						responses => $num_re,
-						bytes     => $num_re,
-					}),
-					miss => subhashof({
-						bytes             => $num_re,
-						bytes_written     => $num_re,
-						responses         => $num_re,
-						responses_written => $num_re
-					}),
-					bypass => subhashof({
-						bytes             => $num_re,
-						bytes_written     => $num_re,
-						responses         => $num_re,
-						responses_written => $num_re
-					}),
-					expired => subhashof({
-						bytes             => $num_re,
-						bytes_written     => $num_re,
-						responses         => $num_re,
-						responses_written => $num_re
-					}),
-				}),
+					miss     => $cache,
+					revalidated => $cache_read,
+					size     => $num_re,
+					stale    => $cache_read,
+					updating => $cache_read,
+				})
 			),
-			limit_conns => hash_each(
-				subhashof({
-					exhausted => $num_re,
-					passed    => $num_re,
-					rejected  => $num_re,
-					skipped   => $num_re
-				}),
-			),
-			limit_reqs => hash_each(
-				subhashof({
-					delayed   => $num_re,
-					exhausted => $num_re,
-					passed    => $num_re,
-					rejected  => $num_re,
-					skipped   => $num_re,
-				}),
-			),
-			location_zones => hash_each(
-				subhashof({
-					data => subhashof({
-						received => $num_re,
-						sent     => $num_re
-					}),
-					requests => subhashof({
-						discarded => $num_re,
-						total     => $num_re
-					}),
-					responses => hash_each($num_re),
-				}),
-			),
+			limit_conns => $limit_conns,
+			limit_reqs => hash_each({
+				delayed   => $num_re,
+				exhausted => $num_re,
+				passed    => $num_re,
+				rejected  => $num_re,
+				skipped   => $num_re,
+			}),
+			location_zones => hash_each({
+				data => $data,
+				requests => {
+					discarded => $num_re,
+					total     => $num_re
+				},
+				responses => hash_each($num_re),
+			}),
 			server_zones => hash_each(
 				subhashof({
-					data => subhashof({
-						received => $num_re,
-						sent     => $num_re,
-					}),
-					requests => subhashof({
+					data => $data,
+					responses => hash_each($num_re),
+					requests  => {
 						discarded  => $num_re,
 						processing => $num_re,
 						total      => $num_re,
-					}),
+					},
 					ssl => $ssl,
-					responses => hash_each($num_re),
 				}),
 			),
 			upstreams => hash_each(
 				subhashof({
 					keepalive => $num_re,
-					peers     => hash_each(
+					peers => hash_each(
 						subhashof({
-							backup => any(JSON::false(), JSON::true()),
-							data   => subhashof({
-								received => $num_re,
-								sent     => $num_re,
-							}),
-							health => subhashof({
-								downtime    => $num_re,
-								fails       => $num_re,
-								unavailable => $num_re,
-								downstart   => $time_re,
-							}),
-							max_conns => $num_re,
-							($with_debug ? (refs => $num_re) : ()),
+							%{ $peer },
+							data   => $data,
 							responses => hash_each($num_re),
-							selected  => subhashof({
-								current => $num_re,
-								total   => $num_re,
-								last    => $time_re,
+							health => subhashof({
+								downstart     => $time_re,
+								downtime      => $num_re,
+								fails         => $num_re,
+								unavailable   => $num_re,
 							}),
-							server  => ignore(),
-							service => ignore(),
-							sid     => ignore(),
-							state   => ignore(),
-							weight  => $num_re,
 						}),
 					),
-					($with_debug ? (zombies => $num_re)  : ()),
-					($with_debug ? (zone    => ignore()) : ()),
+					($with_debug ? (zombies => $num_re)    : ()),
+					($with_debug ? (zone    => $string_re) : ()),
 				}),
 			),
 		}),
-		resolvers => hash_each(
-			subhashof({
-				queries => {
-					name => $num_re,
-					srv  => $num_re,
-					addr => $num_re,
-				},
-				responses => {
-					format_error   => $num_re,
-					not_found      => $num_re,
-					other          => $num_re,
-					refused        => $num_re,
-					server_failure => $num_re,
-					success        => $num_re,
-					timedout       => $num_re,
-					unimplemented  => $num_re,
-				},
-				sent => {
-					a    => $num_re,
-					aaaa => $num_re,
-					ptr  => $num_re,
-					srv  => $num_re
-				},
+		resolvers => hash_each({
+			queries => {
+				name => $num_re,
+				srv  => $num_re,
+				addr => $num_re,
+			},
+			responses => {
+				format_error   => $num_re,
+				not_found      => $num_re,
+				other          => $num_re,
+				refused        => $num_re,
+				server_failure => $num_re,
+				success        => $num_re,
+				timedout       => $num_re,
+				unimplemented  => $num_re,
+			},
+			sent => {
+				a    => $num_re,
+				aaaa => $num_re,
+				ptr  => $num_re,
+				srv  => $num_re
+			},
+		}),
+		slabs => hash_each({
+			pages => {
+				free => $num_re,
+				used => $num_re,
+			},
+			slots => hash_each({
+				fails => $num_re,
+				free  => $num_re,
+				reqs  => $num_re,
+				used  => $num_re,
 			}),
-		),
-		stream => subhashof({
-			limit_conns => hash_each(
-				subhashof({
-					exhausted => $num_re,
-					passed    => $num_re,
-					rejected  => $num_re,
-					skipped   => $num_re,
-				})
-			),
+		}),
+	};
+
+	if ($config =~ /\s+stream\s+{/) {
+		$status->{stream} = subhashof({
+			limit_conns  => $limit_conns,
 			server_zones => hash_each(
 				subhashof({
-					data => subhashof({
-						received => $num_re,
-						sent     => $num_re,
-					}),
-					connections => subhashof({
+					data => $data,
+					connections => {
 						discarded  => $num_re,
 						processing => $num_re,
 						total      => $num_re,
 						passed     => $num_re,
-					}),
-					sessions => subhashof({
+					},
+					sessions => {
 						bad_gateway         => $num_re,
 						forbidden           => $num_re,
 						internal_error      => $num_re,
 						invalid             => $num_re,
 						service_unavailable => $num_re,
 						success             => $num_re,
-					}),
+					},
 					ssl => $ssl,
 				}),
 			),
-			upstreams => hash_each(
-				subhashof({
-					peers => hash_each(
-						subhashof({
-							backup => any(JSON::false(), JSON::true()),
-							data   => subhashof({
-								received => $num_re,
-								sent     => $num_re,
-							}),
-							health => subhashof({
-								downtime    => $num_re,
-								fails       => $num_re,
-								unavailable => $num_re,
-								downstart   => $time_re,
-							}),
-							max_conns => $num_re,
-							($with_debug ? (refs => $num_re) : ()),
-							selected  => subhashof({
-								current => $num_re,
-								total   => $num_re,
-								last    => $time_re,
-							}),
-							server  => ignore(),
-							service => ignore(),
-							sid     => ignore(),
-							state   => ignore(),
-							weight  => $num_re,
+			upstreams => hash_each({
+				peers => hash_each(
+					subhashof({
+						%{ $peer },
+						data   => $data,
+						health => subhashof({
+							downstart       => $time_re,
+							downtime        => $num_re,
+							fails           => $num_re,
+							unavailable     => $num_re,
 						}),
-					),
-					($with_debug ? (zombies => $num_re)  : ()),
-					($with_debug ? (zone    => ignore()) : ()),
-				}),
-			),
-		}),
-	});
+					}),
+				),
+				($with_debug ? (zombies => $num_re)    : ()),
+				($with_debug ? (zone    => $string_re) : ()),
+			}),
+		});
+	}
 
 	return $status;
 }
@@ -290,15 +245,14 @@ sub traverse_api_status {
 	my ($uri, $expected, %extra) = @_;
 
 	my $api_status = get_json($uri, %extra);
-	note(explain($api_status));
+	debug(explain($api_status));
 
 	my ($ok, $stack) = cmp_details($api_status, $expected);
-
 	unless ($ok) {
-		diag("GET $uri not OK");
+		diag("WARNING: GET $uri not OK");
 		return 0, deep_diag($stack);
 	}
-	note("GET $uri OK");
+	debug("GET $uri OK");
 
 	(my $uri_short = $uri) =~ s/auto-generated-api/status/;
 	($ok, $stack) = cmp_details(
@@ -317,7 +271,7 @@ sub traverse_api_status {
 		diag("PUT $uri not OK");
 		return 0, deep_diag($stack);
 	}
-	note("PUT $uri OK");
+	debug("PUT $uri OK");
 
 	($ok, $stack) = cmp_details(
 		delete_json($uri, %extra),
@@ -335,7 +289,7 @@ sub traverse_api_status {
 		diag("DELETE $uri not OK");
 		return 0, deep_diag($stack);
 	}
-	note("DELETE $uri OK");
+	debug("DELETE $uri OK");
 
 	($ok, $stack) = cmp_details(
 		patch_json($uri, {a => '123'}, 0, %extra),
@@ -353,7 +307,7 @@ sub traverse_api_status {
 		diag("PATCH $uri not OK");
 		return 0, deep_diag($stack);
 	}
-	note("PATCH $uri OK");
+	debug("PATCH $uri OK");
 
 	return $ok
 		unless ref $api_status eq 'HASH';
@@ -366,7 +320,7 @@ sub traverse_api_status {
 		next if $key eq 'config_files';
 
 		if ($key =~ /^\//) {
-			note("SKIP uri $uri$key");
+			debug("SKIP uri $uri$key");
 			next;
 		}
 
@@ -385,6 +339,11 @@ sub traverse_api_status {
 	}
 
 	return 1;
+}
+
+sub debug {
+	return unless $ENV{TEST_ANGIE_API_VERBOSE};
+	diag(shift);
 }
 
 1;

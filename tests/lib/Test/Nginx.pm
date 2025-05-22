@@ -1454,9 +1454,16 @@ sub test_api {
 		my ($res, $details) = traverse_api_status($self->{_api_location},
 			api_status($self), unix_socket_params => $unix_socket_params);
 
-		my $ok = Test::More::ok($res, 'API');
-		unless ($ok) {
-			Test::More::diag(Test::More::explain($details));
+		unless ($res) {
+			Test::More::diag($details);
+		}
+
+		TODO: {
+			local $Test::Nginx::TODO = 'Extra keys in API response'
+				if $details && $details =~ /\s+Extra:/
+					&& $details !~ /\s+Missing:/;
+
+			Test::More::ok($res, 'API');
 		}
 	}
 

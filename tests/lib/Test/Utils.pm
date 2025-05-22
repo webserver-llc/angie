@@ -9,7 +9,17 @@ package Test::Utils;
 use warnings;
 use strict;
 
-use parent qw/ Exporter /;
+use Exporter qw/import/;
+BEGIN {
+	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
+		getconn hash_like stream_daemon trim /;
+
+	our %EXPORT_TAGS = (
+		json => [ qw/ get_json put_json delete_json patch_json / ],
+		log  => [ qw/ log2i log2o log2c / ],
+	);
+}
+
 use IO::Select;
 use IO::Socket qw/ SHUT_WR TCP_MAXSEG TCP_NODELAY IPPROTO_TCP /;
 use List::Util qw/ sum0 /;
@@ -19,9 +29,6 @@ use Test::Nginx qw/ http http_get log_in log_out port /;
 
 eval { require JSON; };
 plan(skip_all => "JSON is not installed") if $@;
-
-our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-	getconn hash_like stream_daemon trim /;
 
 sub _parse_response {
 	my $response = shift;
@@ -122,7 +129,7 @@ sub getconn {
 
 	my $s = IO::Socket::INET->new(
 		Proto    => 'tcp',
-		PeerPort => $port // port(8080),
+		PeerPort => $port,
 		PeerHost => $host // '127.0.0.1'
 	)
 		or die "Can't connect to nginx: $!\n";

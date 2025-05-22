@@ -7,13 +7,15 @@ package Test::API;
 use warnings;
 use strict;
 
-use parent qw/Exporter/;
+use Exporter qw/import/;
+BEGIN {
+	our @EXPORT_OK = qw/api_status traverse_api_status/;
+}
+
 use Test::More;
 use Test::Deep qw/any re hash_each subhashof ignore cmp_details deep_diag/;
 
 use Test::Utils qw/get_json put_json delete_json patch_json/;
-
-our @EXPORT_OK = qw/api_status traverse_api_status/;
 
 sub api_status {
 	my $t = shift;

@@ -446,43 +446,40 @@ sub test_api {
 		}
 	}
 
-	cmp_deeply(
-		put_json($uri, {}),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The PUT method is not allowed for the'
-					. ' requested API entity "' . $uri . '".',
-				'error' => 'MethodNotAllowed'
-			}
-		},
-		"PUT $uri error OK"
-	);
+	my $got = put_json($uri, {});
+	my $exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The PUT method is not allowed for the'
+				. ' requested API entity "' . $uri . '".',
+			'error' => 'MethodNotAllowed'
+		}
+	};
+	cmp_deeply($got, $exp, "PUT $uri error OK")
+		or diag({got => $got, expected => $exp});
 
-	cmp_deeply(
-		delete_json($uri),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The DELETE method is not allowed for the'
-					. ' requested API entity "' . $uri . '".',
-				'error' => 'MethodNotAllowed'
-			}
-		},
-		"DELETE $uri error OK"
-	);
+	$got = delete_json($uri);
+	$exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The DELETE method is not allowed for the'
+				. ' requested API entity "' . $uri . '".',
+			'error' => 'MethodNotAllowed'
+		}
+	};
+	cmp_deeply($got, $exp, "DELETE $uri error OK")
+		or diag({got => $got, expected => $exp});
 
-	cmp_deeply(
-		patch_json($uri, {a => '123'}),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The PATCH method is not allowed for the'
-					. ' requested API entity "' . $uri . '".',
-				'error' => 'MethodNotAllowed'
-			}
-		},
-		"PATCH $uri error OK"
-	);
+	$got = patch_json($uri, {a => '123'});
+	$exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The PATCH method is not allowed for the'
+				. ' requested API entity "' . $uri . '".',
+			'error' => 'MethodNotAllowed'
+		}
+	};
+	cmp_deeply($got, $exp, "PATCH $uri error OK")
+		or diag({got => $got, expected => $exp});
 }
 

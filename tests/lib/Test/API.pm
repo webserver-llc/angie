@@ -255,56 +255,58 @@ sub traverse_api_status {
 	debug("GET $uri OK");
 
 	(my $uri_short = $uri) =~ s/auto-generated-api/status/;
-	($ok, $stack) = cmp_details(
-		put_json($uri, {}, 0, %extra),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The PUT method is not allowed for the'
-					. ' requested API entity "' . $uri_short . '".',
-				'error' => 'MethodNotAllowed'
-			}
+
+	my $got = put_json($uri, {}, 0, %extra);
+	my $exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The PUT method is not allowed for the'
+				. ' requested API entity "' . $uri_short . '".',
+			'error' => 'MethodNotAllowed'
 		}
-	);
+	};
+	($ok, $stack) = cmp_details($got, $exp);
 
 	unless ($ok) {
 		diag("PUT $uri not OK");
+		diag(explain({got => $got, expected => $exp}));
 		return 0, deep_diag($stack);
 	}
 	debug("PUT $uri OK");
 
-	($ok, $stack) = cmp_details(
-		delete_json($uri, %extra),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The DELETE method is not allowed for the'
-					. ' requested API entity "' . $uri_short . '".',
-				'error' => 'MethodNotAllowed'
-			}
+	$got = delete_json($uri, %extra);
+	$exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The DELETE method is not allowed for the'
+				. ' requested API entity "' . $uri_short . '".',
+			'error' => 'MethodNotAllowed'
 		}
-	);
+	};
+	($ok, $stack) = cmp_details($got, $exp);
 
 	unless ($ok) {
 		diag("DELETE $uri not OK");
+		diag(explain({got => $got, expected => $exp}));
 		return 0, deep_diag($stack);
 	}
 	debug("DELETE $uri OK");
 
-	($ok, $stack) = cmp_details(
-		patch_json($uri, {a => '123'}, 0, %extra),
-		{
-			h => re('405 Method Not Allowed'),
-			j => {
-				'description' => 'The PATCH method is not allowed for the'
-					. ' requested API entity "' . $uri_short . '".',
-				'error' => 'MethodNotAllowed'
-			}
+	$got = patch_json($uri, {a => '123'}, 0, %extra);
+	$exp = {
+		h => re('405 Method Not Allowed'),
+		j => {
+			'description' => 'The PATCH method is not allowed for the'
+				. ' requested API entity "' . $uri_short . '".',
+			'error' => 'MethodNotAllowed'
 		}
-	);
+	};
+
+	($ok, $stack) = cmp_details($got, $exp);
 
 	unless ($ok) {
 		diag("PATCH $uri not OK");
+		diag(explain({got => $got, expected => $exp}));
 		return 0, deep_diag($stack);
 	}
 	debug("PATCH $uri OK");

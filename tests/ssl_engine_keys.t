@@ -29,11 +29,16 @@ plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool');
+	->has_daemon('softhsm2-util');
 
 plan(skip_all => 'unsupported OpenSSL version')
 	if $t->{_configure_args} =~ /^built with OpenSSL 3\.2\.1-dev\s*$/m
 		|| $t->{_configure_args} =~ /running with OpenSSL 3\.2\.1-dev\s*\)$/m;
+
+# pkcs11-tool is part of the opensc package
+# it has been removed from some newer systems
+# but we'll still try to use it if it's available
+my $use_pkcs11_tool = ($t->has_daemon('pkcs11-tool')) ? 1 : 0;
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -161,13 +166,33 @@ foreach my $name ('localhost') {
 
 	system($cmd);
 
-	$cmd = "pkcs11-tool --module=$libsofthsm2_path "
-		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
-		. ">>$d/openssl.out 2>&1";
+	if ($use_pkcs11_tool) {
+		$cmd = "pkcs11-tool --module=$libsofthsm2_path "
+			. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
+			. ">>$d/openssl.out 2>&1";
 
-	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
 
-	system($cmd);
+		system($cmd);
+
+	} else {
+		$cmd = "openssl genrsa -out $d/$name.key 2048 "
+			. ">>$d/openssl.out 2>&1";
+
+		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+
+		system($cmd) == 0
+			or die "Can't create private key: $!\n";
+
+		$cmd = "softhsm2-util --import $d/$name.key --id 00 --label nx_key_0 "
+			. '--token NginxZero --pin 1234 '
+			. ">>$d/openssl.out 2>&1";
+
+		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+
+		system($cmd) == 0
+			or die "Can't import private key: $!\n";
+	}
 
 	$cmd = 'openssl req -x509 -new '
 		. "-subj /CN=$name/ -out $d/$name.crt -text "

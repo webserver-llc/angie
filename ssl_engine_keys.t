@@ -28,7 +28,7 @@ plan(skip_all => 'may not work, leaves coredump')
 	unless $ENV{TEST_NGINX_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
-	->has_daemon('softhsm2-util')->has_daemon('pkcs11-tool');
+	->has_daemon('softhsm2-util');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -151,9 +151,14 @@ foreach my $name ('localhost') {
 		. '--pin 1234 --so-pin 1234 '
 		. ">>$d/openssl.out 2>&1");
 
-	system("pkcs11-tool --module=$libsofthsm2_path "
-		. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
-		. ">>$d/openssl.out 2>&1");
+	system("openssl genrsa -out $d/$name.key 2048 "
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't create private key: $!\n";
+
+	system("softhsm2-util --import $d/$name.key --id 00 --label nx_key_0 "
+		. '--token NginxZero --pin 1234 '
+		. ">>$d/openssl.out 2>&1") == 0
+		or die "Can't import private key: $!\n";
 
 	system('openssl req -x509 -new '
 		. "-subj /CN=$name/ -out $d/$name.crt -text "

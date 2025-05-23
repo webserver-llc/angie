@@ -79,7 +79,7 @@ sub new {
 	my ($class, $params) = @_;
 	my $self = bless $params, $class;
 
-	BAIL_OUT 'No Test::Nginx instance passed to newly created ACME helper object'
+	die 'No Test::Nginx instance passed to newly created ACME helper object'
 		if !defined $self->{t} || ref $self->{t} ne 'Test::Nginx';
 
 	$self->{dns_port} //= port(8053);
@@ -162,7 +162,7 @@ EOF
 	if ($mgmt_addr) {
 		unless ($self->{t}->waitforsslsocket($mgmt_addr)) {
 			$self->stop_pebble();
-			BAIL_OUT "Couldn't start pebble's management interface on "
+			die "Couldn't start pebble's management interface on "
 				. $mgmt_addr . ", pid $pid";
 		}
 
@@ -171,7 +171,7 @@ EOF
 
 	unless ($self->{t}->waitforsslsocket("0.0.0.0:$pebble_port")) {
 		$self->stop_pebble();
-		BAIL_OUT "Couldn't start pebble on 0.0.0.0:$pebble_port, pid $pid";
+		die "Couldn't start pebble on 0.0.0.0:$pebble_port, pid $pid";
 	}
 
 	note("Pebble running on 0.0.0.0:$pebble_port, pid $pid");
@@ -235,7 +235,7 @@ sub start_challtestsrv {
 
 	unless ($self->{t}->waitforsocket("0.0.0.0:$mgmt_port")) {
 		$self->stop_challtestsrv();
-		BAIL_OUT "Couldn't start challtestsrv's management interface on "
+		die "Couldn't start challtestsrv's management interface on "
 			. "0.0.0.0:$mgmt_port, pid $pid";
 	}
 
@@ -244,7 +244,7 @@ sub start_challtestsrv {
 
 	unless ($self->{t}->waitforsocket("127.0.0.1:$dns_port")) {
 		$self->stop_challtestsrv();
-		BAIL_OUT "Couldn't start challtestsrv's DNS server on "
+		die "Couldn't start challtestsrv's DNS server on "
 			. "127.0.0.1:$dns_port, pid $pid";
 	}
 

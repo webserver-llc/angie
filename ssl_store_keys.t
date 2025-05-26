@@ -22,6 +22,8 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'win32') if $^O eq 'MSWin32';
+
 my $t = Test::Nginx->new()
 	->has(qw/http http_ssl geo openssl:1.1.1 socket_ssl_sni/)
 	->has_daemon('openssl');

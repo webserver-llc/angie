@@ -7,6 +7,17 @@
 
 <changes ver="1.9.1" date="">
 
+<change type="bugfix">
+<para lang="ru">
+HTTP/3 запросы могли зависать и завершаться по таймауту;
+исправление портировано из nginx 1.29.0.
+</para>
+<para lang="en">
+HTTP/3 requests might stall and timeout;
+the fix was ported from nginx 1.29.0.
+</para>
+</change>
+
 </changes>
 
 

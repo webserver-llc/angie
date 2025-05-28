@@ -18,6 +18,16 @@ the fix was ported from nginx 1.29.0.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+количество активных запросов могло быть некорректным при использовании
+клиентских HTTP/3 запросов.
+</para>
+<para lang="en">
+active request count might be incorrect when using HTTP/3 client requests.
+</para>
+</change>
+
 </changes>
 
 
@@ -142,16 +152,6 @@ references an ACME client using the "acme" directive.
 <para lang="en">
 if built with NTLS support, inheritance of the "proxy_ssl_certificate" and
 "proxy_ssl_certificate_key" directives with variables did not work properly.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-количество активных запросов могло быть некорректным при использовании
-клиентских HTTP/3 запросов.
-</para>
-<para lang="en">
-active request count might be incorrect when using HTTP/3 client requests.
 </para>
 </change>
 

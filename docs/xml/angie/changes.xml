@@ -7,42 +7,20 @@
 
 <changes ver="1.9.1" date="">
 
-<change type="bugfix">
+<change type="feature">
 <para lang="ru">
-в stream-модуле не останавливался отсчет времени неработоспособности, когда
-проксируемый сервер возвращался в работоспособное состояние по факту успешной
-установки соединения.
+возможность задать в директиве "acme_dns_port" не только номер порта, но
+и IP-адрес; поддерживаются IPv4 и IPv6.
 </para>
 <para lang="en">
-the upstream's down time counting is not stopped when server recovers while
-succesfully connection.
+support for IP addresses along with port numbers in the "acme_dns_port"
+directive; both IPv4 and IPv6 are allowed.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-HTTP/3 запросы могли зависать и завершаться по таймауту;
-исправление портировано из nginx 1.29.0.
-</para>
-<para lang="en">
-HTTP/3 requests might stall and timeout;
-the fix was ported from nginx 1.29.0.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-количество активных запросов могло быть некорректным при использовании
-клиентских HTTP/3 запросов.
-</para>
-<para lang="en">
-active request count might be incorrect when using HTTP/3 client requests.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-наличие в директивах "server_name" одновременно wildcard-домена и совпадающих
+одновременное наличие в директивах "server_name" wildcard-домена и совпадающих
 с ним доменов третьего уровня приводило к ошибке ACME-сервера при выпуске
 сертификата для этих доменов в рамках одного ACME-клиента.
 </para>
@@ -55,23 +33,47 @@ these domains under a single ACME client.
 
 <change type="bugfix">
 <para lang="ru">
-ранняя ошибка при установлении HTTP/3 соединения с проксируемым сервером
-могла приводить к падению рабочего процесса.
+в stream-модуле после успешного соединения с проксируемым сервером во время
+пассивной проверки его статус в API статистики ошибочно продолжал отображаться
+как "unavailable" до завершения сессии.
 </para>
 <para lang="en">
-early error while establishing HTTP/3 connection to a proxied server
-could cause worker process crash.
+in the stream module, after a successful connection to the proxied server during
+a passive check, its status in the statistics API was erroneously displayed as
+"unavailable" until the session ended.
 </para>
 </change>
 
-<change type="feature">
+<change type="bugfix">
 <para lang="ru">
-возможность задать в директиве "acme_dns_port" не только номер порта, но
-и IP-адрес; поддерживаются IPv4 и IPv6.
+запросы HTTP/3 могли зависать и завершаться по таймауту;
+исправление портировано из nginx 1.29.0.
 </para>
 <para lang="en">
-support for IP addresses along with port numbers in the "acme_dns_port"
-directive; both IPv4 and IPv6 are allowed.
+HTTP/3 requests might stall and time-out;
+the fix was ported from nginx 1.29.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+ранняя ошибка при установлении соединения HTTP/3 с проксируемым сервером
+могла приводить к падению рабочего процесса.
+</para>
+<para lang="en">
+an early error while establishing an HTTP/3 connection to a proxied server
+could cause a worker process to crash.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+число активных соединений при проксировании по протоколу HTTP/3
+могло некорректно отображаться в статистике.
+</para>
+<para lang="en">
+the number of active connections during proxying via the HTTP/3 protocol
+might be displayed incorrectly in the statistics.
 </para>
 </change>
 

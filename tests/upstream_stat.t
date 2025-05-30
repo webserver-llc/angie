@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use Test::More;
+use Test::Deep qw/cmp_deeply superhashof/;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -67,7 +68,7 @@ http {
     upstream f {
         zone zk 1m;
 
-        server 127.0.0.1:8081 max_fails=2 fail_timeout=2s;
+        server 127.0.0.1:8081 max_fails=2 fail_timeout=1s;
         server 127.0.0.1:8082;
     }
 
@@ -148,59 +149,56 @@ subtest 'response counters' => sub {
 	http_get('/') for 1..2;
 
 	my $j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-	is($j->{200}, 1, 'b1 initial response count');
+	cmp_deeply($j, {200 => 1}, 'b1 initial response count');
 
 	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
-	is($j->{200}, 1, 'b2 initial response count');
+	cmp_deeply($j, {200 => 1}, 'b2 initial response count');
 
 	# issue 4 requests to update counters
 	http_get('/') for 1..4;
 
 	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-	is($j->{200}, 3, 'b1 new response count');
+	cmp_deeply($j, {200 => 3}, 'b1 new response count');
 
 	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
-	is($j->{200}, 3, 'b2 new response count');
+	cmp_deeply($j, {200 => 3}, 'b2 new response count');
 
 	# issue request leading to 404 on 1st backend
 	http_get('/missing');
+
 	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-	is($j->{200}, 3, 'good requests');
-	is($j->{404}, 1, 'missing requests');
+	cmp_deeply($j, {200 => 3, 404 => 1}, 'good and missing requests');
 };
 
 subtest 'verify peer properties' => sub {
 	my $j = get_json("/status/upstreams/u/peers/127.0.0.1:$port3/");
 
-	is($j->{server}, "127.0.0.1:$port3", 'server');
+	my $expected_properties = {
+		server    => "127.0.0.1:$port3",
+		weight    => 32,
+		state     => 'down',
+		max_conns => 7,
+		backup    => JSON::true(),
+		responses => {},
+		data      => {sent => 0, received => 0},
+		selected  => {current => 0, total => 0},
+		health    => {unavailable => 0, downtime => 0, fails => 0},
+	};
 
-	is($j->{weight},    32, 'weight');
-	is($j->{state}, 'down', 'state');
-	is($j->{max_conns},  7, 'max_conns');
-	is($j->{backup},     1, 'backup');
-
-	is($j->{response}{200}, undef , 'no response');
-
-	is($j->{data}{sent},     0, 'sent');
-	is($j->{data}{received}, 0, 'received');
-
-	is($j->{selected}{current}, 0, 'current');
-	is($j->{selected}{total},   0, 'selected');
-
-	is($j->{health}{unavailable}, 0, 'unavailable');
-	is($j->{health}{downtime},    0, 'downtime');
-	is($j->{health}{fails},       0, 'fails');
+	cmp_deeply($j, superhashof($expected_properties), 'peer b3 properties');
 };
 
 subtest 'verify upstream properties' => sub {
 	my $j = get_json('/status/upstreams/u/');
-	is(ref $j->{peers} eq ref {}, 1, 'peers{} in upstream/');
+	is(keys %{ $j->{peers} }, 3, '3 peers in upstream');
 	is($j->{keepalive}, 0, 'disabled keepalive');
 
-	# requires debug
-	#is($j->{'zone'}, 'z', 'configured zone');
+	SKIP: {
+		skip 'requires debug', 1
+			unless $t->has_module('--with-debug');
 
-	is(keys %{ $j->{'peers'} }, 3, '3 peers in upstream');
+		is($j->{zone}, 'z', 'configured zone');
+	}
 
 	# keepalive upstream with hash
 	$j = get_json('/status/upstreams/uk/');
@@ -217,32 +215,44 @@ subtest 'verify upstream properties' => sub {
 subtest 'check bad response counters' => sub {
 	http_get('/s/bad1');
 	my $j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
-	is($j->{xxx}, 1, 'response code < 100 counter incremented');
+	cmp_deeply($j, {xxx => 1}, 'response code < 100 counter incremented');
 
 	http_get('/s/bad2');
 	$j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
-	is($j->{xxx}, 2, 'response code > 599 counter incremented');
+	cmp_deeply($j, {xxx => 2}, 'response code > 599 counter incremented');
 };
 
 subtest 'verify peer fails' => sub {
 	http_get('/f/b1fail'); # this goes to b1, fails, then to b2
+
 	my $j = get_json('/status/upstreams/f/peers');
-	is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 first fail counted');
-	is($j->{"127.0.0.1:$port2"}{responses}{200}, 1, 'b2 good response');
+
+	cmp_deeply($j->{"127.0.0.1:$port1"}{responses}, {429 => 1},
+		'b1 first fail counted');
+	cmp_deeply($j->{"127.0.0.1:$port2"}{responses}, {200 => 1},
+		'b2 good response');
+
 	is($j->{"127.0.0.1:$port1"}{health}{fails}, 1, 'b1 fails incremented');
 
 	http_get('/f/b1fail'); # this goes to b2
+
 	$j = get_json('/status/upstreams/f/peers');
-	is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 no changes');
-	is($j->{"127.0.0.1:$port2"}{responses}{200}, 2, 'b2 good response');
+	cmp_deeply($j->{"127.0.0.1:$port1"}{responses}, {429 => 1},
+		'b1 no changes');
+	cmp_deeply($j->{"127.0.0.1:$port2"}{responses}, {200 => 2},
+		'b2 good response');
 
 	http_get('/f/b1fail'); # this goes to b1, fails, then to b2
+
 	$j = get_json('/status/upstreams/f/peers');
 
-	# now b1 is supposed to be in 'failed' state
+	# now b1 is supposed to be in 'unavailable' state
 
-	is($j->{"127.0.0.1:$port1"}{responses}{429}, 2, 'b1 tried again');
-	is($j->{"127.0.0.1:$port2"}{responses}{200}, 3, 'b2 good response');
+	cmp_deeply($j->{"127.0.0.1:$port1"}{responses}, {429 => 2},
+		'b1 tried again');
+	cmp_deeply($j->{"127.0.0.1:$port2"}{responses}, {200 => 3},
+		'b2 good response');
+
 	is($j->{"127.0.0.1:$port1"}{state}, 'unavailable', 'b1 is unavailable');
 	is($j->{"127.0.0.1:$port1"}{health}{fails}, 2, 'b1 fails incremented');
 	is(defined $j->{"127.0.0.1:$port1"}{health}{downstart}, 1, 'b1 defined downstart');
@@ -252,11 +262,11 @@ subtest 'verify peer fails' => sub {
 	select undef, undef, undef, 0.5;
 
 	$j = get_json('/status/upstreams/f/peers');
-	is(defined $j->{"127.0.0.1:$port1"}{health}{downtime} > 0, 1, 'b1 nonzero downtime');
+	ok($j->{"127.0.0.1:$port1"}{health}{downtime} > 0, 'b1 nonzero downtime');
 
 	# wait for peer to become ready to probe again
 	# TODO: avoid delay
-	select undef, undef, undef, 3;
+	select undef, undef, undef, 1.5;
 
 	http_get('/f/') for 1..2;
 
@@ -266,8 +276,13 @@ subtest 'verify peer fails' => sub {
 };
 
 subtest 'counters after reload' => sub {
-	# now reload and check some stats...
+	my $j = get_json('/status/upstreams/uk/');
+	is($j->{keepalive}, 1, 'nonzero keepalive connections');
 
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
+	is($j->{200}, 3, 'peer requests');
+
+	# now reload and check some stats...
 	$t->reload();
 
 	# TODO: avoid delay

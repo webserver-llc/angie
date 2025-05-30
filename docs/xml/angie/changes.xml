@@ -68,12 +68,12 @@ could cause a worker process to crash.
 
 <change type="bugfix">
 <para lang="ru">
-число активных соединений при проксировании по протоколу HTTP/3
-могло некорректно отображаться в статистике.
+при проксировании по протоколу HTTP/3 число активных соединений
+могло отображаться в статистике некорректно.
 </para>
 <para lang="en">
-the number of active connections during proxying via the HTTP/3 protocol
-might be displayed incorrectly in the statistics.
+when proxying via the HTTP/3 protocol, the number of active connections
+in the statistics could be displayed incorrectly.
 </para>
 </change>
 

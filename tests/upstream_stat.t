@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api proxy upstream_zone upstream_hash/)
-	->plan(43)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -143,152 +143,159 @@ $t->run();
 
 my ($port1, $port2, $port3) = (port(8081), port(8082), port(8083));
 
-# give 1 request for each backend
-http_get('/') for 1..2;
+subtest 'response counters' => sub {
+	# give 1 request for each backend
+	http_get('/') for 1..2;
 
-my $j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-is($j->{200}, 1, 'b1 initial response count');
+	my $j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
+	is($j->{200}, 1, 'b1 initial response count');
 
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
-is($j->{200}, 1, 'b2 initial response count');
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
+	is($j->{200}, 1, 'b2 initial response count');
 
-# issue 4 requests to update counters
-http_get('/') for 1..4;
+	# issue 4 requests to update counters
+	http_get('/') for 1..4;
 
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-is($j->{200}, 3, 'b1 new response count');
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
+	is($j->{200}, 3, 'b1 new response count');
 
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
-is($j->{200}, 3, 'b2 new response count');
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port2/responses/");
+	is($j->{200}, 3, 'b2 new response count');
 
-# issue request leading to 404 on 1st backend
-http_get('/missing');
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-is($j->{200}, 3, 'good requests');
-is($j->{404}, 1, 'missing requests');
+	# issue request leading to 404 on 1st backend
+	http_get('/missing');
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
+	is($j->{200}, 3, 'good requests');
+	is($j->{404}, 1, 'missing requests');
+};
 
-# verify peer properties
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port3/");
+subtest 'verify peer properties' => sub {
+	my $j = get_json("/status/upstreams/u/peers/127.0.0.1:$port3/");
 
-is($j->{server}, "127.0.0.1:$port3", 'server');
+	is($j->{server}, "127.0.0.1:$port3", 'server');
 
-is($j->{weight},    32, 'weight');
-is($j->{state}, 'down', 'state');
-is($j->{max_conns},  7, 'max_conns');
-is($j->{backup},     1, 'backup');
+	is($j->{weight},    32, 'weight');
+	is($j->{state}, 'down', 'state');
+	is($j->{max_conns},  7, 'max_conns');
+	is($j->{backup},     1, 'backup');
 
-is($j->{response}{200}, undef , 'no response');
+	is($j->{response}{200}, undef , 'no response');
 
-is($j->{data}{sent},     0, 'sent');
-is($j->{data}{received}, 0, 'received');
+	is($j->{data}{sent},     0, 'sent');
+	is($j->{data}{received}, 0, 'received');
 
-is($j->{selected}{current}, 0, 'current');
-is($j->{selected}{total},   0, 'selected');
+	is($j->{selected}{current}, 0, 'current');
+	is($j->{selected}{total},   0, 'selected');
 
-is($j->{health}{unavailable}, 0, 'unavailable');
-is($j->{health}{downtime},    0, 'downtime');
-is($j->{health}{fails},       0, 'fails');
+	is($j->{health}{unavailable}, 0, 'unavailable');
+	is($j->{health}{downtime},    0, 'downtime');
+	is($j->{health}{fails},       0, 'fails');
+};
 
-# verify upstream properties
-$j = get_json('/status/upstreams/u/');
-is(ref $j->{peers} eq ref {}, 1, 'peers{} in upstream/');
-is($j->{keepalive}, 0, 'disabled keepalive');
+subtest 'verify upstream properties' => sub {
+	my $j = get_json('/status/upstreams/u/');
+	is(ref $j->{peers} eq ref {}, 1, 'peers{} in upstream/');
+	is($j->{keepalive}, 0, 'disabled keepalive');
 
-# requires debug
-#is($j->{'zone'}, 'z', 'configured zone');
+	# requires debug
+	#is($j->{'zone'}, 'z', 'configured zone');
 
-is(keys %{ $j->{'peers'} }, 3, '3 peers in upstream');
+	is(keys %{ $j->{'peers'} }, 3, '3 peers in upstream');
 
-# keepalive upstream with hash
-$j = get_json('/status/upstreams/uk/');
-is(keys %{ $j->{peers} }, 2, '2 peers in upstream');
-is($j->{keepalive}, 0, 'zero keepalive connections');
+	# keepalive upstream with hash
+	$j = get_json('/status/upstreams/uk/');
+	is(keys %{ $j->{peers} }, 2, '2 peers in upstream');
+	is($j->{keepalive}, 0, 'zero keepalive connections');
 
-# establish keepalive connection to backend
-my $v = http_get('/k');
+	# establish keepalive connection to backend
+	my $v = http_get('/k');
 
-$j = get_json('/status/upstreams/uk/');
-is($j->{keepalive}, 1, 'one keepalive connection');
+	$j = get_json('/status/upstreams/uk/');
+	is($j->{keepalive}, 1, 'one keepalive connection');
+};
 
-# check bad response counters
-http_get('/s/bad1');
-$j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
-is($j->{xxx}, 1, 'response code < 100 counter incremented');
+subtest 'check bad response counters' => sub {
+	http_get('/s/bad1');
+	my $j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
+	is($j->{xxx}, 1, 'response code < 100 counter incremented');
 
-http_get('/s/bad2');
-$j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
-is($j->{xxx}, 2, 'response code > 599 counter incremented');
+	http_get('/s/bad2');
+	$j = get_json("/status/upstreams/s/peers/127.0.0.1:$port1/responses");
+	is($j->{xxx}, 2, 'response code > 599 counter incremented');
+};
 
-# verify peer fails
+subtest 'verify peer fails' => sub {
+	http_get('/f/b1fail'); # this goes to b1, fails, then to b2
+	my $j = get_json('/status/upstreams/f/peers');
+	is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 first fail counted');
+	is($j->{"127.0.0.1:$port2"}{responses}{200}, 1, 'b2 good response');
+	is($j->{"127.0.0.1:$port1"}{health}{fails}, 1, 'b1 fails incremented');
 
-http_get('/f/b1fail'); # this goes to b1, fails, then to b2
-$j = get_json('/status/upstreams/f/peers');
-is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 first fail counted');
-is($j->{"127.0.0.1:$port2"}{responses}{200}, 1, 'b2 good response');
-is($j->{"127.0.0.1:$port1"}{health}{fails}, 1, 'b1 fails incremented');
+	http_get('/f/b1fail'); # this goes to b2
+	$j = get_json('/status/upstreams/f/peers');
+	is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 no changes');
+	is($j->{"127.0.0.1:$port2"}{responses}{200}, 2, 'b2 good response');
 
-http_get('/f/b1fail'); # this goes to b2
-$j = get_json('/status/upstreams/f/peers');
-is($j->{"127.0.0.1:$port1"}{responses}{429}, 1, 'b1 no changes');
-is($j->{"127.0.0.1:$port2"}{responses}{200}, 2, 'b2 good response');
+	http_get('/f/b1fail'); # this goes to b1, fails, then to b2
+	$j = get_json('/status/upstreams/f/peers');
 
-http_get('/f/b1fail'); # this goes to b1, fails, then to b2
-$j = get_json('/status/upstreams/f/peers');
+	# now b1 is supposed to be in 'failed' state
 
-# now b1 is supposed to be in 'failed' state
+	is($j->{"127.0.0.1:$port1"}{responses}{429}, 2, 'b1 tried again');
+	is($j->{"127.0.0.1:$port2"}{responses}{200}, 3, 'b2 good response');
+	is($j->{"127.0.0.1:$port1"}{state}, 'unavailable', 'b1 is unavailable');
+	is($j->{"127.0.0.1:$port1"}{health}{fails}, 2, 'b1 fails incremented');
+	is(defined $j->{"127.0.0.1:$port1"}{health}{downstart}, 1, 'b1 defined downstart');
 
-is($j->{"127.0.0.1:$port1"}{responses}{429}, 2, 'b1 tried again');
-is($j->{"127.0.0.1:$port2"}{responses}{200}, 3, 'b2 good response');
-is($j->{"127.0.0.1:$port1"}{state}, 'unavailable', 'b1 is unavailable');
-is($j->{"127.0.0.1:$port1"}{health}{fails}, 2, 'b1 fails incremented');
-is(defined $j->{"127.0.0.1:$port1"}{health}{downstart}, 1, 'b1 defined downstart');
+	# wait a bit to get downtime incremented
+	# TODO: avoid delay
+	select undef, undef, undef, 0.5;
 
-# wait a bit to get downtime incremented
-# TODO: avoid delay
-select undef, undef, undef, 0.5;
+	$j = get_json('/status/upstreams/f/peers');
+	is(defined $j->{"127.0.0.1:$port1"}{health}{downtime} > 0, 1, 'b1 nonzero downtime');
 
-$j = get_json('/status/upstreams/f/peers');
-is(defined $j->{"127.0.0.1:$port1"}{health}{downtime} > 0, 1, 'b1 nonzero downtime');
+	# wait for peer to become ready to probe again
+	# TODO: avoid delay
+	select undef, undef, undef, 3;
 
-# wait for peer to become ready to probe again
-# TODO: avoid delay
-select undef, undef, undef, 3;
+	http_get('/f/') for 1..2;
 
-http_get('/f/') for 1..2;
+	$j = get_json('/status/upstreams/f/peers');
+	is($j->{"127.0.0.1:$port1"}{responses}{200}, 1, 'b1 is processing data');
+	is($j->{"127.0.0.1:$port1"}{state}, 'up', 'b1 is up');
+};
 
-$j = get_json('/status/upstreams/f/peers');
-is($j->{"127.0.0.1:$port1"}{responses}{200}, 1, 'b1 is processing data');
-is($j->{"127.0.0.1:$port1"}{state}, 'up', 'b1 is up');
+subtest 'counters after reload' => sub {
+	# now reload and check some stats...
 
-# now reload and check some stats...
+	$t->reload();
 
-$t->reload();
+	# TODO: avoid delay
+	select undef, undef, undef, 0.5;
 
-# TODO: avoid delay
-select undef, undef, undef, 0.5;
+	# expect:
+	#   - no keepalive connections
+	#   - peer stats reset
 
-# expect:
-#   - no keepalive connections
-#   - peer stats reset
+	my $j = get_json('/status/upstreams/uk/');
+	is($j->{keepalive}, 0, 'zero keepalive connections after reload');
 
-$j = get_json('/status/upstreams/uk/');
-is($j->{keepalive}, 0, 'zero keepalive connections after reload');
+	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
+	is($j->{200}, undef, 'no peer requests after reload');
 
-$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");
-is($j->{200}, undef, 'no peer requests after reload');
+	# use consistent hash
+	http_get('/kc');
 
-# use consistent hash
-http_get('/kc');
+	$j = get_json("/status/upstreams/ukc/peers/127.0.0.1:$port1/responses/");
+	my $v = $j->{200} // 0;
 
-$j = get_json("/status/upstreams/ukc/peers/127.0.0.1:$port1/responses/");
-$v = $j->{200} // 0;
+	$j = get_json("/status/upstreams/ukc/peers/127.0.0.1:$port2/responses/");
+	if (defined $j->{200}) {
+		$v = $v + $j->{200};
+	}
 
-$j = get_json("/status/upstreams/ukc/peers/127.0.0.1:$port2/responses/");
-if (defined $j->{200}) {
-	$v = $v + $j->{200};
-}
-
-is($v, 1, '1 request total to consistent hash upstream');
+	is($v, 1, '1 request total to consistent hash upstream');
+};
 
 ###############################################################################
 

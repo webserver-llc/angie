@@ -12,7 +12,8 @@ use strict;
 use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-		getconn hash_like stream_daemon trim $TIME_RE $NUM_RE /;
+		getconn hash_like stream_daemon trim log2i log2o log2c
+		$TIME_RE $NUM_RE /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
@@ -256,7 +257,7 @@ sub stream_daemon {
 
 		my $input = socket_read($client,
 			trailing_char => $params->{trailing_char} // '$');
-		log2i("|| << $client_port $input");
+		log2i("$client_port $input");
 
 		my $output = $client->sockport();
 		my $output_length = length $output;
@@ -273,7 +274,7 @@ sub stream_daemon {
 				$output .= '.' x ($response_length - length $output);
 			}
 		}
-		log2o("|| >> $client_port $output");
+		log2o("$client_port $output");
 
 		socket_write($client, $output);
 

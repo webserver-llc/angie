@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/get_json/;
+use Test::Utils qw/get_json :re/;
 
 ###############################################################################
 
@@ -232,7 +232,12 @@ subtest 'verify peer fails' => sub {
 	cmp_deeply($j->{"127.0.0.1:$port2"}{responses}, {200 => 1},
 		'b2 good response');
 
-	is($j->{"127.0.0.1:$port1"}{health}{fails}, 1, 'b1 fails incremented');
+	my $b1 = $j->{"127.0.0.1:$port1"};
+	is($b1->{state},              'up', 'b1 is up');
+	is($b1->{health}{fails},         1, 'b1 fails incremented');
+	is($b1->{health}{downstart}, undef, 'b1 not defined downstart');
+	is($b1->{health}{downtime},      0, 'b1 zero downtime');
+	is($b1->{health}{unavailable},   0, 'b1 zero unavailable');
 
 	http_get('/f/b1fail'); # this goes to b2
 
@@ -253,9 +258,11 @@ subtest 'verify peer fails' => sub {
 	cmp_deeply($j->{"127.0.0.1:$port2"}{responses}, {200 => 3},
 		'b2 good response');
 
-	is($j->{"127.0.0.1:$port1"}{state}, 'unavailable', 'b1 is unavailable');
-	is($j->{"127.0.0.1:$port1"}{health}{fails}, 2, 'b1 fails incremented');
-	is(defined $j->{"127.0.0.1:$port1"}{health}{downstart}, 1, 'b1 defined downstart');
+	$b1 = $j->{"127.0.0.1:$port1"};
+	is($b1->{state},   'unavailable', 'b1 is unavailable');
+	is($b1->{health}{fails},       2, 'b1 fails incremented');
+	is($b1->{health}{unavailable}, 1, 'b1 unavailable incremented');
+	cmp_deeply($b1->{health}{downstart}, $TIME_RE, 'b1 defined downstart');
 
 	# wait a bit to get downtime incremented
 	# TODO: avoid delay
@@ -270,9 +277,21 @@ subtest 'verify peer fails' => sub {
 
 	http_get('/f/') for 1..2;
 
-	$j = get_json('/status/upstreams/f/peers');
-	is($j->{"127.0.0.1:$port1"}{responses}{200}, 1, 'b1 is processing data');
-	is($j->{"127.0.0.1:$port1"}{state}, 'up', 'b1 is up');
+	$j = get_json("/status/upstreams/f/peers/127.0.0.1:$port1");
+	is($j->{state},              'up', 'b1 is up');
+	is($j->{responses}{200},        1, 'b1 is processing data');
+	is($j->{health}{fails},         2, 'b1 fails not incremented');
+	is($j->{health}{unavailable},   1, 'b1 unavailable not incremented');
+	is($j->{health}{downstart}, undef, 'b1 not defined downstart');
+
+	# check that downtime stopped growing
+	my $downtime = $j->{health}{downtime};
+
+	# wait a bit
+	select undef, undef, undef, 1;
+
+	$j = get_json("/status/upstreams/f/peers/127.0.0.1:$port1/health/downtime");
+	is($j, $downtime, 'b1 downtime stopped growing');
 };
 
 subtest 'counters after reload' => sub {
@@ -292,7 +311,7 @@ subtest 'counters after reload' => sub {
 	#   - no keepalive connections
 	#   - peer stats reset
 
-	my $j = get_json('/status/upstreams/uk/');
+	$j = get_json('/status/upstreams/uk/');
 	is($j->{keepalive}, 0, 'zero keepalive connections after reload');
 
 	$j = get_json("/status/upstreams/u/peers/127.0.0.1:$port1/responses/");

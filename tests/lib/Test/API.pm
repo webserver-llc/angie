@@ -15,7 +15,7 @@ BEGIN {
 use Test::More;
 use Test::Deep qw/any re hash_each subhashof cmp_details deep_diag/;
 
-use Test::Utils qw/get_json put_json delete_json patch_json/;
+use Test::Utils qw/:json :re/;
 
 # describes the maximum set of allowed fields
 sub api_status {
@@ -30,70 +30,68 @@ sub api_status {
 
 	my $config = $t->read_file('nginx.conf');
 
-	my $num_re  = re(qr/^\d+$/);
-	my $time_re = re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
 	my $string_re = re(qr/^.+$/);
 
 	my $ssl = {
-		failed     => $num_re,
-		handshaked => $num_re,
-		reuses     => $num_re,
-		timedout   => $num_re,
+		failed     => $NUM_RE,
+		handshaked => $NUM_RE,
+		reuses     => $NUM_RE,
+		timedout   => $NUM_RE,
 	};
 
 	my $data = {
-		received => $num_re,
-		sent     => $num_re
+		received => $NUM_RE,
+		sent     => $NUM_RE
 	};
 
 	my $cache_read = {
-		bytes     => $num_re,
-		responses => $num_re,
+		bytes     => $NUM_RE,
+		responses => $NUM_RE,
 	};
 
 	my $cache = {
 		%{ $cache_read },
-		bytes_written     => $num_re,
-		responses_written => $num_re
+		bytes_written     => $NUM_RE,
+		responses_written => $NUM_RE
 	};
 
 	my $peer = {
 		backup    => any(JSON::false(), JSON::true()),
-		max_conns => $num_re,
-		($with_debug ? (refs => $num_re) : ()),
+		max_conns => $NUM_RE,
+		($with_debug ? (refs => $NUM_RE) : ()),
 		selected => subhashof({
-			current => $num_re,
-			total   => $num_re,
-			last    => $time_re,
+			current => $NUM_RE,
+			total   => $NUM_RE,
+			last    => $TIME_RE,
 		}),
 		server  => $string_re,
 		service => $string_re,
 		sid     => $string_re,
 		state   => $string_re,
-		weight  => $num_re,
+		weight  => $NUM_RE,
 	};
 
 	my $limit_conns = hash_each({
-		exhausted => $num_re,
-		passed    => $num_re,
-		rejected  => $num_re,
-		skipped   => $num_re,
+		exhausted => $NUM_RE,
+		passed    => $NUM_RE,
+		rejected  => $NUM_RE,
+		skipped   => $NUM_RE,
 	});
 
 	my $status = {
 		angie => {
 			address    => $string_re,
 			(defined $build) ? (build => $build) : (),
-			build_time => $time_re,
-			generation => $num_re,
-			load_time  => $time_re,
+			build_time => $TIME_RE,
+			generation => $NUM_RE,
+			load_time  => $TIME_RE,
 			version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
 		},
 		connections => {
-			accepted => $num_re,
-			active   => $num_re,
-			dropped  => $num_re,
-			idle     => $num_re,
+			accepted => $NUM_RE,
+			active   => $NUM_RE,
+			dropped  => $NUM_RE,
+			idle     => $NUM_RE,
 		},
 		http => subhashof({
 			caches => hash_each(
@@ -102,96 +100,96 @@ sub api_status {
 					cold     => any(JSON::false(), JSON::true()),
 					expired  => $cache,
 					hit      => $cache_read,
-					max_size => $num_re,
+					max_size => $NUM_RE,
 					miss     => $cache,
 					revalidated => $cache_read,
-					size     => $num_re,
+					size     => $NUM_RE,
 					stale    => $cache_read,
 					updating => $cache_read,
 				})
 			),
 			limit_conns => $limit_conns,
 			limit_reqs => hash_each({
-				delayed   => $num_re,
-				exhausted => $num_re,
-				passed    => $num_re,
-				rejected  => $num_re,
-				skipped   => $num_re,
+				delayed   => $NUM_RE,
+				exhausted => $NUM_RE,
+				passed    => $NUM_RE,
+				rejected  => $NUM_RE,
+				skipped   => $NUM_RE,
 			}),
 			location_zones => hash_each({
 				data => $data,
 				requests => {
-					discarded => $num_re,
-					total     => $num_re
+					discarded => $NUM_RE,
+					total     => $NUM_RE
 				},
-				responses => hash_each($num_re),
+				responses => hash_each($NUM_RE),
 			}),
 			server_zones => hash_each(
 				subhashof({
 					data => $data,
-					responses => hash_each($num_re),
+					responses => hash_each($NUM_RE),
 					requests  => {
-						discarded  => $num_re,
-						processing => $num_re,
-						total      => $num_re,
+						discarded  => $NUM_RE,
+						processing => $NUM_RE,
+						total      => $NUM_RE,
 					},
 					ssl => $ssl,
 				}),
 			),
 			upstreams => hash_each(
 				subhashof({
-					keepalive => $num_re,
+					keepalive => $NUM_RE,
 					peers => hash_each(
 						subhashof({
 							%{ $peer },
 							data   => $data,
-							responses => hash_each($num_re),
+							responses => hash_each($NUM_RE),
 							health => subhashof({
-								downstart     => $time_re,
-								downtime      => $num_re,
-								fails         => $num_re,
-								unavailable   => $num_re,
+								downstart     => $TIME_RE,
+								downtime      => $NUM_RE,
+								fails         => $NUM_RE,
+								unavailable   => $NUM_RE,
 							}),
 						}),
 					),
-					($with_debug ? (zombies => $num_re)    : ()),
+					($with_debug ? (zombies => $NUM_RE)    : ()),
 					($with_debug ? (zone    => $string_re) : ()),
 				}),
 			),
 		}),
 		resolvers => hash_each({
 			queries => {
-				name => $num_re,
-				srv  => $num_re,
-				addr => $num_re,
+				name => $NUM_RE,
+				srv  => $NUM_RE,
+				addr => $NUM_RE,
 			},
 			responses => {
-				format_error   => $num_re,
-				not_found      => $num_re,
-				other          => $num_re,
-				refused        => $num_re,
-				server_failure => $num_re,
-				success        => $num_re,
-				timedout       => $num_re,
-				unimplemented  => $num_re,
+				format_error   => $NUM_RE,
+				not_found      => $NUM_RE,
+				other          => $NUM_RE,
+				refused        => $NUM_RE,
+				server_failure => $NUM_RE,
+				success        => $NUM_RE,
+				timedout       => $NUM_RE,
+				unimplemented  => $NUM_RE,
 			},
 			sent => {
-				a    => $num_re,
-				aaaa => $num_re,
-				ptr  => $num_re,
-				srv  => $num_re
+				a    => $NUM_RE,
+				aaaa => $NUM_RE,
+				ptr  => $NUM_RE,
+				srv  => $NUM_RE
 			},
 		}),
 		slabs => hash_each({
 			pages => {
-				free => $num_re,
-				used => $num_re,
+				free => $NUM_RE,
+				used => $NUM_RE,
 			},
 			slots => hash_each({
-				fails => $num_re,
-				free  => $num_re,
-				reqs  => $num_re,
-				used  => $num_re,
+				fails => $NUM_RE,
+				free  => $NUM_RE,
+				reqs  => $NUM_RE,
+				used  => $NUM_RE,
 			}),
 		}),
 	};
@@ -203,18 +201,18 @@ sub api_status {
 				subhashof({
 					data => $data,
 					connections => {
-						discarded  => $num_re,
-						processing => $num_re,
-						total      => $num_re,
-						passed     => $num_re,
+						discarded  => $NUM_RE,
+						processing => $NUM_RE,
+						total      => $NUM_RE,
+						passed     => $NUM_RE,
 					},
 					sessions => {
-						bad_gateway         => $num_re,
-						forbidden           => $num_re,
-						internal_error      => $num_re,
-						invalid             => $num_re,
-						service_unavailable => $num_re,
-						success             => $num_re,
+						bad_gateway         => $NUM_RE,
+						forbidden           => $NUM_RE,
+						internal_error      => $NUM_RE,
+						invalid             => $NUM_RE,
+						service_unavailable => $NUM_RE,
+						success             => $NUM_RE,
 					},
 					ssl => $ssl,
 				}),
@@ -225,14 +223,14 @@ sub api_status {
 						%{ $peer },
 						data   => $data,
 						health => subhashof({
-							downstart       => $time_re,
-							downtime        => $num_re,
-							fails           => $num_re,
-							unavailable     => $num_re,
+							downstart       => $TIME_RE,
+							downtime        => $NUM_RE,
+							fails           => $NUM_RE,
+							unavailable     => $NUM_RE,
 						}),
 					}),
 				),
-				($with_debug ? (zombies => $num_re)    : ()),
+				($with_debug ? (zombies => $NUM_RE)    : ()),
 				($with_debug ? (zone    => $string_re) : ()),
 			}),
 		});

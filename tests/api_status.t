@@ -19,7 +19,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::Stream qw/stream/;
-use Test::Utils qw/get_json put_json delete_json patch_json stream_daemon/;
+use Test::Utils qw/ stream_daemon :json :re/;
 
 ###############################################################################
 
@@ -140,21 +140,17 @@ my %test_cases = (
 			$build = $1;
 		}
 
-		my $num_re  = re(qr/^\d+$/);
-		my $time_re
-			= re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
-
 		my $slot = {
-			fails => $num_re,
-			free  => $num_re,
-			reqs  => $num_re,
-			used  => $num_re,
+			fails => $NUM_RE,
+			free  => $NUM_RE,
+			reqs  => $NUM_RE,
+			used  => $NUM_RE,
 		};
 
 		my $zone = {
 			pages => {
-				used => $num_re,
-				free => $num_re,
+				used => $NUM_RE,
+				free => $NUM_RE,
 			},
 			slots => hash_each($slot),
 		};
@@ -166,14 +162,14 @@ my %test_cases = (
 					$t->testdir . '/nginx.conf' => $t->read_file('nginx.conf'),
 				},
 				generation => 1,
-				load_time  => $time_re,
+				load_time  => $TIME_RE,
 				version    => re(qr/^(\d+\.)?(\d+\.)?(\d+|.+)?$/),
 				(defined $build) ? (build => $build) : (),
-				build_time => $time_re,
+				build_time => $TIME_RE,
 			},
 			connections => {
-				accepted => $num_re,
-				active   => $num_re,
+				accepted => $NUM_RE,
+				active   => $NUM_RE,
 				dropped  => 0,
 				idle     => 0,
 			},
@@ -260,18 +256,18 @@ my %test_cases = (
 				server_zones => {
 					http_server_zone => {
 						data => {
-							received => $num_re,
-							sent     => $num_re,
+							received => $NUM_RE,
+							sent     => $NUM_RE,
 						},
 						requests => {
 							discarded  => 0,
-							processing => $num_re,
-							total      => $num_re,
+							processing => $NUM_RE,
+							total      => $NUM_RE,
 						},
 						responses => {
-							200 => $num_re,
-							404 => $num_re,
-							405 => $num_re,
+							200 => $NUM_RE,
+							404 => $NUM_RE,
+							405 => $NUM_RE,
 						},
 					},
 				},
@@ -293,12 +289,12 @@ my %test_cases = (
 								max_conns => 1,
 								($with_debug ? (refs => 0) : ()),
 								responses => {
-									200 => $num_re,
+									200 => $NUM_RE,
 								},
 								selected  => {
 									current => 0,
 									total   => 1,
-									last    => $time_re,
+									last    => $TIME_RE,
 								},
 								server => '127.0.0.1:' . port(8081),
 								sid    => 's1',
@@ -378,7 +374,7 @@ my %test_cases = (
 								selected  => {
 									current => 0,
 									total   => 1,
-									last    => $time_re,
+									last    => $TIME_RE,
 								},
 								server => '127.0.0.1:' . port(8071),
 								sid    => 's1',

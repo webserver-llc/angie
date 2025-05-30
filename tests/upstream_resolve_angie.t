@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api proxy upstream_zone --with-debug/);
+	->has(qw/http http_api proxy upstream_zone debug/);
 
 # see https://trac.nginx.org/nginx/ticket/1831
 plan(skip_all => "perl >= 5.32 required")

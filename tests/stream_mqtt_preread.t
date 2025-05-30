@@ -73,7 +73,7 @@ like($r, qr/username:bar\s+clientid:$/m, 'username CONNECT MQTTv3.1.1');
 
 SKIP: {
 
-skip "no --with-debug", 6 unless $t->has_module('--with-debug');
+skip "no --with-debug", 6 unless $t->has_module('debug');
 
 my @bytes = (
 	pack('c', 0x00), pack('n', 0x00), pack('C', 0xff),

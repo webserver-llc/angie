@@ -111,7 +111,7 @@ $s->ok('greeting');
 # error_log levels
 
 SKIP: {
-skip "no --with-debug", 1 unless $t->has_module('--with-debug');
+skip "no --with-debug", 1 unless $t->has_module('debug');
 
 isnt(lines($t, 'e_debug.log', '[debug]'), 0, 'file debug in debug');
 

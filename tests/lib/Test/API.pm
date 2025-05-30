@@ -21,7 +21,7 @@ use Test::Utils qw/:json :re/;
 sub api_status {
 	my $t = shift;
 
-	my $with_debug = $t->has_module('--with-debug');
+	my $with_debug = $t->has_module('debug');
 
 	my $build;
 	if ($t->{_configure_args} =~ /--build=(?|'([^']+)'|(\S+))/) {

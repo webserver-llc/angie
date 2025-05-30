@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http --with-debug unix proxy/);
+my $t = Test::Nginx->new()->has(qw/http debug unix proxy/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

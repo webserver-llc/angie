@@ -97,7 +97,7 @@ like($r, qr/$/, 'cookie not found 2');
 
 SKIP: {
 
-skip "no --with-debug", 4 unless $t->has_module('--with-debug');
+skip "no --with-debug", 4 unless $t->has_module('debug');
 
 my @bytes = (
 	pack('C', 0x00), pack('C', 0xff),

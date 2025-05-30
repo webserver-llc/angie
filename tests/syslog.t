@@ -187,7 +187,7 @@ is($lines[1], $lines[2], 'error_log many');
 
 SKIP: {
 
-skip "no --with-debug", 1 unless $t->has_module('--with-debug');
+skip "no --with-debug", 1 unless $t->has_module('debug');
 
 isnt(syslog_lines('/debug', '[debug]'), 0, 'debug');
 

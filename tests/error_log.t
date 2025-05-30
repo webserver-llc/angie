@@ -125,7 +125,7 @@ http_get('/');
 
 SKIP: {
 
-skip "no --with-debug", 3 unless $t->has_module('--with-debug');
+skip "no --with-debug", 3 unless $t->has_module('debug');
 
 http_get('/debug');
 isnt(lines($t, 'e_debug_debug.log', '[debug]'), 0, 'file debug debug');

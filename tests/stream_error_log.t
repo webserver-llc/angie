@@ -96,7 +96,7 @@ stream('127.0.0.1:' . port(8080))->io('data');
 # error_log levels
 
 SKIP: {
-skip "no --with-debug", 1 unless $t->has_module('--with-debug');
+skip "no --with-debug", 1 unless $t->has_module('debug');
 
 isnt(lines($t, 'e_debug.log', '[debug]'), 0, 'file debug in debug');
 

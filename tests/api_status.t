@@ -133,7 +133,7 @@ my %test_cases = (
 		http_get('/');
 		stream('127.0.0.1:' . port(8090))->io('....$');
 
-		my $with_debug = $t->has_module('--with-debug');
+		my $with_debug = $t->has_module('debug');
 
 		my $build;
 		if ($t->{_configure_args} =~ /--build=(?|'([^']+)'|(\S+))/) {

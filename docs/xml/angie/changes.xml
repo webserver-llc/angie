@@ -29,28 +29,10 @@ all functionality of nginx 1.27.5.
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-HTTP/3 запросы могли зависать и завершаться по таймауту.
-исправление портировано из nginx 1.29.0.
-</para>
-<para lang="en">
-HTTP/3 requests might stall and timeout.
-the fix was ported from nginx 1.29.0.
-</para>
-</change>
+</changes>
 
-<change type="bugfix">
-<para lang="ru">
-в stream-модуле не останавливался отсчет времени неработоспособности, когда
-проксируемый сервер возвращался в работоспособное состояние по факту успешной
-установки соединения.
-</para>
-<para lang="en">
-the upstream's down time counting is not stopped when server recovers while
-succesfully connection.
-</para>
-</change>
+
+<changes ver="1.9.1" date="2025-05-29">
 
 <change type="feature">
 <para lang="ru">
@@ -65,18 +47,7 @@ directive; both IPv4 and IPv6 are allowed.
 
 <change type="bugfix">
 <para lang="ru">
-ранняя ошибка при установлении HTTP/3 соединения с проксируемым сервером
-могла приводить к падению рабочего процесса.
-</para>
-<para lang="en">
-early error while establishing HTTP/3 connection to a proxied server
-could cause worker process crash.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-наличие в директивах "server_name" одновременно wildcard-домена и совпадающих
+одновременное наличие в директивах "server_name" wildcard-домена и совпадающих
 с ним доменов третьего уровня приводило к ошибке ACME-сервера при выпуске
 сертификата для этих доменов в рамках одного ACME-клиента.
 </para>
@@ -84,6 +55,52 @@ could cause worker process crash.
 using both a wildcard domain and matching third-level domains in "server_name"
 directives could cause the ACME server to fail when issuing a certificate for
 these domains under a single ACME client.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+в stream-модуле после успешного соединения с проксируемым сервером во время
+пассивной проверки его статус в API статистики ошибочно продолжал отображаться
+как "unavailable" до завершения сессии.
+</para>
+<para lang="en">
+in the stream module, after a successful connection to the proxied server during
+a passive check, its status in the statistics API was erroneously displayed as
+"unavailable" until the session ended.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+запросы HTTP/3 могли зависать и завершаться по таймауту;
+исправление портировано из nginx 1.29.0.
+</para>
+<para lang="en">
+HTTP/3 requests might stall and time-out;
+the fix was ported from nginx 1.29.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+ранняя ошибка при установлении соединения HTTP/3 с проксируемым сервером
+могла приводить к падению рабочего процесса.
+</para>
+<para lang="en">
+an early error while establishing an HTTP/3 connection to a proxied server
+could cause a worker process to crash.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по протоколу HTTP/3 число активных соединений
+могло отображаться в статистике некорректно.
+</para>
+<para lang="en">
+when proxying via the HTTP/3 protocol, the number of active connections
+in the statistics could be displayed incorrectly.
 </para>
 </change>
 
@@ -211,16 +228,6 @@ references an ACME client using the "acme" directive.
 <para lang="en">
 if built with NTLS support, inheritance of the "proxy_ssl_certificate" and
 "proxy_ssl_certificate_key" directives with variables did not work properly.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-количество активных запросов могло быть некорректным при использовании
-клиентских HTTP/3 запросов.
-</para>
-<para lang="en">
-active request count might be incorrect when using HTTP/3 client requests.
 </para>
 </change>
 

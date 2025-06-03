@@ -1,4 +1,28 @@
 
+Changes with Angie 1.9.1                                         29 May 2025
+
+    *) Feature: support for IP addresses along with port numbers in the
+       "acme_dns_port" directive; both IPv4 and IPv6 are allowed.
+
+    *) Bugfix: using both a wildcard domain and matching third-level domains
+       in "server_name" directives could cause the ACME server to fail when
+       issuing a certificate for these domains under a single ACME client.
+
+    *) Bugfix: in the stream module, after a successful connection to the
+       proxied server during a passive check, its status in the statistics
+       API was erroneously displayed as "unavailable" until the session
+       ended.
+
+    *) Bugfix: HTTP/3 requests might stall and time-out; the fix was ported
+       from nginx 1.29.0.
+
+    *) Bugfix: an early error while establishing an HTTP/3 connection to a
+       proxied server could cause a worker process to crash.
+
+    *) Bugfix: the number of active connections during proxying via the
+       HTTP/3 protocol might be displayed incorrectly in the statistics.
+
+
 Changes with Angie 1.9.0                                         11 Apr 2025
 
     *) Feature: the ability to specify a file in the "proxy_cache_path"

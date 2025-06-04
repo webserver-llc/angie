@@ -263,8 +263,12 @@ ngx_stream_upstream_rr_peer_unref(ngx_stream_upstream_rr_peers_t *peers,
     }
 
     if (peer->refs == 0 && peer->zombie) {
-        ngx_stream_upstream_rr_peer_free(peers, peer);
+        ngx_shmtx_lock(&peers->shpool->mutex);
+
+        ngx_stream_upstream_rr_peer_free_locked(peers, peer);
         peers->zombies--;
+
+        ngx_shmtx_unlock(&peers->shpool->mutex);
 
         return NGX_DONE;
     }

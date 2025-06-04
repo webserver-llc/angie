@@ -1341,7 +1341,14 @@ ngx_stream_upstream_zone_resolve_timer(ngx_event_t *event)
     template = host->peer;
 
     if (template->zombie) {
-        (void) ngx_stream_upstream_rr_peer_unref(peers, template);
+        ngx_stream_upstream_rr_peers_rlock(peers);
+        ngx_stream_upstream_rr_peer_lock(peers, template);
+
+        if (ngx_stream_upstream_rr_peer_unref(peers, template) == NGX_OK) {
+            ngx_stream_upstream_rr_peer_unlock(peers, template);
+        }
+
+        ngx_stream_upstream_rr_peers_unlock(peers);
 
         ngx_shmtx_lock(&peers->shpool->mutex);
 

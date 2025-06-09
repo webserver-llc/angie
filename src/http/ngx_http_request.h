@@ -619,6 +619,14 @@ typedef struct {
 #define ngx_http_ephemeral(r)  (void *) (&r->uri_start)
 
 ngx_str_t *ngx_http_status_line(ngx_uint_t status);
+ngx_int_t ngx_http_request_add_header(ngx_http_request_t *r, u_char *name,
+    size_t nlen, u_char *value, size_t vlen);
+
+#define ngx_http_request_add_header_cstr(r, k, v)                             \
+    ngx_http_request_add_header(r, (u_char *) k, ngx_strlen(k),               \
+                                (u_char *) v, ngx_strlen(v))
+
+ngx_int_t ngx_http_request_set_body(ngx_http_request_t *r, ngx_str_t *body);
 
 extern ngx_http_header_t       ngx_http_headers_in[];
 extern ngx_http_header_out_t   ngx_http_headers_out[];

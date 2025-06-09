@@ -4751,3 +4751,78 @@ ngx_api_http_ssl_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 #endif
 
 #endif /* NGX_API */
+
+
+ngx_int_t
+ngx_http_request_add_header(ngx_http_request_t *r, u_char *name, size_t nlen,
+    u_char *value, size_t vlen)
+{
+    ngx_table_elt_t            *h;
+    ngx_http_header_t          *hh;
+    ngx_http_core_main_conf_t  *cmcf;
+
+    h = ngx_list_push(&r->headers_in.headers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    h->key.data = name;
+    h->key.len = nlen;
+
+    h->value.data = value;
+    h->value.len = vlen;
+
+    h->lowcase_key = ngx_pnalloc(r->pool, h->key.len);
+    if (h->lowcase_key == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
+
+    h->hash = ngx_hash_key(h->lowcase_key, h->key.len);
+
+    cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
+
+    hh = ngx_hash_find(&cmcf->headers_in_hash, h->hash,
+                       h->lowcase_key, h->key.len);
+
+    if (hh && hh->handler(r, h, hh->offset) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_http_request_set_body(ngx_http_request_t *r, ngx_str_t *body)
+{
+    ngx_buf_t    *b;
+    ngx_chain_t  *cl;
+
+    r->request_body = ngx_pcalloc(r->pool,
+                                  sizeof(ngx_http_request_body_t));
+    if (r->request_body == NULL) {
+        return NGX_ERROR;
+    }
+
+    b = ngx_create_temp_buf(r->pool, body->len);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(b->start, body->data, body->len);
+    b->last = b->end;
+
+    cl = ngx_alloc_chain_link(r->pool);
+    if (cl == NULL) {
+        return NGX_ERROR;
+    }
+
+    cl->buf = b;
+    cl->next = NULL;
+
+    r->request_body->bufs = cl;
+
+    return NGX_OK;
+}

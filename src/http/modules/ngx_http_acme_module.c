@@ -348,7 +348,7 @@ static ngx_int_t ngx_http_acme_sha256_base64url(ngx_http_acme_session_t *ses,
 static time_t ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time,
     ngx_log_t *log);
 static time_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli,
-    ngx_uint_t log_diagnosis);
+    ngx_uint_t log_diagnosis, const u_char *cert_data, size_t cert_len);
 static ngx_int_t ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *name,
     ngx_str_t *filename, ngx_str_t *full_path);
 static ngx_int_t ngx_http_acme_init_connection(ngx_http_acme_session_t *ses);
@@ -1983,7 +1983,8 @@ ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time, ngx_log_t *log)
  * + NGX_ERROR if an OpenSSL or system error occurred.
  */
 static time_t
-ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
+ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
+    const u_char *cert_data, size_t cert_len)
 {
     int               type, i, found;
 #ifndef OPENSSL_IS_BORINGSSL
@@ -2004,27 +2005,17 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
     const ASN1_TIME  *t;
     X509_NAME_ENTRY  *entry;
 
-    if (lseek(cli->certificate_file.fd, 0, SEEK_SET) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
-                      "lseek(\"%V\") failed",
-                      &cli->certificate_file.name);
-        return NGX_ERROR;
-    }
-
-    bio = BIO_new_fd(cli->certificate_file.fd, BIO_NOCLOSE);
+    bio = BIO_new_mem_buf(cert_data, (int) cert_len);
 
     if (bio == NULL) {
-        ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "BIO_new_fd(\"%V\") failed",
-                      &cli->certificate_file.name);
+        ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "BIO_new_mem_buf() failed");
         return NGX_ERROR;
     }
 
     x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
 
     if (x509 == NULL) {
-        ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0,
-                      "PEM_read_bio_X509(\"%V\") failed",
-                      &cli->certificate_file.name);
+        ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "PEM_read_bio_X509() failed");
         BIO_free(bio);
         return NGX_ERROR;
     }
@@ -2039,17 +2030,14 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
 
     if (rc == (time_t) NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
-                      "couldn't extract time from certificate \"%V\"",
-                      &cli->certificate_file.name);
+                      "couldn't extract time from certificate");
         goto failed;
     }
 
     if (ngx_time() >= rc) {
         /* expired */
         if (log_diagnosis) {
-            ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                          "certificate expired: \"%V\"",
-                          &cli->certificate_file.name);
+            ngx_log_error(NGX_LOG_NOTICE, cli->log, 0, "certificate expired");
         }
 
         rc = NGX_DECLINED;
@@ -2061,8 +2049,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
     if (!sans) {
         if (log_diagnosis) {
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                          "no SAN entry in certificate \"%V\"",
-                          &cli->certificate_file.name);
+                          "no SAN entry in certificate");
         }
 
         rc = NGX_DECLINED;
@@ -2093,8 +2080,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
 
                 if (ASN1_STRING_to_UTF8(&s, value) < 0) {
                     ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
-                         "ASN1_STRING_to_UTF8(\"%V\") failed",
-                          &cli->certificate_file.name);
+                                  "ASN1_STRING_to_UTF8() failed");
                     continue;
 
                 } else if (s) {
@@ -2131,8 +2117,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
 
                  if (ASN1_STRING_to_UTF8(&s, value) < 0) {
                      ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
-                         "ASN1_STRING_to_UTF8(\"%V\") failed",
-                          &cli->certificate_file.name);
+                                   "ASN1_STRING_to_UTF8() failed");
                      continue;
 
                  } else if (s) {
@@ -2149,8 +2134,8 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis)
         if (!found) {
             if (log_diagnosis) {
                 ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                              "domain \"%V\" not found in certificate \"%V\"",
-                              &domain, &cli->certificate_file.name);
+                              "domain \"%V\" not found in certificate",
+                              &domain);
             }
 
             rc = NGX_DECLINED;
@@ -2193,7 +2178,6 @@ ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_run(ngx_http_acme_session_t *ses)
 {
-    time_t     t;
     ngx_int_t  rc;
 
     /*
@@ -2225,41 +2209,6 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
     NGX_ACME_SPAWN(run, cert_issue, (ses), rc);
 
     DBG_STATUS((ses->client, "cert_issue: %i", rc));
-
-    if (rc != NGX_OK) {
-        goto failed;
-    }
-
-    t = ngx_http_acme_cert_validity(ses->client, 0);
-
-    if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
-        ses->client->expiry_time = t;
-        ses->client->renew_time = t - ses->client->renew_before_expiry;
-
-        t = ngx_time();
-
-        if (ses->client->renew_time <= t) {
-            ngx_log_error(NGX_LOG_WARN, ses->log, 0,
-                          "certificate's validity period is shorter than "
-                          "renew_before_expiry time");
-            /* TODO find a better solution? */
-            ses->client->renew_time = t + (ses->client->expiry_time - t) / 2;
-        }
-
-        rc = NGX_OK;
-
-        ngx_log_error(NGX_LOG_NOTICE, ses->log, 0,
-                      "certificate renewed, next renewal date: %s",
-                      strtok(ctime(&ses->client->renew_time), "\n"));
-
-    } else {
-        /* can't happen? */
-        rc = NGX_ERROR;
-
-        ngx_log_error(NGX_LOG_ALERT, ses->log, 0,
-                      "renewed certificate is invalid: \"%V\"",
-                      &ses->client->certificate_file.name);
-    }
 
 failed:
 
@@ -2821,7 +2770,8 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 static ngx_int_t
 ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses)
 {
-    ssize_t    n;
+    size_t     n;
+    time_t     t;
     ngx_fd_t   fd;
     ngx_int_t  rc;
     ngx_str_t  s, csr;
@@ -3042,6 +2992,35 @@ certificate:
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
+    t = ngx_http_acme_cert_validity(ses->client, 0, ses->body.data,
+                                    ses->body.len);
+
+    if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
+        ses->client->expiry_time = t;
+        ses->client->renew_time = t - ses->client->renew_before_expiry;
+
+        t = ngx_time();
+
+        if (ses->client->renew_time <= t) {
+            ngx_log_error(NGX_LOG_WARN, ses->log, 0,
+                          "certificate's validity period is shorter than "
+                          "renew_before_expiry time");
+            /* TODO find a better solution? */
+            ses->client->renew_time = t + (ses->client->expiry_time - t) / 2;
+        }
+
+        ngx_log_error(NGX_LOG_NOTICE, ses->log, 0,
+                      "certificate renewed, next renewal date: %s",
+                      strtok(ctime(&ses->client->renew_time), "\n"));
+
+    } else {
+        /* can't happen? */
+        ngx_log_error(NGX_LOG_ALERT, ses->log, 0,
+                      "renewed certificate is invalid: \"%V\"",
+                      &ses->client->certificate_file.name);
+        return NGX_ERROR;
+    }
+
     fd = ses->client->certificate_file.fd;
 
     if (lseek(fd, 0, SEEK_SET) == -1) {
@@ -3051,19 +3030,23 @@ certificate:
         return NGX_ERROR;
     }
 
-    n = ngx_write_fd(fd, ses->body.data, ses->body.len);
+    n = ses->client->certificate_file_size;
 
-    if (n == -1) {
+    ses->client->certificate_file_size =
+                                ngx_write_fd(fd, ses->body.data, ses->body.len);
+
+    if (ses->client->certificate_file_size == (size_t) -1) {
         ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno,
                       ngx_write_fd_n "(\"%V\") failed",
                       &ses->client->certificate_file.name);
         return NGX_ERROR;
     }
 
-    if ((size_t) n != ses->body.len) {
+    if (ses->client->certificate_file_size != ses->body.len) {
         ngx_log_error(NGX_LOG_ALERT, ses->log, 0,
-                      ngx_write_fd_n " has written only %z of %uz to \"%V\"",
-                      n, ses->body.len, &ses->client->certificate_file.name);
+                      ngx_write_fd_n " has written only %uz of %uz to \"%V\"",
+                      ses->client->certificate_file_size, ses->body.len,
+                      &ses->client->certificate_file.name);
         return NGX_ERROR;
     }
 
@@ -3074,9 +3057,7 @@ certificate:
         return NGX_ERROR;
     }
 
-    if (ses->body.len < ses->client->certificate_file_size
-        && ftruncate(fd, ses->body.len) != 0)
-    {
+    if (ses->body.len < n && ftruncate(fd, ses->body.len) != 0) {
         ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno,
                       "ftruncate(\"%V\") failed",
                       &ses->client->certificate_file.name);
@@ -3085,16 +3066,8 @@ certificate:
 
     ngx_rwlock_wlock(&ses->client->sh_cert->lock);
 
-    if (ngx_http_acme_file_load(ses->log, &ses->client->certificate_file,
-                                ses->client->sh_cert->data_start,
-                                ses->body.len)
-        != NGX_OK)
-    {
-        ses->client->sh_cert->len = 0;
-        ngx_rwlock_unlock(&ses->client->sh_cert->lock);
-        return NGX_ERROR;
-    }
-
+    ngx_memcpy(&ses->client->sh_cert->data_start, ses->body.data,
+               ses->body.len);
     ses->client->sh_cert->len = ses->body.len;
 
     ngx_rwlock_unlock(&ses->client->sh_cert->lock);
@@ -4775,7 +4748,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
     char                       *s, *s2;
     size_t                      sz;
     u_char                     *p;
-    time_t                      t;
+    time_t                      t, now;
     ngx_uint_t                  i;
     ngx_acme_client_t          *cli;
     ngx_http_acme_sh_cert_t    *shc;
@@ -4807,6 +4780,8 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         p = shm_zone->shm.addr;
     }
 
+    now = ngx_time();
+
     for (i = 0; i < amcf->clients.nelts; i++) {
 
         cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
@@ -4823,35 +4798,32 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
             shc = NULL;
         }
 
+        cli->renew_time = now;
+
         if (cli->renew_on_load && cli->enabled) {
             s = "forced renewal of";
-            cli->renew_time = ngx_time();
 
         } else if (shc != NULL && shc->len != 0) {
-            t = ngx_http_acme_cert_validity(cli, 1);
+            if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
+                                        shc->data_start, shc->len)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
 
-            if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
+            t = ngx_http_acme_cert_validity(cli, 1, shc->data_start, shc->len);
+
+            if (t == (time_t) NGX_ERROR) {
+                s = "couldn't parse";
+                shc->len = 0;
+
+            } else if (t == (time_t) NGX_DECLINED) {
+                s = "invalid";
+
+            } else {
                 s = "valid";
                 cli->expiry_time = t;
                 cli->renew_time = t - cli->renew_before_expiry;
-
-            } else {
-                s = "invalid";
-                cli->renew_time = ngx_time();
-            }
-
-            if (t != (time_t) NGX_ERROR) {
-                if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
-                                            shc->data_start,
-                                            cli->certificate_file_size)
-                    != NGX_OK)
-                {
-                    return NGX_ERROR;
-                }
-
-            } else {
-                s = "couldn't parse";
-                shc->len = 0;
             }
 
         } else {
@@ -4872,13 +4844,12 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
             }
 
             s = "no";
-            cli->renew_time = ngx_time();
         }
 
         if (cli->enabled) {
-            s2 = (cli->renew_time > ngx_time())
-                ? strtok(ctime(&cli->renew_time), "\n")
-                : "now";
+            s2 = (cli->renew_time > now)
+                 ? strtok(ctime(&cli->renew_time), "\n")
+                   : "now";
 
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
                           "%s certificate, renewal scheduled %s", s, s2);
@@ -5358,18 +5329,26 @@ ngx_http_acme_cert_key_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-    ngx_rwlock_rlock(&cli->sh_cert->lock);
-
+    /*
+     * Once a certificate is loaded, it remains available. Therefore, if
+     * cli->sh_cert->len is non-zero, it will never become zero. However, if no
+     * certificate is present, a certificate may be obtained at any moment,
+     * causing cli->sh_cert->len to change from zero to non-zero. To handle
+     * this case safely, we must acquire a lock before checking its value again.
+     */
     if (cli->sh_cert->len == 0) {
-        v->not_found = 1;
+        ngx_rwlock_rlock(&cli->sh_cert->lock);
 
-    } else {
+        v->not_found = (cli->sh_cert->len == 0);
+
+        ngx_rwlock_unlock(&cli->sh_cert->lock);
+    }
+
+    if (!v->not_found) {
         /* 5 = size of "data:" prefix */
         v->len = cli->private_key.file_size + 5;
         v->data = cli->private_key_data;
     }
-
-    ngx_rwlock_unlock(&cli->sh_cert->lock);
 
     return NGX_OK;
 }

@@ -433,23 +433,6 @@ if [ $HTTP = YES ]; then
         . auto/module
     fi
 
-    if [ $HTTP_ACME = YES ]; then
-        USE_OPENSSL=YES
-        USE_JSON=YES
-        HTTP_SSL=YES
-
-        have=NGX_HTTP_ACME . auto/have
-
-        ngx_module_name=ngx_http_acme_module
-        ngx_module_incs=
-        ngx_module_deps=
-        ngx_module_srcs=src/http/modules/ngx_http_acme_module.c
-        ngx_module_libs=
-        ngx_module_link=$HTTP_ACME
-
-        . auto/module
-    fi
-
 
     ngx_module_type=HTTP
 
@@ -913,6 +896,24 @@ if [ $HTTP = YES ]; then
         ngx_module_srcs=src/http/modules/ngx_http_mp4_module.c
         ngx_module_libs=
         ngx_module_link=$HTTP_MP4
+
+        . auto/module
+    fi
+
+    if [ $HTTP_ACME = YES ]; then
+        USE_OPENSSL=YES
+        USE_JSON=YES
+        HTTP_SSL=YES
+        HTTP_CLIENT=YES
+
+        have=NGX_HTTP_ACME . auto/have
+
+        ngx_module_name=ngx_http_acme_module
+        ngx_module_incs=
+        ngx_module_deps=
+        ngx_module_srcs=src/http/modules/ngx_http_acme_module.c
+        ngx_module_libs=
+        ngx_module_link=$HTTP_ACME
 
         . auto/module
     fi

@@ -194,7 +194,7 @@ sub stop_pebble {
 		select undef, undef, undef, 0.1;
 	}
 
-	$self->_stop_pid($pid, 1) unless $exited;
+	$self->{t}->_stop_pid($pid, 1) unless $exited;
 	undef $self->{t}{pebble};
 
 	note("Pebble $pid stopped");
@@ -268,7 +268,7 @@ sub stop_challtestsrv {
 		select undef, undef, undef, 0.1;
 	}
 
-	$self->_stop_pid($pid, 1) unless $exited;
+	$self->{t}->_stop_pid($pid, 1) unless $exited;
 	undef $self->{t}{challtestsrv};
 
 	note("Challtestsrv $pid stopped");

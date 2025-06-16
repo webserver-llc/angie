@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 rewrite cryptx/)
-	->has_daemon('openssl')->plan(8)
+	->has_daemon('openssl')->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -95,6 +95,16 @@ $t->run();
 like(get_cert_cn(), qr!localhost!, 'default cert');
 like(get_cert_cn('example.com'), qr!example.com!, 'sni cert');
 
+ok(get_tp(), 'default transport params');
+
+TODO: {
+local $TODO = 'not yet' if $t->has_version('1.29.0')
+	&& $t->has_feature('openssl:3.5');
+
+ok(get_tp('example.com'), 'sni transport params');
+
+}
+
 like(get_host('example.com'), qr!example.com:example.com!,
 	'host exists, sni exists, and host is equal sni');
 
@@ -134,6 +144,12 @@ sub get_cert_cn {
 	my ($host) = @_;
 	my $s = Test::Nginx::HTTP3->new(8980, sni => $host);
 	return $s->{tlsm}{cert};
+}
+
+sub get_tp {
+	my ($host) = @_;
+	my $s = Test::Nginx::HTTP3->new(8980, sni => $host);
+	return $s->{tp};
 }
 
 sub get_host {

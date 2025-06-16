@@ -264,6 +264,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-stream_upstream_random_modul)',
 		stream_upstream_zone
 			=> '(?s)^(?!.*--without-stream_upstream_zone_module)',
+		stream_upstream_sticky
+			=> '(?s)^(?!.*--without-stream_upstream_sticky_module)',
 	);
 
 	my $re = $regex{$feature};

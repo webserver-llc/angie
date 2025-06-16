@@ -75,6 +75,19 @@ the configuration were defined with "enabled=off".
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка PROXY protocol V2 в сторону проксируемых серверов с возможностью
+задать значения для дополнительных структур TLV директивами
+"proxy_protocol_tlv".
+</para>
+<para lang="en">
+support for PROXY protocol V2 with upstream server connections, with the
+ability to set additional TLV structures using the "proxy_protocol_tlv"
+directive.
+</para>
+</change>
+
 </changes>
 
 

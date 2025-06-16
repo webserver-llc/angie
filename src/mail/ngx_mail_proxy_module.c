@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -893,19 +894,20 @@ ngx_mail_proxy_write_handler(ngx_event_t *wev)
 static ngx_int_t
 ngx_mail_proxy_send_proxy_protocol(ngx_mail_session_t *s)
 {
-    u_char            *p;
-    ssize_t            n, size;
-    ngx_connection_t  *c;
-    u_char             buf[NGX_PROXY_PROTOCOL_V1_MAX_HEADER];
+    u_char                     *p, *buf;
+    ssize_t                     n, size;
+    ngx_connection_t           *c;
+    ngx_proxy_protocol_conf_t   proxy_protocol_conf;
 
     s->connection->log->action = "sending PROXY protocol header to upstream";
 
     ngx_log_debug0(NGX_LOG_DEBUG_MAIL, s->connection->log, 0,
                    "mail proxy send PROXY protocol header");
 
-    p = ngx_proxy_protocol_write(s->connection, buf,
-                                 buf + NGX_PROXY_PROTOCOL_V1_MAX_HEADER);
-    if (p == NULL) {
+    proxy_protocol_conf.version = 1;
+
+    buf = ngx_proxy_protocol_write(s->connection, &proxy_protocol_conf, &p);
+    if (buf == NULL) {
         ngx_mail_proxy_internal_server_error(s);
         return NGX_ERROR;
     }

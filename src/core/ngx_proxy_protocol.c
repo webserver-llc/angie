@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2025 Web Server LLC
  * Copyright (C) Roman Arutyunyan
  * Copyright (C) Nginx, Inc.
  */
@@ -8,10 +9,38 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 
+#define NGX_PROXY_PROTOCOL_V1_MAX_HEADER           107
+#define NGX_PROXY_PROTOCOL_V2_MAX_HEADER           232
 
-#define NGX_PROXY_PROTOCOL_AF_INET          1
-#define NGX_PROXY_PROTOCOL_AF_INET6         2
+#define NGX_PROXY_PROTOCOL_AF_UNSPEC               0x00
+#define NGX_PROXY_PROTOCOL_AF_INET                 0x01
+#define NGX_PROXY_PROTOCOL_AF_INET6                0x02
+#define NGX_PROXY_PROTOCOL_AF_UNIX                 0x03
 
+#define NGX_PROXY_PROTOCOL_TYPE_UNSPEC             0x00
+#define NGX_PROXY_PROTOCOL_TYPE_STREAM             0x01
+#define NGX_PROXY_PROTOCOL_TYPE_DGRAM              0x02
+
+/* TLV types */
+#define NGX_PROXY_PROTOCOL_V2_TYPE_ALPN            0x01
+#define NGX_PROXY_PROTOCOL_V2_TYPE_AUTHORITY       0x02
+#define NGX_PROXY_PROTOCOL_V2_TYPE_CRC32C          0x03
+#define NGX_PROXY_PROTOCOL_V2_TYPE_NOOP            0x04
+#define NGX_PROXY_PROTOCOL_V2_TYPE_UNIQUE_ID       0x05
+#define NGX_PROXY_PROTOCOL_V2_TYPE_SSL             0x20
+#define NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_VERSION  0x21
+#define NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_CN       0x22
+#define NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_CIPHER   0x23
+#define NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_SIG_ALG  0x24
+#define NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_KEY_ALG  0x25
+#define NGX_PROXY_PROTOCOL_V2_TYPE_NETNS           0x30
+
+/* bits for "client" field of NGX_PROXY_PROTOCOL_V2_TYPE_SSL structure */
+#define NGX_PROXY_PROTOCOL_V2_CLIENT_SSL           0x01
+#define NGX_PROXY_PROTOCOL_V2_CLIENT_CERT_CONN     0x02
+#define NGX_PROXY_PROTOCOL_V2_CLIENT_CERT_SESS     0x04
+
+#define NGX_PROXY_PROTOCOL_V2_SIGNATURE  "\r\n\r\n\0\r\nQUIT\n"
 
 #define ngx_proxy_protocol_parse_uint16(p)                                    \
     ( ((uint16_t) (p)[0] << 8)                                                \
@@ -49,6 +78,12 @@ typedef struct {
 
 
 typedef struct {
+    u_char                                  src_addr[108];
+    u_char                                  dst_addr[108];
+} ngx_proxy_protocol_unix_addrs_t;
+
+
+typedef struct {
     u_char                                  type;
     u_char                                  len[2];
 } ngx_proxy_protocol_tlv_t;
@@ -66,32 +101,68 @@ typedef struct {
 } ngx_proxy_protocol_tlv_entry_t;
 
 
+/* TLV complex value from configuration */
+typedef struct {
+    u_char                                  type;
+    u_char                                  field;
+    void                                   *cv; /* complex value */
+} ngx_proxy_protocol_conf_tlv_t;
+
+
+/* evaluated (from ngx_proxy_protocol_conf_tlv_t) TLV value */
+typedef struct {
+    u_char                                  type;
+    ngx_str_t                               value;
+} ngx_proxy_protocol_eval_tlv_t;
+
+
 static u_char *ngx_proxy_protocol_read_addr(ngx_connection_t *c, u_char *p,
     u_char *last, ngx_str_t *addr);
 static u_char *ngx_proxy_protocol_read_port(u_char *p, u_char *last,
     in_port_t *port, u_char sep);
 static u_char *ngx_proxy_protocol_v2_read(ngx_connection_t *c, u_char *buf,
     u_char *last);
+static u_char *ngx_proxy_protocol_v2_write(ngx_connection_t *c,
+    ngx_proxy_protocol_conf_t *conf, u_char **buf_last);
+#if (NGX_HAVE_INET6)
+static ngx_inline void ngx_proxy_protocol_set_ipv6_addr(struct sockaddr *sa,
+    u_char *addr, u_char *port);
+#endif
+static ngx_inline void ngx_proxy_protocol_set_ipv4_addr(struct sockaddr *sa,
+    u_char *addr, u_char *port);
+#if (NGX_HAVE_UNIX_DOMAIN)
+static ngx_inline void ngx_proxy_protocol_set_unix_addr(struct sockaddr *sa,
+    socklen_t socklen, u_char *addr);
+#endif
+static ngx_int_t ngx_proxy_protocol_eval_tlvs(ngx_connection_t *c,
+    ngx_proxy_protocol_conf_t *conf, ngx_proxy_protocol_eval_tlv_t **tlvs,
+    size_t *tlvs_nelts, size_t *len);
+static ngx_inline u_char * ngx_proxy_protocol_write_tlv(ngx_connection_t *c,
+    u_char type, ngx_str_t *value, u_char *buf);
 static ngx_int_t ngx_proxy_protocol_lookup_tlv(ngx_connection_t *c,
     ngx_str_t *tlvs, ngx_uint_t type, ngx_str_t *value);
+static ngx_int_t ngx_proxy_protocol_parse_tlv_type(ngx_str_t *name,
+    u_char *tlv_type, u_char *tlv_field, ngx_flag_t *tlv_ssl_subtype);
+static ngx_inline ngx_int_t ngx_proxy_protocol_conf_tlv_exist(ngx_array_t *a,
+    u_char type);
 
 
 static ngx_proxy_protocol_tlv_entry_t  ngx_proxy_protocol_tlv_entries[] = {
-    { ngx_string("alpn"),       0x01 },
-    { ngx_string("authority"),  0x02 },
-    { ngx_string("unique_id"),  0x05 },
-    { ngx_string("ssl"),        0x20 },
-    { ngx_string("netns"),      0x30 },
+    { ngx_string("alpn"),       NGX_PROXY_PROTOCOL_V2_TYPE_ALPN },
+    { ngx_string("authority"),  NGX_PROXY_PROTOCOL_V2_TYPE_AUTHORITY },
+    { ngx_string("unique_id"),  NGX_PROXY_PROTOCOL_V2_TYPE_UNIQUE_ID },
+    { ngx_string("ssl"),        NGX_PROXY_PROTOCOL_V2_TYPE_SSL },
+    { ngx_string("netns"),      NGX_PROXY_PROTOCOL_V2_TYPE_NETNS },
     { ngx_null_string,          0x00 }
 };
 
 
 static ngx_proxy_protocol_tlv_entry_t  ngx_proxy_protocol_tlv_ssl_entries[] = {
-    { ngx_string("version"),    0x21 },
-    { ngx_string("cn"),         0x22 },
-    { ngx_string("cipher"),     0x23 },
-    { ngx_string("sig_alg"),    0x24 },
-    { ngx_string("key_alg"),    0x25 },
+    { ngx_string("version"),    NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_VERSION },
+    { ngx_string("cn"),         NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_CN },
+    { ngx_string("cipher"),     NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_CIPHER },
+    { ngx_string("sig_alg"),    NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_SIG_ALG },
+    { ngx_string("key_alg"),    NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_KEY_ALG },
     { ngx_null_string,          0x00 }
 };
 
@@ -103,13 +174,13 @@ ngx_proxy_protocol_read(ngx_connection_t *c, u_char *buf, u_char *last)
     u_char                *p;
     ngx_proxy_protocol_t  *pp;
 
-    static const u_char signature[] = "\r\n\r\n\0\r\nQUIT\n";
-
     p = buf;
     len = last - buf;
 
     if (len >= sizeof(ngx_proxy_protocol_header_t)
-        && ngx_memcmp(p, signature, sizeof(signature) - 1) == 0)
+        && ngx_memcmp(p, NGX_PROXY_PROTOCOL_V2_SIGNATURE,
+                      sizeof(NGX_PROXY_PROTOCOL_V2_SIGNATURE) - 1)
+           == 0)
     {
         return ngx_proxy_protocol_v2_read(c, buf, last);
     }
@@ -277,48 +348,59 @@ ngx_proxy_protocol_read_port(u_char *p, u_char *last, in_port_t *port,
 
 
 u_char *
-ngx_proxy_protocol_write(ngx_connection_t *c, u_char *buf, u_char *last)
+ngx_proxy_protocol_write(ngx_connection_t *c, ngx_proxy_protocol_conf_t *conf,
+    u_char **last)
 {
-    ngx_uint_t  port, lport;
-
-    if (last - buf < NGX_PROXY_PROTOCOL_V1_MAX_HEADER) {
-        ngx_log_error(NGX_LOG_ALERT, c->log, 0,
-                      "too small buffer for PROXY protocol");
-        return NULL;
-    }
+    u_char      *buf, *pos, *end;
+    ngx_uint_t   port, lport;
 
     if (ngx_connection_local_sockaddr(c, NULL, 0) != NGX_OK) {
         return NULL;
     }
 
+    if (conf->version == 2) {
+        return ngx_proxy_protocol_v2_write(c, conf, last);
+    }
+
+    buf = ngx_pnalloc(c->pool, NGX_PROXY_PROTOCOL_V1_MAX_HEADER);
+    if (buf == NULL) {
+        return NULL;
+    }
+
+    pos = buf;
+    end = pos + NGX_PROXY_PROTOCOL_V1_MAX_HEADER;
+
     switch (c->sockaddr->sa_family) {
 
     case AF_INET:
-        buf = ngx_cpymem(buf, "PROXY TCP4 ", sizeof("PROXY TCP4 ") - 1);
+        pos = ngx_cpymem(pos, "PROXY TCP4 ", sizeof("PROXY TCP4 ") - 1);
         break;
 
 #if (NGX_HAVE_INET6)
     case AF_INET6:
-        buf = ngx_cpymem(buf, "PROXY TCP6 ", sizeof("PROXY TCP6 ") - 1);
+        pos = ngx_cpymem(pos, "PROXY TCP6 ", sizeof("PROXY TCP6 ") - 1);
         break;
 #endif
 
     default:
-        return ngx_cpymem(buf, "PROXY UNKNOWN" CRLF,
+        return ngx_cpymem(pos, "PROXY UNKNOWN" CRLF,
                           sizeof("PROXY UNKNOWN" CRLF) - 1);
     }
 
-    buf += ngx_sock_ntop(c->sockaddr, c->socklen, buf, last - buf, 0);
+    pos += ngx_sock_ntop(c->sockaddr, c->socklen, pos, end - pos, 0);
 
-    *buf++ = ' ';
+    *pos++ = ' ';
 
-    buf += ngx_sock_ntop(c->local_sockaddr, c->local_socklen, buf, last - buf,
+    pos += ngx_sock_ntop(c->local_sockaddr, c->local_socklen, pos, end - pos,
                          0);
 
     port = ngx_inet_get_port(c->sockaddr);
     lport = ngx_inet_get_port(c->local_sockaddr);
 
-    return ngx_slprintf(buf, last, " %ui %ui" CRLF, port, lport);
+    pos = ngx_slprintf(pos, end, " %ui %ui" CRLF, port, lport);
+
+    *last = pos;
+    return buf;
 }
 
 
@@ -483,17 +565,469 @@ ngx_proxy_protocol_v2_read(ngx_connection_t *c, u_char *buf, u_char *last)
 }
 
 
+static u_char *
+ngx_proxy_protocol_v2_write(ngx_connection_t *c,
+    ngx_proxy_protocol_conf_t *conf, u_char **buf_last)
+{
+    u_char                            *data_start, *buf;
+    size_t                             len, tlv_ssl_len;
+    size_t                             pp_hdr_len, tlvs_nelts;
+    ngx_uint_t                         af, af_s, af_d, type, i;
+    ngx_proxy_protocol_tlv_t          *tlv_ssl;
+    ngx_proxy_protocol_header_t       *header;
+    ngx_proxy_protocol_eval_tlv_t     *eval_tlv, *tlvs;
+    ngx_proxy_protocol_inet_addrs_t   *in;
+#if (NGX_HAVE_UNIX_DOMAIN)
+    ngx_proxy_protocol_unix_addrs_t   *ud;
+#endif
+#if (NGX_HAVE_INET6)
+    ngx_proxy_protocol_inet6_addrs_t  *in6;
+#endif
+
+    /* evaluate TLV values and calculate TLVs length */
+    if (ngx_proxy_protocol_eval_tlvs(c, conf, &tlvs, &tlvs_nelts, &pp_hdr_len)
+        != NGX_OK)
+    {
+        return NULL;
+    }
+
+    pp_hdr_len += NGX_PROXY_PROTOCOL_V2_MAX_HEADER;
+
+    header = ngx_pnalloc(c->pool, pp_hdr_len);
+    if (header == NULL) {
+        return NULL;
+    }
+
+    buf = (u_char *) header;
+
+    memcpy(header->signature, NGX_PROXY_PROTOCOL_V2_SIGNATURE,
+           sizeof(header->signature));
+
+    header->version_command = 0x20 | 0x01; /* version: 2, command: PROXY */
+
+    buf += sizeof(ngx_proxy_protocol_header_t);
+    data_start = buf;
+
+    /* find out protocol family for the PROXY protocol header */
+
+    af_s = c->sockaddr->sa_family;
+    af_d = c->local_sockaddr->sa_family;
+
+#if (NGX_HAVE_INET6)
+    if (af_s == AF_INET6 || af_d == AF_INET6) {
+        af = NGX_PROXY_PROTOCOL_AF_INET6;
+
+    } else
+#endif
+    if (af_s == AF_INET || af_d == AF_INET) {
+        af = NGX_PROXY_PROTOCOL_AF_INET;
+
+#if (NGX_HAVE_INET6)
+    } else if (af_s == AF_UNIX || af_d == AF_UNIX) {
+        af = NGX_PROXY_PROTOCOL_AF_UNIX;
+#endif
+
+    } else {
+        af = NGX_PROXY_PROTOCOL_AF_UNSPEC;
+    }
+
+    /* find out protocol type for the PROXY protocol header */
+    switch (c->type) {
+
+    case SOCK_STREAM:
+        type = NGX_PROXY_PROTOCOL_TYPE_STREAM;
+        break;
+
+    case SOCK_DGRAM:
+        type = NGX_PROXY_PROTOCOL_TYPE_DGRAM;
+        break;
+
+    default:
+        type = NGX_PROXY_PROTOCOL_TYPE_UNSPEC;
+        break;
+    }
+
+    header->family_transport = (af << 4) | type;
+
+    /* fill the address structure */
+
+    switch (af) {
+
+    case NGX_PROXY_PROTOCOL_AF_INET:
+        in = (ngx_proxy_protocol_inet_addrs_t *) buf;
+
+        ngx_proxy_protocol_set_ipv4_addr(c->sockaddr,
+                                         in->src_addr, in->src_port);
+        ngx_proxy_protocol_set_ipv4_addr(c->local_sockaddr,
+                                         in->dst_addr, in->dst_port);
+
+        buf += sizeof(ngx_proxy_protocol_inet_addrs_t);
+
+        break;
+
+#if (NGX_HAVE_INET6)
+    case NGX_PROXY_PROTOCOL_AF_INET6:
+        in6 = (ngx_proxy_protocol_inet6_addrs_t *) buf;
+
+        ngx_proxy_protocol_set_ipv6_addr(c->sockaddr,
+                                         in6->src_addr, in6->src_port);
+        ngx_proxy_protocol_set_ipv6_addr(c->local_sockaddr,
+                                         in6->dst_addr, in6->dst_port);
+
+        buf += sizeof(ngx_proxy_protocol_inet6_addrs_t);
+
+        break;
+#endif
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+    case NGX_PROXY_PROTOCOL_AF_UNIX:
+        ud = (ngx_proxy_protocol_unix_addrs_t *) buf;
+
+        ngx_proxy_protocol_set_unix_addr(c->sockaddr, c->socklen,
+                                         ud->src_addr);
+        ngx_proxy_protocol_set_unix_addr(c->local_sockaddr, c->local_socklen,
+                                         ud->dst_addr);
+
+        buf += sizeof(ngx_proxy_protocol_unix_addrs_t);
+
+        break;
+#endif
+    }
+
+    if (tlvs) {
+
+        tlv_ssl = NULL;
+
+        for (i = 0; i < tlvs_nelts; i++) {
+            eval_tlv = &tlvs[i];
+
+            /* if SSL TLV length need correction */
+            if (eval_tlv->type == NGX_PROXY_PROTOCOL_V2_TYPE_SSL
+                && (i + 1 < tlvs_nelts))
+            {
+                tlv_ssl = (ngx_proxy_protocol_tlv_t *) buf;
+            }
+
+            buf = ngx_proxy_protocol_write_tlv(c, eval_tlv->type,
+                                               &eval_tlv->value, buf);
+        }
+
+        if (tlv_ssl) {
+            tlv_ssl_len = (size_t) (buf - (u_char *) tlv_ssl
+                                    - sizeof(ngx_proxy_protocol_tlv_t));
+
+            tlv_ssl->len[0] = (u_char) ((tlv_ssl_len >> 8) & 0xff);
+            tlv_ssl->len[1] = (u_char) (tlv_ssl_len & 0xff);
+        }
+    }
+
+    len = (size_t) (buf - data_start);
+
+    header->len[0] = (u_char) ((len >> 8) & 0xff);
+    header->len[1] = (u_char) (len & 0xff);
+
+    *buf_last = buf;
+    return (u_char *) header;
+}
+
+
+static ngx_int_t
+ngx_proxy_protocol_eval_tlvs(ngx_connection_t *c,
+    ngx_proxy_protocol_conf_t *conf, ngx_proxy_protocol_eval_tlv_t **tlvsp,
+    size_t *neltsp, size_t *len)
+{
+    size_t                          tlvs_nelts, cur;
+    uint32_t                        verify_n;
+    ngx_int_t                       verify;
+    ngx_str_t                       verify_str;
+    ngx_uint_t                      i;
+    ngx_array_t                    *a, *as;
+    ngx_proxy_protocol_tlv_ssl_t   *tlv_ssl_data;
+    ngx_proxy_protocol_eval_tlv_t  *eval_tlv, *tlvs;
+    ngx_proxy_protocol_conf_tlv_t  *conf_tlv;
+
+    *tlvsp = NULL;
+    *len = 0;
+
+    a = conf->tlvs;
+    as = conf->tlvs_ssl;
+
+    /* no TLVs defined */
+    if (a == NGX_CONF_UNSET_PTR && as == NGX_CONF_UNSET_PTR) {
+        return NGX_OK;
+    }
+
+    /* number of TLV elements in both arrays */
+    tlvs_nelts = ((a != NGX_CONF_UNSET_PTR) ? a->nelts : 0)
+                  + ((as != NGX_CONF_UNSET_PTR) ? as->nelts : 0);
+
+    tlvs = ngx_palloc(c->pool, sizeof(ngx_proxy_protocol_eval_tlv_t)
+                               * tlvs_nelts);
+    if (tlvs == NULL) {
+        return NGX_ERROR;
+    }
+
+    cur = 0;
+
+    /* TLV types processing */
+    if (a != NGX_CONF_UNSET_PTR) {
+
+        for (i = 0; i < a->nelts; i++) {
+            conf_tlv = &((ngx_proxy_protocol_conf_tlv_t *) a->elts)[i];
+            eval_tlv = &tlvs[cur];
+            cur++;
+
+            eval_tlv->type = conf_tlv->type;
+
+            if (conf->complex_value(c->data, conf_tlv->cv, &eval_tlv->value)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
+
+            *len += sizeof(ngx_proxy_protocol_tlv_t) + eval_tlv->value.len;
+        }
+    }
+
+    /* TLV SSL processing */
+    if (as != NGX_CONF_UNSET_PTR) {
+
+        /* the first entry is SSL TLV */
+        conf_tlv = &((ngx_proxy_protocol_conf_tlv_t *) as->elts)[0];
+        i = 0;
+        tlv_ssl_data = NULL;
+
+        /* create SSL TLV if entry has no binary value */
+        if (conf_tlv->cv == NULL || conf_tlv->field != 0) {
+
+            i = 1;
+            eval_tlv = &tlvs[cur];
+            cur++;
+
+            tlv_ssl_data = ngx_pcalloc(c->pool,
+                                       sizeof(ngx_proxy_protocol_tlv_ssl_t));
+            if (tlv_ssl_data == NULL) {
+                return NGX_ERROR;
+            }
+
+            eval_tlv->type = NGX_PROXY_PROTOCOL_V2_TYPE_SSL;
+            eval_tlv->value.data = (u_char *) tlv_ssl_data;
+            eval_tlv->value.len = sizeof(ngx_proxy_protocol_tlv_ssl_t);
+
+            *len += sizeof(ngx_proxy_protocol_tlv_t) + eval_tlv->value.len;
+
+            if (conf_tlv->field != 0) {
+
+                /* now the only TLV SSL "verify" field is supported */
+                if (conf->complex_value(c->data, conf_tlv->cv, &verify_str)
+                    != NGX_OK)
+                {
+                    return NGX_ERROR;
+                }
+
+                verify = ngx_atoi(verify_str.data, verify_str.len);
+                if (verify == NGX_ERROR) {
+                    ngx_log_error(NGX_LOG_CRIT, c->log, 0,
+                                  "can't convert \"verify\" field of PROXY "
+                                  "protocol TLV SSL");
+                    return NGX_ERROR;
+                }
+
+                verify_n = htonl((uint32_t) verify);
+                ngx_memcpy(tlv_ssl_data->verify, &verify_n,
+                           sizeof(tlv_ssl_data->verify));
+            }
+        }
+
+        for (/* void */; i < as->nelts; i++) {
+            conf_tlv = &((ngx_proxy_protocol_conf_tlv_t *) as->elts)[i];
+            eval_tlv = &tlvs[cur];
+            cur++;
+
+            eval_tlv->type = conf_tlv->type;
+
+            if (conf->complex_value(c->data, conf_tlv->cv, &eval_tlv->value)
+                != NGX_OK)
+            {
+                return NGX_ERROR;
+            }
+
+            if (eval_tlv->type == NGX_PROXY_PROTOCOL_V2_SUBTYPE_SSL_CN) {
+                tlv_ssl_data->client |= NGX_PROXY_PROTOCOL_V2_CLIENT_CERT_SESS;
+
+#if (NGX_SSL)
+                if (c->ssl) {
+
+                    if (!SSL_session_reused(c->ssl->connection)) {
+                        tlv_ssl_data->client |=
+                                        NGX_PROXY_PROTOCOL_V2_CLIENT_CERT_CONN;
+                    }
+                }
+#endif
+            }
+
+            *len += sizeof(ngx_proxy_protocol_tlv_t) + eval_tlv->value.len;
+        }
+    }
+
+    *tlvsp = tlvs;
+    *neltsp = tlvs_nelts;
+
+    return NGX_OK;
+}
+
+
+#if (NGX_HAVE_INET6)
+/*
+ * Put or previously convert and put address belongs to arbitrary address
+ * family to the IPv6 address structure.
+ */
+static ngx_inline void
+ngx_proxy_protocol_set_ipv6_addr(struct sockaddr *sa,
+                                 u_char *addr, u_char *port)
+{
+    struct sockaddr_in   *sin;
+    struct sockaddr_in6  *sin6;
+    static const u_char   rfc4291[] =   { 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0xff, 0xff };
+    static const u_char   unix_ipv6[] = { 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x01 };
+
+    switch (sa->sa_family) {
+
+    case AF_INET6:
+        sin6 = (struct sockaddr_in6 *) sa;
+        ngx_memcpy(addr, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
+        ngx_memcpy(port, &sin6->sin6_port, sizeof(sin6->sin6_port));
+        break;
+
+    case AF_INET:
+        /* IPv4 mapping to IPv6 */
+        sin = (struct sockaddr_in *) sa;
+        ngx_memcpy(addr, rfc4291, sizeof(rfc4291));
+        ngx_memcpy(addr + sizeof(rfc4291),
+                   &sin->sin_addr, sizeof(sin->sin_addr));
+        ngx_memcpy(port, &sin->sin_port, sizeof(sin->sin_port));
+        break;
+
+    case AF_UNIX:
+        /* use "[::1]:0" address to mark UNIX socket address as local */
+        ngx_memcpy(addr, unix_ipv6, sizeof(unix_ipv6));
+        ngx_memzero(port, sizeof(sin6->sin6_port));
+        break;
+
+    default:
+        /* use "[::]:0" for unknown protocol address family */
+        ngx_memzero(addr, sizeof(sin6->sin6_addr));
+        ngx_memzero(port, sizeof(sin6->sin6_port));
+        break;
+    }
+}
+#endif
+
+
+/*
+ * Put or previously convert and put address belongs to arbitrary address
+ * family to the IPv4 address structure.
+ */
+static ngx_inline void
+ngx_proxy_protocol_set_ipv4_addr(struct sockaddr *sa,
+                                 u_char *addr, u_char *port)
+{
+    struct sockaddr_in   *sin;
+    static const u_char   unix_ipv4[] = { 127, 0, 0, 1 };
+
+    switch (sa->sa_family) {
+
+    case AF_INET:
+        sin = (struct sockaddr_in *) sa;
+        ngx_memcpy(addr, &sin->sin_addr, sizeof(sin->sin_addr));
+        ngx_memcpy(port, &sin->sin_port, sizeof(sin->sin_port));
+        break;
+
+    case AF_UNIX:
+        /* use "127.0.0.1:0" address to mark UNIX socket address as local */
+        ngx_memcpy(addr, unix_ipv4, sizeof(unix_ipv4));
+        ngx_memzero(port, sizeof(sin->sin_port));
+        break;
+
+    default:
+        /* use "0.0.0.0:0" for unknown protocol address family */
+        ngx_memzero(addr, sizeof(sin->sin_addr));
+        ngx_memzero(port, sizeof(sin->sin_port));
+        break;
+    }
+}
+
+
+#if (NGX_HAVE_UNIX_DOMAIN)
+/*
+ * Put address to Unix domain structure.
+ */
+static ngx_inline void
+ngx_proxy_protocol_set_unix_addr(struct sockaddr *sa, socklen_t socklen,
+                                 u_char *addr)
+{
+    struct sockaddr_un  *saun;
+
+    if (sa->sa_family == AF_UNIX) {
+        saun = (struct sockaddr_un *) sa;
+
+        /* on Linux sockaddr might not include sun_path at all */
+
+        if (socklen <= (socklen_t) offsetof(struct sockaddr_un, sun_path)) {
+            *addr = '\0';
+
+        } else {
+            ngx_cpystrn(addr, (u_char *) saun->sun_path, 108);
+        }
+
+    } else {
+        /* use "\0" for unknown protocol address family */
+        *addr = '\0';
+    }
+}
+#endif
+
+
+static ngx_inline u_char *
+ngx_proxy_protocol_write_tlv(ngx_connection_t *c, u_char type,
+    ngx_str_t *value, u_char *buf)
+{
+    ngx_proxy_protocol_tlv_t  *tlv;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_STREAM, c->log, 0,
+                   "add PROXY protocol TLV %ui: %V", type, value);
+
+    tlv = (ngx_proxy_protocol_tlv_t *) buf;
+
+    tlv->type = type;
+    tlv->len[0] = (u_char) ((value->len >> 8) & 0xff);
+    tlv->len[1] = (u_char) (value->len & 0xff);
+
+    buf += sizeof(ngx_proxy_protocol_tlv_t);
+
+    ngx_memcpy(buf, value->data, value->len);
+
+    buf += value->len;
+
+    return buf;
+}
+
+
 ngx_int_t
 ngx_proxy_protocol_get_tlv(ngx_connection_t *c, ngx_str_t *name,
     ngx_str_t *value)
 {
-    u_char                          *p;
-    size_t                           n;
-    uint32_t                         verify;
-    ngx_str_t                        ssl, *tlvs;
-    ngx_int_t                        rc, type;
-    ngx_proxy_protocol_tlv_ssl_t    *tlv_ssl;
-    ngx_proxy_protocol_tlv_entry_t  *te;
+    u_char                         tlv_type, tlv_field;
+    uint32_t                       verify;
+    ngx_str_t                      ssl, *tlvs;
+    ngx_int_t                      rc;
+    ngx_flag_t                     tlv_ssl_subtype;
+    ngx_proxy_protocol_tlv_ssl_t  *tlv_ssl;
 
     if (c->proxy_protocol == NULL) {
         return NGX_DECLINED;
@@ -502,15 +1036,22 @@ ngx_proxy_protocol_get_tlv(ngx_connection_t *c, ngx_str_t *name,
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, c->log, 0,
                    "PROXY protocol v2 get tlv \"%V\"", name);
 
-    te = ngx_proxy_protocol_tlv_entries;
+    if (ngx_proxy_protocol_parse_tlv_type(name, &tlv_type, &tlv_field,
+                                          &tlv_ssl_subtype)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_ERR, c->log, 0,
+                      "unknown PROXY protocol TLV \"%V\"", name);
+        return NGX_ERROR;
+    }
+
     tlvs = &c->proxy_protocol->tlvs;
 
-    p = name->data;
-    n = name->len;
+    if (tlv_ssl_subtype || tlv_field) {
 
-    if (n >= 4 && p[0] == 's' && p[1] == 's' && p[2] == 'l' && p[3] == '_') {
-
-        rc = ngx_proxy_protocol_lookup_tlv(c, tlvs, 0x20, &ssl);
+        rc = ngx_proxy_protocol_lookup_tlv(c, tlvs,
+                                           NGX_PROXY_PROTOCOL_V2_TYPE_SSL,
+                                           &ssl);
         if (rc != NGX_OK) {
             return rc;
         }
@@ -519,10 +1060,8 @@ ngx_proxy_protocol_get_tlv(ngx_connection_t *c, ngx_str_t *name,
             return NGX_ERROR;
         }
 
-        p += 4;
-        n -= 4;
-
-        if (n == 6 && ngx_strncmp(p, "verify", 6) == 0) {
+        /* now the only field is "verify" */
+        if (tlv_field == 1) {
 
             tlv_ssl = (ngx_proxy_protocol_tlv_ssl_t *) ssl.data;
             verify = ngx_proxy_protocol_parse_uint32(tlv_ssl->verify);
@@ -540,32 +1079,10 @@ ngx_proxy_protocol_get_tlv(ngx_connection_t *c, ngx_str_t *name,
         ssl.data += sizeof(ngx_proxy_protocol_tlv_ssl_t);
         ssl.len -= sizeof(ngx_proxy_protocol_tlv_ssl_t);
 
-        te = ngx_proxy_protocol_tlv_ssl_entries;
         tlvs = &ssl;
     }
 
-    if (n >= 2 && p[0] == '0' && p[1] == 'x') {
-
-        type = ngx_hextoi(p + 2, n - 2);
-        if (type == NGX_ERROR) {
-            ngx_log_error(NGX_LOG_ERR, c->log, 0,
-                          "invalid PROXY protocol TLV \"%V\"", name);
-            return NGX_ERROR;
-        }
-
-        return ngx_proxy_protocol_lookup_tlv(c, tlvs, type, value);
-    }
-
-    for ( /* void */ ; te->type; te++) {
-        if (te->name.len == n && ngx_strncmp(te->name.data, p, n) == 0) {
-            return ngx_proxy_protocol_lookup_tlv(c, tlvs, te->type, value);
-        }
-    }
-
-    ngx_log_error(NGX_LOG_ERR, c->log, 0,
-                  "unknown PROXY protocol TLV \"%V\"", name);
-
-    return NGX_DECLINED;
+    return ngx_proxy_protocol_lookup_tlv(c, tlvs, tlv_type, value);
 }
 
 
@@ -611,4 +1128,206 @@ ngx_proxy_protocol_lookup_tlv(ngx_connection_t *c, ngx_str_t *tlvs,
     }
 
     return NGX_DECLINED;
+}
+
+
+char *
+ngx_proxy_protocol_conf_add_tlv(ngx_conf_t *cf,
+    ngx_proxy_protocol_conf_t *conf, ngx_str_t *name, void *cv)
+{
+    u_char                           type, field;
+    ngx_flag_t                       ssl_subtype;
+    ngx_array_t                    **a;
+    ngx_proxy_protocol_conf_tlv_t   *conf_tlv;
+
+    /* find out the TLV type */
+    if (ngx_proxy_protocol_parse_tlv_type(name, &type, &field, &ssl_subtype)
+        != NGX_OK)
+    {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid PROXY protocol TLV type \"%V\"", name);
+        return NGX_CONF_ERROR;
+    }
+
+    /*
+     * The following TLVs is stored within conf->tlvs_ssl:
+     *     - SSL subtypes;
+     *     - binary SSL TLV filled by complex value;
+     *     - field ("verify") of SSL TLV;
+     *     - default SSL TLV if subtypes present.
+     *
+     * The others TLVs is stored within conf->tlvs.
+     */
+    if (ssl_subtype || type == NGX_PROXY_PROTOCOL_V2_TYPE_SSL) {
+
+        a = &conf->tlvs_ssl;
+
+        if (*a == NGX_CONF_UNSET_PTR) {
+
+            *a = ngx_array_create(cf->pool, 4,
+                                  sizeof(ngx_proxy_protocol_conf_tlv_t));
+            if (*a == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            /* the first element within conf->tlvs_ssl is SSL TLV itself */
+            if (ssl_subtype) {
+
+                conf_tlv = ngx_array_push(*a);
+                if (conf_tlv == NULL) {
+                    return NGX_CONF_ERROR;
+                }
+
+                /* default SSL TLV content */
+                conf_tlv->type = NGX_PROXY_PROTOCOL_V2_TYPE_SSL;
+                conf_tlv->field = 0;
+                conf_tlv->cv = NULL;
+            }
+
+        } else {
+
+            if (type == NGX_PROXY_PROTOCOL_V2_TYPE_SSL && field == 0) {
+                return "PROXY protocol completed binary TLV type "
+                       "\"ssl\" can't coexist with TLV subtypes";
+            }
+
+            /* get SSL TLV */
+            conf_tlv = &((ngx_proxy_protocol_conf_tlv_t *) (*a)->elts)[0];
+
+            if (conf_tlv->cv != NULL && conf_tlv->field == 0) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "PROXY protocol TLV subtype \"%V\" can't "
+                                   "coexist with completed binary \"ssl\" TLV",
+                                   name);
+                return NGX_CONF_ERROR;
+            }
+
+            if (field != 0) {
+
+                if (conf_tlv->field != 0) {
+                    return "duplicate PROXY protocol TLV field \"verify\"";
+                }
+
+                /* merge "verify" field to the default SSL TLV */
+                conf_tlv->field = 1;
+                conf_tlv->cv = cv;
+
+                return NGX_CONF_OK;
+            }
+        }
+
+    } else {
+
+        a = &conf->tlvs;
+
+        if (*a == NGX_CONF_UNSET_PTR) {
+            *a = ngx_array_create(cf->pool, 4,
+                                  sizeof(ngx_proxy_protocol_conf_tlv_t));
+            if (*a == NULL) {
+                return NGX_CONF_ERROR;
+            }
+        }
+    }
+
+    if (ngx_proxy_protocol_conf_tlv_exist(*a, type) == NGX_OK) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "duplicate PROXY protocol TLV type or field \"%V\"",
+                           name);
+        return NGX_CONF_ERROR;
+    }
+
+    conf_tlv = ngx_array_push(*a);
+    if (conf_tlv == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    conf_tlv->type = type;
+    conf_tlv->field = field;
+    conf_tlv->cv = cv;
+
+    return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_proxy_protocol_parse_tlv_type(ngx_str_t *name, u_char *tlv_type,
+    u_char *tlv_field, ngx_flag_t *tlv_ssl_subtype)
+{
+    u_char                          *p;
+    size_t                           n;
+    ngx_int_t                        type;
+    ngx_proxy_protocol_tlv_entry_t  *te;
+
+    p = name->data;
+    n = name->len;
+
+    /* SSL subtype */
+    if (n >= 4 && ngx_strncmp(p, "ssl_", 4) == 0) {
+        p += 4;
+        n -= 4;
+
+        /*
+         * It's a special case.  The "verify" is not actually TLV type but
+         * field within structure of type NGX_PROXY_PROTOCOL_V2_TYPE_SSL.
+         * So return NGX_PROXY_PROTOCOL_V2_TYPE_SSL as a type and mark entry as
+         * a "field".
+         */
+        if (n == 6 && ngx_strncmp("verify", p, 6) == 0) {
+            *tlv_type = NGX_PROXY_PROTOCOL_V2_TYPE_SSL;
+            *tlv_field = 1; /* there is just a single field for now */
+            *tlv_ssl_subtype = 0;
+
+            return NGX_OK;
+        }
+
+        *tlv_ssl_subtype = 1;
+        te = ngx_proxy_protocol_tlv_ssl_entries;
+
+    /* common type */
+    } else {
+        *tlv_ssl_subtype = 0;
+        te = ngx_proxy_protocol_tlv_entries;
+    }
+
+    *tlv_field = 0;
+
+    /* type in hexadecimal form */
+    if (n >= 2 && p[0] == '0' && p[1] == 'x') {
+        type = ngx_hextoi(p + 2, n - 2);
+        if (type == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        *tlv_type = type;
+        return NGX_OK;
+    }
+
+    /* type in string form */
+    for ( /* void */ ; te->type; te++) {
+
+        if (te->name.len == n && ngx_strncmp(te->name.data, p, n) == 0) {
+            *tlv_type = te->type;
+            return NGX_OK;
+        }
+    }
+
+    return NGX_ERROR;
+}
+
+
+static ngx_inline ngx_int_t
+ngx_proxy_protocol_conf_tlv_exist(ngx_array_t *a, u_char type)
+{
+    ngx_uint_t                      i;
+    ngx_proxy_protocol_conf_tlv_t  *conf_tlv;
+
+    for (i = 0; i < a->nelts; i++) {
+        conf_tlv = &((ngx_proxy_protocol_conf_tlv_t *) a->elts)[i];
+
+        if (conf_tlv->type == type) {
+            return NGX_OK;
+        }
+    }
+
+    return NGX_ERROR;
 }

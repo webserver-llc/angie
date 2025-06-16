@@ -173,7 +173,7 @@ sub handshake {
 	my $extens_len = unpack("C*", substr($sh, 6 + 32 + 4, 2)) * 8
 		+ unpack("C*", substr($sh, 6 + 32 + 5, 1));
 	my $extens = substr($sh, 6 + 32 + 4 + 2, $extens_len);
-	my $pub = key_share($extens);
+	my $pub = ext_key_share($extens);
 	Test::Nginx::log_core('||', "pub = " . unpack("H*", $pub));
 
 	my $shared_secret = $self->tls_shared_secret($pub);
@@ -184,7 +184,7 @@ sub handshake {
 	my ($hash, $hlen) = $self->{cipher} == 0x1302 ?
 		('SHA384', 48) : ('SHA256', 32);
 
-	my $psk = pre_shared_key($extens);
+	my $psk = ext_pre_shared_key($extens);
 	$self->{psk} = (defined $psk && $self->{psk_list}[$psk]) || undef;
 	$self->{es_prk} = Crypt::KeyDerivation::hkdf_extract(
 		$self->{psk}->{secret} || pack("x$hlen"), pack("x$hlen"),
@@ -205,6 +205,14 @@ sub handshake {
 		$self->{hs_prk}, $digest);
 
 	$self->read_tls_message(\$buf, \&parse_tls_encrypted_extensions);
+
+	my $ee = $self->{tlsm}{ee};
+	$extens_len = unpack("C*", substr($ee, 4, 1)) * 8
+		+ unpack("C*", substr($ee, 5, 1));
+	$extens = substr($ee, 6, $extens_len);
+	$self->{tp} = ext_transport_parameters($extens);
+	Test::Nginx::log_core('||', "tp = " . unpack("H*", $self->{tp}))
+		if $self->{tp};
 
 	unless (keys %{$self->{psk}}) {
 		$self->read_tls_message(\$buf, \&parse_tls_certificate);
@@ -1679,7 +1687,7 @@ sub save_session_tickets {
 	my $extens_len = unpack("n", substr($nst, 11 + $nonce_len + $len, 2));
 	my $extens = substr($nst, 11 + $nonce_len + $len + 2, $extens_len);
 
-	$psk->{ed} = early_data($extens);
+	$psk->{ed} = ext_early_data($extens);
 	$psk->{secret} = hkdf_expand_label("tls13 resumption", $hash, $hlen,
 		$self->{rms_prk}, $nonce);
 	push @{$self->{psk_list}}, $psk;
@@ -1968,7 +1976,7 @@ sub hkdf_expand_label {
 	Crypt::KeyDerivation::hkdf_expand($prk, $hash, $len, $info);
 }
 
-sub key_share {
+sub ext_key_share {
 	my ($extens) = @_;
 	my $offset = 0;
 	while ($offset < length($extens)) {
@@ -1982,7 +1990,7 @@ sub key_share {
 	}
 }
 
-sub early_data {
+sub ext_early_data {
 	my ($extens) = @_;
 	my $offset = 0;
 	while ($offset < length($extens)) {
@@ -1996,7 +2004,7 @@ sub early_data {
 	}
 }
 
-sub pre_shared_key {
+sub ext_pre_shared_key {
 	my ($extens) = @_;
 	my $offset = 0;
 	while ($offset < length($extens)) {
@@ -2005,6 +2013,22 @@ sub pre_shared_key {
 			unpack("C", substr($extens, $offset + 3, 1));
 		if ($ext eq "\x00\x29") {
 			return unpack("n", substr($extens, $offset + 4, $len));
+		}
+		$offset += 4 + $len;
+	}
+	return;
+}
+
+sub ext_transport_parameters {
+	my ($extens) = @_;
+	my $offset = 0;
+
+	while ($offset < length($extens)) {
+		my $ext = substr($extens, $offset, 2);
+		my $len = unpack("C", substr($extens, $offset + 2, 1)) * 8 +
+			unpack("C", substr($extens, $offset + 3, 1));
+		if ($ext eq "\x00\x39") {
+			return substr($extens, $offset + 4, $len);
 		}
 		$offset += 4 + $len;
 	}

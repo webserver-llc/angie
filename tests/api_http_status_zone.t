@@ -9,6 +9,7 @@
 use warnings;
 use strict;
 
+use Socket qw/$CRLF/;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -767,11 +768,13 @@ sub test_ssl_deafult_host_zone {
 	ok(check_stats($a_zone, 0), "check 'a' zone stats");
 	ok(check_stats($b_zone, 0), "check 'b' zone stats");
 
-	like($s->io("GET / HTTP/1.1\nHost: a.com\n\n"), qr/200 OK/,
-		'correct response');
+	$s->write("GET / HTTP/1.1\nHost: a.com\n\n");
+	like($s->read(trailing_char => "$CRLF$CRLF"),
+		qr/200 OK/, 'correct response');
 
-	like($s->io("GET / HTTP/1.1\nHost: b.com\n\n"), qr/200 OK/,
-		'correct response');
+	$s->write("GET / HTTP/1.1\nHost: b.com\n\n");
+	like($s->read(trailing_char => "$CRLF$CRLF"),
+		qr/200 OK/, 'correct response');
 
 	check_ssl_deafult_host_zone();
 }

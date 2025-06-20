@@ -118,8 +118,12 @@ sub read {
 
 	$s = $self->{_socket};
 
+	if (ref $s eq 'IO::Socket::SSL') {
+		return $self->read_ssl(%extra);
+	}
+
 	$s->blocking(0);
-	while (IO::Select->new($s)->can_read($extra{read_timeout} || 8)) {
+	while (IO::Select->new($s)->can_read($extra{read_timeout} // 8)) {
 		my $bytes_read = $s->sysread($buf, 1024);
 
 		Test::More::note("$0: read(): error while reading from socket: $!")
@@ -132,6 +136,68 @@ sub read {
 
 	log_in($buf);
 	return $buf;
+}
+
+# https://metacpan.org/dist/IO-Socket-SSL/view/lib/IO/Socket/SSL.pod#Using-Non-Blocking-Sockets
+sub read_ssl {
+	my ($self, %extra) = @_;
+
+	my $s = $self->{_socket};
+	$s->blocking(0);
+
+	my $sel = IO::Select->new($s);
+	my $res = '';
+	while (1) {
+		# with SSL a call for reading n bytes does not result in reading of n
+		# bytes from the socket, but instead it must read at least one full SSL
+		# frame. If the socket has no new bytes, but there are unprocessed data
+		# from the SSL frame can_read will block!
+		# wait for data on socket
+		$sel->can_read($extra{read_timeout} // 8);
+		# new data on socket or eof
+READ:
+		# this does not read only 1 byte from socket, but reads the complete SSL
+		# frame and then just returns one byte. On subsequent calls it than
+		# returns more byte of the same SSL frame until it needs to read the
+		# next frame.
+		my $bytes_read = sysread($s, my $buf, 1);
+		if (!defined $bytes_read) {
+			if (not $!{EWOULDBLOCK}) {
+				Test::More::note("$0: read_ssl(): error while reading from socket: $!");
+				last;
+			}
+			if ($IO::Socket::SSL::SSL_ERROR == IO::Socket::SSL->SSL_WANT_READ) {
+				next;
+			}
+			if ($IO::Socket::SSL::SSL_ERROR == IO::Socket::SSL->SSL_WANT_WRITE) {
+				# need to write data on renegotiation
+				$sel->can_write;
+				next;
+			}
+			Test::More::note("$0: read_ssl(): something went wrong: "
+				. $IO::Socket::SSL::SSL_ERROR);
+			last;
+		} elsif (!$bytes_read) {
+			last; # eof
+		} else {
+			$res .= $buf;
+
+			last if defined $extra{trailing_char}
+				&& $res =~ /\Q$extra{trailing_char}\E$/;
+
+			# read next bytes
+			# we might have still data within the current SSL frame
+			# thus first process these data instead of waiting on the underlying
+			# socket object
+			if ($s->pending) {     # goto sysread
+				goto READ;
+			}
+			next;                  # goto $sel->can_read
+		}
+	}
+
+	log_in($res);
+	return $res;
 }
 
 sub io {

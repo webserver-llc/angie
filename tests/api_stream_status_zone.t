@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http_api stream stream_ssl_preread/)
 	->has(qw/stream_ssl stream_return stream_map socket_ssl_sni stream_pass/)
 	->has(qw/rewrite sni/)
-	->has_daemon('openssl')->plan(2274)
+	->has_daemon('openssl')->plan(2138)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -260,8 +260,7 @@ my $long_sni = (('a' x 60) . '.') x 4 . 'a' x 7;
 ###############################################################################
 
 SKIP: {
-skip 'OS is not linux', 523 if $^O ne 'linux';
-
+	skip 'OS is not linux', 492 if $^O ne 'linux';
 	test_remote_addr_zone();
 }
 
@@ -273,8 +272,7 @@ test_long_zone();
 
 # Check all previous states
 SKIP: {
-skip 'OS is not linux', 433 if $^O ne 'linux';
-
+	skip 'OS is not linux', 402 if $^O ne 'linux';
 	check_remote_addr_zone();
 }
 
@@ -287,84 +285,69 @@ check_long_zone();
 ###############################################################################
 
 sub check_stats_base {
-	my ($j, $count) = @_;
+	my ($j, $count, $subname) = @_;
 
-	return (
-		ok($j->{connections}{total} == $count, 'check connections total') and
-		ok($j->{connections}{processing} == 0,
-			'check connections processing') and
-		ok($j->{connections}{discarded} == 0, 'check connections discarded') and
-		ok($j->{sessions}{invalid} == 0, 'check sessions invalid') and
-		ok($j->{sessions}{forbidden} == 0, 'check sessions forbidden') and
-		ok($j->{sessions}{internal_error} == 0,
-			'check sessions internal_error') and
-		ok($j->{sessions}{bad_gateway} == 0, 'check sessions bad_gateway') and
-		ok($j->{sessions}{service_unavailable} == 0,
-			'check sessions service_unavailable') and
-		ok($j->{data}{sent} >= 0, 'check data sent') and
-		ok($j->{data}{received} >= 0, 'check data received')
-	);
+	is($j->{connections}{total}, $count, "$subname: connections total");
+	is($j->{connections}{processing}, 0, "$subname: connections processing");
+	is($j->{connections}{discarded}, 0, "$subname: connections discarded");
+
+	is($j->{sessions}{invalid}, 0, "$subname: sessions invalid");
+	is($j->{sessions}{forbidden}, 0, "$subname: sessions forbidden");
+	is($j->{sessions}{internal_error}, 0, "$subname: sessions internal_error");
+	is($j->{sessions}{bad_gateway}, 0, "$subname: sessions bad_gateway");
+	is($j->{sessions}{service_unavailable}, 0,
+		"$subname: sessions service_unavailable");
+
+	ok($j->{data}{sent} >= 0, "$subname: data sent");
+	ok($j->{data}{received} >= 0, "$subname: data received");
 }
 
 sub check_stats {
-	my ($j, $count) = @_;
+	my ($j, $count, $subname) = @_;
 
-	return (
-		check_stats_base($j, $count) and
-		ok($j->{sessions}{success} == $count, 'check sessions success') and
-		ok($j->{connections}{passed} == 0, 'check connections passed')
-	);
-}
-
-sub check_stats_pass {
-	my ($j, $count) = @_;
-
-	return (
-		check_stats_base($j, $count) and
-		ok($j->{connections}{passed} == $count, 'check connections passed') and
-		ok($j->{sessions}{success} == 0, 'check sessions success')
-	);
+	check_stats_base($j, $count, $subname);
+	is($j->{sessions}{success}, $count, "$subname: sessions success");
+	is($j->{connections}{passed}, 0, "$subname: connections passed");
 }
 
 sub check_stats_ssl_base {
-	my ($j, $count) = @_;
+	my ($j, $count, $subname) = @_;
 
-	return (
-		ok($j->{ssl}{handshaked} == $count, 'check ssl handshaked') and
-		ok($j->{ssl}{reuses} == 0, 'check ssl reuses') and
-		ok($j->{ssl}{timedout} == 0, 'check ssl timeout') and
-		ok($j->{ssl}{failed} == 0, 'check ssl failed')
-	);
+	is($j->{ssl}{handshaked}, $count, "$subname: ssl handshaked");
+	is($j->{ssl}{reuses}, 0, "$subname: ssl reuses");
+	is($j->{ssl}{timedout}, 0, "$subname: ssl timeout");
+	is($j->{ssl}{failed}, 0, "$subname: ssl failed");
 }
 
 sub check_stats_ssl_pass {
-	my ($j, $count) = @_;
+	my ($j, $count, $subname) = @_;
 
-	return (check_stats_pass($j, $count) and check_stats_ssl_base($j, $count));
+	check_stats_base($j, $count, $subname);
+	check_stats_ssl_base($j, $count, $subname);
+	is($j->{connections}{passed}, $count, "$subname: connections passed");
+	is($j->{sessions}{success}, 0, "$subname: sessions success");
 }
 
 sub check_stats_ssl {
-	my ($j, $count) = @_;
+	my ($j, $count, $subname) = @_;
 
-	return (check_stats($j, $count) and check_stats_ssl_base($j, $count));
+	check_stats($j, $count, $subname);
+	check_stats_ssl_base($j, $count, $subname);
 }
 
 sub check_sni_pass_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 
-	ok(check_stats_ssl_pass($server_zones->{sni_pass}, 0),
+	check_stats_ssl_pass($server_zones->{sni_pass}, 0,
 		"check 'sni_pass' zone");
 
 	for (1 .. 2) {
-		ok(check_stats_ssl_pass($server_zones->{$a}, 2), "check '$a' zone");
-		ok(check_stats_ssl_pass($server_zones->{$b}, 2), "check '$b' zone");
+		check_stats_ssl_pass($server_zones->{$a}, 2, "check '$a' zone");
+		check_stats_ssl_pass($server_zones->{$b}, 2, "check '$b' zone");
 	}
 }
 
 sub test_sni_pass_zone {
-	my $failed = 0;
-
 	for (1 .. 2) {
 		https_get(8093, $a);
 		https_get(8093, $b);
@@ -374,34 +357,28 @@ sub test_sni_pass_zone {
 }
 
 sub check_server_cert_type_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 
-	ok(check_stats_ssl($server_zones->{server_cert_type}, 0),
+	check_stats_ssl($server_zones->{server_cert_type}, 0,
 		"check 'server_cert_type' zone");
-	ok(check_stats_ssl($server_zones->{cert_}, 0), "check 'cert_' zone");
+	check_stats_ssl($server_zones->{cert_}, 0, "check 'cert_' zone");
 
-	ok(check_stats_ssl($server_zones->{cert_RSA}, 2),
-		"check 'cert_RSA' zone");
-	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
-		"check 'cert_ECDSA' zone");
+	check_stats_ssl($server_zones->{cert_RSA}, 2, "check 'cert_RSA' zone");
+	check_stats_ssl($server_zones->{cert_ECDSA}, 2, "check 'cert_ECDSA' zone");
 
-	ok(check_stats_ssl($server_zones->{cert_RSA}, 2), "check 'cert_RSA' zone");
-	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
-		"check 'cert_ECDSA' zone");
+	check_stats_ssl($server_zones->{cert_RSA}, 2, "check 'cert_RSA' zone");
+	check_stats_ssl($server_zones->{cert_ECDSA}, 2, "check 'cert_ECDSA' zone");
 
-	$j = get_json('/status/stream/server_zons/cert_RSA');
-	ok(check_stats_ssl($server_zones->{cert_RSA}, 2),
+	my $j = get_json('/status/stream/server_zons/cert_RSA');
+	check_stats_ssl($server_zones->{cert_RSA}, 2,
 		"check 'cert_RSA' zone directly");
 
 	$j = get_json('/status/stream/server_zons/cert_ECDSA');
-	ok(check_stats_ssl($server_zones->{cert_ECDSA}, 2),
+	check_stats_ssl($server_zones->{cert_ECDSA}, 2,
 		"check 'cert_ECDSA' zone directly");
 }
 
 sub test_server_cert_type_zone {
-	my $failed = 0;
-
 	for (1 .. 2) {
 		stream_ssl_request(8085, 'localhost');
 		stream_ssl_request(8086, 'localhost');
@@ -411,23 +388,21 @@ sub test_server_cert_type_zone {
 }
 
 sub check_sni_preread_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 
-	ok(check_stats($server_zones->{sni_preread}, 4),
-		"check 'sni_preread' zone");
-	ok(check_stats($server_zones->{host_}, 0), "check 'host_' zone");
+	check_stats($server_zones->{sni_preread}, 4, "check 'sni_preread' zone");
+	check_stats($server_zones->{host_}, 0, "check 'host_' zone");
 
 	for (1 .. 2) {
 		my $a_zone = "host_preread.$_.$a";
 		my $b_zone = "preread.$_.$b";
 
-		ok(check_stats($server_zones->{$a_zone}, 2), "check '$a_zone' zone");
-		ok(check_stats($server_zones->{$b_zone}, 2), "check '$b_zone' zone");
+		check_stats($server_zones->{$a_zone}, 2, "check '$a_zone' zone");
+		check_stats($server_zones->{$b_zone}, 2, "check '$b_zone' zone");
 
-		ok(not (exists $server_zones->{"$a_zone.f"}),
+		ok(!exists $server_zones->{"$a_zone.f"},
 			"'$a_zone.f' zone does not exist");
-		ok(not (exists $server_zones->{"$b_zone.f"}),
+		ok(!exists $server_zones->{"$b_zone.f"},
 			"'$b_zone.f' zone does not exist");
 	}
 }
@@ -452,28 +427,24 @@ sub test_sni_preread_zone {
 }
 
 sub check_sni_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 
-	ok(check_stats_ssl($server_zones->{sni}, 15), "check 'sni' zone'");
+	check_stats_ssl($server_zones->{sni}, 15, "check 'sni' zone'");
 
 	for (1 .. 5) {
 		my $a_zone = "$_.$a";
 		my $b_zone = "$_.$b";
 		my $c_zone = "$_.$c";
 
-		ok(check_stats_ssl($server_zones->{$a_zone}, 2),
-			"check '$a_zone' zone");
-		ok(check_stats_ssl($server_zones->{$b_zone}, 2),
-			"check '$b_zone' zone");
-		ok(check_stats_ssl($server_zones->{$c_zone}, 2),
-			"check '$c_zone' zone");
+		check_stats_ssl($server_zones->{$a_zone}, 2, "check '$a_zone' zone");
+		check_stats_ssl($server_zones->{$b_zone}, 2, "check '$b_zone' zone");
+		check_stats_ssl($server_zones->{$c_zone}, 2, "check '$c_zone' zone");
 
-		ok(not (exists $server_zones->{"f.$a_zone"}),
+		ok(!exists $server_zones->{"f.$a_zone"},
 			"'f.$a_zone' zone does not exist");
-		ok(not (exists $server_zones->{"f.$b_zone"}),
+		ok(!exists $server_zones->{"f.$b_zone"},
 			"'f.$b_zone' zone does not exist");
-		ok(not (exists $server_zones->{"f.$c_zone"}),
+		ok(!exists $server_zones->{"f.$c_zone"},
 			"'f.$c_zone' zone does not exist");
 	}
 }
@@ -501,19 +472,16 @@ sub test_sni_zone {
 }
 
 sub check_long_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 	my $zone = 'pfx.' . $long_sni;
 
 	for (1 .. 2) {
-		ok(check_stats_ssl($server_zones->{$zone}, 1),
-			"check '$zone' zone");
+		check_stats_ssl($server_zones->{$zone}, 1, "check '$zone' zone");
 
 		$zone .= 'a';
 	}
 
-	ok(not (exists $server_zones->{$zone}),
-		"'$zone' zone does not exist");
+	ok(!exists $server_zones->{$zone}, "'$zone' zone does not exist");
 }
 
 sub test_long_zone {
@@ -528,25 +496,23 @@ sub test_long_zone {
 }
 
 sub check_remote_addr_zone {
-	my $j = get_json('/status/');
-	my $server_zones = $j->{stream}{server_zones};
+	my $server_zones = get_json('/status/stream/server_zones/');
 
-	ok(check_stats($server_zones->{remote_addr}, 30),
-		"check 'remote_addr' zone");
+	check_stats($server_zones->{remote_addr}, 30, "check 'remote_addr' zone");
 
 	for (1 .. 10) {
-		ok(check_stats($server_zones->{"127.0.1.$_"}, 2),
+		check_stats($server_zones->{"127.0.1.$_"}, 2,
 			"check '127.0.1.$_' zone");
-		ok(check_stats($server_zones->{"127.0.2.$_"}, 2),
+		check_stats($server_zones->{"127.0.2.$_"}, 2,
 			"check '127.0.2.$_' zone");
-		ok(check_stats($server_zones->{"127.0.3.$_"}, 2),
+		check_stats($server_zones->{"127.0.3.$_"}, 2,
 			"check '127.0.3.$_' zone");
 
-		ok(not (exists $server_zones->{"127.1.1.$_"}),
+		ok(!exists $server_zones->{"127.1.1.$_"},
 			"'127.1.1.$_' zone does not exist");
-		ok(not (exists $server_zones->{"127.1.2.$_"}),
+		ok(!exists $server_zones->{"127.1.2.$_"},
 			"'127.1.2.$_' zone does not exist");
-		ok(not (exists $server_zones->{"127.1.3.$_"}),
+		ok(!exists $server_zones->{"127.1.3.$_"},
 			"'127.1.3.$_' zone does not exist");
 	}
 }

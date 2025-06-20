@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use Socket qw/$CRLF/;
+use Test::Deep qw/cmp_deeply/;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -26,7 +27,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_api http_ssl map socket_ssl_sni/)
 	->has(qw/sni/)
-	->has_daemon('openssl')->plan(2162)
+	->has_daemon('openssl')->plan(2153)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -329,7 +330,7 @@ test_sni_zone();
 test_server_cert_type_zone();
 test_ssl_host_zone();
 test_ssl_user_agent_zone();
-test_ssl_deafult_host_zone();
+test_ssl_default_host_zone();
 
 # Check all previous states
 check_uri_zone();
@@ -341,53 +342,60 @@ check_sni_zone();
 check_server_cert_type_zone();
 check_ssl_host_zone();
 check_ssl_user_agent_zone();
-check_ssl_deafult_host_zone();
+check_ssl_default_host_zone();
 
 ###############################################################################
 
-sub check_stats {
-	my ($j, $count) = @_;
+sub check_stats_lz {
+	my ($j, $count, $subname) = @_;
 
-	my $response_code = (exists $j->{responses}{200})
-		? ($j->{responses}{200} == $count)
-		: 1;
+	is($j->{requests}{total}, $count, "$subname: requests total");
+	is($j->{requests}{discarded}, 0, "$subname: requests discarded");
 
-	return (
-		ok($j->{requests}{total} == $count, 'check requests total') and
-		ok($j->{requests}{discarded} == 0, 'check requests discarded') and
-		ok($j->{data}{received} >= 0, 'check data received') and
-		ok($j->{data}{sent} >= 0, 'check data sent') and
-		ok($response_code, 'check response code 200')
-	);
+	if ($count == 0) {
+		is($j->{data}{received}, 0, "$subname: data received");
+		is($j->{data}{sent}, 0, "$subname: data sent");
+		cmp_deeply($j->{responses}, {}, "$subname: responses");
+	} else {
+		ok($j->{data}{received} > 0, "$subname: data received");
+		ok($j->{data}{sent} > 0, "$subname: data sent");
+		cmp_deeply($j->{responses}, {200 => $count}, "$subname: responses");
+	}
 }
 
-sub check_stats_ssl {
-	my ($j, $count) = @_;
+sub check_stats_sz {
+	my ($j, $count, $subname) = @_;
 
-	return (
-		check_stats($j, $count) and
-		ok($j->{ssl}{handshaked} == $count, 'check ssl handshaked')
-	);
+	check_stats_lz($j, $count, $subname);
+
+	is($j->{requests}{processing}, 0, "$subname: requests processing");
+}
+
+sub check_stats_sz_ssl {
+	my ($j, $rcount, $hcount, $subname) = @_;
+
+	check_stats_sz($j, $rcount, $subname);
+
+	# 'ssl' section exists only in 'server_zones' section
+	is($j->{ssl}{handshaked}, $hcount, "$subname: ssl handshaked");
+	is($j->{ssl}{reuses}, 0, "$subname: ssl reuses");
+	is($j->{ssl}{timedout}, 0, "$subname: ssl timedout");
+	is($j->{ssl}{failed}, 0, "$subname: ssl failed");
 }
 
 sub check_ssl_host_zone {
-	my $j = get_json('/status/');
+	my $server_zones = get_json('/status/http/server_zones/');
 
-	my $server_zones = $j->{http}{server_zones};
-
-	ok(check_stats($server_zones->{ssl_host}, 2),
+	check_stats_sz_ssl($server_zones->{ssl_host}, 2, 0,
 		"check 'ssl_host' server zone");
-	ok($server_zones->{ssl_host}{ssl}{handshaked} == 0, 'check ssl handshaked');
 
-	ok(check_stats($server_zones->{'*.example.com'}, 0),
+	check_stats_sz_ssl($server_zones->{'*.example.com'}, 0, 5,
 		"check '*.example.com' server zone");
-	ok($server_zones->{'*.example.com'}{ssl}{handshaked} == 5,
-		'check ssl handshaked');
 
 	for (1 .. 3) {
 		my $host_zone = "$_.example.com";
 
-		ok(check_stats($j->{http}{server_zones}{$host_zone}, 1),
+		check_stats_sz_ssl($server_zones->{$host_zone}, 1, 0,
 			"check '$host_zone' server zone");
 	}
 }
@@ -401,26 +409,23 @@ sub test_ssl_host_zone {
 }
 
 sub check_server_cert_type_zone {
-	my $j = get_json('/status/');
+	my $j = get_json('/status/http/');
 
-	my $server_zones = $j->{http}{server_zones};
-	my $location_zones = $j->{http}{location_zones};
+	my $server_zones = $j->{server_zones};
+	my $location_zones = $j->{location_zones};
 
-	ok(check_stats_ssl($server_zones->{server_cert_type}, 0),
+	check_stats_sz_ssl($server_zones->{server_cert_type}, 0, 0,
 		"check 'server_cert_type' server zone");
 
-	ok(check_stats($location_zones->{server_cert_type}, 0),
+	check_stats_lz($location_zones->{server_cert_type}, 0,
 		"check 'server_cert_type' location zone");
 
-	ok(check_stats_ssl($server_zones->{RSA}, 2),
-		"check 'RSA' server zone");
-	ok(check_stats_ssl($server_zones->{ECDSA}, 2),
+	check_stats_sz_ssl($server_zones->{RSA}, 2, 2, "check 'RSA' server zone");
+	check_stats_sz_ssl($server_zones->{ECDSA}, 2, 2,
 		"check 'ECDSA' server zone");
 
-	ok(check_stats($location_zones->{RSA}, 2),
-		"check 'RSA' location zone");
-	ok(check_stats($location_zones->{ECDSA}, 2),
-		"check 'ECDSA' location zone");
+	check_stats_lz($location_zones->{RSA}, 2, "check 'RSA' location zone");
+	check_stats_lz($location_zones->{ECDSA}, 2, "check 'ECDSA' location zone");
 }
 
 sub test_server_cert_type_zone {
@@ -433,18 +438,18 @@ sub test_server_cert_type_zone {
 }
 
 sub check_single_zone {
-	my $j = get_json('/status/');
+	my $j = get_json('/status/http/');
 
-	ok(check_stats($j->{http}{server_zones}{single}, 10),
+	check_stats_sz($j->{server_zones}{single}, 10,
 		"check 'single' server zone");
-	ok(check_stats($j->{http}{location_zones}{single}, 10),
+	check_stats_lz($j->{location_zones}{single}, 10,
 		"check 'single' location zone");
 
 	$j = get_json('/status/http/server_zones/single');
-	ok(check_stats($j, 10), "check 'single' server zone directly");
+	check_stats_sz($j, 10, "check 'single' server zone directly");
 
 	$j = get_json('/status/http/location_zones/single');
-	ok(check_stats($j, 10), "check 'single' location zone directly");
+	check_stats_lz($j, 10, "check 'single' location zone directly");
 }
 
 sub test_single_zone {
@@ -462,32 +467,31 @@ sub check_sni_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats_ssl($server_zones->{sni}, 10), "check 'sni' server zone");
-
-	ok(check_stats($location_zones->{sni}, 10), "check 'sni' location zone");
+	check_stats_sz_ssl($server_zones->{sni}, 10, 10, "check 'sni' server zone");
+	check_stats_lz($location_zones->{sni}, 10, "check 'sni' location zone");
 
 	for (1 .. 5) {
 		my $a_zone = "$_.sni.$a";
 		my $b_zone = "$_.sni.$b";
 
-		ok(check_stats_ssl($server_zones->{$a_zone}, 2),
+		check_stats_sz_ssl($server_zones->{$a_zone}, 2, 2,
 			"check '$a_zone' server zone");
-		ok(check_stats_ssl($server_zones->{$b_zone}, 2),
+		check_stats_sz_ssl($server_zones->{$b_zone}, 2, 2,
 			"check '$b_zone' server zone");
 
-		ok(not (exists $server_zones->{"f.$a_zone"}),
+		ok(!exists $server_zones->{"f.$a_zone"},
 			"'f.$a_zone' server zone does not exist");
-		ok(not (exists $server_zones->{"f.$b_zone"}),
+		ok(!exists $server_zones->{"f.$b_zone"},
 			"'f.$b_zone' server zone does not exist");
 
-		ok(check_stats($location_zones->{$a_zone}, 2),
+		check_stats_lz($location_zones->{$a_zone}, 2,
 			"check '$a_zone' location zone");
-		ok(check_stats($location_zones->{$b_zone}, 2),
+		check_stats_lz($location_zones->{$b_zone}, 2,
 			"check '$b_zone' location zone");
 
-		ok(not (exists $location_zones->{"f.$a_zone"}),
+		ok(!exists $location_zones->{"f.$a_zone"},
 			"'f.$a_zone' location zone does not exist");
-		ok(not (exists $server_zones->{"f.$b_zone"}),
+		ok(!exists $location_zones->{"f.$b_zone"},
 			"'f.$b_zone' location zone does not exist");
 	}
 }
@@ -514,12 +518,12 @@ sub check_host_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats($server_zones->{a_host}, 5), "check 'a_host' server zone");
-	ok(check_stats($server_zones->{b_host}, 5), "check 'b_host' server zone");
+	check_stats_sz($server_zones->{a_host}, 5, "check 'a_host' server zone");
+	check_stats_sz($server_zones->{b_host}, 5, "check 'b_host' server zone");
 
-	ok(check_stats($location_zones->{a_host}, 5),
+	check_stats_lz($location_zones->{a_host}, 5,
 		"check 'a_host' location zone");
-	ok(check_stats($location_zones->{b_host}, 5),
+	check_stats_lz($location_zones->{b_host}, 5,
 		"check 'b_host' location zone");
 
 	for (1 .. 5) {
@@ -527,35 +531,35 @@ sub check_host_zone {
 		my $b_zone = "$_.$b";
 
 		my $zj = get_json("/status/http/server_zones/$a_zone");
-		ok(check_stats($zj, 2), "check '$a_zone' server zone directly");
+		check_stats_sz($zj, 2, "check '$a_zone' server zone directly");
 
 		$zj = get_json("/status/http/server_zones/$b_zone");
-		ok(check_stats($zj, 2), "check '$b_zone' server zone directly");
+		check_stats_sz($zj, 2, "check '$b_zone' server zone directly");
 
-		ok(check_stats($server_zones->{$a_zone}, 2),
+		check_stats_sz($server_zones->{$a_zone}, 2,
 			"check '$a_zone' server zone");
-		ok(check_stats($server_zones->{$b_zone}, 2),
+		check_stats_sz($server_zones->{$b_zone}, 2,
 			"check '$b_zone' server zone");
 
-		ok(not (exists $server_zones->{"f.$a_zone"}),
+		ok(!exists $server_zones->{"f.$a_zone"},
 			"'f.$a_zone' server zone does not exist");
-		ok(not (exists $server_zones->{"f.$b_zone"}),
+		ok(!exists $server_zones->{"f.$b_zone"},
 			"'f.$b_zone' server zone does not exist");
 
 		$zj = get_json("/status/http/location_zones/$a_zone");
-		ok(check_stats($zj, 2), "check '$a_zone' location zone directly");
+		check_stats_lz($zj, 2, "check '$a_zone' location zone directly");
 
 		$zj = get_json("/status/http/location_zones/$b_zone");
-		ok(check_stats($zj, 2), "check '$b_zone' location zone directly");
+		check_stats_lz($zj, 2, "check '$b_zone' location zone directly");
 
-		ok(check_stats($location_zones->{$a_zone}, 2),
+		check_stats_lz($location_zones->{$a_zone}, 2,
 			"check '$a_zone' location zone");
-		ok(check_stats($location_zones->{$b_zone}, 2),
+		check_stats_lz($location_zones->{$b_zone}, 2,
 			"check '$b_zone' location zone");
 
-		ok(not (exists $location_zones->{"f.$a_zone"}),
+		ok(!exists $location_zones->{"f.$a_zone"},
 			"'f.$a_zone' location zone does not exist");
-		ok(not (exists $server_zones->{"f.$b_zone"}),
+		ok(!exists $location_zones->{"f.$b_zone"},
 			"'f.$b_zone' location zone does not exist");
 	}
 }
@@ -582,22 +586,21 @@ sub check_uri_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats($server_zones->{uri}, 17), "check 'uri' server zone");
-
-	ok(check_stats($location_zones->{uri}, 17), "check 'uri' location zone");
+	check_stats_sz($server_zones->{uri}, 17, "check 'uri' server zone");
+	check_stats_lz($location_zones->{uri}, 17, "check 'uri' location zone");
 
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
-			ok(check_stats($server_zones->{"/$i.$j"}, 1),
+			check_stats_sz($server_zones->{"/$i.$j"}, 1,
 				"check '/$i.$j' server zone");
 
-			ok(not (exists $server_zones->{"/$i.$j.f"}),
+			ok(!exists $server_zones->{"/$i.$j.f"},
 				"'/$i.$j.f' server zone does not exist");
 
-			ok(check_stats($location_zones->{"/$i.$j"}, 1),
+			check_stats_lz($location_zones->{"/$i.$j"}, 1,
 				"check '/$i.$j' location zone");
 
-			ok(not (exists $location_zones->{"/$i.$j.f"}),
+			ok(!exists $location_zones->{"/$i.$j.f"},
 				"'/$i.$j.f' location zone does not exist");
 		}
 	}
@@ -631,16 +634,16 @@ sub check_locations_zone {
 
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats($location_zones->{locations}, 10),
+	check_stats_lz($location_zones->{locations}, 10,
 		"check 'locations' location zone");
 
 	for (1 .. 10) {
-		ok(check_stats($location_zones->{"/location_$_"}, 2),
+		check_stats_lz($location_zones->{"/location_$_"}, 2,
 			"check 'location_$_' location zone");
 	}
 
 	for (11 .. 20) {
-		ok(not (exists $location_zones->{"/location_$_"}),
+		ok(!exists $location_zones->{"/location_$_"},
 			"'/location_$_' location zone does not exist");
 	}
 }
@@ -663,28 +666,25 @@ sub check_host_uri_zone {
 	my $server_zones = $j->{http}{server_zones};
 	my $location_zones = $j->{http}{location_zones};
 
-	ok(check_stats($server_zones->{hosts}, 0), "check 'hosts' server zone");
-	ok(check_stats($server_zones->{localhost}, 10),
+	check_stats_sz($server_zones->{hosts}, 0, "check 'hosts' server zone");
+	check_stats_sz($server_zones->{localhost}, 10,
 		"check 'localhost' server zone");
-	ok(check_stats($server_zones->{$a}, 20), "check '$a' server zone");
-	ok(check_stats($server_zones->{$b}, 20), "check '$b' server zone");
+	check_stats_sz($server_zones->{$a}, 20, "check '$a' server zone");
+	check_stats_sz($server_zones->{$b}, 20, "check '$b' server zone");
 
-	ok(check_stats($location_zones->{uris}, 10),
-		"check 'uris' location zone");
-	ok(check_stats($location_zones->{loc1}, 10),
-		"check 'loc1' location zone");
-	ok(check_stats($location_zones->{loc2}, 10),
-		"check 'loc2' location zone");
+	check_stats_lz($location_zones->{uris}, 10, "check 'uris' location zone");
+	check_stats_lz($location_zones->{loc1}, 10, "check 'loc1' location zone");
+	check_stats_lz($location_zones->{loc2}, 10, "check 'loc2' location zone");
 
 	for (1 .. 5) {
-		ok(check_stats($location_zones->{"/loc_$_.1"}, 2),
+		check_stats_lz($location_zones->{"/loc_$_.1"}, 2,
 			"check 'loc_/$_.1' location zone");
-		ok(check_stats($location_zones->{"/loc_$_.2"}, 2),
+		check_stats_lz($location_zones->{"/loc_$_.2"}, 2,
 			"check 'loc_/$_.2' location zone");
 
-		ok(not (exists $location_zones->{"/loc_$_.1.f"}),
+		ok(!exists $location_zones->{"/loc_$_.1.f"},
 			"'/loc_$_.1.f' location zone does not exist");
-		ok(not (exists $location_zones->{"/loc_$_.2.f"}),
+		ok(!exists $location_zones->{"/loc_$_.2.f"},
 			"'/loc_$_.2.f' location zone does not exist");
 	}
 }
@@ -715,25 +715,17 @@ sub test_host_uri_zone {
 }
 
 sub check_ssl_user_agent_zone {
-	my $j = get_json('/status/');
+	my $user_agent_zone = get_json('/status/http/server_zones/user_agent/');
 
-	my $user_agent_zone = $j->{http}{server_zones}{user_agent};
-
-	ok(check_stats($j->{http}{server_zones}{user_agent}, 1),
-		"check 'ssl_user_agent' zone");
-	ok($user_agent_zone->{ssl}{handshaked} == 0,
-		"check 'user_agent' zone ssl stats");
+	check_stats_sz_ssl($user_agent_zone, 1, 0, "check 'user_agent' zone");
 }
 
 sub test_ssl_user_agent_zone {
 	my $s = ssl_connect(8094);
-	my $j = get_json('/status/');
+	my $handshakes_zone = get_json('/status/http/server_zones/handshakes');
 
-	my $handshakes_zone = $j->{http}{server_zones}{handshakes};
-
-	ok($handshakes_zone->{ssl}{handshaked} == 1,
-		"check 'handshakes' zone ssl stats");
-	ok(check_stats($handshakes_zone, 0), "check 'handshakes' zone stats");
+	check_stats_sz_ssl($handshakes_zone, 0, 1,
+		"check 'handshakes' zone stats");
 
 	$s->write("GET / HTTP/1.0\nUser-Agent: user_agent\n\n");
 	like($s->read(), qr/200 OK/, 'correct response');
@@ -741,43 +733,39 @@ sub test_ssl_user_agent_zone {
 	check_ssl_user_agent_zone();
 }
 
-sub check_ssl_deafult_host_zone {
+sub check_ssl_default_host_zone {
 	my $j = get_json('/status/');
 
 	my $a_zone = $j->{http}{server_zones}{a};
 	my $b_zone = $j->{http}{server_zones}{b};
 
-	ok($a_zone->{ssl}{handshaked} == 1, "check 'a' zone ssl stats");
-	ok($b_zone->{ssl}{handshaked} == 0, "check 'b' zone ssl stats");
-
-	ok(check_stats($a_zone, 1), "check 'a' zone stats");
-	ok(check_stats($b_zone, 1), "check 'b' zone stats");
+	check_stats_sz_ssl($a_zone, 1, 1, "check 'a' zone stats");
+	check_stats_sz_ssl($b_zone, 1, 0, "check 'b' zone stats");
 }
 
-sub test_ssl_deafult_host_zone {
+sub test_ssl_default_host_zone {
 	my $s = ssl_connect(8097);
 
-	my $j = get_json('/status/');
+	my $server_zones = get_json('/status/http/server_zones/');
 
-	my $a_zone = $j->{http}{server_zones}{a};
-	my $b_zone = $j->{http}{server_zones}{b};
+	my $a_zone = $server_zones->{a};
+	my $b_zone = $server_zones->{b};
 
-	ok($a_zone->{ssl}{handshaked} == 1, "check 'a' zone ssl stats");
-	ok($b_zone->{ssl}{handshaked} == 0, "check 'b' zone ssl stats");
-
-	ok(check_stats($a_zone, 0), "check 'a' zone stats");
-	ok(check_stats($b_zone, 0), "check 'b' zone stats");
+	check_stats_sz_ssl($a_zone, 0, 1, "check 'a' zone stats");
+	check_stats_sz_ssl($b_zone, 0, 0, "check 'b' zone stats");
 
 	$s->write("GET / HTTP/1.1\nHost: a.com\n\n");
 	like($s->read(trailing_char => "$CRLF$CRLF"),
-		qr/200 OK/, 'correct response');
+		qr/200 OK/, 'correct response - a.com');
 
 	$s->write("GET / HTTP/1.1\nHost: b.com\n\n");
 	like($s->read(trailing_char => "$CRLF$CRLF"),
-		qr/200 OK/, 'correct response');
+		qr/200 OK/, 'correct response - b.com');
 
-	check_ssl_deafult_host_zone();
+	check_ssl_default_host_zone();
 }
+
+###############################################################################
 
 sub get_sni {
 	my ($uri, $port, $sni) = @_;

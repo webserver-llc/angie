@@ -252,19 +252,14 @@ like(https_cipher_get(8447, 'ECDHE-RSA-AES128-GCM-SHA256'),
 like(https_cipher_get(8447, 'ECDHE-ECDSA-AES128-SHA'),
 	qr/ECDSA/, 'ECDSA certificate');
 
-my $s = stream('127.0.0.1:' . port(8448));
-
-$s->io('test');
-
-for (1 .. 50) {
-	last if -s "$tdir/empty.log";
-	select undef, undef, undef, 0.1;
-}
-
-is($t->read_file('empty.log'), "-\n", 'Empty variable');
+stream('127.0.0.1:' . port(8448))->io('test');
 
 like(http_get('/', PeerAddr => '127.0.0.1:' . port(8449)),
 	qr/-/, 'Empty variable');
+
+$t->stop();
+
+is($t->read_file('empty.log'), "-\n", 'Empty variable');
 
 ###############################################################################
 

@@ -47,6 +47,7 @@
                                              |NGX_HTTP_UPSTREAM_FT_HTTP_429)
 
 #define NGX_HTTP_UPSTREAM_INVALID_HEADER     40
+#define NGX_HTTP_UPSTREAM_EARLY_HINTS        41
 
 /* zero indicates no sticky */
 #define NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW  1

@@ -96,14 +96,7 @@ like(get_cert_cn(), qr!localhost!, 'default cert');
 like(get_cert_cn('example.com'), qr!example.com!, 'sni cert');
 
 ok(get_tp(), 'default transport params');
-
-TODO: {
-local $TODO = 'not yet' if $t->has_version('1.29.0')
-	&& $t->has_feature('openssl:3.5');
-
 ok(get_tp('example.com'), 'sni transport params');
-
-}
 
 like(get_host('example.com'), qr!example.com:example.com!,
 	'host exists, sni exists, and host is equal sni');

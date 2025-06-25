@@ -5825,8 +5825,7 @@ ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf)
     ls->log.data = &ls->addr_text;
     ls->log.handler = ngx_accept_log_error;
     ls->type = SOCK_DGRAM;
-    ls->wildcard = 1;
-    ls->reuseport = 1;
+    ls->wildcard = ngx_inet_wildcard(ls->sockaddr);
 
     return NGX_OK;
 }

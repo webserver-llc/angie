@@ -9,7 +9,7 @@
 #include <math.h>
 
 
-#define NGX_JSON_MAX_NUMBER_LEN  16
+#define NGX_JSON_MAX_NUMBER_LEN  NGX_INT64_LEN
 
 
 typedef struct {

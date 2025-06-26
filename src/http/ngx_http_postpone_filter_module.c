@@ -62,7 +62,7 @@ ngx_http_postpone_filter(ngx_http_request_t *r, ngx_chain_t *in)
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "http postpone filter \"%V?%V\" %p", &r->uri, &r->args, in);
 
-    if (r->subrequest_in_memory) {
+    if (r->subrequest_in_memory || c->stub) {
         return ngx_http_postpone_filter_in_memory(r, in);
     }
 

@@ -1011,6 +1011,21 @@ if [ $HTTP = YES ]; then
 
         . auto/module
     fi
+
+    if [ $HTTP_CLIENT = YES ]; then
+
+        have=NGX_HTTP_CLIENT . auto/have
+
+        ngx_module_type=HTTP_FILTER
+        ngx_module_name=ngx_http_client_module
+        ngx_module_incs=
+        ngx_module_deps=src/http/ngx_http_client.h
+        ngx_module_srcs=src/http/modules/ngx_http_client_module.c
+        ngx_module_libs=
+        ngx_module_link=YES
+
+        . auto/module
+    fi
 fi
 
 

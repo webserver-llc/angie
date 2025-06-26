@@ -1299,7 +1299,8 @@ ngx_close_connection(ngx_connection_t *c)
     ngx_uint_t    log_error, level;
     ngx_socket_t  fd;
 
-    if (c->fd == (ngx_socket_t) -1) {
+    if (c->fd == (ngx_socket_t) -1 && !c->stub) {
+
         ngx_log_error(NGX_LOG_ALERT, c->log, 0, "connection already closed");
         return;
     }
@@ -1312,7 +1313,7 @@ ngx_close_connection(ngx_connection_t *c)
         ngx_del_timer(c->write);
     }
 
-    if (!c->shared) {
+    if (!c->shared && !c->stub) {
         if (ngx_del_conn) {
             ngx_del_conn(c, NGX_CLOSE_EVENT);
 
@@ -1337,6 +1338,10 @@ ngx_close_connection(ngx_connection_t *c)
 
     c->read->closed = 1;
     c->write->closed = 1;
+
+    if (c->stub) {
+        return;
+    }
 
     ngx_reusable_connection(c, 0);
 

@@ -187,6 +187,7 @@ struct ngx_connection_s {
     unsigned            reusable:1;
     unsigned            close:1;
     unsigned            shared:1;
+    unsigned            stub:1;          /* no real client on this connection */
 
     unsigned            sendfile:1;
     unsigned            sndlowat:1;

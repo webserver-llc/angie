@@ -271,6 +271,11 @@ typedef struct {
     ngx_http_stats_zone_t     *server_zones;
     ngx_http_stats_zone_t     *location_zones;
 #endif
+
+#if (NGX_HTTP_CLIENT)
+    ngx_uint_t                 has_client; /* unsigned has_client:1; */
+#endif
+
 } ngx_http_core_main_conf_t;
 
 
@@ -303,6 +308,10 @@ typedef struct {
     unsigned                    listen:1;
 #if (NGX_PCRE)
     unsigned                    captures:1;
+#endif
+
+#if (NGX_HTTP_CLIENT)
+    unsigned                    is_client:1;
 #endif
 
     ngx_http_core_loc_t       **named_locations;

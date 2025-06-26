@@ -4021,7 +4021,6 @@ ngx_http_acme_init_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
 
     r->method = method;
 
-    r->internal_client = 1;
     r->finalize_request = ngx_http_acme_finalize_request;
     r->subrequest_in_memory = 1;
 

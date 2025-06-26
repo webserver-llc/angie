@@ -33,6 +33,9 @@ static void ngx_http_core_auth_delay_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_core_find_location(ngx_http_request_t *r);
 static ngx_int_t ngx_http_core_find_static_location(ngx_http_request_t *r,
     ngx_http_location_tree_node_t *node, ngx_http_core_loc_t **locp);
+#if (NGX_HTTP_CLIENT)
+static ngx_int_t ngx_http_find_named_location(ngx_http_request_t *r);
+#endif
 
 static ngx_int_t ngx_http_core_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_http_core_postconfiguration(ngx_conf_t *cf);
@@ -240,6 +243,13 @@ static ngx_command_t  ngx_http_core_commands[] = {
       NULL },
 
     { ngx_string("server"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
+      ngx_http_core_server,
+      0,
+      0,
+      NULL },
+
+    { ngx_string("client"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
       ngx_http_core_server,
       0,
@@ -1503,6 +1513,9 @@ ngx_http_core_find_location(ngx_http_request_t *r)
 {
     ngx_int_t                    rc;
     ngx_http_core_loc_t         *loc;
+#if (NGX_HTTP_CLIENT)
+    ngx_http_core_srv_conf_t    *cscf;
+#endif
     ngx_http_core_loc_conf_t    *pclcf;
 #if (NGX_PCRE)
     ngx_int_t                    n;
@@ -1511,6 +1524,15 @@ ngx_http_core_find_location(ngx_http_request_t *r)
 
     noregex = 0;
 #endif
+
+#if (NGX_HTTP_CLIENT)
+    cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+
+    if (cscf->is_client) {
+        return ngx_http_find_named_location(r);
+    }
+#endif
+
 #if (NGX_SUPPRESS_WARN)
     loc = NULL;
 #endif
@@ -1658,6 +1680,45 @@ ngx_http_core_find_static_location(ngx_http_request_t *r,
         node = node->left;
     }
 }
+
+
+#if (NGX_HTTP_CLIENT)
+
+static ngx_int_t
+ngx_http_find_named_location(ngx_http_request_t *r)
+{
+    ngx_str_t                    *name;
+    ngx_http_core_loc_t        **locp;
+    ngx_http_core_srv_conf_t    *cscf;
+
+    cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+
+    if (cscf->named_locations == NULL) {
+        return NGX_DECLINED;
+    }
+
+    name = &r->uri;
+
+    for (locp = cscf->named_locations; *locp; locp++) {
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "test location: \"%V\"", &(*locp)->name);
+
+        if (name->len != (*locp)->name.len
+            || ngx_strncmp(name->data, (*locp)->name.data, name->len) != 0)
+        {
+            continue;
+        }
+
+        r->loc_conf = (*locp)->conf->loc_conf;
+
+        return NGX_OK;
+    }
+
+    return NGX_DECLINED;
+}
+
+#endif
 
 
 void *
@@ -2618,6 +2679,17 @@ ngx_http_internal_redirect(ngx_http_request_t *r,
 {
     ngx_http_core_srv_conf_t  *cscf;
 
+    if (r->connection->stub) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "attempt to redirect request "
+                      "while processing internal request uri \"%V\"", uri);
+
+        r->main->count++;
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NGX_DONE;
+    }
+
+
     r->uri_changes--;
 
     if (r->uri_changes == 0) {
@@ -2673,6 +2745,16 @@ ngx_http_named_location(ngx_http_request_t *r, ngx_str_t *name)
     ngx_http_core_loc_t        **locp;
     ngx_http_core_srv_conf_t    *cscf;
     ngx_http_core_main_conf_t   *cmcf;
+
+    if (r->connection->stub) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "attempt to redirect internal request "
+                      "to named location \"%V\"", name);
+
+        r->main->count++;
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return NGX_DONE;
+    }
 
     r->main->count++;
     r->uri_changes--;
@@ -3015,6 +3097,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     void                        *mconf;
     size_t                       len;
     u_char                      *p;
+    ngx_str_t                   *value;
     ngx_uint_t                   i;
     ngx_conf_t                   pcf;
     ngx_http_module_t           *module;
@@ -3081,6 +3164,24 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 
+    value = cf->args->elts;
+
+    if (ngx_strcmp(value[0].data, "client") == 0) {
+#if (NGX_HTTP_CLIENT)
+        cscf->is_client = 1;
+
+        if (cmcf->has_client) {
+            return "duplicate client section";
+        }
+
+        cmcf->has_client = 1;
+#else
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "Angie was built without http client support");
+        return NGX_CONF_ERROR;
+#endif
+    }
+
     cscfp = ngx_array_push(&cmcf->servers);
     if (cscfp == NULL) {
         return NGX_CONF_ERROR;
@@ -3099,7 +3200,18 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     *cf = pcf;
 
-    if (rv == NGX_CONF_OK && !cscf->listen) {
+#if (NGX_HTTP_CLIENT)
+    if (cscf->is_client && cscf->listen) {
+        return "client block cannot have listen directives";
+    }
+#endif
+
+    if (rv == NGX_CONF_OK && !cscf->listen
+#if (NGX_HTTP_CLIENT)
+        && !cscf->is_client
+#endif
+       )
+    {
         ngx_memzero(&lsopt, sizeof(ngx_http_listen_opt_t));
 
         p = ngx_pcalloc(cf->pool, sizeof(struct sockaddr_in));
@@ -3164,7 +3276,14 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     ngx_http_module_t         *module;
     ngx_http_conf_ctx_t       *ctx, *pctx;
     ngx_http_core_loc_t        loc, *locp;
+#if (NGX_HTTP_CLIENT)
+    ngx_http_core_srv_conf_t  *cscf;
+#endif
     ngx_http_core_loc_conf_t  *clcf, *pclcf;
+
+#if (NGX_HTTP_CLIENT)
+    cscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_core_module);
+#endif
 
     ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
     if (ctx == NULL) {
@@ -3246,6 +3365,12 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         default:
             mod = 0;
         }
+
+#if (NGX_HTTP_CLIENT)
+        if (cscf->is_client && !locp->named) {
+            return "only named locations are allowed in client block";
+        }
+#endif
 
         locp->name.len -= mod;
         locp->name.data += mod;
@@ -3731,7 +3856,14 @@ ngx_http_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
         sn->regex = NULL;
 #endif
         sn->server = conf;
+#if (NGX_HTTP_CLIENT)
+        if (conf->is_client) {
+            ngx_str_set(&sn->name, "internal_client");
+        } else
+#endif
+        {
         ngx_str_set(&sn->name, "");
+        }
     }
 
     sn = conf->server_names.elts;

@@ -750,9 +750,11 @@ ngx_http_create_request(ngx_connection_t *c)
     ctx->current_request = r;
 
 #if (NGX_STAT_STUB)
-    (void) ngx_atomic_fetch_add(ngx_stat_reading, 1);
-    r->stat_reading = 1;
-    (void) ngx_atomic_fetch_add(ngx_stat_requests, 1);
+    if (!c->stub) {
+        (void) ngx_atomic_fetch_add(ngx_stat_reading, 1);
+        r->stat_reading = 1;
+        (void) ngx_atomic_fetch_add(ngx_stat_requests, 1);
+    }
 #endif
 
     return r;
@@ -2762,7 +2764,6 @@ ngx_http_post_request(ngx_http_request_t *r, ngx_http_posted_request_t *pr)
 void
 ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
 {
-    ngx_uint_t                 internal;
     ngx_connection_t          *c;
     ngx_http_request_t        *pr;
     ngx_http_core_loc_conf_t  *clcf;
@@ -2772,17 +2773,6 @@ ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
     ngx_log_debug5(NGX_LOG_DEBUG_HTTP, c->log, 0,
                    "http finalize request: %i, \"%V?%V\" a:%d, c:%d",
                    rc, &r->uri, &r->args, r == c->data, r->main->count);
-
-    /* r->finalize_request could free the request object */
-    internal = r->internal_client;
-
-    if (r->finalize_request) {
-        r->finalize_request(r, rc);
-    }
-
-    if (internal) {
-        return;
-    }
 
     if (rc == NGX_DONE) {
         ngx_http_finalize_connection(r);
@@ -2817,9 +2807,10 @@ ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
         return;
     }
 
-    if (rc >= NGX_HTTP_SPECIAL_RESPONSE
-        || rc == NGX_HTTP_CREATED
-        || rc == NGX_HTTP_NO_CONTENT)
+    if ((rc >= NGX_HTTP_SPECIAL_RESPONSE
+         || rc == NGX_HTTP_CREATED
+         || rc == NGX_HTTP_NO_CONTENT)
+        && !c->stub)
     {
         if (rc == NGX_HTTP_CLOSE) {
             c->timedout = 1;
@@ -3043,6 +3034,11 @@ ngx_http_finalize_connection(ngx_http_request_t *r)
         return;
     }
 #endif
+
+    if (r->connection->stub) {
+        ngx_http_close_request(r, 0);
+        return;
+    }
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
@@ -3982,6 +3978,10 @@ ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
     r->count--;
 
     if (r->count || r->blocked) {
+        if (c->stub) {
+            ngx_post_event(c->write, &ngx_posted_events);
+        }
+
         return;
     }
 
@@ -4140,7 +4140,9 @@ ngx_http_close_connection(ngx_connection_t *c)
 #endif
 
 #if (NGX_STAT_STUB)
-    (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
+    if (!c->stub) {
+        (void) ngx_atomic_fetch_add(ngx_stat_active, -1);
+    }
 #endif
 
     c->destroyed = 1;

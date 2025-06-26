@@ -593,7 +593,7 @@ ngx_http_upstream_init(ngx_http_request_t *r)
     }
 #endif
 
-    if (r->internal_client) {
+    if (c->stub) {
         ngx_http_upstream_init_request(r);
         return;
     }
@@ -1344,6 +1344,13 @@ failed:
 static ngx_int_t
 ngx_http_upstream_need_connection_drop(ngx_http_upstream_t *u)
 {
+
+#if (NGX_HTTP_CLIENT)
+    if (u->peer.connection && u->peer.connection->close) {
+        return 1;
+    }
+#endif
+
 #if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_http_upstream_rr_peer_t       *peer;
     ngx_http_upstream_rr_peer_data_t  *rrp;
@@ -1706,6 +1713,12 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     /* rc == NGX_OK || rc == NGX_AGAIN */
 
     c = u->peer.connection;
+
+#if (NGX_HTTP_CLIENT)
+    if (r->connection->stub) {
+        c->idle = r->connection->idle;
+    }
+#endif
 
     c->requests++;
 

@@ -57,6 +57,16 @@ variables in the "stream" section.
 </para>
 </change>
 
+
+<change type="feature">
+<para lang="ru">
+директива "client", позволяющая задавать конфигурацию встроенного HTTP-клиента.
+</para>
+<para lang="en">
+the "client" directive specifies configuration of the builtin HTTP client.
+</para>
+</change>
+
 </changes>
 
 

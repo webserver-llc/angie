@@ -596,7 +596,6 @@ ngx_http_docker_create_request(ngx_http_docker_session_t *ds, ngx_str_t *uri)
     r->method = NGX_HTTP_GET;
     ngx_str_set(&r->method_name, "GET");
 
-    r->internal_client = 1;
     r->finalize_request = ngx_http_docker_finalize_request;
 
     return r;

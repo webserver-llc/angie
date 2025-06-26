@@ -50,6 +50,7 @@ ngx_int_t ngx_data_object_add(ngx_data_item_t *obj, ngx_data_item_t *name,
     ngx_data_item_t *item);
 ngx_int_t ngx_data_object_add_str(ngx_data_item_t *obj, ngx_str_t *name,
     ngx_data_item_t *item, ngx_pool_t *pool);
+ngx_data_item_t *ngx_data_object_take(ngx_data_item_t *obj, ngx_str_t *name);
 ngx_int_t ngx_data_list_add(ngx_data_item_t *list, ngx_data_item_t *item);
 
 

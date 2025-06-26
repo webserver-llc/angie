@@ -82,6 +82,55 @@ ngx_data_object_add(ngx_data_item_t *obj, ngx_data_item_t *name,
 }
 
 
+ngx_data_item_t *
+ngx_data_object_take(ngx_data_item_t *obj, ngx_str_t *name)
+{
+    ngx_str_t               str;
+    ngx_data_item_t       **item_p, *item;
+    ngx_data_container_t   *cont;
+
+    if (obj->type != NGX_DATA_OBJECT_TYPE) {
+        return NULL;
+    }
+
+#if (NGX_SUPPRESS_WARN)
+    ngx_str_null(&str);
+#endif
+
+    /*
+     * A pointer to the union field rather than its data.child member
+     * workarounds a false warning -Waddress-of-packed-member on GCC 9.
+     */
+    for (item_p = (ngx_data_item_t **) &obj->data;
+         *item_p != NULL;
+         item_p = &(*item_p)->next->next)
+    {
+        (void) ngx_data_get_string(&str, *item_p);
+
+        if (str.len != name->len
+            || ngx_strncmp(str.data, name->data, str.len) != 0)
+        {
+            continue;
+        }
+
+        item = (*item_p)->next;
+
+        cont = ngx_data_container(obj);
+
+        if (cont->next_p == &item->next) {
+            cont->next_p = item_p;
+        }
+
+        *item_p = item->next;
+        item->next = NULL;
+
+        return item;
+    }
+
+    return NULL;
+}
+
+
 ngx_int_t
 ngx_data_object_add_str(ngx_data_item_t *obj, ngx_str_t *name,
     ngx_data_item_t *item, ngx_pool_t *pool)

@@ -422,6 +422,7 @@ if [ $HTTP = YES ]; then
     if [ $HTTP_DOCKER = YES ]; then
         USE_JSON=YES
         USE_DOCKER=YES
+        HTTP_CLIENT=YES
 
         ngx_module_name=ngx_http_docker_module
         ngx_module_incs=

@@ -14,12 +14,6 @@
 #define ngx_http_docker_get_main_conf()                                       \
     ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_docker_module)
 
-#define ngx_http_docker_get_core_events_loc_conf(dmcf)                        \
-    (dmcf)->ectx->loc_conf[ngx_http_core_module.ctx_index]
-
-#define ngx_http_docker_get_core_containers_loc_conf(dmcf)                    \
-    (dmcf)->cctx->loc_conf[ngx_http_core_module.ctx_index]
-
 
 typedef struct ngx_http_docker_session_s  ngx_http_docker_session_t;
 
@@ -39,8 +33,8 @@ typedef struct {
 
     size_t                             max_object_size;
 
-    ngx_http_conf_ctx_t               *ectx;
-    ngx_http_conf_ctx_t               *cctx;
+    ngx_http_conf_ctx_t               *events_ctx;
+    ngx_http_conf_ctx_t               *containers_ctx;
 } ngx_http_docker_main_conf_t;
 
 typedef struct {
@@ -61,64 +55,40 @@ struct ngx_http_docker_session_s {
 
     ngx_pool_t                        *pool;
 
-    ngx_connection_t                  *connection;
-
     ngx_http_docker_response_pt        response_handler;
-    ngx_http_docker_body_filter_pt     body_handler;
 
     ngx_http_docker_ctx_t             *ctx;
+    ngx_event_t                        ev;
 
     void                              *data;
 };
 
 
 static ngx_int_t ngx_http_docker_init_worker(ngx_cycle_t *cycle);
-static ngx_int_t ngx_http_docker_postconfiguration(ngx_conf_t *cf);
-static ngx_int_t ngx_http_docker_containers_proxy_conf(ngx_str_t *proxy,
-    ngx_pool_t *pool, ngx_str_t *url);
-static ngx_int_t ngx_http_docker_events_proxy_conf(ngx_str_t *proxy,
-    ngx_pool_t *pool, ngx_str_t *url);
 static ngx_int_t ngx_http_docker_events_json_handler(ngx_http_request_t *r,
     ngx_chain_t *in);
 static ngx_int_t ngx_http_docker_json_handler(ngx_http_request_t *r,
     ngx_chain_t *in);
-static ngx_int_t ngx_http_docker_merge_conf_ctx(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf);
 static ngx_int_t ngx_http_docker_send_request(ngx_http_docker_session_t *ds,
-    ngx_str_t *uri, ngx_http_core_loc_conf_t *clcf);
+    ngx_str_t *uri, ngx_http_conf_ctx_t *ctx, ngx_uint_t events);
 static ngx_int_t ngx_http_docker_send_events_request(
     ngx_http_docker_session_t *ds, ngx_str_t *uri);
 static ngx_int_t ngx_http_docker_send_containers_request(
     ngx_http_docker_session_t *ds, ngx_str_t *uri);
-static ngx_int_t ngx_http_docker_add_header(ngx_http_request_t *r, char *name,
-    char *value);
-static ngx_int_t ngx_http_docker_add_proxy_pass(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf, ngx_str_t *url);
-static ngx_int_t ngx_http_docker_parse_proxy_pass(ngx_conf_t *cf,
-    ngx_http_conf_ctx_t *ctx, ngx_str_t *proxy_pass);
-static ngx_int_t ngx_http_docker_create_confs_ctx(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf);
-static ngx_int_t ngx_http_docker_body_filter(ngx_http_request_t *r,
-    ngx_chain_t *in);
 
-static void ngx_http_docker_destroy_connection(ngx_connection_t *c);
 static void ngx_http_docker_container_handler(ngx_event_t *ev);
-static void ngx_http_docker_destroy_request(ngx_http_request_t *r);
 static void ngx_http_docker_destroy_session(ngx_http_docker_session_t *ds);
-static void ngx_http_docker_read_handler(ngx_event_t *ev);
 static void ngx_http_docker_version_handler(ngx_event_t *ev);
 static void ngx_http_docker_containers_handler(ngx_event_t *ev);
 static void ngx_http_docker_events_handler(ngx_event_t *ev);
-static void ngx_http_docker_merge_conf_ctx_fix(ngx_conf_t *cf,
-    ngx_module_t *module, ngx_http_conf_ctx_t *ctx);
 static void ngx_http_docker_container_response_handler(
     ngx_http_docker_session_t *ds, ngx_http_request_t *r, ngx_int_t rc);
 static void ngx_http_docker_events_response_handler(
     ngx_http_docker_session_t *ds, ngx_http_request_t *r, ngx_int_t rc);
-static void ngx_http_docker_finalize_request(ngx_http_request_t *r,
-    ngx_int_t rc);
 static void ngx_http_docker_containers_response_handler(
     ngx_http_docker_session_t *ds, ngx_http_request_t *r, ngx_int_t rc);
+static ngx_int_t ngx_http_docker_finalize_request(ngx_http_request_t *r,
+    void *data, ngx_int_t rc);
 static void ngx_http_docker_version_response_handler(
     ngx_http_docker_session_t *ds, ngx_http_request_t *r, ngx_int_t rc);
 static void ngx_http_docker_rbtree_insert_value(ngx_rbtree_node_t *temp,
@@ -129,21 +99,11 @@ static void *ngx_http_docker_create_main_conf(ngx_conf_t *cf);
 static char *ngx_http_docker_init_main_conf(ngx_conf_t *cf, void *conf);
 static char *ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-
-static ngx_chain_t *ngx_http_docker_send_chain(ngx_connection_t *c,
-    ngx_chain_t *in, off_t limit);
+static ngx_int_t ngx_http_docker_format_endpoint(ngx_pool_t *pool,
+    ngx_str_t *url, ngx_str_t *res, const char *fmt);
 
 static ngx_http_docker_session_t *ngx_http_docker_create_session(
     ngx_http_docker_ctx_t *ctx);
-
-static ngx_http_request_t *ngx_http_docker_create_request(
-    ngx_http_docker_session_t *ds, ngx_str_t *uri);
-
-static ngx_connection_t *ngx_http_docker_create_connection(
-    ngx_http_docker_session_t *ds);
-
-static ngx_http_conf_ctx_t *ngx_http_docker_create_conf_ctx(ngx_conf_t *cf,
-    void *srv_conf);
 
 
 static ngx_command_t  ngx_http_docker_commands[] = {
@@ -168,7 +128,7 @@ static ngx_command_t  ngx_http_docker_commands[] = {
 
 static ngx_http_module_t  ngx_http_docker_module_ctx = {
     NULL,                                  /* preconfiguration */
-    ngx_http_docker_postconfiguration,     /* postconfiguration */
+    NULL,                                  /* postconfiguration */
 
     ngx_http_docker_create_main_conf,      /* create main configuration */
     ngx_http_docker_init_main_conf,        /* init main configuration */
@@ -196,23 +156,6 @@ ngx_module_t  ngx_http_docker_module = {
     NULL,                                /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
-
-static ngx_chain_t *
-ngx_http_docker_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
-{
-    for ( /* void */ ; in; in = in->next) {
-
-        if (ngx_buf_special(in->buf)) {
-            continue;
-        }
-
-        c->sent += in->buf->last - in->buf->pos;
-        in->buf->pos = in->buf->last;
-    }
-
-    return in;
-}
 
 
 static void
@@ -308,7 +251,7 @@ ngx_http_docker_containers_response_handler(ngx_http_docker_session_t *ds,
     }
 
     if (ngx_docker_process_containers(&ds->buf, ds->pool, &ctx->rbtree,
-                                      r->connection->log) != NGX_OK)
+                                      ngx_cycle->log) != NGX_OK)
     {
         goto retry;
     }
@@ -377,234 +320,25 @@ ngx_http_docker_destroy_session(ngx_http_docker_session_t *ds)
 }
 
 
-static void
-ngx_http_docker_destroy_request(ngx_http_request_t *r)
+static ngx_int_t
+ngx_http_docker_finalize_request(ngx_http_request_t *r, void *data,
+    ngx_int_t rc)
 {
-    ngx_http_cleanup_t  *cln;
-
-    for (cln = r->cleanup; cln; cln = cln->next) {
-
-        if (cln->handler) {
-            cln->handler(cln->data);
-        }
-    }
-
-    r->cleanup = NULL;
-
-    ngx_destroy_pool(r->pool);
-}
-
-
-static void
-ngx_http_docker_destroy_connection(ngx_connection_t *c)
-{
-    c->destroyed = 1;
-    ngx_close_connection(c);
-}
-
-
-static void
-ngx_http_docker_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
-{
-    ngx_http_docker_session_t  *ds;
-
-    ds = ngx_http_get_module_ctx(r, ngx_http_docker_module);
-
-    r->count--;
-
-    if (r->count) {
-        return;
-    }
+    ngx_http_docker_session_t *ds = (ngx_http_docker_session_t *) data;
 
     ds->response_handler(ds, r, rc);
-
-    ngx_http_docker_destroy_request(r);
-    ngx_http_docker_destroy_connection(ds->connection);
-    ngx_http_docker_destroy_session(ds);
-}
-
-
-static void
-ngx_http_docker_read_handler(ngx_event_t *ev)
-{
-    ngx_connection_t    *c;
-    ngx_http_request_t  *r;
-
-    c = ev->data;
-    r = c->data;
-
-    if (c->close || c->read->timedout) {
-        goto close;
-    }
-
-    if (ngx_handle_read_event(ev, 0) != NGX_OK) {
-        goto close;
-    }
-
-    return;
-
-close:
-
-    ngx_http_docker_finalize_request(r, NGX_OK);
-}
-
-
-static ngx_int_t
-ngx_http_docker_add_header(ngx_http_request_t *r, char *name, char *value)
-{
-    ngx_table_elt_t            *h;
-    ngx_http_header_t          *hh;
-    ngx_http_core_main_conf_t  *cmcf;
-
-    h = ngx_list_push(&r->headers_in.headers);
-    if (h == NULL) {
-        return NGX_ERROR;
-    }
-
-    h->key.data = (u_char*) name;
-    h->key.len = ngx_strlen(name);
-
-    h->value.data = (u_char*) value;
-    h->value.len = ngx_strlen(value);
-
-    h->lowcase_key = ngx_pnalloc(r->pool, h->key.len);
-    if (h->lowcase_key == NULL) {
-        return NGX_ERROR;
-    }
-
-    ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
-
-    h->hash = ngx_hash_key(h->lowcase_key, h->key.len);
-
-    cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
-
-    hh = ngx_hash_find(&cmcf->headers_in_hash, h->hash,
-                       h->lowcase_key, h->key.len);
-
-    if (hh && hh->handler(r, h, hh->offset) != NGX_OK) {
-        return NGX_ERROR;
-    }
+    ngx_post_event(&ds->ev, &ngx_posted_events);
 
     return NGX_OK;
 }
 
 
-static ngx_connection_t *
-ngx_http_docker_create_connection(ngx_http_docker_session_t *ds)
+static void
+ngx_http_docker_session_delete_handler(ngx_event_t *ev)
 {
-    ngx_socket_t                  s;
-    ngx_connection_t             *c;
-    ngx_http_docker_main_conf_t  *dmcf;
+    ngx_http_docker_session_t *ds = ev->data;
 
-    dmcf = ngx_http_docker_get_main_conf();
-
-    s = ngx_socket(dmcf->url.addrs->sockaddr->sa_family, SOCK_STREAM, 0);
-    if (s == -1) {
-        return NULL;
-    }
-
-    c = ngx_get_connection(s, &dmcf->log);
-    if (c == NULL) {
-
-        if (ngx_close_socket(s) == -1) {
-            ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, ngx_socket_errno,
-                          ngx_close_socket_n " failed");
-        }
-
-        return NULL;
-    }
-
-    if (ngx_nonblocking(s) == -1) {
-        ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, ngx_socket_errno,
-                      ngx_nonblocking_n " failed");
-        ngx_close_connection(c);
-        return NULL;
-    }
-
-    c->read->log = ngx_cycle->log;
-    c->read->handler = ngx_http_docker_read_handler;
-    c->read->ready = 1;
-
-    c->write->log = ngx_cycle->log;
-    c->write->ready = 1;
-
-    c->idle = 1;
-    c->pool = ds->pool;
-    c->shared = 1;
-    c->tcp_nodelay = NGX_TCP_NODELAY_DISABLED;
-    c->send_chain = ngx_http_docker_send_chain;
-    c->number = ngx_atomic_fetch_add(ngx_connection_counter, 1);
-    c->start_time = ngx_current_msec;
-    c->log->connection = c->number;
-
-    return c;
-}
-
-
-static ngx_http_request_t *
-ngx_http_docker_create_request(ngx_http_docker_session_t *ds, ngx_str_t *uri)
-{
-    ngx_connection_t             *c;
-    ngx_http_request_t           *r;
-    ngx_http_connection_t         hc;
-    ngx_http_docker_main_conf_t  *dmcf;
-
-    c = ds->connection;
-    dmcf = ngx_http_docker_get_main_conf();
-
-    ngx_memzero(&hc, sizeof(ngx_http_connection_t));
-    hc.conf_ctx = dmcf->ectx;
-
-    c->data = &hc;
-
-    r = ngx_http_create_request(c);
-    if (r == NULL) {
-        return NULL;
-    }
-
-#if (NGX_STAT_STUB)
-    /* revert increments by ngx_http_create_request() */
-    (void) ngx_atomic_fetch_add(ngx_stat_reading, -1);
-    (void) ngx_atomic_fetch_add(ngx_stat_requests, -1);
-
-    r->stat_reading = 0;
-#endif
-
-    c->data = r;
-
-    ngx_http_set_ctx(r, ds, ngx_http_docker_module);
-
-    r->header_in = ngx_alloc_buf(r->pool);
-    if (r->header_in == NULL) {
-        goto error;
-    }
-
-    r->uri = *uri;
-    r->unparsed_uri = r->uri;
-    r->valid_unparsed_uri = 1;
-
-    if (ngx_list_init(&r->headers_in.headers, r->pool, 1,
-                      sizeof(ngx_table_elt_t)) != NGX_OK)
-    {
-        goto error;
-    }
-
-    if (ngx_http_docker_add_header(r, "User-Agent", ANGIE_VER) != NGX_OK) {
-        goto error;
-    }
-
-    r->method = NGX_HTTP_GET;
-    ngx_str_set(&r->method_name, "GET");
-
-    r->finalize_request = ngx_http_docker_finalize_request;
-
-    return r;
-
-error:
-
-    ngx_destroy_pool(r->pool);
-
-    return NULL;
+    ngx_http_docker_destroy_session(ds);
 }
 
 
@@ -628,6 +362,10 @@ ngx_http_docker_create_session(ngx_http_docker_ctx_t *ctx)
     ds->ctx = ctx;
     ds->pool = pool;
 
+    ds->ev.data = ds;
+    ds->ev.handler = ngx_http_docker_session_delete_handler;
+    ds->ev.log = ngx_cycle->log;
+
     ds->buf.memory = 1;
 
     return ds;
@@ -636,22 +374,37 @@ ngx_http_docker_create_session(ngx_http_docker_ctx_t *ctx)
 
 static ngx_int_t
 ngx_http_docker_send_request(ngx_http_docker_session_t *ds, ngx_str_t *uri,
-    ngx_http_core_loc_conf_t *clcf)
+    ngx_http_conf_ctx_t *ctx, ngx_uint_t events)
 {
-    ngx_http_request_t  *r;
+    ngx_http_request_t              *r;
+    ngx_http_core_loc_conf_t        *clcf;
+    ngx_http_output_body_filter_pt   filter;
 
-    ds->connection = ngx_http_docker_create_connection(ds);
-    if (ds->connection == NULL) {
-        return NGX_ERROR;
-    }
-
-    r = ngx_http_docker_create_request(ds, uri);
+    r = ngx_http_client_create_request(ds->pool, ctx, uri,
+                                       ngx_http_docker_finalize_request, ds);
     if (r == NULL) {
-        ngx_close_connection(ds->connection);
         return NGX_ERROR;
     }
 
-    ngx_http_docker_finalize_request(r, clcf->handler(r));
+    r->connection->idle = events ? 1 : 0;
+
+    filter = events ? ngx_http_docker_events_json_handler
+                    : ngx_http_docker_json_handler;
+
+    ngx_http_client_set_body_filter(r, filter);
+
+    ngx_http_set_ctx(r, ds, ngx_http_docker_module);
+
+    if (ngx_http_request_add_header_cstr(r, "User-Agent", ANGIE_VER)
+        != NGX_OK)
+    {
+        ngx_http_client_close_request(r);
+        return NGX_ERROR;
+    }
+
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+    ngx_http_finalize_request(r, clcf->handler(r));
 
     return NGX_OK;
 }
@@ -661,13 +414,11 @@ static ngx_int_t
 ngx_http_docker_send_events_request(ngx_http_docker_session_t *ds,
     ngx_str_t *uri)
 {
-    ngx_http_core_loc_conf_t     *clcf;
     ngx_http_docker_main_conf_t  *dmcf;
 
     dmcf = ngx_http_docker_get_main_conf();
-    clcf = ngx_http_docker_get_core_events_loc_conf(dmcf);
 
-    return ngx_http_docker_send_request(ds, uri, clcf);
+    return ngx_http_docker_send_request(ds, uri, dmcf->events_ctx, 1);
 }
 
 
@@ -675,13 +426,11 @@ static ngx_int_t
 ngx_http_docker_send_containers_request(ngx_http_docker_session_t *ds,
     ngx_str_t *uri)
 {
-    ngx_http_core_loc_conf_t     *clcf;
     ngx_http_docker_main_conf_t  *dmcf;
 
     dmcf = ngx_http_docker_get_main_conf();
-    clcf = ngx_http_docker_get_core_containers_loc_conf(dmcf);
 
-    return ngx_http_docker_send_request(ds, uri, clcf);
+    return ngx_http_docker_send_request(ds, uri, dmcf->containers_ctx, 0);
 }
 
 
@@ -699,7 +448,6 @@ ngx_http_docker_version_handler(ngx_event_t *ev)
         goto retry;
     }
 
-    ds->body_handler = ngx_http_docker_json_handler;
     ds->response_handler = ngx_http_docker_version_response_handler;
 
     ngx_str_set(&uri, "/version");
@@ -732,7 +480,6 @@ ngx_http_docker_containers_handler(ngx_event_t *ev)
         goto retry;
     }
 
-    ds->body_handler = ngx_http_docker_json_handler;
     ds->response_handler = ngx_http_docker_containers_response_handler;
 
     uri.len = sizeof("/v255.255/containers/json") - 1;
@@ -777,7 +524,6 @@ ngx_http_docker_events_handler(ngx_event_t *ev)
         goto retry;
     }
 
-    ds->body_handler = ngx_http_docker_events_json_handler;
     ds->response_handler = ngx_http_docker_events_response_handler;
 
     uri.len = sizeof("/v255.255/events?filters="
@@ -901,126 +647,6 @@ ngx_http_docker_init_worker(ngx_cycle_t *cycle)
 }
 
 
-static void
-ngx_http_docker_merge_conf_ctx_fix(ngx_conf_t *cf, ngx_module_t *module,
-    ngx_http_conf_ctx_t *ctx)
-{
-    u_char               *conf, *prev;
-    ngx_uint_t            ctx_index;
-    ngx_command_t        *cmd;
-    ngx_http_module_t    *mod;
-    ngx_http_conf_ctx_t  *prev_ctx;
-
-    ctx_index = module->ctx_index;
-    prev_ctx = cf->ctx;
-    mod = module->ctx;
-
-    cmd = module->commands;
-    if (cmd == NULL) {
-        return;
-    }
-
-    for ( /* void */ ; cmd->name.len; cmd++) {
-        if (cmd->set != ngx_conf_set_path_slot) {
-            continue;
-        }
-
-        if (mod->merge_srv_conf && cmd->conf == NGX_HTTP_SRV_CONF_OFFSET) {
-            conf = ctx->srv_conf[ctx_index];
-            prev = prev_ctx->srv_conf[ctx_index];
-
-        } else if (mod->merge_loc_conf
-                   && cmd->conf == NGX_HTTP_LOC_CONF_OFFSET)
-        {
-            conf = ctx->loc_conf[ctx_index];
-            prev = prev_ctx->loc_conf[ctx_index];
-
-        } else  {
-            continue;
-        }
-
-        conf += cmd->offset;
-        prev += cmd->offset;
-
-        *(ngx_path_t**) conf = *(ngx_path_t**) prev;
-    }
-}
-
-
-static ngx_int_t
-ngx_http_docker_merge_conf_ctx(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf)
-{
-    char                      *rv;
-    ngx_uint_t                 mi, m;
-    ngx_http_module_t         *module;
-    ngx_http_conf_ctx_t       *ectx, *cctx;
-    ngx_http_core_srv_conf_t  *cscf;
-
-    rv = NGX_CONF_OK;
-    ectx = dmcf->ectx;
-    cctx = dmcf->cctx;
-
-    for (m = 0; cf->cycle->modules[m]; m++) {
-        if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
-            continue;
-        }
-
-        module = cf->cycle->modules[m]->ctx;
-        mi = cf->cycle->modules[m]->ctx_index;
-
-        ngx_http_docker_merge_conf_ctx_fix(cf, cf->cycle->modules[m], ectx);
-        ngx_http_docker_merge_conf_ctx_fix(cf, cf->cycle->modules[m], cctx);
-
-        if (module->merge_srv_conf) {
-            rv = module->merge_srv_conf(cf, ectx->srv_conf[mi],
-                                        ectx->srv_conf[mi]);
-
-            if (rv != NGX_CONF_OK) {
-                break;
-            }
-
-            rv = module->merge_srv_conf(cf, cctx->srv_conf[mi],
-                                        cctx->srv_conf[mi]);
-            if (rv != NGX_CONF_OK) {
-                break;
-            }
-
-        }
-
-        if (module->merge_loc_conf) {
-            rv = module->merge_loc_conf(cf, cctx->loc_conf[mi],
-                                        cctx->loc_conf[mi]);
-            if (rv != NGX_CONF_OK) {
-                break;
-            }
-
-            rv = module->merge_loc_conf(cf, ectx->loc_conf[mi],
-                                        ectx->loc_conf[mi]);
-            if (rv != NGX_CONF_OK) {
-                break;
-            }
-        }
-    }
-
-    if (rv == NGX_CONF_OK) {
-        cscf = ectx->srv_conf[ngx_http_core_module.ctx_index];
-        cscf->ctx = ectx;
-
-        cscf = cctx->srv_conf[ngx_http_core_module.ctx_index];
-        cscf->ctx = cctx;
-
-        return NGX_OK;
-    }
-
-    if (rv != NGX_CONF_ERROR) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s", rv);
-    }
-
-    return NGX_ERROR;
-}
-
-
 static ngx_int_t
 ngx_http_docker_json_handler(ngx_http_request_t *r, ngx_chain_t *in)
 {
@@ -1117,7 +743,6 @@ ngx_http_docker_container_handler(ngx_event_t *ev)
         goto error;
     }
 
-    ds->body_handler = ngx_http_docker_json_handler;
     ds->response_handler = ngx_http_docker_container_response_handler;
 
     id = ngx_palloc(ds->pool, sizeof(ngx_str_t));
@@ -1277,7 +902,7 @@ ngx_http_docker_events_json_handler(ngx_http_request_t *r, ngx_chain_t *in)
                                                &err);
             if (json != NULL) {
                 dc = ngx_docker_process_event(json, &ds->ctx->rbtree,
-                                              r->connection->log);
+                                              ngx_cycle->log);
                 if (dc != NULL) {
                     dc->data = ds->ctx;
                     dc->event.data = dc;
@@ -1358,251 +983,6 @@ exit:
 }
 
 
-static ngx_http_output_body_filter_pt  ngx_http_next_body_filter;
-
-
-static ngx_int_t
-ngx_http_docker_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
-{
-    ngx_http_docker_session_t  *ds;
-
-    ds = ngx_http_get_module_ctx(r, ngx_http_docker_module);
-    if (ds == NULL) {
-        return ngx_http_next_body_filter(r, in);
-    }
-
-    return ds->body_handler(r, in);
-}
-
-
-static ngx_int_t
-ngx_http_docker_postconfiguration(ngx_conf_t *cf)
-{
-    ngx_http_docker_main_conf_t  *dmcf;
-
-    dmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_docker_module);
-
-    if (dmcf->ectx == NULL || dmcf->cctx == NULL) {
-        return NGX_OK;
-    }
-
-    if (ngx_http_docker_merge_conf_ctx(cf, dmcf) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    ngx_memcpy(&dmcf->log, cf->log, sizeof(ngx_log_t));
-    dmcf->log.data = &dmcf->log_ctx;
-
-    ngx_http_next_body_filter = ngx_http_top_body_filter;
-    ngx_http_top_body_filter = ngx_http_docker_body_filter;
-
-    return NGX_OK;
-}
-
-
-static ngx_http_conf_ctx_t *
-ngx_http_docker_create_conf_ctx(ngx_conf_t *cf, void *srv_conf)
-{
-    ngx_http_conf_ctx_t  *ctx, *pctx;
-
-    pctx = cf->ctx;
-
-    ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    ctx->main_conf = pctx->main_conf;
-
-    if (srv_conf == NULL) {
-        ctx->srv_conf = ngx_pcalloc(cf->pool,
-                                    sizeof(void *) * ngx_http_max_module);
-        if (ctx->srv_conf == NULL) {
-            return NULL;
-        }
-
-    } else {
-        ctx->srv_conf = srv_conf;
-    }
-
-    ctx->loc_conf = ngx_pcalloc(cf->pool,
-                                sizeof(void *) * ngx_http_max_module);
-    if (ctx->loc_conf == NULL) {
-        return NULL;
-    }
-
-    return ctx;
-}
-
-
-static ngx_int_t
-ngx_http_docker_create_confs_ctx(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf)
-{
-    ngx_uint_t            mi, m;
-    ngx_http_module_t    *module;
-    ngx_http_conf_ctx_t  *ectx, *cctx;
-
-    ectx = ngx_http_docker_create_conf_ctx(cf, NULL);
-    if (ectx == NULL) {
-        return NGX_ERROR;
-    }
-
-    cctx = ngx_http_docker_create_conf_ctx(cf, ectx->srv_conf);
-    if (cctx == NULL) {
-        return NGX_ERROR;
-    }
-
-    for (m = 0; cf->cycle->modules[m]; m++) {
-
-        if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
-            continue;
-        }
-
-        module = cf->cycle->modules[m]->ctx;
-        mi = cf->cycle->modules[m]->ctx_index;
-
-        if (module->create_srv_conf) {
-            ectx->srv_conf[mi] = module->create_srv_conf(cf);
-            if (ectx->srv_conf[mi] == NULL) {
-                return NGX_ERROR;
-            }
-        }
-
-        if (module->create_loc_conf) {
-            ectx->loc_conf[mi] = module->create_loc_conf(cf);
-            if (ectx->loc_conf[mi] == NULL) {
-                return NGX_ERROR;
-            }
-        }
-
-        if (module->create_loc_conf) {
-            cctx->loc_conf[mi] = module->create_loc_conf(cf);
-            if (cctx->loc_conf[mi] == NULL) {
-                return NGX_ERROR;
-            }
-        }
-    }
-
-    dmcf->ectx = ectx;
-    dmcf->cctx = cctx;
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_docker_parse_proxy_pass(ngx_conf_t *cf, ngx_http_conf_ctx_t *ctx,
-    ngx_str_t *proxy_pass)
-{
-    char             *rv;
-    ngx_buf_t         b;
-    ngx_conf_t        pcf;
-    ngx_conf_file_t   conf_file;
-
-    ngx_memzero(&conf_file, sizeof(ngx_conf_file_t));
-    ngx_memzero(&b, sizeof(ngx_buf_t));
-
-    b.start = proxy_pass->data;
-    b.pos = b.start;
-    b.last = b.start + proxy_pass->len;
-    b.end = b.last;
-    b.temporary = 1;
-
-    conf_file.file.fd = NGX_INVALID_FILE;
-    conf_file.file.name.data = NULL;
-    conf_file.line = 0;
-
-    pcf = *cf;
-    cf->ctx = ctx;
-
-    cf->conf_file = &conf_file;
-    cf->conf_file->buffer = &b;
-
-    cf->cmd_type = NGX_HTTP_LOC_CONF;
-
-    rv = ngx_conf_parse(cf, NULL);
-
-    *cf = pcf;
-
-    if (rv == NGX_CONF_OK) {
-        return NGX_OK;
-    }
-
-    if (rv != NGX_CONF_ERROR) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s", rv);
-    }
-
-    return NGX_ERROR;
-}
-
-
-static ngx_int_t
-ngx_http_docker_events_proxy_conf(ngx_str_t *proxy, ngx_pool_t *pool,
-    ngx_str_t *url)
-{
-    proxy->len = sizeof("proxy_pass ; proxy_buffering off; access_log off; "
-                        "proxy_read_timeout 365d; proxy_pass_header Date;")
-                 - 1 + url->len;
-
-    proxy->data = ngx_pnalloc(pool, proxy->len);
-    if (proxy->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    ngx_snprintf(proxy->data, proxy->len,
-                 "proxy_pass %V; proxy_buffering off; access_log off; "
-                 "proxy_read_timeout 365d; proxy_pass_header Date;",
-                 url);
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_docker_containers_proxy_conf(ngx_str_t *proxy, ngx_pool_t *pool,
-    ngx_str_t *url)
-{
-    proxy->len = sizeof("proxy_pass ; proxy_buffering off; access_log off;")
-                 - 1 + url->len;
-
-    proxy->data = ngx_pnalloc(pool, proxy->len);
-    if (proxy->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    ngx_snprintf(proxy->data, proxy->len,
-                 "proxy_pass %V; proxy_buffering off; access_log off;",
-                 url);
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_docker_add_proxy_pass(ngx_conf_t *cf,
-    ngx_http_docker_main_conf_t *dmcf, ngx_str_t *url)
-{
-    ngx_str_t  eproxy, cproxy;
-
-    if (ngx_http_docker_events_proxy_conf(&eproxy, cf->pool, url) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_http_docker_containers_proxy_conf(&cproxy, cf->pool, url)
-        != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    if (ngx_http_docker_parse_proxy_pass(cf, dmcf->ectx, &eproxy) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    return ngx_http_docker_parse_proxy_pass(cf, dmcf->cctx, &cproxy);
-}
-
-
 static char *
 ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1611,7 +991,7 @@ ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     u_char     *p;
     size_t      len;
     ngx_url_t   u;
-    ngx_str_t  *value, *url;
+    ngx_str_t  *value, *url, name, eproxy, cproxy;
 
     if (dmcf->url.addrs != NULL) {
         return "is duplicate";
@@ -1668,15 +1048,56 @@ ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     dmcf->url = u;
 
-    if (ngx_http_docker_create_confs_ctx(cf, dmcf) != NGX_OK) {
+    if (ngx_http_docker_format_endpoint(cf->pool, url, &eproxy,
+                                        "proxy_pass %V;"
+                                        "proxy_buffering off;"
+                                        "proxy_read_timeout 365d;"
+                                        "proxy_pass_header Date;}")
+        != NGX_OK)
+    {
         return NGX_CONF_ERROR;
     }
 
-    if (ngx_http_docker_add_proxy_pass(cf, dmcf, url) != NGX_OK) {
+
+    if (ngx_http_docker_format_endpoint(cf->pool, url, &cproxy,
+                                        "proxy_pass %V;"
+                                        "proxy_buffering off;}")
+        != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
+
+
+    ngx_str_set(&name, "@docker_events");
+    dmcf->events_ctx = ngx_http_client_create_location(cf, &name, &eproxy);
+    if (dmcf->events_ctx == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_str_set(&name, "@docker_containers");
+    dmcf->containers_ctx = ngx_http_client_create_location(cf, &name, &cproxy);
+    if (dmcf->containers_ctx == NULL) {
         return NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_http_docker_format_endpoint(ngx_pool_t *pool, ngx_str_t *url,
+    ngx_str_t *res, const char *fmt)
+{
+    res->len = ngx_strlen(fmt) + url->len;
+
+    res->data = ngx_pnalloc(pool, res->len);
+    if (res->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    res->len = ngx_snprintf(res->data, res->len, fmt, url) - res->data;
+
+    return NGX_OK;
 }
 
 

@@ -222,6 +222,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-http_upstream_zone_module)',
 		upstream_sticky
 			=> '(?s)^(?!.*--without-http_upstream_sticky_module)',
+		docker
+			=> '(?s)^(?!.*--without-http_docker_module)',
 		http	=> '(?s)^(?!.*--without-http(?!\S))',
 		cache	=> '(?s)^(?!.*--without-http-cache)',
 		pop3	=> '(?s)^(?!.*--without-mail_pop3_module)',

@@ -419,6 +419,20 @@ if [ $HTTP = YES ]; then
         . auto/module
     fi
 
+    if [ $HTTP_DOCKER = YES ]; then
+        USE_JSON=YES
+        USE_DOCKER=YES
+
+        ngx_module_name=ngx_http_docker_module
+        ngx_module_incs=
+        ngx_module_deps=
+        ngx_module_srcs=src/http/modules/ngx_http_docker_module.c
+        ngx_module_libs=
+        ngx_module_link=$HTTP_DOCKER
+
+        . auto/module
+    fi
+
     if [ $HTTP_ACME = YES ]; then
         USE_OPENSSL=YES
         USE_JSON=YES
@@ -1527,6 +1541,22 @@ fi
 if [ $USE_NTLS = YES ]; then
     have=NGX_HTTP_PROXY_MULTICERT . auto/have
     have=NGX_HAVE_NTLS . auto/have
+fi
+
+
+if [ $USE_DOCKER = YES ]; then
+    have=NGX_DOCKER . auto/have
+
+    ngx_module_type=CORE
+    ngx_module_name=
+    ngx_module_incs=
+    ngx_module_deps=src/core/ngx_docker.h
+    ngx_module_srcs=src/core/ngx_docker.c
+    ngx_module_libs=
+    ngx_module_link=YES
+    ngx_module_order=
+
+    . auto/module
 fi
 
 

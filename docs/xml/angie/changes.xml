@@ -9,6 +9,23 @@
 
 <change type="feature">
 <para lang="ru">
+директива "docker_endpoint" в блоке "http", позволяющая указать Unix-сокет
+или URL для подключения к Docker для динамического обновления групп
+upstream-серверов на основе Docker-меток;
+директива "docker_max_object_size" в блоке "http", позволяющая указать
+максимальный размер JSON-объекта в ответе от Docker.
+</para>
+<para lang="en">
+the "docker_endpoint" directive, located within the "http" block, specifies
+the Unix socket or URL used to connect to Docker. This enables dynamic updates
+to upstream server groups based on Docker labels.
+The "docker_max_object_size" directive, also in the "http" block, specifies the
+maximum size of a JSON object in a response from Docker.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка приема соединений по протоколу MPTCP, включаемая с помощью опции
 "multipath" директивы "listen".<br/>
 Спасибо Максиму Дунину (freenginx), Максиму Дурову и Энтони Дорену.

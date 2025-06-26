@@ -9,6 +9,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_docker.h>
 
 
 static char *ngx_http_upstream_zone(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -27,6 +28,15 @@ static ngx_int_t ngx_http_upstream_zone_preresolve(
 static ngx_http_upstream_rr_peer_t *ngx_http_upstream_zone_new_peer(
     ngx_http_upstream_rr_peers_t *peers, ngx_resolver_addr_t *addr,
     ngx_http_upstream_rr_peer_t *template);
+
+#if (NGX_DOCKER)
+static ngx_int_t ngx_http_upstream_zone_add_docker_peer(
+    ngx_docker_upstream_t *u);
+static ngx_int_t ngx_http_upstream_zone_remove_docker_peer(
+    ngx_docker_upstream_t *u);
+static ngx_int_t ngx_http_upstream_zone_down_docker_peer(
+    ngx_docker_upstream_t *u);
+#endif
 
 #if (NGX_API)
 
@@ -1435,6 +1445,13 @@ ngx_http_upstream_zone_init(ngx_conf_t *cf)
     }
 #endif
 
+#if (NGX_DOCKER)
+    ngx_docker_init_http_upstream_actions(
+                                    &ngx_http_upstream_zone_add_docker_peer,
+                                    &ngx_http_upstream_zone_remove_docker_peer,
+                                    &ngx_http_upstream_zone_down_docker_peer);
+#endif
+
     return NGX_OK;
 }
 
@@ -1762,3 +1779,305 @@ done:
 
     ngx_add_timer(event, timer);
 }
+
+
+#if (NGX_DOCKER)
+
+static ngx_http_upstream_srv_conf_t *
+ngx_http_upstream_zone_get_srv_conf(ngx_docker_upstream_t *u, ngx_log_t *log)
+{
+    ngx_uint_t                      i;
+    ngx_http_upstream_srv_conf_t   *uscf, **uscfp;
+    ngx_http_upstream_main_conf_t  *umcf;
+
+    if (u->uscf != (void *) -1) {
+        return u->uscf;
+    }
+
+    umcf = ngx_http_cycle_get_module_main_conf(ngx_cycle,
+                                               ngx_http_upstream_module);
+    if (umcf == NULL) {
+        return NULL;
+    }
+
+    u->uscf = NULL;
+
+    uscfp = umcf->upstreams.elts;
+
+    for (i = 0; i < umcf->upstreams.nelts; i++) {
+        uscf = uscfp[i];
+
+        if (u->name.len != uscf->host.len
+            || ngx_strncmp(u->name.data, uscf->host.data, uscf->host.len) != 0)
+        {
+            continue;
+        }
+
+        if (uscf->shm_zone == NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                          "processing Docker container \"%V\" failed: "
+                          "http upstream \"%V\" should be configured with a "
+                          "shared memory zone",
+                          &u->container->id, &u->name);
+            return NULL;
+        }
+
+        if (!(uscf->flags & NGX_HTTP_UPSTREAM_CONF)) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                          "processing Docker container \"%V\" failed: "
+                          "modification of the peers is not possible in http "
+                          "upstream \"%V\" with the selected balancing method",
+                          &u->container->id, &u->name);
+            return NULL;
+        }
+
+        u->uscf = uscf;
+
+        return uscf;
+    }
+
+    ngx_log_error(NGX_LOG_ERR, log, 0,
+                  "processing docker container \"%V\" failed: "
+                  "cannot find http upstream \"%V\"",
+                  &u->container->id, &u->name);
+
+    return NULL;
+}
+
+
+static ngx_int_t
+ngx_http_upstream_zone_add_docker_peer(ngx_docker_upstream_t *u)
+{
+    ngx_resolver_addr_t            addr;
+    ngx_docker_container_t        *dc;
+    ngx_http_upstream_host_t       host;
+    ngx_http_upstream_rr_peer_t   *peer, **peerp, template;
+    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_http_upstream_srv_conf_t  *uscf;
+
+    dc = u->container;
+
+    uscf = ngx_http_upstream_zone_get_srv_conf(u, dc->pool->log);
+    if (uscf == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (u->container->down && !(uscf->flags & NGX_HTTP_UPSTREAM_DOWN)) {
+        return NGX_OK;
+    }
+
+    if (u->backup && !(uscf->flags & NGX_HTTP_UPSTREAM_BACKUP)) {
+        u->backup = 0;
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"backup\" is not supported in http upstream \"%V\" "
+                      "with the selected balancing method",
+                      &u->name);
+    }
+
+    if (u->weight != (ngx_uint_t) -1
+        && !(uscf->flags & NGX_HTTP_UPSTREAM_WEIGHT))
+    {
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"weight\" is not supported in http upstream \"%V\" "
+                      "with the selected balancing method",
+                      &u->name);
+    }
+
+    if (u->max_fails != (ngx_uint_t) -1
+        && !(uscf->flags & NGX_HTTP_UPSTREAM_MAX_FAILS))
+    {
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"max_fails\" is not supported in http upstream \"%V\" "
+                      "with the selected balancing method",
+                      &u->name);
+    }
+
+    if (u->max_conns != (ngx_uint_t) -1
+        && !(uscf->flags & NGX_HTTP_UPSTREAM_MAX_CONNS))
+    {
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"max_conns\" is not supported in http upstream \"%V\" "
+                      "with the selected balancing method",
+                      &u->name);
+    }
+
+    if (u->fail_timeout != (time_t) -1
+        && !(uscf->flags & NGX_HTTP_UPSTREAM_FAIL_TIMEOUT))
+    {
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"fail_timeout\" is not supported in http "
+                      "upstream \"%V\" with the selected balancing method",
+                      &u->name);
+    }
+
+    ngx_memzero(&host, sizeof(ngx_http_upstream_host_t));
+    ngx_memzero(&template, sizeof(ngx_http_upstream_rr_peer_t));
+
+    template.down = dc->down;
+    template.name = u->url.url;
+
+    template.weight = u->weight != (ngx_uint_t) -1 ? u->weight : 1;
+    template.max_conns = u->max_conns != (ngx_uint_t) -1 ? u->max_conns : 0;
+    template.max_fails = u->max_fails != (ngx_uint_t) -1 ? u->max_fails : 1;
+    template.fail_timeout = u->fail_timeout != (time_t) -1 ? u->fail_timeout
+                                                           : 10;
+
+    template.host = &host;
+    host.service = template.name;
+
+    addr.sockaddr = &u->url.sockaddr.sockaddr;
+    addr.socklen = u->url.socklen;
+    addr.name = u->url.url;
+    addr.weight = template.weight;
+
+    peers = uscf->peer.data;
+    peers = u->backup ? peers->next : peers;
+
+    peer = ngx_http_upstream_zone_new_peer(peers, &addr, &template);
+    if (peer == NULL) {
+        return NGX_ERROR;
+    }
+
+    peer->host = NULL;
+
+    ngx_http_upstream_rr_peers_wlock(peers);
+    if (!peer->down) {
+        peers->tries++;
+    }
+
+    peers->number++;
+    peers->total_weight += peer->weight;
+    peers->weighted = (peers->total_weight != peers->number);
+
+    for (peerp = &peers->peer; *peerp; peerp = &(*peerp)->next) {
+        /* void */
+    }
+
+    *peerp = peer;
+    (*peers->generation)++;
+    ngx_http_upstream_rr_peers_unlock(peers);
+
+    ngx_log_error(NGX_LOG_NOTICE, dc->pool->log, 0,
+                  "Docker peer \"%V\" was added to http upstream \"%V\"",
+                  &u->url.url, &u->name);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_upstream_zone_remove_docker_peer(ngx_docker_upstream_t *u)
+{
+    ngx_docker_container_t        *dc;
+    ngx_http_upstream_rr_peer_t   *peer, **peerp;
+    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_http_upstream_srv_conf_t  *uscf;
+
+    dc = u->container;
+
+    uscf = ngx_http_upstream_zone_get_srv_conf(u, dc->pool->log);
+    if (uscf == NULL) {
+        return NGX_ERROR;
+    }
+
+    peers = uscf->peer.data;
+    peers = u->backup ? peers->next : peers;
+
+    ngx_http_upstream_rr_peers_wlock(peers);
+    for (peerp = &peers->peer; *peerp; peerp = &(*peerp)->next) {
+        peer = *peerp;
+
+        if (ngx_cmp_sockaddr(peer->sockaddr, peer->socklen,
+                             &u->url.sockaddr.sockaddr, u->url.socklen, 1)
+            != NGX_OK)
+        {
+            continue;
+        }
+
+        *peerp = peer->next;
+
+        if (!peer->down) {
+            peers->tries--;
+        }
+
+        peers->number--;
+        peers->total_weight -= peer->weight;
+        peers->weighted = (peers->total_weight != peers->number);
+        (*peers->generation)++;
+
+        ngx_http_upstream_rr_peer_free(peers, peer);
+
+        ngx_http_upstream_rr_peers_unlock(peers);
+
+        ngx_log_error(NGX_LOG_NOTICE, dc->pool->log, 0,
+                      "Docker peer \"%V\" was removed from http "
+                      "upstream \"%V\"",
+                      &u->url.url, &u->name);
+
+        return NGX_OK;
+    }
+    ngx_http_upstream_rr_peers_unlock(peers);
+
+    ngx_log_error(NGX_LOG_ALERT, dc->pool->log, 0,
+                  "cannot find Docker peer \"%V\" in http upstream \"%V\"",
+                  &u->url.url, &u->name);
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_upstream_zone_down_docker_peer(ngx_docker_upstream_t *u)
+{
+    ngx_docker_container_t        *dc;
+    ngx_http_upstream_rr_peer_t   *peer, **peerp;
+    ngx_http_upstream_rr_peers_t  *peers;
+    ngx_http_upstream_srv_conf_t  *uscf;
+
+    dc = u->container;
+
+    uscf = ngx_http_upstream_zone_get_srv_conf(u, dc->pool->log);
+    if (uscf == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (!(uscf->flags & NGX_HTTP_UPSTREAM_DOWN)) {
+        return dc->down ? ngx_http_upstream_zone_remove_docker_peer(u)
+                        : ngx_http_upstream_zone_add_docker_peer(u);
+    }
+
+    peers = uscf->peer.data;
+    peers = u->backup ? peers->next : peers;
+
+    ngx_http_upstream_rr_peers_wlock(peers);
+    for (peerp = &peers->peer; *peerp; peerp = &(*peerp)->next) {
+        peer = *peerp;
+
+        if (ngx_cmp_sockaddr(peer->sockaddr, peer->socklen,
+                             &u->url.sockaddr.sockaddr, u->url.socklen, 1)
+            != NGX_OK)
+        {
+            continue;
+        }
+
+        peer->down = dc->down;
+
+        ngx_http_upstream_rr_peers_unlock(peers);
+
+        ngx_log_error(NGX_LOG_NOTICE, dc->pool->log, 0,
+                      "Docker peer \"%V\" was transitioned to %s state in "
+                      "http upstream \"%V\"",
+                      &u->url.url, dc->down ? "down" : "up", &u->name);
+
+        return NGX_OK;
+    }
+    ngx_http_upstream_rr_peers_unlock(peers);
+
+    ngx_log_error(NGX_LOG_ERR, dc->pool->log, 0,
+                 "cannot find Docker peer \"%V\" in http upstream \"%V\"",
+                 &u->url.url, &u->name);
+
+    return NGX_ERROR;
+}
+
+#endif

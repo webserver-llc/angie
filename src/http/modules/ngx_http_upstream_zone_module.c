@@ -1837,7 +1837,7 @@ ngx_http_upstream_zone_get_srv_conf(ngx_docker_upstream_t *u, ngx_log_t *log)
     }
 
     ngx_log_error(NGX_LOG_ERR, log, 0,
-                  "processing docker container \"%V\" failed: "
+                  "processing Docker container \"%V\" failed: "
                   "cannot find http upstream \"%V\"",
                   &u->container->id, &u->name);
 

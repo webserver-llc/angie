@@ -11,7 +11,15 @@
 #include <ngx_mail.h>
 
 
+typedef struct {
+    ngx_mail_conf_ctx_t      ctx;        /* must be first */
+    ngx_conf_t               conf;
+    ngx_conf_file_t          conf_file;
+} ngx_mail_main_conf_t;
+
+
 static char *ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_mail_init_conf(ngx_cycle_t *cycle, void *conf);
 static ngx_int_t ngx_mail_add_ports(ngx_conf_t *cf, ngx_array_t *ports,
     ngx_mail_listen_t *listen);
 static char *ngx_mail_optimize_servers(ngx_conf_t *cf, ngx_array_t *ports);
@@ -43,7 +51,7 @@ static ngx_command_t  ngx_mail_commands[] = {
 static ngx_core_module_t  ngx_mail_module_ctx = {
     ngx_string("mail"),
     NULL,
-    NULL
+    ngx_mail_init_conf,
 };
 
 
@@ -66,28 +74,33 @@ ngx_module_t  ngx_mail_module = {
 static char *
 ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char                        *rv;
-    ngx_uint_t                   i, m, mi, s;
-    ngx_conf_t                   pcf;
-    ngx_array_t                  ports;
-    ngx_mail_listen_t           *listen;
-    ngx_mail_module_t           *module;
-    ngx_mail_conf_ctx_t         *ctx;
-    ngx_mail_core_srv_conf_t   **cscfp;
-    ngx_mail_core_main_conf_t   *cmcf;
+    char                  *rv;
+    ngx_uint_t             m, mi;
+    ngx_mail_module_t     *module;
+    ngx_mail_conf_ctx_t   *ctx;
+    ngx_mail_main_conf_t  *mmcf;
 
-    if (*(ngx_mail_conf_ctx_t **) conf) {
-        return "is duplicate";
+    mmcf = (ngx_mail_main_conf_t *) ngx_get_conf(cf->cycle->conf_ctx,
+                                                  ngx_mail_module);
+    if (mmcf) {
+        ctx = &mmcf->ctx;
+        mmcf->conf = *cf;
+        goto parse;
     }
 
     /* the main mail context */
 
-    ctx = ngx_pcalloc(cf->pool, sizeof(ngx_mail_conf_ctx_t));
-    if (ctx == NULL) {
+    mmcf = ngx_pcalloc(cf->pool, sizeof(ngx_mail_main_conf_t));
+    if (mmcf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    *(ngx_mail_conf_ctx_t **) conf = ctx;
+    mmcf->conf_file = *cf->conf_file;
+
+    *(ngx_mail_main_conf_t **) conf = mmcf;
+
+    mmcf->conf = *cf;
+    ctx = &mmcf->ctx;
 
     /* count the number of the mail modules and set up their indices */
 
@@ -141,21 +154,49 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
+parse:
 
     /* parse inside the mail{} block */
 
-    pcf = *cf;
     cf->ctx = ctx;
 
     cf->module_type = NGX_MAIL_MODULE;
     cf->cmd_type = NGX_MAIL_MAIN_CONF;
     rv = ngx_conf_parse(cf, NULL);
 
-    if (rv != NGX_CONF_OK) {
-        *cf = pcf;
-        return rv;
+    *cf = mmcf->conf;
+
+    return rv;
+}
+
+
+static char *
+ngx_mail_init_conf(ngx_cycle_t *cycle, void *conf_ctx)
+{
+    char                        *rv;
+    ngx_uint_t                   i, m, mi, s;
+    ngx_conf_t                   pcf, *cf;
+    ngx_array_t                  ports;
+    ngx_mail_listen_t           *listen;
+    ngx_mail_module_t           *module;
+    ngx_mail_conf_ctx_t         *ctx;
+    ngx_mail_main_conf_t        *mmcf;
+    ngx_mail_core_srv_conf_t   **cscfp;
+    ngx_mail_core_main_conf_t   *cmcf;
+
+    mmcf = (ngx_mail_main_conf_t *) ngx_get_conf(cycle->conf_ctx,
+                                                 ngx_mail_module);
+    if (mmcf == NULL) {
+        return NGX_CONF_OK;
     }
 
+    ctx = &mmcf->ctx;
+
+    cf = &mmcf->conf;
+    cf->ctx = ctx;
+    cf->conf_file = &mmcf->conf_file;
+
+    pcf = *cf;
 
     /* init mail{} main_conf's, merge the server{}s' srv_conf's */
 
@@ -217,7 +258,11 @@ ngx_mail_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    return ngx_mail_optimize_servers(cf, &ports);
+    if (ngx_mail_optimize_servers(cf, &ports) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
 }
 
 

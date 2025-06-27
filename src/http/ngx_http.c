@@ -11,7 +11,15 @@
 #include <ngx_http.h>
 
 
+typedef struct {
+    ngx_http_conf_ctx_t        ctx;        /* must be first */
+    ngx_conf_t                 conf;
+    ngx_conf_file_t            conf_file;
+} ngx_http_main_conf_t;
+
+
 static char *ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_http_init_conf(ngx_cycle_t *cycle, void *conf_ctx);
 static ngx_int_t ngx_http_init_phases(ngx_conf_t *cf,
     ngx_http_core_main_conf_t *cmcf);
 static ngx_int_t ngx_http_init_headers_in_hash(ngx_conf_t *cf,
@@ -97,7 +105,7 @@ static ngx_command_t  ngx_http_commands[] = {
 static ngx_core_module_t  ngx_http_module_ctx = {
     ngx_string("http"),
     NULL,
-    NULL
+    ngx_http_init_conf,
 };
 
 
@@ -120,28 +128,33 @@ ngx_module_t  ngx_http_module = {
 static char *
 ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char                        *rv;
-    ngx_uint_t                   mi, m, s;
-    ngx_conf_t                   pcf;
-    ngx_http_module_t           *module;
-    ngx_http_conf_ctx_t         *ctx;
-    ngx_http_core_loc_conf_t    *clcf;
-    ngx_http_core_srv_conf_t   **cscfp;
-    ngx_http_core_main_conf_t   *cmcf;
+    char                  *rv;
+    ngx_uint_t             mi, m;
+    ngx_http_module_t     *module;
+    ngx_http_conf_ctx_t   *ctx;
+    ngx_http_main_conf_t  *hmcf;
 
-    if (*(ngx_http_conf_ctx_t **) conf) {
-        return "is duplicate";
+    hmcf = (ngx_http_main_conf_t *) ngx_get_conf(cf->cycle->conf_ctx,
+                                                 ngx_http_module);
+    if (hmcf) {
+        ctx = &hmcf->ctx;
+        hmcf->conf = *cf;
+        cf->ctx = ctx;
+        goto parse;
     }
 
     /* the main http context */
 
-    ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
-    if (ctx == NULL) {
+    hmcf = ngx_pcalloc(cf->pool, sizeof(ngx_http_main_conf_t));
+    if (hmcf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    *(ngx_http_conf_ctx_t **) conf = ctx;
+    hmcf->conf_file = *cf->conf_file;
 
+    *(ngx_http_main_conf_t **) conf = hmcf;
+
+    ctx = &hmcf->ctx;
 
     /* count the number of the http modules and set up their indices */
 
@@ -214,7 +227,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
-    pcf = *cf;
+    hmcf->conf = *cf;
     cf->ctx = ctx;
 
     for (m = 0; cf->cycle->modules[m]; m++) {
@@ -231,15 +244,46 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
+parse:
+
     /* parse inside the http{} block */
 
     cf->module_type = NGX_HTTP_MODULE;
     cf->cmd_type = NGX_HTTP_MAIN_CONF;
     rv = ngx_conf_parse(cf, NULL);
 
-    if (rv != NGX_CONF_OK) {
-        goto failed;
+    *cf = hmcf->conf;
+
+    return rv;
+}
+
+
+static char *
+ngx_http_init_conf(ngx_cycle_t *cycle, void *conf_ctx)
+{
+    char                        *rv;
+    ngx_uint_t                   mi, m, s;
+    ngx_conf_t                   pcf, *cf;
+    ngx_http_module_t           *module;
+    ngx_http_conf_ctx_t         *ctx;
+    ngx_http_main_conf_t        *hmcf;
+    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_core_srv_conf_t   **cscfp;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    hmcf = (ngx_http_main_conf_t *) ngx_get_conf(cycle->conf_ctx,
+                                                 ngx_http_module);
+    if (hmcf == NULL) {
+        return NGX_CONF_OK;
     }
+
+    ctx = &hmcf->ctx;
+
+    cf = &hmcf->conf;
+    cf->ctx = ctx;
+    cf->conf_file = &hmcf->conf_file;
+
+    pcf = *cf;
 
     /*
      * init http{} main_conf's, merge the server{}s' srv_conf's

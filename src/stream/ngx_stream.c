@@ -11,7 +11,15 @@
 #include <ngx_stream.h>
 
 
+typedef struct {
+    ngx_stream_conf_ctx_t      ctx;        /* must be first */
+    ngx_conf_t                 conf;
+    ngx_conf_file_t            conf_file;
+} ngx_stream_main_conf_t;
+
+
 static char *ngx_stream_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_stream_init_conf(ngx_cycle_t *cycle, void *conf_ctx);
 static ngx_int_t ngx_stream_init_phases(ngx_conf_t *cf,
     ngx_stream_core_main_conf_t *cmcf);
 static ngx_int_t ngx_stream_init_phase_handlers(ngx_conf_t *cf,
@@ -68,7 +76,7 @@ static ngx_command_t  ngx_stream_commands[] = {
 static ngx_core_module_t  ngx_stream_module_ctx = {
     ngx_string("stream"),
     NULL,
-    NULL
+    ngx_stream_init_conf,
 };
 
 
@@ -91,26 +99,33 @@ ngx_module_t  ngx_stream_module = {
 static char *
 ngx_stream_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    char                          *rv;
-    ngx_uint_t                     mi, m, s;
-    ngx_conf_t                     pcf;
-    ngx_stream_module_t           *module;
-    ngx_stream_conf_ctx_t         *ctx;
-    ngx_stream_core_srv_conf_t   **cscfp;
-    ngx_stream_core_main_conf_t   *cmcf;
+    char                    *rv;
+    ngx_uint_t               mi, m;
+    ngx_stream_module_t     *module;
+    ngx_stream_conf_ctx_t   *ctx;
+    ngx_stream_main_conf_t  *smcf;
 
-    if (*(ngx_stream_conf_ctx_t **) conf) {
-        return "is duplicate";
+    smcf = (ngx_stream_main_conf_t *) ngx_get_conf(cf->cycle->conf_ctx,
+                                                   ngx_stream_module);
+    if (smcf) {
+        ctx = &smcf->ctx;
+        smcf->conf = *cf;
+        cf->ctx = ctx;
+        goto parse;
     }
 
     /* the main stream context */
 
-    ctx = ngx_pcalloc(cf->pool, sizeof(ngx_stream_conf_ctx_t));
-    if (ctx == NULL) {
+    smcf = ngx_pcalloc(cf->pool, sizeof(ngx_stream_main_conf_t));
+    if (smcf == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    *(ngx_stream_conf_ctx_t **) conf = ctx;
+    smcf->conf_file = *cf->conf_file;
+
+     *(ngx_stream_main_conf_t **) conf = smcf;
+
+    ctx = &smcf->ctx;
 
     /* count the number of the stream modules and set up their indices */
 
@@ -166,7 +181,7 @@ ngx_stream_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
 
-    pcf = *cf;
+    smcf->conf = *cf;
     cf->ctx = ctx;
 
     for (m = 0; cf->cycle->modules[m]; m++) {
@@ -183,6 +198,7 @@ ngx_stream_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
     }
 
+parse:
 
     /* parse inside the stream{} block */
 
@@ -190,11 +206,37 @@ ngx_stream_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     cf->cmd_type = NGX_STREAM_MAIN_CONF;
     rv = ngx_conf_parse(cf, NULL);
 
-    if (rv != NGX_CONF_OK) {
-        *cf = pcf;
-        return rv;
+    *cf = smcf->conf;
+
+    return rv;
+}
+
+
+static char *
+ngx_stream_init_conf(ngx_cycle_t *cycle, void *conf_ctx)
+{
+    char                          *rv;
+    ngx_uint_t                     mi, m, s;
+    ngx_conf_t                     pcf, *cf;
+    ngx_stream_module_t           *module;
+    ngx_stream_conf_ctx_t         *ctx;
+    ngx_stream_main_conf_t        *smcf;
+    ngx_stream_core_srv_conf_t   **cscfp;
+    ngx_stream_core_main_conf_t   *cmcf;
+
+    smcf = (ngx_stream_main_conf_t *) ngx_get_conf(cycle->conf_ctx,
+                                                   ngx_stream_module);
+    if (smcf == NULL) {
+        return NGX_CONF_OK;
     }
 
+    ctx = &smcf->ctx;
+
+    cf = &smcf->conf;
+    cf->ctx = ctx;
+    cf->conf_file = &smcf->conf_file;
+
+    pcf = *cf;
 
     /* init stream{} main_conf's, merge the server{}s' srv_conf's */
 

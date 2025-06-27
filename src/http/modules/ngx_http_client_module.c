@@ -25,7 +25,6 @@
 
 
 typedef struct {
-    ngx_pool_t                              *pool;
     ngx_log_t                                log;
     ngx_http_conf_ctx_t                     *ctx;
 
@@ -259,7 +258,10 @@ ngx_http_client_parse_conf(ngx_conf_t *cf, ngx_http_conf_ctx_t *ctx,
 
     ngx_memzero(&conf_file, sizeof(ngx_conf_file_t));
     ngx_memzero(&b, sizeof(ngx_buf_t));
-    ngx_array_init(&args, cf->pool, 1, sizeof(ngx_str_t));
+
+    if (ngx_array_init(&args, cf->pool, 1, sizeof(ngx_str_t)) != NGX_OK) {
+        return NGX_ERROR;
+    }
 
     b.start = commands->data;
     b.pos = b.start;
@@ -557,7 +559,6 @@ ngx_http_client_create(ngx_pool_t *pool)
 
     cln->handler = ngx_http_client_cleanup;
     cln->data = htc;
-    htc->pool = pool;
 
     ngx_memcpy(&htc->log, pool->log, sizeof(ngx_log_t));
 

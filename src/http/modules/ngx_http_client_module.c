@@ -745,7 +745,7 @@ ngx_http_client_init_request(ngx_connection_t *c, ngx_http_conf_ctx_t *ctx,
         ngx_str_null(&r->args);
     }
 
-    r->unparsed_uri = r->uri;
+    r->unparsed_uri = *uri;
     r->valid_unparsed_uri = 1;
 
     return NGX_OK;

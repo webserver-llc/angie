@@ -193,6 +193,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    variables_hash_max_size 2048;
+
     # We don't need a resolver directive because we specify IPs
     # as ACME server addresses.
     #resolver localhost:$dns_port ipv6=off;
@@ -299,15 +301,9 @@ $acme_helper->stop_challtestsrv();
 
 # Step 2
 
-$acme_helper->start_challtestsrv({
-	dns_port => $angie_dns_port,
-	mgmt_port => $challtestsrv_mgmt_port
-});
-
 $acme_helper->start_pebble({
 	pebble_port => $pebble_port,
 	dns_port => $angie_dns_port,
-	http_port => $angie_http_port
 });
 
 
@@ -355,7 +351,6 @@ for (1 .. $cli_timeout * $dns_chlg_count) {
 }
 
 $acme_helper->stop_pebble();
-$acme_helper->stop_challtestsrv();
 
 # Step 3
 

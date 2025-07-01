@@ -30,6 +30,13 @@ static ngx_http_upstream_rr_peer_t *ngx_http_upstream_zone_new_peer(
     ngx_http_upstream_rr_peer_t *template);
 
 #if (NGX_DOCKER)
+
+#if (NGX_DOCKER_UPSTREAM_SID_LEN != NGX_HTTP_UPSTREAM_SID_LEN)
+
+#error NGX_DOCKER_UPSTREAM_SID_LEN and NGX_HTTP_UPSTREAM_SID_LEN are different!
+
+#endif
+
 static ngx_int_t ngx_http_upstream_zone_add_docker_peer(
     ngx_docker_upstream_t *u);
 static ngx_int_t ngx_http_upstream_zone_remove_docker_peer(
@@ -1910,6 +1917,15 @@ ngx_http_upstream_zone_add_docker_peer(ngx_docker_upstream_t *u)
                       &u->name);
     }
 
+    if (u->slow_start != (ngx_msec_t) -1
+        && !(uscf->flags & NGX_HTTP_UPSTREAM_SLOW_START))
+    {
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "\"slow_start\" is not supported in http "
+                      "upstream \"%V\" with the selected balancing method",
+                      &u->name);
+    }
+
     ngx_memzero(&host, sizeof(ngx_http_upstream_host_t));
     ngx_memzero(&template, sizeof(ngx_http_upstream_rr_peer_t));
 
@@ -1919,6 +1935,7 @@ ngx_http_upstream_zone_add_docker_peer(ngx_docker_upstream_t *u)
     template.weight = u->weight != (ngx_uint_t) -1 ? u->weight : 1;
     template.max_conns = u->max_conns != (ngx_uint_t) -1 ? u->max_conns : 0;
     template.max_fails = u->max_fails != (ngx_uint_t) -1 ? u->max_fails : 1;
+    template.slow_start = u->slow_start != (ngx_msec_t) -1 ? u->slow_start : 0;
     template.fail_timeout = u->fail_timeout != (time_t) -1 ? u->fail_timeout
                                                            : 10;
 
@@ -1933,8 +1950,32 @@ ngx_http_upstream_zone_add_docker_peer(ngx_docker_upstream_t *u)
     peers = uscf->peer.data;
     peers = u->backup ? peers->next : peers;
 
+    if (u->sid.len != 0) {
+#if (NGX_HTTP_UPSTREAM_SID)
+        template.sid.data = ngx_slab_alloc(peers->shpool, u->sid.len);
+        if (template.sid.data == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_memcpy(template.sid.data, u->sid.data, u->sid.len);
+
+        template.sid.len = u->sid.len;
+#else
+        ngx_log_error(NGX_LOG_WARN, dc->pool->log, 0,
+                      "cannot set sid \"%V\" for Docker container \"%V\" (%V): "
+                      "Angie was built without http upstream sticky module "
+                      "(--without-http_upstream_sticky_module)",
+                      &u->sid, &dc->id, &u->url.url);
+#endif
+    }
+
     peer = ngx_http_upstream_zone_new_peer(peers, &addr, &template);
     if (peer == NULL) {
+#if (NGX_HTTP_UPSTREAM_SID)
+        if (u->sid.len != 0) {
+            ngx_slab_free(peers->shpool, template.sid.data);
+        }
+#endif
         return NGX_ERROR;
     }
 

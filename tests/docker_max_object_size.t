@@ -21,11 +21,15 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'unsafe, will stop all currently active containers.')
+	unless $ENV{TEST_ANGIE_UNSAFE};
+
 system('docker version 1>/dev/null 2>1') == 0
 	or plan(skip_all => 'no Docker');
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api upstream_zone docker/)->plan(3);
+	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
+	->plan(3);
 
 ###############################################################################
 
@@ -132,8 +136,10 @@ sub start_containers {
 		 . ' -l "angie.http.upstreams.u.weight=2"'
 		 . ' -l "angie.http.upstreams.u.max_conns=20"'
 		 . ' -l "angie.http.upstreams.u.max_fails=5"'
+		 . ' -l "angie.http.upstreams.u.slow_start=10s"'
 		 . ' -l "angie.http.upstreams.u.fail_timeout=10s"'
-		 . ' -l "angie.http.upstreams.u.backup=false"';
+		 . ' -l "angie.http.upstreams.u.backup=false"'
+		 . ' -l "angie.http.upstreams.u.sid=sid1"';
 
 	for (my $idx = 0; $idx < $count; $idx++) {
 		 system("docker run -d $labels --name whoami-$idx"

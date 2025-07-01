@@ -13,6 +13,8 @@
 #include <ngx_event.h>
 
 
+#define NGX_DOCKER_UPSTREAM_SID_LEN  32
+
 #define NGX_DOCKER_EVENT_RETRY_TIME  (15 * 1000)
 
 #define ngx_docker_node(n)  ngx_rbtree_data(n, ngx_docker_container_t, node)
@@ -63,6 +65,7 @@ typedef struct {
 
 struct ngx_docker_upstream_s {
     ngx_str_t                          name;
+    ngx_str_t                          sid;
 
     ngx_url_t                          url;
 
@@ -72,6 +75,7 @@ struct ngx_docker_upstream_s {
     ngx_uint_t                         max_fails;
 
     time_t                             fail_timeout;
+    ngx_msec_t                         slow_start;
 
     ngx_docker_container_t            *container;
 

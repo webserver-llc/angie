@@ -22,11 +22,15 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'unsafe, will stop all currently active containers.')
+	unless $ENV{TEST_ANGIE_UNSAFE};
+
 system('docker version 1>/dev/null 2>1') == 0
 	or plan(skip_all => 'no Docker');
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api upstream_zone docker/)->plan(756)
+	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
+	->has(qw/stream stream_upstream_zone stream_upstream_sticky/)->plan(1512)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -143,28 +147,36 @@ sub start_containers {
 		 . ' -l "angie.http.upstreams.u1.max_conns=20"'
 		 . ' -l "angie.http.upstreams.u1.max_fails=5"'
 		 . ' -l "angie.http.upstreams.u1.fail_timeout=10s"'
+		 . ' -l "angie.http.upstreams.u1.slow_start=10s"'
 		 . ' -l "angie.http.upstreams.u1.backup=false"'
+		 . ' -l "angie.http.upstreams.u1.sid=sid1"'
 
 		 . ' -l "angie.http.upstreams.u2.port=90"'
 		 . ' -l "angie.http.upstreams.u2.weight=5"'
 		 . ' -l "angie.http.upstreams.u2.max_conns=25"'
 		 . ' -l "angie.http.upstreams.u2.max_fails=10"'
 		 . ' -l "angie.http.upstreams.u2.fail_timeout=5s"'
+		 . ' -l "angie.http.upstreams.u2.slow_start=5s"'
 		 . ' -l "angie.http.upstreams.u2.backup=true"'
+		 . ' -l "angie.http.upstreams.u2.sid=sid2"'
 
 		 . ' -l "angie.stream.upstreams.u1.port=81"'
 		 . ' -l "angie.stream.upstreams.u1.weight=10"'
 		 . ' -l "angie.stream.upstreams.u1.max_conns=20"'
 		 . ' -l "angie.stream.upstreams.u1.max_fails=5"'
+		 . ' -l "angie.stream.upstreams.u1.slow_start=15s"'
 		 . ' -l "angie.stream.upstreams.u1.fail_timeout=15s"'
 		 . ' -l "angie.stream.upstreams.u1.backup=false"'
+		 . ' -l "angie.stream.upstreams.u1.sid=sid3"'
 
 		 . ' -l "angie.stream.upstreams.u2.port=91"'
 		 . ' -l "angie.stream.upstreams.u2.weight=15"'
 		 . ' -l "angie.stream.upstreams.u2.max_conns=25"'
 		 . ' -l "angie.stream.upstreams.u2.max_fails=1"'
+		 . ' -l "angie.stream.upstreams.u2.slow_start=3s"'
 		 . ' -l "angie.stream.upstreams.u2.fail_timeout=3s"'
-		 . ' -l "angie.stream.upstreams.u2.backup=true"';
+		 . ' -l "angie.stream.upstreams.u2.backup=true"'
+		 . ' -l "angie.stream.upstreams.u2.sid=sid4"';
 
 	for (my $idx = 0; $idx < $count; $idx++) {
 		 system("docker run -d $labels --name whoami-$idx"
@@ -189,7 +201,7 @@ sub pause_containers {
 }
 
 sub check_peers {
-	my ($t, $type, $upstream, $port) = @_;
+	my ($t, $type, $upstream, $port, $sid, $weight, $backup) = @_;
 
 	my @ips = get_containers_ip($t);
 
@@ -206,7 +218,12 @@ sub check_peers {
 			}
 		}
 
-		is($peer, $j->{peers}{$peer}{server}, "create $type peer '$peer'");
+		is($j->{peers}{$peer}{server}, $peer, "create $type peer '$peer'");
+		is($j->{peers}{$peer}{sid}, $sid, "$type peer '$peer' sid $sid");
+		is($j->{peers}{$peer}{weight}, $weight,
+			"$type peer '$peer' weight $weight");
+		is($j->{peers}{$peer}{backup}, $backup,
+			"$type peer '$peer' backup $backup");
 	}
 
 	pause_containers('pause');
@@ -247,11 +264,11 @@ sub test_containers {
 
 	start_containers($t, $count);
 
-	check_peers($t, 'http', 'u1', 80);
-	check_peers($t, 'http', 'u2', 90);
+	check_peers($t, 'http', 'u1', 80, 'sid1', 2, 0);
+	check_peers($t, 'http', 'u2', 90, 'sid2', 5, 1);
 
-	check_peers($t, 'stream', 'u1', 81);
-	check_peers($t, 'stream', 'u2', 91);
+	check_peers($t, 'stream', 'u1', 81, 'sid3', 10, 0);
+	check_peers($t, 'stream', 'u2', 91, 'sid4', 15, 1);
 
 	stop_containers();
 }

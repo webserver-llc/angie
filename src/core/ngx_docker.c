@@ -9,6 +9,9 @@
 #include <ngx_docker.h>
 
 
+#define ngx_docker_upstream_type(u)                                           \
+    ((u)->type == NGX_DOCKER_HTTP_UPSTREAM ? "http" : "stream")
+
 #define ngx_docker_get_data_child(item)                                       \
     ((item)->data.child == NULL ? NULL : (item)->data.child->next)
 
@@ -148,6 +151,7 @@ ngx_docker_get_upstream(ngx_docker_container_t *dc, ngx_str_t *name,
     u->weight = (ngx_uint_t) -1;
     u->max_fails = (ngx_uint_t) -1;
     u->fail_timeout = (time_t) -1;
+    u->slow_start = (ngx_msec_t) -1;
     u->type = type;
     u->container = dc;
 
@@ -300,6 +304,33 @@ ngx_docker_process_label(ngx_data_item_t *item, ngx_docker_container_t *dc,
             goto value_error;
         }
 
+    } else if (part.len == 3 && ngx_strncmp(part.data, "sid", 3) == 0) {
+
+        if (value.len > NGX_DOCKER_UPSTREAM_SID_LEN) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                          "cannot process label \"%V\" for Docker container "
+                          "\"%V\": %s upstream server's sid "
+                          "can't be longer than %d bytes",
+                          &orig_label, &dc->id, ngx_docker_upstream_type(u),
+                          NGX_DOCKER_UPSTREAM_SID_LEN);
+            return NGX_ERROR;
+        }
+
+        u->sid.data = ngx_pstrdup(dc->pool, &value);
+        if (u->sid.data == NULL) {
+            return NGX_ERROR;
+        }
+
+        u->sid.len = value.len;
+
+    } else if (part.len == 10
+               && ngx_strncmp(part.data, "slow_start", 10) == 0)
+    {
+        u->slow_start = ngx_parse_time(&value, 0);
+        if (u->slow_start == (ngx_msec_t) NGX_ERROR) {
+            goto value_error;
+        }
+
     } else if (part.len == 6 && ngx_strncmp(part.data, "backup", 6) == 0) {
 
         if (value.len == 4 && ngx_strncmp(value.data, "true", 4) == 0) {
@@ -380,9 +411,7 @@ ngx_docker_process_labels(ngx_docker_container_t *dc, ngx_str_t *attr,
         ngx_log_error(NGX_LOG_WARN, log, 0,
                       "cannot manage Docker container \"%V\" in "
                       "%s upstream \"%V\" due to missing port label",
-                      &dc->id,
-                      u->type == NGX_DOCKER_HTTP_UPSTREAM ? "http" : "stream",
-                      &u->name);
+                      &dc->id, ngx_docker_upstream_type(u), &u->name);
     }
 
     return rc;

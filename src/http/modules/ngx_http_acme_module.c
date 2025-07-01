@@ -2234,11 +2234,10 @@ ngx_http_acme_send_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
 
     ses->in_hook = 0;
 
-    if (url != NULL) {
-        ngx_http_acme_extract_uri(url, &uri);
-
-    } else {
-        ngx_str_set(&uri, "/");
+    if (ngx_http_acme_extract_uri(url, &uri) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "invalid request URL \"%V\"",
+                      url);
+        return NGX_ERROR;
     }
 
     r = ngx_http_client_create_request(ses->pool, amcf->ctx, &uri,

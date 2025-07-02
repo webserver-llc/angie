@@ -1382,30 +1382,36 @@ ngx_http_acme_key_init(ngx_conf_t *cf, ngx_acme_client_t *cli,
         }
     }
 
-    for (retry = 1; /* void */ ; retry--) {
+    retry = 1;
 
-        if (ngx_fd_info(file->fd, &fi) == NGX_FILE_ERROR) {
-            ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
-                          ngx_fd_info_n " \"%s\" failed", file->name.data);
+again:
 
-            return NGX_ERROR;
-        }
+    if (ngx_fd_info(file->fd, &fi) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, cli->log, ngx_errno,
+                      ngx_fd_info_n " \"%s\" failed", file->name.data);
 
-        key->file_size = ngx_file_size(&fi);
-
-        if (key->file_size != 0) {
-            return ngx_http_acme_key_load(cli, key);
-        }
-
-        if (retry && ngx_http_acme_key_gen(cli, key) != NGX_OK) {
-            return NGX_ERROR;
-        }
+        return NGX_ERROR;
     }
 
-    ngx_log_error(NGX_LOG_ALERT, cli->log, 0, "zero size of key file \"%s\"",
-                  file->name.data);
+    key->file_size = ngx_file_size(&fi);
 
-    return NGX_ERROR;
+    if (key->file_size != 0) {
+        return ngx_http_acme_key_load(cli, key);
+    }
+
+    if (!retry) {
+        ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
+                      "zero size of key file \"%s\"", file->name.data);
+        return NGX_ERROR;
+    }
+
+    retry--;
+
+    if (ngx_http_acme_key_gen(cli, key) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    goto again;
 }
 
 

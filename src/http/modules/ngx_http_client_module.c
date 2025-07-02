@@ -493,21 +493,20 @@ ngx_http_client_cleanup(void *data)
     htc = data;
     c = &htc->connection;
 
-    ngx_close_connection(c);
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, &htc->log, 0,
+                   "http client cleanup");
 
     if (c->destroyed) {
         return;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
-                   "http client cleanup");
+    c->destroyed = 1;
+
+    ngx_close_connection(c);
 
     if (c->pool) {
         ngx_destroy_pool(c->pool);
-        c->pool = NULL;
     }
-
-    c->destroyed = 1;
 }
 
 

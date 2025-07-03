@@ -809,7 +809,8 @@ ngx_get_last_event_time(ngx_data_item_t *json)
         return NGX_ERROR;
     }
 
-    return item->data.integer + 1;
+    return (item->type == NGX_DATA_INTEGER_TYPE) ? (item->data.integer + 1)
+                                                 : NGX_ERROR;
 }
 
 

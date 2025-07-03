@@ -24,8 +24,25 @@ select STDOUT; $| = 1;
 plan(skip_all => 'unsafe, will stop all currently active containers.')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
-system('docker version 1>/dev/null 2>1') == 0
-	or plan(skip_all => 'no Docker');
+my $endpoint = "";
+my $container_engine = "";
+
+if (system('docker version 1>/dev/null 2>1') == 0) {
+	$endpoint = '/var/run/docker.sock';
+	$container_engine = 'docker';
+
+# TODO
+#} elsif (system('podman version 1>/dev/null 2>1') == 0) {
+#	$endpoint = '/tmp/podman.sock';
+#	$container_engine = 'podman';
+
+} else {
+	plan(skip_all => 'no Docker');
+}
+
+system("$container_engine network create test_net 1>/dev/null 2>1");
+system("$container_engine network inspect test_net 1>/dev/null 2>1") == 0
+	or die "can't create $container_engine network";
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
@@ -107,7 +124,7 @@ error_log %%TESTDIR%%/angie_docker.log notice;
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:/var/run/docker.sock;
+    docker_endpoint unix:$endpoint;
     docker_max_object_size $size;
 
     upstream u {
@@ -132,7 +149,8 @@ EOF
 sub start_containers {
 	my ($t, $count) = @_;
 
-	my $labels = '-l "angie.http.upstreams.u.port=80"'
+	my $labels = '-l "angie.network=test_net"'
+		 . ' -l "angie.http.upstreams.u.port=80"'
 		 . ' -l "angie.http.upstreams.u.weight=2"'
 		 . ' -l "angie.http.upstreams.u.max_conns=20"'
 		 . ' -l "angie.http.upstreams.u.max_fails=5"'
@@ -142,18 +160,20 @@ sub start_containers {
 		 . ' -l "angie.http.upstreams.u.sid=sid1"';
 
 	for (my $idx = 0; $idx < $count; $idx++) {
-		 system("docker run -d $labels --name whoami-$idx"
-			  . ' docker.io/traefik/whoami'
-			  . ' 1>/dev/null 2>1') == 0
+		 system("$container_engine run -d $labels --name whoami-$idx"
+			  . ' --network test_net docker.io/traefik/whoami'
+			  . ' 1>/dev/null') == 0
 			  or die "cannot start containers";
 	}
 }
 
 sub stop_containers {
-	system('docker stop $(docker ps -a -q) 1>/dev/null 2>1') == 0
+	system("$container_engine stop \$($container_engine ps -a -q)"
+		. ' 1>/dev/null 2>1') == 0
 		 or die "cannot stop containers";
 
-	system('docker rm $(docker ps -a -q) 1>/dev/null 2>1') == 0
+	system("$container_engine rm \$($container_engine ps -a -q)"
+		. ' 1>/dev/null 2>1') == 0
 		 or die "cannot remove containers";
 }
 

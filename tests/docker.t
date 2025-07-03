@@ -25,13 +25,26 @@ select STDOUT; $| = 1;
 plan(skip_all => 'unsafe, will stop all currently active containers.')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
-system('docker version 1>/dev/null 2>1') == 0
-	or plan(skip_all => 'no Docker');
+my $endpoint = "";
+my $container_engine = "";
+
+if (system('docker version 1>/dev/null 2>1') == 0) {
+	$endpoint = '/var/run/docker.sock';
+	$container_engine = 'docker';
+
+# TODO:
+#} elsif (system('podman version 1>/dev/null 2>1') == 0) {
+#	$endpoint = '/tmp/podman.sock';
+#	$container_engine = 'podman';
+
+} else {
+	plan(skip_all => 'no Docker');
+}
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
 	->has(qw/stream stream_upstream_zone stream_upstream_sticky/)->plan(1512)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%
 
@@ -43,7 +56,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:/var/run/docker.sock;
+    docker_endpoint unix:$endpoint;
 
     upstream u1 {
         zone http_z 1m;
@@ -104,9 +117,9 @@ $t->run();
 
 ###############################################################################
 
-system("docker network create test_net 1>/dev/null 2>1");
-system("docker network inspect test_net 1>/dev/null 2>1") == 0
-	or die "can't create Docker network";
+system("$container_engine network create test_net 1>/dev/null 2>1");
+system("$container_engine network inspect test_net 1>/dev/null 2>1") == 0
+	or die "can't create $container_engine network";
 
 test_containers($t, 3);
 test_containers($t, 10);
@@ -124,8 +137,8 @@ sub get_containers_ip {
 	my $ip_file = 'containers_ip.txt';
 
 	system(
-		'docker ps --format "{{.ID}}" | while read -r line ; do '
-			. 'echo $(docker inspect --format '
+		"$container_engine ps --format \"{{.ID}}\" | while read -r line ; do "
+			. "echo \$($container_engine inspect --format "
 			. '"{{ .NetworkSettings.Networks.test_net.IPAddress }}" $line)'
 			. ">> $tdir/$ip_file; "
 		. 'done') == 0
@@ -179,25 +192,28 @@ sub start_containers {
 		 . ' -l "angie.stream.upstreams.u2.sid=sid4"';
 
 	for (my $idx = 0; $idx < $count; $idx++) {
-		 system("docker run -d $labels --name whoami-$idx"
+		 system("$container_engine run -d $labels --name whoami-$idx"
 			  . ' --network test_net docker.io/traefik/whoami'
-			  . ' 1> /dev/null 2>/dev/null') == 0
+			  . ' 1> /dev/null') == 0
 			  or die "cannot start containers";
 	}
 }
 
 sub stop_containers {
-	system('docker stop $(docker ps -a -q) 1>/dev/null 2>1') == 0
+	system("$container_engine stop \$($container_engine ps -a -q) "
+		. '1>/dev/null 2>1') == 0
 		or die "cannot stop containers";
 
-	system('docker rm $(docker ps -a -q) 1>/dev/null 2>1') == 0
+	system("$container_engine rm \$($container_engine ps -a -q)"
+		. ' 1>/dev/null 2>1') == 0
 		or die "cannot remove containers";
 }
 
 sub pause_containers {
 	my ($pause) = @_;
 
-	system('docker '.$pause.' $(docker ps -a -q) 1>/dev/null 2>1');
+	system("$container_engine $pause \$($container_engine ps -a -q)"
+		. ' 1>/dev/null 2>1');
 }
 
 sub check_peers {

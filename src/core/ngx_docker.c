@@ -13,7 +13,8 @@
     ((u)->type == NGX_DOCKER_HTTP_UPSTREAM ? "http" : "stream")
 
 #define ngx_docker_get_data_child(item)                                       \
-    ((item)->data.child == NULL ? NULL : (item)->data.child->next)
+    (((item)->type != NGX_DATA_OBJECT_TYPE || (item)->data.child == NULL)     \
+     ? NULL : (item)->data.child->next)
 
 
 static ngx_docker_upstream_action_t  http_upstream_action;

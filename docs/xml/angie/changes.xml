@@ -9,18 +9,33 @@
 
 <change type="feature">
 <para lang="ru">
-директива "docker_endpoint" в блоке "http", позволяющая указать Unix-сокет
-или URL для подключения к Docker для динамического обновления групп
-upstream-серверов на основе Docker-меток;
-директива "docker_max_object_size" в блоке "http", позволяющая указать
-максимальный размер JSON-объекта в ответе от Docker.
+автоматическое получение и динамическое обновление групп проксируемых
+серверов на основе меток Docker-контейнеров (или Podman), настраиваемое с
+помощью директивы "docker_endpoint"; это позволяет на указанном Docker API в
+реальном времени отслеживать запуск и остановку контейнеров и, соответственно,
+добавлять или удалять их адреса из списка "upstream" согласно прописанным в них
+специальным меткам и без перезагрузки конфигурации.
 </para>
 <para lang="en">
-the "docker_endpoint" directive, located within the "http" block, specifies
-the Unix socket or URL used to connect to Docker. This enables dynamic updates
-to upstream server groups based on Docker labels.
-The "docker_max_object_size" directive, also in the "http" block, specifies the
-maximum size of a JSON object in a response from Docker.
+automatic retrieval and dynamic updating of proxied server groups based on
+Docker (or Podman) container labels, configured with the "docker_endpoint"
+directive; this enables real-time monitoring of container start and stop times
+via the specified Docker API endpoint, as well as the addition or removal of
+their addresses from an "upstream" group according to their labels, without the
+need for a configuration reload.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка автоматического получения TLS-сертификатов по протоколу ACME
+в stream-модуле, настраиваемое с использованием директивы "acme" и переменных
+вида "$acme_cert_*" и "$acme_cert_key_*".
+</para>
+<para lang="en">
+support for automatic certificate acquisition in the stream module through
+the use of the ACME protocol, managed using the "acme" directive, along with
+variables named "$acme_cert_*" and "$acme_cert_key_*".
 </para>
 </change>
 
@@ -39,31 +54,23 @@ Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony Doeraene.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.27.5.
+блок "client", позволяющий задавать дополнительную конфигурацию для внутренних
+HTTP-запросов, исходящих от различных модулей.
 </para>
 <para lang="en">
-all functionality of nginx 1.27.5.
+the "client" block that allows to specify additional configuration for the
+internal HTTP requests issued by various modules.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-поддержка директивы "acme" и переменных "$acme_cert_*" и "$acme_cert_key_*"
-в stream.
+вся функциональность nginx 1.27.5, включая контроль перегрузки CUBIC в
+соединениях QUIC.
 </para>
 <para lang="en">
-support for the "acme" directive and the "$acme_cert_*" and "$acme_cert_key_*"
-variables in the "stream" section.
-</para>
-</change>
-
-
-<change type="feature">
-<para lang="ru">
-директива "client", позволяющая задавать конфигурацию встроенного HTTP-клиента.
-</para>
-<para lang="en">
-the "client" directive specifies configuration of the builtin HTTP client.
+all functionality of nginx 1.27.5, including CUBIC congestion control in QUIC
+connections.
 </para>
 </change>
 

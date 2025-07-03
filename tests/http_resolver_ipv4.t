@@ -73,7 +73,7 @@ http {
 
 EOF
 
-$t->try_run('no resolver ipv4')->plan(3);
+$t->try_run('no inet6 support')->plan(3);
 
 $t->run_daemon(\&dns_daemon, port(8980), $t);
 $t->waitforfile($t->testdir . '/' . port(8980));

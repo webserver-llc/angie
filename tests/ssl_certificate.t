@@ -178,7 +178,6 @@ local $TODO = 'not TLSv1.3 sessions in Net::SSLeay (LibreSSL)'
 like(get('default', 8080, $s), qr/default:r/, 'session reused');
 
 TODO: {
-# ticket key name mismatch prevents session resumption
 local $TODO = 'no SSL_session_key, old IO::Socket::SSL'
 	if $IO::Socket::SSL::VERSION < 1.965;
 

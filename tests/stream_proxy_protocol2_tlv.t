@@ -87,9 +87,6 @@ like($r, qr/x:\x0d?$/m, 'non-existent');
 
 # big proxy protocol header with TLVs
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.3');
-
 my $sub = pp2_create_tlv(0x21, "TLSv1.2");
 $sub .= pp2_create_tlv(0x22, "example.com");
 $sub .= pp2_create_tlv(0x23, "AES256-SHA");
@@ -111,8 +108,6 @@ SKIP: {
 skip 'no PCRE', 1 unless $t->has_module('rewrite');
 
 like($r, qr/ssl-binary:true/, 'SSL_BINARY');
-
-}
 
 }
 

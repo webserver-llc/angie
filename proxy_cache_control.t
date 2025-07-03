@@ -194,14 +194,9 @@ like(get('/cache-control'), qr/HIT/, 'cache-control');
 like(get('/x-accel-expires'), qr/HIT/, 'x-accel-expires');
 like(get('/x-accel-expires-at'), qr/EXPIRED/, 'x-accel-expires at');
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.0');
-
 # the second header to disable cache is duplicate and ignored
 
 like(get('/x-accel-expires-duplicate'), qr/HIT/, 'x-accel-expires duplicate');
-
-}
 
 # with cache headers ignored, the response will be fresh
 
@@ -211,14 +206,8 @@ like(get('/ignore'), qr/MISS/, 'cache headers ignored');
 
 like(get('/cache-control-before-expires'), qr/HIT/,
 	'cache-control before expires');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.0');
-
 like(get('/cache-control-after-expires'), qr/HIT/,
 	'cache-control after expires');
-
-}
 
 like(get('/cache-control-no-cache-before-expires'), qr/MISS/,
 	'cache-control no-cache before expires');
@@ -228,13 +217,7 @@ like(get('/cache-control-no-cache-after-expires'), qr/MISS/,
 # X-Accel-Expires is preferred over both Cache-Control and Expires
 
 like(get('/x-accel-expires-before'), qr/HIT/, 'x-accel-expires before');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.0');
-
 like(get('/x-accel-expires-after'), qr/HIT/, 'x-accel-expires after');
-
-}
 
 like(get('/x-accel-expires-0-before'), qr/MISS/, 'x-accel-expires 0 before');
 like(get('/x-accel-expires-0-after'), qr/MISS/, 'x-accel-expires 0 after');
@@ -250,14 +233,8 @@ like(get('/cache-control-no-cache-multi'), qr/MISS/,
 
 like(get('/extension-before-x-accel-expires'),
 	qr/STALE/, 'cache-control extensions before x-accel-expires');
-
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.0');
-
 like(get('/extension-after-x-accel-expires'),
 	qr/STALE/, 'cache-control extensions after x-accel-expires');
-
-}
 
 # Set-Cookie is considered when caching with Cache-Control
 

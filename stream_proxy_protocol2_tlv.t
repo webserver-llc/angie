@@ -24,7 +24,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_return stream_map/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return stream_map/)->plan(14)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -63,7 +63,7 @@ stream {
 
 EOF
 
-$t->try_run('no proxy_protocol tlv')->plan(14);
+$t->run();
 
 ###############################################################################
 
@@ -86,9 +86,6 @@ like($r, qr/x:\x0d?$/m, 'non-existent');
 
 # big proxy protocol header with TLVs
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.23.3');
-
 my $sub = pp2_create_tlv(0x21, "TLSv1.2");
 $sub .= pp2_create_tlv(0x22, "example.com");
 $sub .= pp2_create_tlv(0x23, "AES256-SHA");
@@ -110,8 +107,6 @@ SKIP: {
 skip 'no PCRE', 1 unless $t->has_module('rewrite');
 
 like($r, qr/ssl-binary:true/, 'SSL_BINARY');
-
-}
 
 }
 

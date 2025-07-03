@@ -1,4 +1,32 @@
 
+Changes with Angie 1.10.0                                        03 Jul 2025
+
+    *) Feature: automatic retrieval and dynamic updating of proxied server
+       groups based on Docker (or Podman) container labels, configured with
+       the "docker_endpoint" directive; this enables real-time monitoring of
+       container start and stop times via the specified Docker API endpoint,
+       as well as the addition or removal of their addresses from an
+       "upstream" group according to their labels, without the need for a
+       configuration reload.
+
+    *) Feature: support for automatic certificate acquisition in the stream
+       module through the use of the ACME protocol, managed using the "acme"
+       directive, along with variables named "$acme_cert_*" and
+       "$acme_cert_key_*".
+
+    *) Feature: support for handling MPTCP connections with the "multipath"
+       parameter of the "listen" directive.
+       Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony
+       Doeraene.
+
+    *) Feature: the "client" block that allows to specify additional
+       configuration for the internal HTTP requests issued by various
+       modules.
+
+    *) Feature: all functionality of nginx 1.27.5, including CUBIC
+       congestion control in QUIC connections.
+
+
 Changes with Angie 1.9.1                                         29 May 2025
 
     *) Feature: support for IP addresses along with port numbers in the
@@ -19,8 +47,8 @@ Changes with Angie 1.9.1                                         29 May 2025
     *) Bugfix: an early error while establishing an HTTP/3 connection to a
        proxied server could cause a worker process to crash.
 
-    *) Bugfix: the number of active connections during proxying via the
-       HTTP/3 protocol might be displayed incorrectly in the statistics.
+    *) Bugfix: when proxying via the HTTP/3 protocol, the number of active
+       connections in the statistics could be displayed incorrectly.
 
 
 Changes with Angie 1.9.0                                         11 Apr 2025

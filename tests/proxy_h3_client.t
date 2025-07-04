@@ -379,7 +379,7 @@ http {
             proxy_ssl_certificate_key localhost.key;
             proxy_http_version        3;
 
-            proxy_pass https://127.0.0.1:9901;
+            proxy_pass https://127.0.0.1:%%PORT_9901_UDP%%;
         }
 
         location /trail {

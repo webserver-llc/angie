@@ -145,7 +145,7 @@ http {
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
-        listen       127.0.0.1:9901 quic;
+        listen       127.0.0.1:%%PORT_9901_UDP%% quic;
         server_name  h3backend4;
 
         quic_retry on;

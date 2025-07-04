@@ -126,7 +126,7 @@ sub annotate {
 	my ($tc) = @_;
 
 	my $tname = (split(/::/, (caller(1))[3]))[1];
-	note("# ***  $tname: $tc \n");
+	note("***  $tname: $tc");
 }
 
 # opens connection to a specified host and port

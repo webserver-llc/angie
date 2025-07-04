@@ -14,8 +14,8 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT /;
-use Test::Utils qw/ annotate /;
+use Test::Nginx;
+use Test::Utils qw/annotate/;
 
 ###############################################################################
 
@@ -570,42 +570,43 @@ $t->waitforsocket('127.0.0.1:' . port(9085));
 ###############################################################################
 
 # prepare for testing: get sticky cookies for all backends
-my %bmap = collect_cookies("/backend_");
-my %smap = collect_cookies("/sbackend_", "foo=bazz");
-my %rmap = collect_cookies("/rbackend_");
-my %sslmap = collect_cookies("/sslbackend_");
+my %bmap = collect_cookies('/backend_');
+my %smap = collect_cookies('/sbackend_', 'foo=bazz');
+my %rmap = collect_cookies('/rbackend_');
+my %sslmap = collect_cookies('/sslbackend_');
 
 my %rs_map= ();
 $rs_map{B1} = '2d8ba3f2e6f2ce67dab723dcd0a5febd'; # f('a', 'secret_arg')
 $rs_map{B2} = 'bc98dccc7f3f72d40edc838eca39cb15'; # f('bb', 'secret_arg')
 
 ###############################################################################
-tc1("rr regression");
-tc2("Sticky cookie basic with rr");
-tc3("Sticky cookie basic with least_conn");
-tc4("Sticky cookie basic with ip_hash");
-tc5("Sticky cookie basic with hash");
-tc6("Sticky cookie basic with random");
-tc7("Sticky with keepalive (pre)");
-tc8("Sticky with keepalive (post)");
-tc9("Sticky with keepalive and LB (pre)");
-tc10("Sticky with keepalive and LB (post)");
-tc11("Sticky cookie secret");
-tc12("Sticky cookie with route");
-tc13("Sticky route basic");
-tc13secret("Sticky route basic with secret");
-tc14("Sticky strict with rr");
-tc15("Sticky strict with hash");
-tc16("Sticky strict with ip_hash");
-tc17("Sticky strict with least_conn");
-tc18("Sticky strict with random");
-tc19("Sticky cookie garbage");
-tc20("Sticky cookie with ssl");
-tc21("Sticky cookie with variable proxy_pass");
-tc22("Sticky with implicit upstreams");
-tc23("Sticky with proxy_next_upstream");
-tc24("Sticky with backup");
-tc25("Sticky strict with backup");
+
+tc1('rr regression');
+tc2('Sticky cookie basic with rr');
+tc3('Sticky cookie basic with least_conn');
+tc4('Sticky cookie basic with ip_hash');
+tc5('Sticky cookie basic with hash');
+tc6('Sticky cookie basic with random');
+tc7('Sticky with keepalive (pre)');
+tc8('Sticky with keepalive (post)');
+tc9('Sticky with keepalive and LB (pre)');
+tc10('Sticky with keepalive and LB (post)');
+tc11('Sticky cookie secret');
+tc12('Sticky cookie with route');
+tc13('Sticky route basic');
+tc13secret('Sticky route basic with secret');
+tc14('Sticky strict with rr');
+tc15('Sticky strict with hash');
+tc16('Sticky strict with ip_hash');
+tc17('Sticky strict with least_conn');
+tc18('Sticky strict with random');
+tc19('Sticky cookie garbage');
+tc20('Sticky cookie with ssl');
+tc21('Sticky cookie with variable proxy_pass');
+tc22('Sticky with implicit upstreams');
+tc23('Sticky with proxy_next_upstream');
+tc24('Sticky with backup');
+tc25('Sticky strict with backup');
 
 ###############################################################################
 
@@ -616,11 +617,11 @@ sub tc1 {
 	annotate(@_);
 
 	for (1 .. 4) {
-		my %res = get_sticky_reply("/tc_1");
-		my $backend = $res{"backend"};
-		my $cookie = $res{"cookie"};
+		my %res = get_sticky_reply('/tc_1');
+		my $backend = $res{backend};
+		my $cookie  = $res{cookie};
 
-		is($backend, "B$_", "backend is selected by RR");
+		is($backend, "B$_", 'backend is selected by RR');
 		is($cookie, undef, "no cookie is set for backend $_");
 	}
 }
@@ -635,57 +636,58 @@ sub tc2 {
 
 	# normal request
 	for (1 .. 2) {
-		my %res = get_sticky_reply("/tc_2");
-		my $backend = $res{"backend"};
-		my $cookie  = $res{"cookie"};
-		my $code    = $res{"code"};
+		my %res = get_sticky_reply('/tc_2');
+		my $backend = $res{backend};
+		my $cookie  = $res{cookie};
+		my $code    = $res{code};
 
-		is($backend, "B$_", "backend is selected by RR");
+		is($backend, "B$_", 'backend is selected by RR');
 		is($cookie, $bmap{$backend}, "cookie is correct for backend $_");
-		is($code, "200", "response is 200 OK");
+		is($code, '200', 'response is 200 OK');
 
-		my $attrs = $res{"attrs"};
+		my $attrs = $res{attrs};
 		my ($a) = $attrs =~ /a=(\w+)/;
 		my ($c) = $attrs =~ /c=(\w+)/;
 		my ($e) = $attrs =~ /e=(\w+)/;
 
-		is($a, "b", "first attr is good");
-		is($c, "d", "second attr is good");
-		is($e, "f", "variable attr is good");
+		is($a, 'b', 'first attr is good');
+		is($c, 'd', 'second attr is good');
+		is($e, 'f', 'variable attr is good');
 
-		is($attrs, "a=b; c=d; e=f; path=/",
-		   "no extra in attributes, defaults set");
+		is($attrs, 'a=b; c=d; e=f; path=/',
+		   'no extra in attributes, defaults set');
 	}
 
-	verify_sticky_upstream("/tc_2", \%bmap);
+	verify_sticky_upstream('/tc_2', \%bmap);
 }
 
 # testcase 3..6 - verify that sticky works with different load balancers
 # additionally, in tc3 test some default attributes
 sub tc3 {
 	annotate(@_);
-	verify_sticky_upstream("/tc_3", \%bmap);
 
-	my %res = get_sticky_reply("/tc_3");
+	verify_sticky_upstream('/tc_3', \%bmap);
 
-	my $attrs = $res{"attrs"};
+	my %res = get_sticky_reply('/tc_3');
 
-	is($attrs, "s=http", "default attrs zeroed, varattr is set");
+	my $attrs = $res{attrs};
+
+	is($attrs, 's=http', 'default attrs zeroed, varattr is set');
 }
 
 sub tc4 {
 	annotate(@_);
-	verify_sticky_upstream("/tc_4", \%bmap);
+	verify_sticky_upstream('/tc_4', \%bmap);
 }
 
 sub tc5 {
 	annotate(@_);
-	verify_sticky_upstream("/tc_5", \%bmap);
+	verify_sticky_upstream('/tc_5', \%bmap);
 }
 
 sub tc6 {
 	annotate(@_);
-	verify_sticky_upstream("/tc_6", \%bmap);
+	verify_sticky_upstream('/tc_6', \%bmap);
 }
 
 # testcases 7..10: verify that sticky still workis if keepalive is enabled
@@ -694,39 +696,39 @@ sub tc7 {
 	annotate(@_);
 
 	verify_rr('/tc_7', 2, 4);
-	verify_sticky_upstream("/tc_7", \%bmap);
+	verify_sticky_upstream('/tc_7', \%bmap);
 }
 
 sub tc8 {
 	annotate(@_);
 
 	verify_rr('/tc_8', 2, 4);
-	verify_sticky_upstream("/tc_8", \%bmap);
+	verify_sticky_upstream('/tc_8', \%bmap);
 }
 
 sub tc9 {
 	annotate(@_);
 
 	verify_rr('/tc_9', 2, 4);
-	verify_sticky_upstream("/tc_9", \%bmap);
+	verify_sticky_upstream('/tc_9', \%bmap);
 }
 
 sub tc10 {
 	annotate(@_);
 
 	verify_rr('/tc_10', 2, 4);
-	verify_sticky_upstream("/tc_10", \%bmap);
+	verify_sticky_upstream('/tc_10', \%bmap);
 }
 
 # verifies 'sticky secret' option
 sub tc11 {
 	annotate(@_);
 
-	verify_sticky_upstream("/tc_11?foo=bazz", \%smap);
+	verify_sticky_upstream('/tc_11?foo=bazz', \%smap);
 
 	# try to stick with bad password in argument
 	# make request with (bad) sticky cookie - expect round-robin
-	verify_rr('/tc_11?foo=blah', 2, 2, $smap{"B2"});
+	verify_rr('/tc_11?foo=blah', 2, 2, $smap{B2});
 }
 
 # verify sticky cookie with sid= backends
@@ -734,7 +736,7 @@ sub tc12 {
 	annotate(@_);
 
 	verify_rr('/tc_12', 2, 4);
-	verify_sticky_upstream("/tc_12", \%rmap);
+	verify_sticky_upstream('/tc_12', \%rmap);
 }
 
 # ensure backends are selected by $arg_route
@@ -742,7 +744,7 @@ sub tc13 {
 	annotate(@_);
 
 	verify_rr('/tc_13', 2, 4);
-	verify_route_upstream("/tc_13", \%rmap);
+	verify_route_upstream('/tc_13', \%rmap);
 }
 
 # ensure backends are selected by $arg_route + secret
@@ -750,39 +752,34 @@ sub tc13secret {
 	annotate(@_);
 
 	verify_rr('/tc_13secret', 2, 4);
-	verify_route_upstream("/tc_13secret", \%rs_map, "bar");
+	verify_route_upstream('/tc_13secret', \%rs_map, 'bar');
 }
 
 # testcases 14..18 - verify 'sticky strict' with various balancers
 # if sticky_strict enabled, 502 is returned, if backend is not available
 sub tc14 {
 	annotate(@_);
-
-	verify_strict("/tc_14");
+	verify_strict('/tc_14');
 }
 
 sub tc15 {
 	annotate(@_);
-
-	verify_strict("/tc_15");
+	verify_strict('/tc_15');
 }
 
 sub tc16 {
 	annotate(@_);
-
-	verify_strict("/tc_16");
+	verify_strict('/tc_16');
 }
 
 sub tc17 {
 	annotate(@_);
-
-	verify_strict("/tc_17");
+	verify_strict('/tc_17');
 }
 
 sub tc18 {
 	annotate(@_);
-
-	verify_strict("/tc_18");
+	verify_strict('/tc_18');
 }
 
 # coverage: send some garbage in sticky cookie and verify we get RR
@@ -790,7 +787,7 @@ sub tc19 {
 	annotate(@_);
 
 	# generate long cookie with len > 32
-	my $cookie = "0123456789" x 4;
+	my $cookie = '0123456789' x 4;
 
 	# verify that we get RR with such poor cookie
 	verify_rr('/tc_19', 2, 4, $cookie);
@@ -799,77 +796,75 @@ sub tc19 {
 # coverage: backends via SSL, to verify set/save session is called
 sub tc20 {
 	annotate(@_);
-
-	verify_sticky_upstream("/tc_20", \%sslmap);
+	verify_sticky_upstream('/tc_20', \%sslmap);
 }
 
 # verify sticky works if upstream is defined by variable
 sub tc21 {
 	annotate(@_);
-
-	verify_sticky_upstream("/tc_21", \%bmap);
+	verify_sticky_upstream('/tc_21', \%bmap);
 }
 
 # verify how sticky works with implicit upstreams
 sub tc22 {
 	annotate(@_);
 
-	my %res = get_sticky_reply("/tc_22?u=127.0.0.1:".port(8081));
+	my %res = get_sticky_reply('/tc_22?u=127.0.0.1:' . port(8081));
 
-	is($res{"backend"}, "B1", "implicit backend B1");
-	is($res{"code"}, "200", "implicit backend response good");
-	is($res{"cookie"}, undef, "no sticky cookie");
+	is($res{backend}, 'B1', 'implicit backend B1');
+	is($res{code}, '200', 'implicit backend response good');
+	is($res{cookie}, undef, 'no sticky cookie');
 
 	# check cookie name is correct when different upstreams selected
-	%res = get_sticky_reply("/tc_22?u=tc_22_a");
+	%res = get_sticky_reply('/tc_22?u=tc_22_a');
 
-	is($res{"backend"}, "B1", "var upstream selects B1");
-	is($res{"cookie"}, $bmap{"B1"}, "sticky cookie set");
-	is($res{"cookie_name"},  "sca" , "sticky cookie name is correct for a");
+	is($res{backend}, 'B1', 'var upstream selects B1');
+	is($res{cookie}, $bmap{B1}, 'sticky cookie set');
+	is($res{cookie_name},  'sca' , 'sticky cookie name is correct for a');
 
-	%res = get_sticky_reply("/tc_22?u=tc_22_b");
+	%res = get_sticky_reply('/tc_22?u=tc_22_b');
 
-	is($res{"backend"}, "B1", "var upstream selects B1");
-	is($res{"cookie"}, $bmap{"B1"}, "sticky cookie set");
-	is($res{"cookie_name"},  "scb" , "sticky cookie name is correct for b");
+	is($res{backend}, 'B1', 'var upstream selects B1');
+	is($res{cookie}, $bmap{B1}, 'sticky cookie set');
+	is($res{cookie_name},  'scb' , 'sticky cookie name is correct for b');
 }
 
 # verify sticky with proxy next upstream
 sub tc23 {
 	annotate(@_);
 
-	my %res = get_sticky_reply("/tc_23", $bmap{"B5"});
+	my %res = get_sticky_reply('/tc_23', $bmap{B5});
 
-	is($res{"backend"}, "B2", "B2 is selected instead of B5");
-	is($res{"cookie"}, $bmap{"B2"}, "cookie is set for B2");
+	is($res{backend}, 'B2', 'B2 is selected instead of B5');
+	is($res{cookie}, $bmap{B2}, 'cookie is set for B2');
 }
 
 # verify sticky with backup servers
 sub tc24 {
 	annotate(@_);
 
-	my %res = get_sticky_reply("/tc_24/bad");
+	my %res = get_sticky_reply('/tc_24/bad');
 
 	# expect B1 and B2 to fail, B3 is selected from backup
-	is($res{"cookie"}, $bmap{"B3"}, "cookie is set for B3");
+	is($res{cookie}, $bmap{B3}, 'cookie is set for B3');
 
 	# RR will select B3 from backup again
-	%res = get_sticky_reply("/tc_24", $bmap{"B3"});
-	is($res{"cookie"}, $bmap{"B3"}, "cookie is again from B3");
+	%res = get_sticky_reply('/tc_24', $bmap{B3});
+	is($res{cookie}, $bmap{B3}, 'cookie is again from B3');
 }
 
 # verify sticky with backup servers and 'strict' option
 sub tc25 {
 	annotate(@_);
 
-	my %res = get_sticky_reply("/tc_25/bad");
+	my %res = get_sticky_reply('/tc_25/bad');
 
 	# expect B1 and B2 to fail, B3 is selected from backup
-	is($res{"cookie"}, $bmap{"B3"}, "cookie is set for B3");
+	is($res{cookie}, $bmap{B3}, 'cookie is set for B3');
 
 	# strict sticky gets request to backup backend
-	%res = get_sticky_reply("/tc_25", $bmap{"B3"});
-	is($res{"cookie"}, $bmap{"B3"}, "request is stick to backup");
+	%res = get_sticky_reply('/tc_25', $bmap{B3});
+	is($res{cookie}, $bmap{B3}, 'request is stick to backup');
 }
 
 ###############################################################################
@@ -877,10 +872,9 @@ sub tc25 {
 # makes an HTTP request to passed $uri (with optional cookie)
 # returns hash with various response properties: backend, cookie, attrs, code
 sub get_sticky_reply {
-
 	my ($uri, $sticky_cookie, $cookie_name) = @_;
 
-	$cookie_name //= "sticky";
+	$cookie_name //= 'sticky';
 
 	my $response;
 	if (defined $sticky_cookie) {
@@ -917,24 +911,20 @@ EOF
 sub collect_cookies {
 	my ($uri_template, $secret_arg) = @_;
 
-	note("# Backend cookies [$uri_template]:\n");
+	note("Backend cookies [$uri_template]:");
 
 	my %backend_cookies;
 	for (1 .. 5) {
-
-		my $url;
-		if (!defined $secret_arg) {
-			$url = " $uri_template$_/good";
-		} else {
-			$url = " $uri_template$_/good?$secret_arg";
-		}
+		my $url = (!defined $secret_arg)
+			? " $uri_template$_/good"
+			: " $uri_template$_/good?$secret_arg";
 
 		my %result = get_sticky_reply($url);
 
-		my $backend = $result{"backend"};
-		my $cookie  = $result{"cookie"};
+		my $backend = $result{backend};
+		my $cookie  = $result{cookie};
 
-		note("#	$backend <=> $cookie\n");
+		note("$backend <=> $cookie");
 
 		$backend_cookies{$backend} = $cookie;
 	}
@@ -948,16 +938,16 @@ sub collect_cookies {
 sub verify_sticky_upstream {
 	my ($uri, $bmap) = @_;
 
-	verify_sticky_cookie($uri, $bmap->{"B2"}, "B2");
-	verify_sticky_cookie($uri, $bmap->{"B1"}, "B1");
+	verify_sticky_cookie($uri, $bmap->{B2}, 'B2');
+	verify_sticky_cookie($uri, $bmap->{B1}, 'B1');
 }
 
 # verify that both backends in upstream are sticked via route
 sub verify_route_upstream {
 	my ($uri, $bmap, $secret) = @_;
 
-	verify_sticky_route($uri, $bmap->{"B2"}, "B2", $secret);
-	verify_sticky_route($uri, $bmap->{"B1"}, "B1", $secret);
+	verify_sticky_route($uri, $bmap->{B2}, 'B2', $secret);
+	verify_sticky_route($uri, $bmap->{B1}, 'B1', $secret);
 }
 
 # perform: send request to $uri 4 times with cookie for $backend
@@ -967,13 +957,13 @@ sub verify_sticky_cookie {
 
 	my $n = 4;
 
-	my $expected = ($backend.$cookie) x $n;
-	my $actual;
+	my $expected = ($backend . $cookie) x $n;
+	my $actual = '';
 
-	for (1..$n) {
+	for (1 .. $n) {
 		my %res = get_sticky_reply($uri, $cookie);
-		$actual .= $res{"backend"};
-		$actual .= $res{"cookie"};
+		$actual .= $res{backend};
+		$actual .= $res{cookie};
 	}
 
 	is($expected, $actual, "request to $uri and backend $backend is sticky");
@@ -988,55 +978,48 @@ sub verify_sticky_route {
 
 	my $cookies = '';
 	my $expected = ($backend) x $n;
-	my $actual;
+	my $actual = '';
 
-	if (defined $secret) {
-		$secret = "&secret=$secret";
-	} else {
-		$secret = '';
-	}
+	$secret = (defined $secret) ? "&secret=$secret" : '';
 
-	for (1..$n) {
+	for (1 .. $n) {
 		my %res = get_sticky_reply($uri."?route=$route$secret");
-		$actual .= $res{"backend"};
-		if (defined $res{"cookie"}) {
-			$cookies .= $res{"cookie"};
+		$actual .= $res{backend};
+		if (defined $res{cookie}) {
+			$cookies .= $res{cookie};
 		}
 	}
 
 	is($actual, $expected, "request to $uri and backend $backend is sticky");
-	is($cookies, "", "no cookies set in route mode");
+	is($cookies, '', 'no cookies set in route mode');
 }
 
 # tests how 'sticky strict' option works
 sub verify_strict {
 	my ($uri) = @_;
 
-	my %res = get_sticky_reply($uri, $bmap{"B1"});
+	my %res = get_sticky_reply($uri, $bmap{B1});
 
 	# sticky request to down server is bad
-	is($res{"code"}, 502, "sticky request to u/a server returns 502");
+	is($res{code}, 502, 'sticky request to u/a server returns 502');
 
 	# request without sticky is served ok
 	%res = get_sticky_reply($uri);
-	is($res{"code"}, 200, "there are alive servers in same backend");
+	is($res{code}, 200, 'there are alive servers in same backend');
 
 	# sticky request to good server is ok
-	%res = get_sticky_reply($uri, $bmap{"B2"});
-	is($res{"code"}, 200, "B2 is good");
-	is($res{"cookie"}, $bmap{"B2"}, "sticky cookie match");
-	is($res{"backend"}, "B2", "backend match");
+	%res = get_sticky_reply($uri, $bmap{B2});
+	is($res{code}, 200, 'B2 is good');
+	is($res{cookie}, $bmap{B2}, 'sticky cookie match');
+	is($res{backend}, 'B2', 'backend match');
 }
 
 # increment key in hash or create new key
 sub inckey {
 	my ($hash, $key) = @_;
 
-	if (!defined $hash->{$key}) {
-		$hash->{$key} = 1;
-	} else {
-		$hash->{$key} = $hash->{$key} + 1;
-	}
+	$hash->{$key} //= 0;
+	$hash->{$key} ++;
 }
 
 # perform $n x $nb requests (assuming $nb backends)
@@ -1044,14 +1027,14 @@ sub inckey {
 sub verify_rr {
 	my ($uri, $nb, $n, $cookie) = @_;
 
-	my (%reply, %distr);
+	my %distr;
 
 	my $total = $nb * $n;
 
 	for (1 .. $total) {
 		my %reply = get_sticky_reply($uri, $cookie);
 
-		inckey(\%distr, $reply{"backend"});
+		inckey(\%distr, $reply{backend});
 	}
 
 	for (1 .. $nb) {

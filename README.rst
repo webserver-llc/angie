@@ -69,11 +69,9 @@ On top of all the capabilities of
   <https://en.angie.software/angie/docs/configuration/monitoring/>`_ visual
   monitoring tool.  See the online demo: https://console.angie.software/
 
-- Automatically `updating
-  <https://en.angie.software/angie/docs/configuration/modules/http/http_upstream/#reresolve>`_
-  lists of proxied servers matching a domain name or `retrieving
-  <https://en.angie.software/angie/docs/configuration/modules/http/http_upstream/#reresolve>`_
-  such lists from SRV DNS records.
+- Dynamic updating of upstream groups based on events and labels from `Docker containers
+  <https://en.angie.software/angie/docs/configuration/modules/http/http_docker/#http-docker>`_
+  (or similar tools like Podman) without server reload.
 
 - Flushing the shared memory zone in `proxy_cache_path
   <https://en.angie.software/angie/docs/configuration/modules/http/http_proxy/#proxy-cache-path>`_

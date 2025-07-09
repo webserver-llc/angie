@@ -556,6 +556,8 @@ ngx_quic_client_start(ngx_connection_t *c, ngx_quic_header_t *pkt)
         return NGX_ERROR;
     }
 
+    qc->retry_handled = 1;
+
 start:
 
     if (ngx_quic_client_handshake(c) != NGX_OK) {
@@ -1389,6 +1391,12 @@ ngx_quic_handle_packet(ngx_connection_t *c, ngx_quic_conf_t *conf,
             if (qc->client) {
 
                 if (ngx_quic_pkt_retry(pkt->flags)) {
+                    if (qc->retry_handled) {
+                        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                                       "quic client extra retry ignored");
+                        return NGX_DONE;
+                    }
+
                     return ngx_quic_client_start(c, pkt);
                 }
 

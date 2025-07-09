@@ -310,6 +310,7 @@ struct ngx_quic_connection_s {
     unsigned                          server_id_known:1;
     unsigned                          client:1;
     unsigned                          switch_keys:1;
+    unsigned                          retry_handled:1;
 };
 
 

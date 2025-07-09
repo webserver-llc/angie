@@ -7,6 +7,18 @@
 
 <changes ver="1.10.1" date="">
 
+<change type="bugfix">
+<para lang="ru">
+HTTP/3 хендшейк с проксируемым сервером мог быть неудачным при использовании
+библиотеки openssl-3.5.0 или выше, если на сервере был активен режим retry
+QUIC-протокола.
+</para>
+<para lang="en">
+HTTP/3 handshake with upstream server might fail when using openssl-3.5.0 or
+above if the QUIC protocol retry mode was active on server.
+</para>
+</change>
+
 </changes>
 
 

@@ -643,14 +643,8 @@ like($res, "/x-upstream_addr: 127.0.0.1:$p2, 127.0.0.1:$p1/", "tried some server
 $res = http_get("/inline");
 like($res, "/server=h3backend;protocol=h3/", "h3 response from backend");
 
-TODO: {
-	local $TODO = '"invalid session id" error since OpenSSL 3.5.0'
-		if $t->has_feature('openssl:3.5.0');
-
-	$res = http_get("/retry");
-	like($res, "/OK server=h3backend4;protocol=h3/",
-		"HTTP/3 response from retry");
-}
+$res = http_get("/retry");
+like($res, "/OK server=h3backend4;protocol=h3/", "HTTP/3 response from retry");
 
 # for coverage: bad handshake
 $res = http_get("/hs");

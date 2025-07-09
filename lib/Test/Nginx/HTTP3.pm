@@ -49,6 +49,7 @@ sub new {
 	$self->{cipher} = 0x1301;
 	$self->{ciphers} = $extra{ciphers} || "\x13\x01";
 	$self->{group} = $extra{group} || 'x25519';
+	$self->{ccomp} = $extra{ccomp} || [];
 	$self->{opts} = $extra{opts};
 	$self->{chaining} = $extra{start_chain} || 0;
 
@@ -2293,7 +2294,7 @@ sub parse_tls_certificate {
 		my $len = unpack("n", substr($buf, $off + 2, 2));
 		$content = substr($buf, $off + 4, $len);
 		return 0 if length($content) < $len;
-		last if $type == 11;
+		last if $type == 11 || $type == 25;
 		$off += 4 + $len;
 	}
 	$self->{tlsm}{cert} = substr($buf, $off, 4) . $content;
@@ -2374,6 +2375,7 @@ sub build_tls_client_hello {
 		. build_tlsext_supported_groups($named_group)
 		. build_tlsext_alpn("h3", "hq-interop")
 		. build_tlsext_sigalgs(0x0804, 0x0805, 0x0806)
+		. build_tlsext_certcomp(@{$self->{ccomp}})
 		. build_tlsext_supported_versions(0x0304)
 		. build_tlsext_ke_modes(1)
 		. build_tlsext_key_share($named_group, $key_share)
@@ -2412,6 +2414,13 @@ sub build_tlsext_alpn {
 sub build_tlsext_sigalgs {
 	my $sschemelist = pack('n*', @_ * 2, @_);
 	pack('n2', 13, length($sschemelist)) . $sschemelist;
+}
+
+sub build_tlsext_certcomp {
+	return '' unless scalar @_;
+
+	my $ccalgs = pack('Cn*', @_ * 2, @_);
+	pack('n2', 27, length($ccalgs)) . $ccalgs;
 }
 
 sub build_tlsext_supported_versions {

@@ -41,13 +41,13 @@ variables named "$acme_cert_*" and "$acme_cert_key_*".
 
 <change type="feature">
 <para lang="ru">
-поддержка приема соединений по протоколу MPTCP, включаемая с помощью опции
-"multipath" директивы "listen".<br/>
+поддержка приема соединений по протоколу Multipath TCP (MPTCP), включаемая с
+помощью опции "multipath" директивы "listen".<br/>
 Спасибо Максиму Дунину (freenginx), Максиму Дурову и Энтони Дорену.
 </para>
 <para lang="en">
-support for handling MPTCP connections with the "multipath" parameter of
-the "listen" directive.<br/>
+support for handling Multipath TCP (MPTCP) connections with the "multipath"
+parameter of the "listen" directive.<br/>
 Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony Doeraene.
 </para>
 </change>

@@ -19,6 +19,17 @@ above if the QUIC protocol retry mode was active on server.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+параметр "reuseport" директивы "listen" игнорировался, что приводило
+к обслуживанию соединений одним рабочим процессом.
+</para>
+<para lang="en">
+the "reuseport" parameter of the "listen" directive was ignored leading
+to usage of single worker process to serve connections.
+</para>
+</change>
+
 </changes>
 
 

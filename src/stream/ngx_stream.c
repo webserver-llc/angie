@@ -1020,6 +1020,10 @@ ngx_stream_init_listening(ngx_conf_t *cf, ngx_stream_conf_port_t *port)
             break;
         }
 
+        if (ngx_clone_listening(cf->cycle, ls) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
         addr++;
         last--;
     }

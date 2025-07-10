@@ -104,13 +104,18 @@ ngx_clone_listening(ngx_cycle_t *cycle, ngx_listening_t *ls)
     ngx_core_conf_t  *ccf;
     ngx_listening_t   ols;
 
-    if (!ls->reuseport || ls->worker != 0) {
+    if (!ls->reuseport || ngx_test_config) {
         return NGX_OK;
     }
 
     ols = *ls;
 
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+
+    if (!ccf->master) {
+        /* master_process off */
+        return NGX_OK;
+    }
 
     for (n = 1; n < ccf->worker_processes; n++) {
 

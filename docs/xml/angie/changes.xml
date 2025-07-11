@@ -39,6 +39,15 @@ building of HTTP/2 and HTTP/3 modules by GCC 15 ended with an error.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+сборка компилятором GCC с флагом -O3 могла завершаться ошибкой.
+</para>
+<para lang="en">
+building by GCC with the -O3 flag could end with an error.
+</para>
+</change>
+
 </changes>
 
 

@@ -97,7 +97,7 @@ ngx_json_parse(u_char *start, u_char *end, ngx_pool_t *pool,
 
     item = ngx_json_parse_first_object(start, end, &last, pool, error);
 
-    if (last != end) {
+    if (item != NULL && last != end) {
         return ngx_json_parse_error_const(error, last,
             "Unexpected character after the end of a valid JSON value."
         );

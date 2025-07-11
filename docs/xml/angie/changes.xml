@@ -30,6 +30,15 @@ to usage of single worker process to serve connections.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+сборка модулей HTTP/2 и HTTP/3 компилятором GCC 15 завершалась ошибкой.
+</para>
+<para lang="en">
+building of HTTP/2 and HTTP/3 modules by GCC 15 ended with an error.
+</para>
+</change>
+
 </changes>
 
 

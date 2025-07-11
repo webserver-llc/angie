@@ -131,6 +131,12 @@ sub read {
 
 		next if !defined $bytes_read && $!{EWOULDBLOCK};
 
+		# IO::Socket::SSL 2.091 to 2.094 fails to clear buffer on EOF
+		# (https://github.com/noxxi/p5-io-socket-ssl/issues/171);
+		# as a workaround, we set it explicitly to an empty string
+
+		$buf = '' if defined $bytes_read && $bytes_read == 0;
+
 		last;
 	}
 

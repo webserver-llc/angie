@@ -490,6 +490,9 @@ ngx_api_angie_config_files_handler(ngx_api_entry_data_t data,
 
     ictx.entry.handler = ngx_api_string_handler;
     ictx.entry.data.str = &str;
+#if (NGX_SUPPRESS_WARN)
+    ictx.ctx = NULL;  /* GCC with -O3 */
+#endif
     ictx.elts = ngx_cycle->config_dump.elts;
 
     return ngx_api_object_iterate(ngx_api_angie_config_files_iter, &ictx, actx);

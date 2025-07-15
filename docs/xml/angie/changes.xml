@@ -48,6 +48,24 @@ building by GCC with the -O3 flag could end with an error.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+возможность указания нескольких блоков "client". Ранее, использующие блок
+"client" директивы использовали общий контекст. Из-за этого общие настройки
+в явном блоке применялись ко всем использующим его директивам.
+Теперь каждая такая директива использует уникальный контекст:
+либо явно заданный блок "client" идентифицируемый по имени location,
+либо созданный неявно.
+</para>
+<para lang="en">
+the ability to specify multiple "client" blocks. Previosuly, directives using
+the "client" block were using shared context. Due to this common settings
+in the block were applied to all directives using it.
+Now each such directive is using unique context: either explicitly defined
+"client" block identified by the location name, either implicitly created.
+</para>
+</change>
+
 </changes>
 
 

@@ -18,6 +18,10 @@
 ngx_http_conf_ctx_t *ngx_http_client_create_location(ngx_conf_t *cf,
     ngx_str_t *name, ngx_str_t *commands);
 
+/* searches for existing named client location with given name */
+ngx_int_t ngx_http_client_find_location(ngx_conf_t *cf, ngx_str_t *name,
+    ngx_http_conf_ctx_t *res);
+
 /*
  * creates client request using configuration specified by ctx and given URI;
  * the handler sets finalization handler, data is a user-provided pointer.

@@ -45,9 +45,8 @@ typedef struct {
 
 static void **ngx_http_client_find_loc_conf(ngx_conf_t *cf,
     ngx_http_conf_ctx_t *srv_ctx, ngx_str_t *name);
-static ngx_http_conf_ctx_t *ngx_http_client_get_client_srv_ctx(ngx_conf_t *cf);
+static ngx_http_conf_ctx_t *ngx_http_client_create_srv_ctx(ngx_conf_t *cf);
 static ngx_http_core_main_conf_t *ngx_http_client_get_main_conf(ngx_conf_t *cf);
-static ngx_http_conf_ctx_t *ngx_http_client_find_server_ctx(ngx_conf_t *cf);
 static ngx_int_t ngx_http_client_parse_conf(ngx_conf_t *cf,
     ngx_http_conf_ctx_t *ctx, ngx_str_t *commands, ngx_uint_t modtype,
     ngx_uint_t type);
@@ -108,40 +107,23 @@ ngx_http_client_create_location(ngx_conf_t *cf, ngx_str_t *name,
     ngx_str_t *commands)
 {
     void                        *buf;
-    void                       **loc_conf;
+    ngx_int_t                    rc;
     ngx_str_t                    loc_cmd;
     ngx_http_conf_ctx_t         *ctx, *srv_ctx;
     ngx_http_core_main_conf_t   *cmcf;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
-                   "http client create location\"%V\"", name);
+                   "http client create location \"%V\"", name);
 
     ctx = ngx_pcalloc(cf->pool, sizeof(ngx_http_conf_ctx_t));
     if (ctx == NULL) {
         return NULL;
     }
 
-    cmcf = ngx_http_client_get_main_conf(cf);
-    if (cmcf == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
-                       "http{} block injection failed");
-        return NULL;
-    }
-
-    srv_ctx = ngx_http_client_get_client_srv_ctx(cf);
-    if (srv_ctx == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
-                       "client{} block injection failed");
-        return NULL;
-    }
-
-    ctx->main_conf = srv_ctx->main_conf;
-    ctx->srv_conf = srv_ctx->srv_conf;
-
-    loc_conf = ngx_http_client_find_loc_conf(cf, srv_ctx, name);
-    if (loc_conf) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
-                       "http client location \"%V\" exists", name);
+    rc = ngx_http_client_find_location(cf, name, ctx);
+    if (rc == NGX_OK) {
+        ngx_log_error(NGX_LOG_NOTICE, cf->log, 0,
+                      "using explicit client location for \"%V\"", name);
         goto done;
     }
 
@@ -153,6 +135,26 @@ ngx_http_client_create_location(ngx_conf_t *cf, ngx_str_t *name,
     }
 
     /* default commands are provided - proceed with creation */
+
+    ngx_log_error(NGX_LOG_NOTICE, cf->log, 0,
+                  "creating implicit client block for \"%V\"", name);
+
+    cmcf = ngx_http_client_get_main_conf(cf);
+    if (cmcf == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
+                       "http{} block injection failed");
+        return NULL;
+    }
+
+    srv_ctx = ngx_http_client_create_srv_ctx(cf);
+    if (srv_ctx == NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
+                       "client{} block injection failed");
+        return NULL;
+    }
+
+    ctx->main_conf = srv_ctx->main_conf;
+    ctx->srv_conf = srv_ctx->srv_conf;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
                    "http client injecting location \"%V\"", name);
@@ -175,16 +177,14 @@ ngx_http_client_create_location(ngx_conf_t *cf, ngx_str_t *name,
     }
 
     /* find the created location */
-    loc_conf = ngx_http_client_find_loc_conf(cf, srv_ctx, name);
-    if (loc_conf == NULL) {
+    ctx->loc_conf = ngx_http_client_find_loc_conf(cf, srv_ctx, name);
+    if (ctx->loc_conf == NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
                        "location \"%V\" injection failed", name);
         return NULL;
     }
 
 done:
-
-    ctx->loc_conf = loc_conf;
 
     if (commands == NULL) {
         /* no default commands, but location exists */
@@ -201,6 +201,44 @@ done:
     }
 
     return ctx;
+}
+
+
+ngx_int_t
+ngx_http_client_find_location(ngx_conf_t *cf, ngx_str_t *name,
+    ngx_http_conf_ctx_t *res)
+{
+    ngx_queue_t                 *q;
+    ngx_http_conf_ctx_t         *srv_ctx;
+    ngx_http_core_srv_conf_t    *cscf;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    cmcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_core_module);
+    if (cmcf == NULL) {
+        /* no http block */
+        return NGX_DECLINED;
+    }
+
+    /* scan all client blocks */
+    for (q = ngx_queue_head(&cmcf->clients);
+         q != ngx_queue_sentinel(&cmcf->clients);
+         q = ngx_queue_next(q))
+    {
+        cscf = ngx_queue_data(q, ngx_http_core_srv_conf_t, client_queue);
+
+        srv_ctx = cscf->ctx;
+
+        /* scan all locations inside client block */
+        res->loc_conf = ngx_http_client_find_loc_conf(cf, srv_ctx, name);
+        if (res->loc_conf) {
+            res->main_conf = srv_ctx->main_conf;
+            res->srv_conf = srv_ctx->srv_conf;
+
+            return NGX_OK;
+        }
+    }
+
+    return NGX_DECLINED;
 }
 
 
@@ -301,27 +339,6 @@ ngx_http_client_parse_conf(ngx_conf_t *cf, ngx_http_conf_ctx_t *ctx,
 }
 
 
-static ngx_http_conf_ctx_t *
-ngx_http_client_find_server_ctx(ngx_conf_t *cf)
-{
-    ngx_uint_t                   i;
-    ngx_http_core_srv_conf_t   **cscfp;
-    ngx_http_core_main_conf_t   *cmcf;
-
-    cmcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_core_module);
-
-    cscfp = cmcf->servers.elts;
-
-    for (i = 0; i < cmcf->servers.nelts; i++) {
-        if (cscfp[i]->is_client) {
-            return cscfp[i]->ctx;
-        }
-    }
-
-    return NULL;
-}
-
-
 static ngx_http_core_main_conf_t *
 ngx_http_client_get_main_conf(ngx_conf_t *cf)
 {
@@ -351,16 +368,14 @@ ngx_http_client_get_main_conf(ngx_conf_t *cf)
 
 
 static ngx_http_conf_ctx_t *
-ngx_http_client_get_client_srv_ctx(ngx_conf_t *cf)
+ngx_http_client_create_srv_ctx(ngx_conf_t *cf)
 {
-    ngx_http_conf_ctx_t *ctx, *hctx;
+    ngx_queue_t                *q;
+    ngx_http_conf_ctx_t        *hctx;
+    ngx_http_core_srv_conf_t   *cscf;
+    ngx_http_core_main_conf_t  *cmcf;
 
     static ngx_str_t client_block = ngx_string("client{}}");
-
-    ctx = ngx_http_client_find_server_ctx(cf);
-    if (ctx) {
-        return ctx;
-    }
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
                    "http client injecting client block");
@@ -374,12 +389,14 @@ ngx_http_client_get_client_srv_ctx(ngx_conf_t *cf)
         return NULL;
     }
 
-    ctx = ngx_http_client_find_server_ctx(cf);
-    if (ctx == NULL) {
-        return NULL;
-    }
+    /* just added client block is the last one in queue */
+    cmcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_core_module);
 
-    return ctx;
+    q = ngx_queue_last(&cmcf->clients);
+
+    cscf = ngx_queue_data(q, ngx_http_core_srv_conf_t, client_queue);
+
+    return cscf->ctx;
 }
 
 

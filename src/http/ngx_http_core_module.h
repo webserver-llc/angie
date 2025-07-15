@@ -273,7 +273,7 @@ typedef struct {
 #endif
 
 #if (NGX_HTTP_CLIENT)
-    ngx_uint_t                 has_client; /* unsigned has_client:1; */
+    ngx_queue_t                clients;
 #endif
 
 } ngx_http_core_main_conf_t;
@@ -312,6 +312,7 @@ typedef struct {
 
 #if (NGX_HTTP_CLIENT)
     unsigned                    is_client:1;
+    ngx_queue_t                 client_queue;
 #endif
 
     ngx_http_core_loc_t       **named_locations;

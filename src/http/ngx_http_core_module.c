@@ -3169,12 +3169,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     if (ngx_strcmp(value[0].data, "client") == 0) {
 #if (NGX_HTTP_CLIENT)
         cscf->is_client = 1;
-
-        if (cmcf->has_client) {
-            return "duplicate client section";
-        }
-
-        cmcf->has_client = 1;
+        ngx_queue_insert_tail(&cmcf->clients, &cscf->client_queue);
 #else
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "Angie was built without http client support");
@@ -3277,6 +3272,7 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     ngx_http_conf_ctx_t       *ctx, *pctx;
     ngx_http_core_loc_t        loc, *locp;
 #if (NGX_HTTP_CLIENT)
+    ngx_http_conf_ctx_t        tmp;
     ngx_http_core_srv_conf_t  *cscf;
 #endif
     ngx_http_core_loc_conf_t  *clcf, *pclcf;
@@ -3366,14 +3362,25 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
             mod = 0;
         }
 
-#if (NGX_HTTP_CLIENT)
-        if (cscf->is_client && !locp->named) {
-            return "only named locations are allowed in client block";
-        }
-#endif
-
         locp->name.len -= mod;
         locp->name.data += mod;
+
+#if (NGX_HTTP_CLIENT)
+        if (cscf->is_client) {
+
+            if (!locp->named) {
+                return "only named locations are allowed in client block";
+            }
+
+            if (ngx_http_client_find_location(cf, &locp->name, &tmp) == NGX_OK)
+            {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "the client location \"%V\" is duplicate",
+                                   &locp->name);
+                return NGX_CONF_ERROR;
+            }
+        }
+#endif
 
         if (locp->name.len == 0) {
             switch (cf->args->nelts) {
@@ -3732,6 +3739,10 @@ ngx_http_core_create_main_conf(ngx_conf_t *cf)
     {
         return NULL;
     }
+
+#if (NGX_HTTP_CLIENT)
+    ngx_queue_init(&cmcf->clients);
+#endif
 
     cmcf->server_names_hash_max_size = NGX_CONF_UNSET_UINT;
     cmcf->server_names_hash_bucket_size = NGX_CONF_UNSET_UINT;

@@ -1,4 +1,30 @@
 
+Changes with Angie 1.10.1                                        17 Jul 2025
+
+    *) Change: directives specified in the "client" block can now only be
+       inherited by explicitly declared "location" blocks within that block,
+       so they don't affect the configuration of other modules that
+       implicitly use the "client" block for outgoing requests.
+
+    *) Feature: support for multiple "client" blocks allows common settings
+       for different "location" blocks to be grouped within each block,
+       which mitigates configuration duplication.
+
+    *) Bugfix: when the "reuseport" parameter was used in the "listen"
+       directive, all connections to the specified address and port were
+       handled by a single worker process; the bug had appeared in 1.10.0.
+
+    *) Bugfix: an HTTP/3 handshake with an upstream server might fail with
+       OpenSSL library version 3.5.0 or later if the QUIC protocol "retry"
+       mode was active on the server.
+
+    *) Bugfix: building the HTTP/2 and HTTP/3 modules using GCC 15 resulted
+       in an error.
+
+    *) Bugfix: building with the -O3 flag could result in an error when
+       using GCC.
+
+
 Changes with Angie 1.10.0                                        03 Jul 2025
 
     *) Feature: automatic retrieval and dynamic updating of proxied server
@@ -14,8 +40,8 @@ Changes with Angie 1.10.0                                        03 Jul 2025
        directive, along with variables named "$acme_cert_*" and
        "$acme_cert_key_*".
 
-    *) Feature: support for handling MPTCP connections with the "multipath"
-       parameter of the "listen" directive.
+    *) Feature: support for handling Multipath TCP (MPTCP) connections with
+       the "multipath" parameter of the "listen" directive.
        Thanks to Maxim Dounin (freenginx), Maxime Dourov, and Anthony
        Doeraene.
 

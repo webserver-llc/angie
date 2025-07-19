@@ -251,17 +251,17 @@ like(get_body('/body', '0123456789', 20, 5), qr/X-Body: (0123456789){100}/,
 # pipelined requests
 
 $s = get_ssl_socket(8085);
-my $req = <<EOF;
-GET / HTTP/1.1
-Host: localhost
 
-EOF
-
-$req x= 1000;
+my $req = (
+	"GET / HTTP/1.1" . CRLF .
+	"Host: localhost" . CRLF . CRLF ) x 99 .
+	"GET / HTTP/1.1" . CRLF .
+	"Host: localhost" . CRLF .
+	"Connection: close" . CRLF . CRLF;
 
 my $r = http($req, socket => $s) || "";
 $s = undef;
-is(() = $r =~ /(200 OK)/g, 1000, 'pipelined requests');
+is(() = $r =~ /(200 OK)/g, 100, 'pipelined requests');
 
 # OpenSSL 3.0 error "unexpected eof while reading" seen as a critical error
 

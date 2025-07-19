@@ -219,9 +219,7 @@ sub http_daemon {
 				"Cache-Control: max-age=300" . CRLF .
 				"Connection: close" . CRLF .
 				CRLF;
-			for (1 .. 10000) {
-				print $client ("X" x 98) . CRLF;
-			}
+			print $client (("X" x 98) . CRLF) x 10000;
 			print $client "unfinished" . CRLF;
 
 		} elsif ($uri eq '/big/ok') {
@@ -231,9 +229,7 @@ sub http_daemon {
 				"Cache-Control: max-age=300" . CRLF .
 				"Connection: close" . CRLF .
 				CRLF;
-			for (1 .. 10000) {
-				print $client ("X" x 98) . CRLF;
-			}
+			print $client (("X" x 98) . CRLF) x 10000;
 			print $client "finished" . CRLF;
 
 		} elsif ($uri eq '/chunked') {

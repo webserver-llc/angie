@@ -132,7 +132,7 @@ http {
         }
 
         location /t9.html {
-            add_header Cache-Control "max-age=1, stale-while-revalidate=10";
+            add_header Cache-Control "max-age=1, stale-while-revalidate=20";
         }
     }
 }
@@ -157,23 +157,23 @@ $t->run()->plan(34);
 like(get('/t.html', 'max-age=1, stale-if-error=5'), qr/MISS/, 'stale-if-error');
 like(http_get('/t.html?e=1'), qr/HIT/, 's-i-e - cached');
 
-like(get('/t2.html', 'max-age=1, stale-while-revalidate=10'), qr/MISS/,
+like(get('/t2.html', 'max-age=1, stale-while-revalidate=20'), qr/MISS/,
 	'stale-while-revalidate');
 like(http_get('/t2.html'), qr/HIT/, 's-w-r - cached');
 
 get('/tt.html', 'max-age=1, stale-if-error=3');
 get('/t3.html', 'max-age=1, stale-while-revalidate=2');
-get('/t4.html', 'max-age=1, stale-while-revalidate=10');
-get('/t5.html', 'max-age=1, stale-while-revalidate=10');
-get('/t6.html', 'max-age=1, stale-while-revalidate=10');
-get('/t7.html', 'max-age=1, stale-while-revalidate=10');
+get('/t4.html', 'max-age=1, stale-while-revalidate=20');
+get('/t5.html', 'max-age=1, stale-while-revalidate=20');
+get('/t6.html', 'max-age=1, stale-while-revalidate=20');
+get('/t7.html', 'max-age=1, stale-while-revalidate=20');
 http_get('/ssi.html');
 get('/updating/t.html', 'max-age=1');
 get('/updating/t2.html', 'max-age=1, stale-while-revalidate=2');
 get('/updating/tt.html', 'max-age=1, stale-if-error=5');
-get('/t8.html', 'stale-while-revalidate=10');
-get('/escape.htm%6C', 'max-age=1, stale-while-revalidate=10');
-get('/regexp.html', 'max-age=1, stale-while-revalidate=10');
+get('/t8.html', 'stale-while-revalidate=20');
+get('/escape.htm%6C', 'max-age=1, stale-while-revalidate=20');
+get('/regexp.html', 'max-age=1, stale-while-revalidate=20');
 
 sleep 2;
 

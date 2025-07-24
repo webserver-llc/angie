@@ -755,7 +755,7 @@ ngx_feature_run=no
 ngx_feature_incs='#include <string.h>'
 ngx_feature_path=
 ngx_feature_libs=
-ngx_feature_test="char *p; p = strerrordesc_np(0);
+ngx_feature_test="const char *p; p = strerrordesc_np(0);
                   if (p == NULL) return 1"
 . auto/feature
 

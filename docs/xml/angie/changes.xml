@@ -7,6 +7,17 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+для одиночного сервера, добавленного в upstream-группу Docker-модулем,
+ошибочно работали пассивные проверки.
+</para>
+<para lang="en">
+passive checks were mistakenly active for a single server added to the
+upstream group by the Docker module.
+</para>
+</change>
+
 </changes>
 
 

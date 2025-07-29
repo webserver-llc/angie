@@ -1884,6 +1884,9 @@ ngx_stream_upstream_zone_add_docker_peer(ngx_docker_upstream_t *u)
 
     *peerp = peer;
     (*peers->generation)++;
+
+    ngx_stream_upstream_set_round_robin_single(uscf);
+
     ngx_stream_upstream_rr_peers_unlock(peers);
 
     ngx_log_error(NGX_LOG_NOTICE, dc->pool->log, 0,
@@ -1935,6 +1938,8 @@ ngx_stream_upstream_zone_remove_docker_peer(ngx_docker_upstream_t *u)
         (*peers->generation)++;
 
         ngx_stream_upstream_rr_peer_free(peers, peer);
+
+        ngx_stream_upstream_set_round_robin_single(uscf);
 
         ngx_stream_upstream_rr_peers_unlock(peers);
 

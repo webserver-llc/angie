@@ -23,7 +23,7 @@
 #define NGX_QUIC_MAX_MD_SIZE          48
 
 
-#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
+#if (defined OPENSSL_IS_BORINGSSL || defined OPENSSL_IS_AWSLC)
 #define NGX_QUIC_BORINGSSL_EVP_API    1
 #define ngx_quic_cipher_t             EVP_AEAD
 #define ngx_quic_crypto_ctx_t         EVP_AEAD_CTX

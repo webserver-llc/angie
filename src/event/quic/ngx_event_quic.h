@@ -20,8 +20,8 @@
        && !defined(BABASSL_VERSION_NUMBER))
 #define NGX_QUIC_QUICTLS_API                 1
 
-#elif (defined OPENSSL_IS_BORINGSSL || defined LIBRESSL_VERSION_NUMBER \
-       || defined BABASSL_VERSION_NUMBER || defined OPENSSL_IS_AWSLC)
+#elif (defined OPENSSL_IS_BORINGSSL || defined OPENSSL_IS_AWSLC               \
+       || defined BABASSL_VERSION_NUMBER || defined LIBRESSL_VERSION_NUMBER)
 #define NGX_QUIC_BORINGSSL_API               1
 
 #else

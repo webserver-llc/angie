@@ -111,11 +111,12 @@ $t->run();
 like(http_get('/'), qr/X-IP: (\S+), \1\x0d?$/m, 'get');
 like(http_post('/'), qr/X-IP: (\S+)\x0d?$/m, 'post');
 
-# non-idempotent requests should not be retried by default,
-# in particular, not emit builtin error page due to next upstream
+# emit builtin error page both for the idempotent requests that try next
+# upstream and for non-idempotent requests that stop processing on first
+# failure
 
-like(http_get('/404'), qr/X-IP: (\S+), \1.*SEE-THIS/s, 'get 404');
-like(http_post('/404'), qr/X-IP: (\S++)(?! ).*SEE-THIS/s, 'post 404');
+unlike(http_get('/404'), qr/X-IP: (\S+), \1.*SEE-THIS/s, 'get 404');
+unlike(http_post('/404'), qr/X-IP: (\S++)(?! ).*SEE-THIS/s, 'post 404');
 
 # with "proxy_next_upstream non_idempotent" there is no
 # difference between idempotent and non-idempotent requests,

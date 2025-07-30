@@ -40,6 +40,30 @@ the duration of the time-out specified by the "fail_timeout" option of the
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+прокси-сервер возвращает стандартную страницу ошибки при получении от
+проксируемых серверов статуса, считающегося ошибкой, вместо страницы,
+принятой от последнего из проксируемых серверов.
+</para>
+<para lang="en">
+proxy answers with the standard error page in a case of receiving errorous
+status from the upstream servers instead of retransmitting answer from the last
+upstream.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+исправлен статус проксируемого сервера при получения ответа, считающегося
+ошибкой, и использовании директивы "proxy_next_upstream".
+</para>
+<para lang="en">
+fixed upstream server status while receiving errorous answer when the
+"proxy_next_upstream" directive is used.
+</para>
+</change>
+
 </changes>
 
 

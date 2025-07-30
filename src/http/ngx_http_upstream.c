@@ -2898,7 +2898,7 @@ static ngx_int_t
 ngx_http_upstream_test_next(ngx_http_request_t *r, ngx_http_upstream_t *u)
 {
     ngx_msec_t                 timeout;
-    ngx_uint_t                 status, mask;
+    ngx_uint_t                 status;
     ngx_http_upstream_next_t  *un;
 
     status = u->headers_in.status_n;
@@ -2911,20 +2911,19 @@ ngx_http_upstream_test_next(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
         timeout = u->conf->next_upstream_timeout;
 
-        if (u->request_sent
-            && (r->method & (NGX_HTTP_POST|NGX_HTTP_LOCK|NGX_HTTP_PATCH)))
-        {
-            mask = un->mask | NGX_HTTP_UPSTREAM_FT_NON_IDEMPOTENT;
-
-        } else {
-            mask = un->mask;
-        }
-
-        if (u->peer.tries > 1
-            && ((u->conf->next_upstream & mask) == mask)
+        if ((u->conf->next_upstream & un->mask)
             && !(u->request_sent && r->request_body_no_buffering)
             && !(timeout && ngx_current_msec - u->peer.start_time >= timeout))
         {
+
+            if (u->request_sent
+                && (r->method & (NGX_HTTP_POST|NGX_HTTP_LOCK|NGX_HTTP_PATCH))
+                && !(u->conf->next_upstream
+                     & NGX_HTTP_UPSTREAM_FT_NON_IDEMPOTENT))
+            {
+                return NGX_OK;
+            }
+
             ngx_http_upstream_next(r, u, un->mask);
             return NGX_OK;
         }

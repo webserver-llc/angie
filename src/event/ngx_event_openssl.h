@@ -27,14 +27,6 @@
 #include <openssl/engine.h>
 #endif
 #include <openssl/evp.h>
-#if (NGX_QUIC)
-#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
-#include <openssl/hkdf.h>
-#include <openssl/chacha.h>
-#else
-#include <openssl/kdf.h>
-#endif
-#endif
 #include <openssl/hmac.h>
 #ifndef OPENSSL_NO_OCSP
 #include <openssl/ocsp.h>

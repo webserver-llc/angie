@@ -632,8 +632,6 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
             goto failed;
         }
 
-        peer->checked = ngx_time();
-
     } else {
 
         /* there are several peers */
@@ -757,10 +755,7 @@ ngx_stream_upstream_use_rr_peer(ngx_peer_connection_t *pc,
 
     now = ngx_time();
 
-    if (ngx_stream_upstream_rr_is_fail_expired(peer)) {
-        peer->checked = now;
-    }
-
+    peer->checked = now;
     peer->conns++;
 
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
@@ -803,7 +798,7 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
         now = ngx_time();
 
         peer->fails++;
-        peer->accessed = now;
+        peer->recover_at = now + peer->fail_timeout;
         peer->checked = now;
 
         if (peer->max_fails) {
@@ -847,7 +842,10 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
          */
 
         if (pc->connection->type != SOCK_STREAM) {
-            ngx_stream_upstream_recover_round_robin_peer(peer);
+
+            if (peer->recover_at <= peer->checked) {
+                ngx_stream_upstream_recover_round_robin_peer(peer);
+            }
         }
     }
 
@@ -885,7 +883,9 @@ ngx_stream_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
         ngx_stream_upstream_rr_peers_rlock(rrp->peers);
         ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
-        ngx_stream_upstream_recover_round_robin_peer(peer);
+        if (peer->recover_at <= peer->checked) {
+            ngx_stream_upstream_recover_round_robin_peer(peer);
+        }
 
         ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
         ngx_stream_upstream_rr_peers_unlock(rrp->peers);
@@ -900,10 +900,6 @@ ngx_stream_upstream_recover_round_robin_peer(
 #if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
     ngx_time_t  *tp;
 #endif
-
-    if (peer->accessed >= peer->checked) {
-        return;
-    }
 
     if (peer->slow_start && ngx_stream_upstream_rr_is_failed(peer)) {
         peer->slow_time = ngx_current_msec;

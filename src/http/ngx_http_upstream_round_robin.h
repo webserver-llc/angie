@@ -74,7 +74,7 @@ struct ngx_http_upstream_rr_peer_s {
     ngx_uint_t                      max_conns;
 
     ngx_uint_t                      fails;
-    time_t                          accessed;
+    time_t                          recover_at;
     time_t                          checked;
 
     ngx_uint_t                      max_fails;
@@ -172,7 +172,7 @@ ngx_int_t ngx_api_http_upstream_peer_struct_int64_handler(
     (peer->max_fails && peer->fails >= peer->max_fails)
 
 #define ngx_http_upstream_rr_is_fail_expired(peer)                            \
-    (ngx_time() - peer->checked > peer->fail_timeout)
+    (ngx_time() - peer->checked >= peer->fail_timeout)
 
 #define ngx_http_upstream_rr_is_busy(peer)                                    \
     (peer->max_conns && peer->conns >= peer->max_conns)

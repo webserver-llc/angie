@@ -29,6 +29,17 @@ Thanks to Piotr Sikora (piotr at aviatrix.com).
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+длительность тайм-аута, задаваемого опцией "fail_timeout" директивы
+"server" блока "upstream", была на 1 секунду длинее, чем указано.
+</para>
+<para lang="en">
+the duration of the time-out specified by the "fail_timeout" option of the
+"server" directive within "upstream" block was actually one second longer.
+</para>
+</change>
+
 </changes>
 
 

@@ -872,7 +872,7 @@ is($frame->{headers}->{':status'}, 200, 'no authority and non-empty host');
 # no ':authority' and non-empty 'host' with port
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
 
 $s = Test::Nginx::HTTP3->new();
 $sid = $s->new_stream({ headers => [
@@ -905,7 +905,7 @@ is($frame->{headers}->{':status'}, 200, 'equal authority and host');
 # equal ':authority' and 'host' with port
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
 
 $s = Test::Nginx::HTTP3->new();
 $sid = $s->new_stream({ headers => [

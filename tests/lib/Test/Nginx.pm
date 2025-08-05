@@ -1270,8 +1270,11 @@ sub http_start($;%) {
 			)
 				or die $IO::Socket::SSL::SSL_ERROR . "\n";
 
-			log_in("ssl cipher: " . $s->get_cipher());
-			log_in("ssl cert: " . $s->peer_certificate('subject'));
+			if (!defined $extra{SSL_startHandshake}) {
+				log_in("ssl cipher: " . $s->get_cipher());
+				log_in("ssl cert: "
+					. $s->peer_certificate('subject'));
+			}
 		}
 
 		log_out($request);

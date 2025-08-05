@@ -1113,7 +1113,7 @@ is($frame->{headers}->{':status'}, 200,
 # equal ':authority' and 'host'
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.29.1');
 
 $s = Test::Nginx::HTTP2->new();
 $sid = $s->new_stream({ headers => [

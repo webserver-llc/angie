@@ -18,6 +18,16 @@ upstream group by the Docker module.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+в некоторых конфигурациях модуль http клиента мог приводить к падению
+рабочего процесса.
+</para>
+<para lang="en">
+in some configurations http client module could cause a worker process to crash.
+</para>
+</change>
+
 </changes>
 
 

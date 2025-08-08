@@ -736,6 +736,9 @@ ngx_http_client_init_request(ngx_connection_t *c, ngx_http_conf_ctx_t *ctx,
         goto failed;
     }
 
+    r->read_event_handler = ngx_http_request_empty_handler;
+    r->write_event_handler = ngx_http_request_empty_handler;
+
     r->method = NGX_HTTP_GET;
     r->method_name = ngx_http_core_get_method;
 

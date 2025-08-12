@@ -28,6 +28,17 @@ in some configurations http client module could cause a worker process to crash.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+переменная "$http_host" в запросах по протоколу HTTP/3 теперь инициализируется
+из значения псевдо-заголовка ":authority", если заголовок "Host" не был передан.
+</para>
+<para lang="en">
+the "$http_host" variable in HTTP/3 requests is now initialized from the value
+of the ":authority" pseudo-header if the "Host" header was not passed.
+</para>
+</change>
+
 </changes>
 
 

@@ -22,6 +22,7 @@ static ngx_int_t ngx_http_v3_validate_header(ngx_http_request_t *r,
     ngx_str_t *name, ngx_str_t *value);
 static ngx_int_t ngx_http_v3_process_pseudo_header(ngx_http_request_t *r,
     ngx_str_t *name, ngx_str_t *value);
+static ngx_int_t ngx_http_v3_set_host(ngx_http_request_t *r, ngx_str_t *value);
 static ngx_int_t ngx_http_v3_init_pseudo_headers(ngx_http_request_t *r);
 static ngx_int_t ngx_http_v3_process_request_header(ngx_http_request_t *r);
 static ngx_int_t ngx_http_v3_cookie(ngx_http_request_t *r, ngx_str_t *value);
@@ -930,6 +931,34 @@ failed:
 
 
 static ngx_int_t
+ngx_http_v3_set_host(ngx_http_request_t *r, ngx_str_t *value)
+{
+    ngx_table_elt_t   *h;
+    static ngx_str_t   host = ngx_string("host");
+
+    h = ngx_list_push(&r->headers_in.headers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    h->hash = ngx_hash(ngx_hash(ngx_hash('h', 'o'), 's'), 't');
+
+    h->key.len = host.len;
+    h->key.data = host.data;
+
+    h->value.len = value->len;
+    h->value.data = value->data;
+
+    h->lowcase_key = host.data;
+
+    r->headers_in.host = h;
+    h->next = NULL;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_v3_init_pseudo_headers(ngx_http_request_t *r)
 {
     size_t      len;
@@ -1035,6 +1064,7 @@ ngx_http_v3_process_request_header(ngx_http_request_t *r)
 {
     ssize_t                  n;
     ngx_buf_t               *b;
+    ngx_str_t                authority;
     ngx_connection_t        *c;
     ngx_http_v3_session_t   *h3c;
     ngx_http_v3_srv_conf_t  *h3scf;
@@ -1078,17 +1108,29 @@ ngx_http_v3_process_request_header(ngx_http_request_t *r)
         goto failed;
     }
 
-    if (r->headers_in.host) {
-        if (r->headers_in.host->value.len != r->headers_in.server.len
-            || ngx_memcmp(r->headers_in.host->value.data,
-                          r->headers_in.server.data,
-                          r->headers_in.server.len)
-               != 0)
-        {
-            ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                          "client sent \":authority\" and \"Host\" headers "
-                          "with different values");
-            goto failed;
+    if (r->host_start) {
+        /* full :authority value with port */
+        authority.len = r->host_end - r->host_start;
+        authority.data = r->host_start;
+
+        if (r->headers_in.host) {
+            /* both Host and :authority present - ensure they are equal */
+            if (r->headers_in.host->value.len != authority.len
+                || ngx_memcmp(r->headers_in.host->value.data,
+                              authority.data, authority.len)
+                   != 0)
+            {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "client sent \":authority\" and \"Host\" headers "
+                              "with different values");
+                goto failed;
+            }
+
+        } else {
+            /* Host is missing - set from :authority */
+            if (ngx_http_v3_set_host(r, &authority) != NGX_OK) {
+                return NGX_ERROR;
+            }
         }
     }
 

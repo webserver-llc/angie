@@ -312,6 +312,7 @@ typedef struct {
 
 #if (NGX_HTTP_CLIENT)
     unsigned                    is_client:1;
+    unsigned                    is_implicit:1;
     ngx_queue_t                 client_queue;
 #endif
 

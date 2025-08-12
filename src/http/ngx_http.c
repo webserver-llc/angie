@@ -38,7 +38,11 @@ static ngx_int_t ngx_http_add_server(ngx_conf_t *cf,
 
 static char *ngx_http_merge_servers(ngx_conf_t *cf,
     ngx_http_core_main_conf_t *cmcf, ngx_http_module_t *module,
-    ngx_uint_t ctx_index);
+    ngx_uint_t ctx_index, ngx_uint_t mi);
+#if (NGX_HTTP_CLIENT)
+static void ngx_http_core_client_preinit_paths(ngx_conf_t *cf, ngx_uint_t mi,
+    ngx_http_conf_ctx_t *prev, ngx_http_conf_ctx_t *ctx);
+#endif
 static char *ngx_http_merge_locations(ngx_conf_t *cf,
     ngx_queue_t *locations, void **loc_conf, ngx_http_module_t *module,
     ngx_uint_t ctx_index);
@@ -310,7 +314,7 @@ ngx_http_init_conf(ngx_cycle_t *cycle, void *conf_ctx)
             }
         }
 
-        rv = ngx_http_merge_servers(cf, cmcf, module, mi);
+        rv = ngx_http_merge_servers(cf, cmcf, module, mi, m);
         if (rv != NGX_CONF_OK) {
             goto failed;
         }
@@ -604,9 +608,10 @@ ngx_http_init_phase_handlers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf)
 
 static char *
 ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
-    ngx_http_module_t *module, ngx_uint_t ctx_index)
+    ngx_http_module_t *module, ngx_uint_t ctx_index, ngx_uint_t mi)
 {
     char                        *rv;
+    void                        *prev, *curr;
     ngx_uint_t                   s;
     ngx_http_conf_ctx_t         *ctx, saved;
     ngx_http_core_loc_conf_t    *clcf;
@@ -623,9 +628,25 @@ ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
 
         ctx->srv_conf = cscfp[s]->ctx->srv_conf;
 
+#if (NGX_HTTP_CLIENT)
+        if (cscfp[s]->is_client && cscfp[s]->is_implicit) {
+            ngx_http_core_client_preinit_paths(cf, mi, &saved, cscfp[s]->ctx);
+        }
+#endif
+
         if (module->merge_srv_conf) {
-            rv = module->merge_srv_conf(cf, saved.srv_conf[ctx_index],
-                                        cscfp[s]->ctx->srv_conf[ctx_index]);
+
+            curr = cscfp[s]->ctx->srv_conf[ctx_index];
+
+#if (NGX_HTTP_CLIENT)
+            prev = (cscfp[s]->is_client
+                    && cscfp[s]->is_implicit) ? curr
+                                              : saved.srv_conf[ctx_index];
+#else
+            prev = saved.srv_conf[ctx_index];
+#endif
+
+            rv = module->merge_srv_conf(cf, prev, curr);
             if (rv != NGX_CONF_OK) {
                 goto failed;
             }
@@ -637,8 +658,17 @@ ngx_http_merge_servers(ngx_conf_t *cf, ngx_http_core_main_conf_t *cmcf,
 
             ctx->loc_conf = cscfp[s]->ctx->loc_conf;
 
-            rv = module->merge_loc_conf(cf, saved.loc_conf[ctx_index],
-                                        cscfp[s]->ctx->loc_conf[ctx_index]);
+            curr = cscfp[s]->ctx->loc_conf[ctx_index];
+
+#if (NGX_HTTP_CLIENT)
+            prev = (cscfp[s]->is_client
+                    && cscfp[s]->is_implicit) ? curr
+                                              : saved.loc_conf[ctx_index];
+#else
+            prev = saved.loc_conf[ctx_index];
+#endif
+
+            rv = module->merge_loc_conf(cf, prev, curr);
             if (rv != NGX_CONF_OK) {
                 goto failed;
             }
@@ -662,6 +692,57 @@ failed:
 
     return rv;
 }
+
+
+#if (NGX_HTTP_CLIENT)
+
+static void
+ngx_http_core_client_preinit_paths(ngx_conf_t *cf, ngx_uint_t mi,
+    ngx_http_conf_ctx_t *prev_ctx, ngx_http_conf_ctx_t *ctx)
+{
+    u_char             *conf, *prev;
+    ngx_uint_t          ctx_index;
+    ngx_module_t       *module;
+    ngx_command_t      *cmd;
+    ngx_http_module_t  *mod;
+
+    module = cf->cycle->modules[mi];
+
+    ctx_index = module->ctx_index;
+    mod = module->ctx;
+
+    cmd = module->commands;
+    if (cmd == NULL) {
+        return;
+    }
+
+    for ( /* void */ ; cmd->name.len; cmd++) {
+        if (cmd->set != ngx_conf_set_path_slot) {
+            continue;
+        }
+
+        if (mod->merge_srv_conf && cmd->conf == NGX_HTTP_SRV_CONF_OFFSET) {
+            conf = ctx->srv_conf[ctx_index];
+            prev = prev_ctx->srv_conf[ctx_index];
+
+        } else if (mod->merge_loc_conf
+                   && cmd->conf == NGX_HTTP_LOC_CONF_OFFSET)
+        {
+            conf = ctx->loc_conf[ctx_index];
+            prev = prev_ctx->loc_conf[ctx_index];
+
+        } else  {
+            continue;
+        }
+
+        conf += cmd->offset;
+        prev += cmd->offset;
+
+        *(ngx_path_t**) conf = *(ngx_path_t**) prev;
+    }
+}
+
+#endif
 
 
 static char *

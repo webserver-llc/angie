@@ -396,6 +396,8 @@ ngx_http_client_create_srv_ctx(ngx_conf_t *cf)
 
     cscf = ngx_queue_data(q, ngx_http_core_srv_conf_t, client_queue);
 
+    cscf->is_implicit = 1;
+
     return cscf->ctx;
 }
 

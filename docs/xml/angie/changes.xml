@@ -28,6 +28,16 @@ in some configurations http client module could cause a worker process to crash.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+конфигурация уровня блока "http" более не наследуется в неявные блоки "client".
+</para>
+<para lang="en">
+the "http" block configuration is no longer inherited into implicit "client"
+blocks.
+</para>
+</change>
+
 </changes>
 
 

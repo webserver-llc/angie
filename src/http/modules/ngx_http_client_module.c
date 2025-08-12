@@ -375,7 +375,7 @@ ngx_http_client_create_srv_ctx(ngx_conf_t *cf)
     ngx_http_core_srv_conf_t   *cscf;
     ngx_http_core_main_conf_t  *cmcf;
 
-    static ngx_str_t client_block = ngx_string("client{}}");
+    static ngx_str_t client_block = ngx_string("client{access_log off;}}");
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0,
                    "http client injecting client block");

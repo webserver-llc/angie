@@ -167,11 +167,10 @@ ngx_docker_get_upstream(ngx_docker_container_t *dc, ngx_str_t *name,
 
         if (http_upstream_action.add == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
-                          "cannot process Docker container \"%V\": "
-                          "Angie was built without shared memory zone support "
-                          "in http upstream module "
-                          "(--without-http_upstream_zone_module)",
-                          &dc->id);
+                          "processing Docker container \"%V\" failed: "
+                          "cannot find http upstream \"%V\" "
+                          "with shared memory zone",
+                          &dc->id, &u->name);
             return NULL;
         }
 
@@ -181,11 +180,10 @@ ngx_docker_get_upstream(ngx_docker_container_t *dc, ngx_str_t *name,
 
         if (stream_upstream_action.add == NULL) {
             ngx_log_error(NGX_LOG_ERR, log, 0,
-                          "cannot process Docker container \"%V\": "
-                          "Angie was built without shared memory zone support "
-                          "in stream upstream module "
-                          "(--without-stream_upstream_zone_module)",
-                          &dc->id);
+                          "processing Docker container \"%V\" failed: "
+                          "cannot find stream upstream \"%V\" "
+                          "with shared memory zone",
+                          &dc->id, &u->name);
             return NULL;
         }
 

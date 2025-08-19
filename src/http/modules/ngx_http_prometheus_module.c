@@ -293,7 +293,7 @@ ngx_http_prometheus_render(ngx_http_request_t *r)
         }
 
         if (metric[i].type.len != 0) {
-            size += help.len + metric[i].name_len + 1 + metric[i].type.len + 1;
+            size += type.len + metric[i].name_len + 1 + metric[i].type.len + 1;
         }
 
         renders[i] = NULL;

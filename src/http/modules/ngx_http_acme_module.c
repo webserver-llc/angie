@@ -49,12 +49,12 @@
 #define ngx_http_acme_get_main_conf() \
     ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_acme_module)
 
-#ifndef OPENSSL_IS_BORINGSSL
-#define X509V3_EXT_conf_nid_f   X509V3_EXT_conf_nid
-#define X509V3_EXT_conf_nid_n   "X509V3_EXT_conf_nid()"
-#else
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 #define X509V3_EXT_conf_nid_f   X509V3_EXT_nconf_nid
 #define X509V3_EXT_conf_nid_n   "X509V3_EXT_nconf_nid()"
+#else
+#define X509V3_EXT_conf_nid_f   X509V3_EXT_conf_nid
+#define X509V3_EXT_conf_nid_n   "X509V3_EXT_conf_nid()"
 #endif
 
 #if (NGX_DEBUG)
@@ -1990,10 +1990,10 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
     const u_char *cert_data, size_t cert_len)
 {
     int               type, i, found;
-#ifndef OPENSSL_IS_BORINGSSL
-    int               j;
-#else
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     size_t            j;
+#else
+    int               j;
 #endif
     BIO              *bio;
     X509             *x509;

@@ -34,7 +34,7 @@ static uint64_t ngx_quic_parse_pn(u_char **pos, ngx_int_t len, u_char *mask,
 
 static ngx_int_t ngx_quic_crypto_open(ngx_quic_secret_t *s, ngx_str_t *out,
     const u_char *nonce, ngx_str_t *in, ngx_str_t *ad, ngx_log_t *log);
-#ifndef OPENSSL_IS_BORINGSSL
+#if !defined(OPENSSL_IS_BORINGSSL) && !defined(OPENSSL_IS_AWSLC)
 static ngx_int_t ngx_quic_crypto_common(ngx_quic_secret_t *s, ngx_str_t *out,
     const u_char *nonce, ngx_str_t *in, ngx_str_t *ad, ngx_log_t *log);
 #endif
@@ -61,7 +61,7 @@ ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers)
     switch (id) {
 
     case TLS1_3_CK_AES_128_GCM_SHA256:
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
         ciphers->c = EVP_aead_aes_128_gcm();
 #else
         ciphers->c = EVP_aes_128_gcm();
@@ -72,7 +72,7 @@ ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers)
         break;
 
     case TLS1_3_CK_AES_256_GCM_SHA384:
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
         ciphers->c = EVP_aead_aes_256_gcm();
 #else
         ciphers->c = EVP_aes_256_gcm();
@@ -83,12 +83,12 @@ ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers)
         break;
 
     case TLS1_3_CK_CHACHA20_POLY1305_SHA256:
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
         ciphers->c = EVP_aead_chacha20_poly1305();
 #else
         ciphers->c = EVP_chacha20_poly1305();
 #endif
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
         ciphers->hp = (const EVP_CIPHER *) EVP_aead_chacha20_poly1305();
 #else
         ciphers->hp = EVP_chacha20();
@@ -97,7 +97,7 @@ ngx_quic_ciphers(ngx_uint_t id, ngx_quic_ciphers_t *ciphers)
         len = 32;
         break;
 
-#ifndef OPENSSL_IS_BORINGSSL
+#if !defined(OPENSSL_IS_BORINGSSL) && !defined(OPENSSL_IS_AWSLC)
     case TLS1_3_CK_AES_128_CCM_SHA256:
         ciphers->c = EVP_aes_128_ccm();
         ciphers->hp = EVP_aes_128_ctr();
@@ -266,7 +266,7 @@ static ngx_int_t
 ngx_hkdf_expand(u_char *out_key, size_t out_len, const EVP_MD *digest,
     const uint8_t *prk, size_t prk_len, const u_char *info, size_t info_len)
 {
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 
     if (HKDF_expand(out_key, out_len, digest, prk, prk_len, info, info_len)
         == 0)
@@ -328,7 +328,7 @@ ngx_hkdf_extract(u_char *out_key, size_t *out_len, const EVP_MD *digest,
     const u_char *secret, size_t secret_len, const u_char *salt,
     size_t salt_len)
 {
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
 
     if (HKDF_extract(out_key, out_len, digest, secret, secret_len, salt,
                      salt_len)
@@ -391,7 +391,7 @@ ngx_quic_crypto_init(const ngx_quic_cipher_t *cipher, ngx_quic_secret_t *s,
     ngx_quic_md_t *key, ngx_int_t enc, ngx_log_t *log)
 {
 
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     EVP_AEAD_CTX  *ctx;
 
     ctx = EVP_AEAD_CTX_new(cipher, key->data, key->len,
@@ -451,7 +451,7 @@ static ngx_int_t
 ngx_quic_crypto_open(ngx_quic_secret_t *s, ngx_str_t *out, const u_char *nonce,
     ngx_str_t *in, ngx_str_t *ad, ngx_log_t *log)
 {
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     if (EVP_AEAD_CTX_open(s->ctx, out->data, &out->len, out->len, nonce,
                           s->iv.len, in->data, in->len, ad->data, ad->len)
         != 1)
@@ -471,7 +471,7 @@ ngx_int_t
 ngx_quic_crypto_seal(ngx_quic_secret_t *s, ngx_str_t *out, const u_char *nonce,
     ngx_str_t *in, ngx_str_t *ad, ngx_log_t *log)
 {
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     if (EVP_AEAD_CTX_seal(s->ctx, out->data, &out->len, out->len, nonce,
                           s->iv.len, in->data, in->len, ad->data, ad->len)
         != 1)
@@ -487,7 +487,7 @@ ngx_quic_crypto_seal(ngx_quic_secret_t *s, ngx_str_t *out, const u_char *nonce,
 }
 
 
-#ifndef OPENSSL_IS_BORINGSSL
+#if !defined(OPENSSL_IS_BORINGSSL) && !defined(OPENSSL_IS_AWSLC)
 
 static ngx_int_t
 ngx_quic_crypto_common(ngx_quic_secret_t *s, ngx_str_t *out,
@@ -566,7 +566,7 @@ void
 ngx_quic_crypto_cleanup(ngx_quic_secret_t *s)
 {
     if (s->ctx) {
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
         EVP_AEAD_CTX_free(s->ctx);
 #else
         EVP_CIPHER_CTX_free(s->ctx);
@@ -582,7 +582,7 @@ ngx_quic_crypto_hp_init(const EVP_CIPHER *cipher, ngx_quic_secret_t *s,
 {
     EVP_CIPHER_CTX  *ctx;
 
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     if (cipher == (EVP_CIPHER *) EVP_aead_chacha20_poly1305()) {
         /* no EVP interface */
         s->hp_ctx = NULL;
@@ -618,7 +618,7 @@ ngx_quic_crypto_hp(ngx_quic_secret_t *s, u_char *out, u_char *in,
 
     ctx = s->hp_ctx;
 
-#ifdef OPENSSL_IS_BORINGSSL
+#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
     uint32_t         cnt;
 
     if (ctx == NULL) {

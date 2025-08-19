@@ -32,8 +32,9 @@ my $is_old_openssl = ($t->has_module('OpenSSL')
 	and not $t->has_feature('openssl:1.1.1'));
 my $is_libressl = $t->has_module('LibreSSL');
 my $is_boringssl = $t->has_module('BoringSSL');
+my $is_aws_lc = $t->has_module('AWS-LC');
 
-if ($is_old_openssl or $is_libressl or $is_boringssl) {
+if ($is_old_openssl or $is_libressl or $is_boringssl or $is_aws_lc) {
 	$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -236,7 +237,7 @@ my $tdir = $t->testdir();
 
 my @types = ('rsa');
 
-if (not ($is_old_openssl or $is_boringssl or $is_libressl)) {
+if (not ($is_old_openssl or $is_boringssl or $is_libressl or $is_aws_lc)) {
 	push(@types, ('rsa-pss', 'ed448', 'ed25519'));
 }
 
@@ -276,6 +277,8 @@ skip 'Elliptic curves and RSA-PSS are not supported in LibreSSL', 3
 	if $is_libressl;
 skip 'Elliptic curves and RSA-PSS are not supported in BoringSSL', 3
 	if $is_boringssl;
+skip 'Elliptic curves and RSA-PSS are not supported in AWS-LC', 3
+	if $is_aws_lc;
 
 like(https_get(8443), qr/RSA-PSS/, 'RSA-PSS certificate');
 like(https_get(8444), qr/ED448/, 'ED448 certificate');

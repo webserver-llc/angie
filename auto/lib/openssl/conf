@@ -186,10 +186,10 @@ END
                                   RSA_get0_key(NULL, NULL, NULL, NULL);
                                   EC_POINT_get_affine_coordinates(NULL, NULL, NULL, NULL, NULL);
                                   ECDSA_SIG_get0(NULL, NULL, NULL);
-                                  #ifndef OPENSSL_IS_BORINGSSL
-                                      X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, NULL);
-                                  #else
+                                  #if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
                                       X509V3_EXT_nconf_nid(NULL, NULL, NID_server_auth, NULL);
+                                  #else
+                                      X509V3_EXT_conf_nid(NULL, NULL, NID_tlsfeature, NULL);
                                   #endif
                                   "
                 . auto/feature

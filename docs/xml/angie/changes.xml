@@ -49,6 +49,17 @@ blocks.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка сборки с SSL-библиотекой AWS-LC (https://github.com/aws/aws-lc).
+Спасибо Петру Сикоре (piotr at aviatrix.com).
+</para>
+<para lang="en">
+support for building with AWS-LC SSL library (https://github.com/aws/aws-lc).
+Thanks to Piotr Sikora (piotr at aviatrix.com).
+</para>
+</change>
+
 </changes>
 
 

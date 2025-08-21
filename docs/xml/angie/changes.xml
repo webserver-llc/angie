@@ -9,32 +9,50 @@
 
 <change type="bugfix">
 <para lang="ru">
-для одиночного сервера, добавленного в upstream-группу Docker-модулем,
-ошибочно работали пассивные проверки.
+настройки прокси-модуля в блоке "http" могли нарушать работу модулей, которые
+используют блок "client" для исходящих запросов;
+проблема появилась в 1.10.0.
 </para>
 <para lang="en">
-passive checks were mistakenly active for a single server added to the
-upstream group by the Docker module.
+proxy module settings in the "http" block could break functionality of modules
+that use the "client" block for outgoing requests;
+the bug had appeared in 1.10.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-в некоторых конфигурациях модуль http клиента мог приводить к падению
-рабочего процесса.
+включение "proxy_ignore_client_abort" совместно с модулями, использующими блок
+"client" для исходящих запросов, могло приводить к падению рабочих процессов;
+проблема появилась в 1.10.0.
 </para>
 <para lang="en">
-in some configurations http client module could cause a worker process to crash.
+enabling "proxy_ignore_client_abort" together with modules that use the "client"
+block for outgoing requests could lead to worker process crashes;
+the bug had appeared in 1.10.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-конфигурация уровня блока "http" более не наследуется в неявные блоки "client".
+если в группе проксируемых серверов был ранее сконфигурирован один сервер, то
+серверы, добавленные через Docker API, могли не участвовать в балансировке.
 </para>
 <para lang="en">
-the "http" block configuration is no longer inherited into implicit "client"
-blocks.
+if a single server was pre-configured in an upstream group, servers added via
+the Docker API might not be included in load balancing.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если единственный сервер в группе проксируемых серверов был добавлен посредством
+Docker API, то в случае признания его недоступным он мог исключаться из
+балансировки.
+</para>
+<para lang="en">
+if the only server in an upstream group was added via the Docker API, it might
+be excluded from load balancing when detected to be unavailable.
 </para>
 </change>
 

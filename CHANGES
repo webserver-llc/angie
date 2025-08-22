@@ -1,4 +1,23 @@
 
+Changes with Angie 1.10.2                                        21 Aug 2025
+
+    *) Bugfix: proxy module settings in the "http" block could break
+       functionality of modules that use the "client" block for outgoing
+       requests; the bug had appeared in 1.10.0.
+
+    *) Bugfix: enabling "proxy_ignore_client_abort" together with modules
+       that use the "client" block for outgoing requests could lead to
+       worker process crashes; the bug had appeared in 1.10.0.
+
+    *) Bugfix: if a single server was pre-configured in an upstream group,
+       servers added via the Docker API might not be included in load
+       balancing.
+
+    *) Bugfix: if the only server in an upstream group was added via the
+       Docker API, it might be excluded from load balancing when detected to
+       be unavailable.
+
+
 Changes with Angie 1.10.1                                        17 Jul 2025
 
     *) Change: directives specified in the "client" block can now only be

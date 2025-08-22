@@ -7,27 +7,6 @@
 
 <changes ver="1.11.0" date="">
 
-<change type="bugfix">
-<para lang="ru">
-для одиночного сервера, добавленного в upstream-группу Docker-модулем,
-ошибочно работали пассивные проверки.
-</para>
-<para lang="en">
-passive checks were mistakenly active for a single server added to the
-upstream group by the Docker module.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-в некоторых конфигурациях модуль http клиента мог приводить к падению
-рабочего процесса.
-</para>
-<para lang="en">
-in some configurations http client module could cause a worker process to crash.
-</para>
-</change>
-
 <change type="change">
 <para lang="ru">
 переменная "$http_host" в запросах по протоколу HTTP/3 теперь инициализируется
@@ -39,16 +18,6 @@ of the ":authority" pseudo-header if the "Host" header was not passed.
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-конфигурация уровня блока "http" более не наследуется в неявные блоки "client".
-</para>
-<para lang="en">
-the "http" block configuration is no longer inherited into implicit "client"
-blocks.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 поддержка сборки с SSL-библиотекой AWS-LC (https://github.com/aws/aws-lc).
@@ -57,6 +26,60 @@ blocks.
 <para lang="en">
 support for building with AWS-LC SSL library (https://github.com/aws/aws-lc).
 Thanks to Piotr Sikora (piotr at aviatrix.com).
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.10.2" date="2025-08-21">
+
+<change type="bugfix">
+<para lang="ru">
+настройки прокси-модуля в блоке "http" могли нарушать работу модулей, которые
+используют блок "client" для исходящих запросов;
+проблема появилась в 1.10.0.
+</para>
+<para lang="en">
+proxy module settings in the "http" block could break functionality of modules
+that use the "client" block for outgoing requests;
+the bug had appeared in 1.10.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+включение "proxy_ignore_client_abort" совместно с модулями, использующими блок
+"client" для исходящих запросов, могло приводить к падению рабочих процессов;
+проблема появилась в 1.10.0.
+</para>
+<para lang="en">
+enabling "proxy_ignore_client_abort" together with modules that use the "client"
+block for outgoing requests could lead to worker process crashes;
+the bug had appeared in 1.10.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если в группе проксируемых серверов был ранее сконфигурирован один сервер, то
+серверы, добавленные через Docker API, могли не участвовать в балансировке.
+</para>
+<para lang="en">
+if a single server was pre-configured in an upstream group, servers added via
+the Docker API might not be included in load balancing.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если единственный сервер в группе проксируемых серверов был добавлен посредством
+Docker API, то в случае признания его недоступным он мог исключаться из
+балансировки.
+</para>
+<para lang="en">
+if the only server in an upstream group was added via the Docker API, it might
+be excluded from load balancing when detected to be unavailable.
 </para>
 </change>
 

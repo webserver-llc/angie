@@ -190,8 +190,8 @@ TODO: {
 	my $error = 'loading "engine:..." certificate keys is not supported';
 
 	local $TODO;
-	if ($t->has_module('LibreSSL') or $t->has_module('BoringSSL')) {
-		$TODO = $error . ' in LibreSSL and BoringSSL';
+	if ($t->has_module('LibreSSL|BoringSSL|AWS-LC')) {
+		$TODO = $error . ' in LibreSSL, BoringSSL, and AWS-LC';
 		$t->skip_errors_check('emerg', $error);
 	}
 

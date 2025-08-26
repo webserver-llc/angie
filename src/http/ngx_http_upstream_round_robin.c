@@ -621,6 +621,8 @@ ngx_http_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
             goto failed;
         }
 
+        peer->checked = ngx_time();
+
     } else {
 
         /* there are several peers */
@@ -744,7 +746,10 @@ ngx_http_upstream_use_rr_peer(ngx_peer_connection_t *pc,
 
     now = ngx_time();
 
-    peer->checked = now;
+    if (ngx_http_upstream_rr_is_fail_expired(peer)) {
+        peer->checked = now;
+    }
+
     peer->conns++;
 
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)

@@ -52,7 +52,7 @@ http {
         server_name  localhost;
 
         ssl_session_cache shared:SSL:1m;
-        ssl_session_timeout 2;
+        ssl_session_timeout 3;
     }
 }
 
@@ -92,10 +92,9 @@ $t->run();
 
 my $key = get_ticket_key_name();
 
-select undef, undef, undef, 0.5;
 is(get_ticket_key_name(), $key, 'ticket key match');
 
-select undef, undef, undef, 2.5;
+select undef, undef, undef, 4.1;
 
 local $TODO = 'no ticket key callback'
 	if $t->has_module('OpenSSL') and not $t->has_feature('openssl:0.9.8h');

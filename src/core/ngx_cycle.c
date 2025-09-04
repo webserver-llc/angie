@@ -1789,6 +1789,9 @@ ngx_shutdown_timer_handler(ngx_event_t *ev)
 
     c = cycle->connections;
 
+    ngx_log_error(NGX_LOG_INFO, ev->log, 0,
+                  "closing active connections due to worker shutdown timeout");
+
     for (i = 0; i < cycle->connection_n; i++) {
 
         if (c[i].fd == (ngx_socket_t) -1

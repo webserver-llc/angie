@@ -258,10 +258,6 @@ $s->send('a03 FOOBAR {10+}' . CRLF
 $s->check(qr/^a03 BAD/, 'invalid with non-sync literal');
 $s->check(qr/^(a04 |$)/, 'literal not command');
 
-# skipped without a fix, since with level-triggered event methods
-# this hogs cpu till the connection is closed by the backend server,
-# and generates a lot of debug logs
-
 $s = Test::Nginx::IMAP->new();
 $s->read();
 

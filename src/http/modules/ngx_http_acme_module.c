@@ -4020,8 +4020,8 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
     amcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_acme_module);
 
-    if (amcf->ctx == NULL) {
-        /* no enabled clients, nothing to do */
+    if (amcf->clients.nelts == 0) {
+        /* no acme* directives in config - nothing to do */
         return NGX_OK;
     }
 
@@ -4078,12 +4078,15 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     cln->data = &amcf->clients;
 
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-    pclcf = ngx_http_acme_get_core_loc_conf(amcf);
 
-    pclcf->resolver = clcf->resolver;
+    if (amcf->ctx != NULL) {
+        pclcf = ngx_http_acme_get_core_loc_conf(amcf);
 
-    if (clcf->error_log != NULL) {
-        pclcf->error_log = clcf->error_log;
+        pclcf->resolver = clcf->resolver;
+
+        if (clcf->error_log != NULL) {
+            pclcf->error_log = clcf->error_log;
+        }
     }
 
     for (i = 0; i < amcf->clients.nelts; i++) {
@@ -4298,9 +4301,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     /*
      * We might encounter a situation where shared memory is not needed at
      * all--for example, if all clients have been disabled by this point and
-     * none of them has a certificate to share. In this case, ACME is
-     * effectively disabled, but we must still ensure the proper functioning of
-     * associated variables.
+     * none of them has a certificate to share. If a disabled client has no
+     * certificate to share, we must still ensure that its associated
+     * acme_cert* variables function properly (and return empty values).
      */
 
     if (shm_size != 0) {
@@ -4317,15 +4320,17 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         amcf->shm_zone->noreuse = 1;
     }
 
-    ngx_str_set(&name, "__acme_server");
+    if (amcf->ctx != NULL) {
+        ngx_str_set(&name, "__acme_server");
 
-    v = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
-    if (v == NULL) {
-        return NGX_ERROR;
+        v = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_NOCACHEABLE);
+        if (v == NULL) {
+            return NGX_ERROR;
+        }
+
+        v->get_handler = ngx_http_acme_server_variable;
+        v->data = (uintptr_t) &amcf->acme_server_var;
     }
-
-    v->get_handler = ngx_http_acme_server_variable;
-    v->data = (uintptr_t) &amcf->acme_server_var;
 
     return NGX_OK;
 }
@@ -4485,6 +4490,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
     size_t                      sz;
     u_char                     *p;
     time_t                      t, now;
+    ngx_log_t                  *error_log;
     ngx_uint_t                  i;
     ngx_acme_client_t          *cli;
     ngx_http_acme_sh_cert_t    *shc;
@@ -4498,9 +4504,21 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
     amcf = shm_zone->data;
 
-    pclcf = ngx_http_acme_get_core_loc_conf(amcf);
+    if (amcf->ctx != NULL) {
+        pclcf = ngx_http_acme_get_core_loc_conf(amcf);
 
-    ngx_memcpy(&amcf->log, pclcf->error_log, sizeof(ngx_log_t));
+    } else {
+        pclcf = ngx_http_conf_get_module_loc_conf(amcf->cf,
+                                                  ngx_http_core_module);
+    }
+
+    error_log = pclcf->error_log;
+
+    if (error_log == NULL) {
+        error_log = amcf->cf->cycle->log;
+    }
+
+    ngx_memcpy(&amcf->log, error_log, sizeof(ngx_log_t));
     amcf->log.data = &amcf->log_ctx;
     amcf->log.handler = ngx_http_acme_log_error;
 

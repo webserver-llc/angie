@@ -64,6 +64,17 @@ fixed upstream server status while receiving errorous answer when the
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+переменные "$acme_cert*" вызывали ошибку "unknown variable", если все клиенты
+в конфигурации были определены с параметром "enabled=off".
+</para>
+<para lang="en">
+the "$acme_cert*" variables caused "unknown variable" errors if all clients in
+the configuration were defined with "enabled=off".
+</para>
+</change>
+
 </changes>
 
 

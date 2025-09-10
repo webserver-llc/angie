@@ -745,6 +745,11 @@ ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
         }
     }
 
+    if (qc->error) {
+        ngx_connection_error(c, 0, "SSL_do_handshake() failed");
+        return NGX_ERROR;
+    }
+
     if (!SSL_is_init_finished(ssl_conn)) {
         if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_EARLY_DATA, 0)
             && qc->client_tp_done)

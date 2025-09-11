@@ -18,15 +18,36 @@ to venture beyond the earlier vision.
 Getting Started
 ---------------
 
-To start using **Angie**, see the official documentation:
+To start using **Angie**, see the official documentation in
+`English <https://en.angie.software/angie/docs/>`_,
+`Russian <https://angie.software/angie/docs/>`_,
+`Chinese <https://cn.angie.software/angie/docs/>`_,
+`Spanish <https://es.angie.software/angie/docs/>`_, or
+`Portuguese <https://pt.angie.software/angie/docs/>`_:
 
-- Installation: https://en.angie.software/angie/docs/installation/
+- `Installation <https://en.angie.software/angie/docs/installation/>`_
+  (`ru <https://angie.software/angie/docs/installation/>`_,
+  `cn <https://cn.angie.software/angie/docs/installation/>`_,
+  `es <https://es.angie.software/angie/docs/installation/>`_,
+  `pt <https://pt.angie.software/angie/docs/installation/>`_)
 
-- Runtime configuration: https://en.angie.software/angie/docs/configuration/
+- `Runtime configuration <https://en.angie.software/angie/docs/configuration/>`_
+  (`ru <https://angie.software/angie/docs/configuration/>`_,
+  `cn <https://cn.angie.software/angie/docs/configuration/>`_,
+  `es <https://es.angie.software/angie/docs/configuration/>`_,
+  `pt <https://pt.angie.software/angie/docs/configuration/>`_)
 
-- Troubleshooting and feedback channels: https://en.angie.software/angie/docs/troubleshooting/
+- `Troubleshooting and feedback channels <https://en.angie.software/angie/docs/troubleshooting/>`_
+  (`ru <https://angie.software/angie/docs/troubleshooting/>`_,
+  `cn <https://cn.angie.software/angie/docs/troubleshooting/>`_,
+  `es <https://es.angie.software/angie/docs/troubleshooting/>`_,
+  `pt <https://pt.angie.software/angie/docs/troubleshooting/>`_)
 
-- Development and contribution: https://en.angie.software/angie/docs/development/
+- `Development and contribution <https://en.angie.software/angie/docs/development/>`_
+  (`ru <https://angie.software/angie/docs/development/>`_,
+  `cn <https://cn.angie.software/angie/docs/development/>`_,
+  `es <https://es.angie.software/angie/docs/development/>`_,
+  `pt <https://pt.angie.software/angie/docs/development/>`_)
 
 
 Features

@@ -2384,14 +2384,8 @@ ngx_http_acme_response_handler(ngx_http_acme_session_t *ses,
     ses->request_result = NGX_ERROR;
 
     if (rc != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "ACME %s response error (%i)",
-                      ses->in_hook ? "hook" : "server", rc);
-        return NGX_ERROR;
-    }
-
-    if (r->connection->error) {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "ACME %s connection error",
-                      ses->in_hook ? "hook" : "server");
+        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "request to ACME %s failed: "
+                      "%i", ses->in_hook ? "hook" : "server", rc);
         return NGX_ERROR;
     }
 

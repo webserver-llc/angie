@@ -102,21 +102,22 @@ is($frame->{headers}->{'x-early'}, '1', 'reused session is early');
 
 }
 
-$s->send_chain();
+# includes sending some initial 1-RTT data
 
-$frames = $s->read(all => [
-	{ sid => $s->new_stream(), fin => 1 },
-	{ type => "HANDSHAKE_DONE" }
-]);
+$s->send_chain();
 
 TODO: {
 local $TODO = 'not yet'
 	if $t->has_version('1.27.1') && !$t->has_version('1.27.4');
 
+$frames = $s->read(all => [{ type => 'HANDSHAKE_DONE' }], wait => 0.5);
+
 ($frame) = grep { $_->{type} eq "HANDSHAKE_DONE" } @$frames;
 ok($frame, '1rtt after discarding 0rtt');
 
 }
+
+$frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
 
 TODO: {
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'

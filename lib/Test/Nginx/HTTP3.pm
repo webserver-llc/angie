@@ -112,7 +112,7 @@ sub retry {
 
 	my $buf = pack("B*", '001' . ipack(5, $extra{capacity} || 400));
 	$self->{encoder_offset} = length($buf) + 1;
-	$buf = "\x08\x02\x02" . $buf;
+	$buf = "\x0a\x02" . pack("C", length($buf) + 1) . "\x02" . $buf;
 
 	# RFC 9114, 6.2.1.  Control Streams
 

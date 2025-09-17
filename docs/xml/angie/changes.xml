@@ -88,6 +88,15 @@ directive.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.29.0.
+</para>
+<para lang="en">
+all functionality of nginx 1.29.0.
+</para>
+</change>
+
 </changes>
 
 

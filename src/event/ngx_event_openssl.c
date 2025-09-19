@@ -1749,6 +1749,274 @@ ngx_ssl_early_data(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_uint_t enable)
 
 
 ngx_int_t
+ngx_ssl_encrypted_hello_keys(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_array_t *paths)
+{
+    if (paths == NULL) {
+        return NGX_OK;
+    }
+
+#ifdef OSSL_ECH_FOR_RETRY
+    {
+    BIO            *bio;
+    EVP_PKEY       *pkey;
+    ngx_str_t      *path;
+    ngx_uint_t      i;
+    OSSL_ECHSTORE  *store;
+
+    /* OpenSSL */
+
+    store = OSSL_ECHSTORE_new(NULL, NULL);
+    if (store == NULL) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "OSSL_ECHSTORE_new() failed");
+        return NGX_ERROR;
+    }
+
+    bio = NULL;
+    pkey = NULL;
+
+    path = paths->elts;
+    for (i = 0; i < paths->nelts; i++) {
+
+        if (ngx_conf_full_name(cf->cycle, &path[i], 1) != NGX_OK) {
+            goto failed;
+        }
+
+        bio = BIO_new_file((char *) path[i].data, "r");
+        if (bio == NULL) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "BIO_new_file(\"%s\") failed", path[i].data);
+            goto failed;
+        }
+
+        /*
+         * PEM file with PKCS#8 PrivateKey followed by ECHConfigList,
+         * https://datatracker.ietf.org/doc/html/draft-farrell-tls-pemesni
+         *
+         * Since OSSL_ECHSTORE_read_pem() does not require a private key
+         * to be present, we instead use PEM_read_bio_PrivateKey() followed
+         * by OSSL_ECHSTORE_set1_key_and_read_pem().
+         */
+
+        pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+        if (pkey == NULL) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "PEM_read_bio_PrivateKey(\"%s\") failed",
+                          path[i].data);
+            goto failed;
+        }
+
+        if (OSSL_ECHSTORE_set1_key_and_read_pem(store, pkey, bio,
+                                                i == 0 ? OSSL_ECH_FOR_RETRY
+                                                       : OSSL_ECH_NO_RETRY)
+            != 1)
+        {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "OSSL_ECHSTORE_set1_key_and_read_pem(\"%s\") failed",
+                          path[i].data);
+            goto failed;
+        }
+
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+
+        BIO_free(bio);
+        bio = NULL;
+    }
+
+    if (SSL_CTX_set1_echstore(ssl->ctx, store) != 1) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "SSL_CTX_set1_echstore() failed");
+        goto failed;
+    }
+
+    OSSL_ECHSTORE_free(store);
+
+    return NGX_OK;
+
+failed:
+
+    OSSL_ECHSTORE_free(store);
+
+    if (bio) {
+        BIO_free(bio);
+    }
+
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+    }
+
+    return NGX_ERROR;
+
+    }
+#elif defined SSL_R_UNSUPPORTED_ECH_SERVER_CONFIG
+    {
+    BIO           *bio;
+    long           configlen;
+    u_char        *config, key[32];
+    size_t         keylen;
+    EVP_PKEY      *pkey;
+    ngx_str_t     *path;
+    ngx_uint_t     i;
+    SSL_ECH_KEYS  *keys;
+    EVP_HPKE_KEY  *hpkey;
+
+    /* BoringSSL */
+
+    keys = SSL_ECH_KEYS_new();
+    if (keys == NULL) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "SSL_ECH_KEYS_new() failed");
+        return NGX_ERROR;
+    }
+
+    bio = NULL;
+    pkey = NULL;
+    config = NULL;
+    hpkey = NULL;
+
+    path = paths->elts;
+    for (i = 0; i < paths->nelts; i++) {
+
+        if (ngx_conf_full_name(cf->cycle, &path[i], 1) != NGX_OK) {
+            goto failed;
+        }
+
+        bio = BIO_new_file((char *) path[i].data, "r");
+        if (bio == NULL) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "BIO_new_file(\"%s\") failed", path[i].data);
+            goto failed;
+        }
+
+        /*
+         * PEM file with PKCS#8 PrivateKey followed by ECHConfigList,
+         * https://datatracker.ietf.org/doc/html/draft-farrell-tls-pemesni
+         */
+
+        pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+        if (pkey == NULL) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "PEM_read_bio_PrivateKey(\"%s\") failed",
+                          path[i].data);
+            goto failed;
+        }
+
+        if (PEM_bytes_read_bio(&config, &configlen, NULL, "ECHCONFIG", bio,
+                               NULL, NULL)
+            != 1)
+        {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "PEM_bytes_read_bio(\"%s\") failed",
+                          path[i].data);
+            goto failed;
+        }
+
+        /* Construct EVP_HPKE_KEY from private key */
+
+        if (EVP_PKEY_id(pkey) != EVP_PKEY_X25519) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "EVP_PKEY_id(\"%s\") unsupported ECH key type, "
+                          "only X25519 keys are supported on this platform",
+                          path[i].data);
+            goto failed;
+        }
+
+        keylen = 32;
+
+        if (EVP_PKEY_get_raw_private_key(pkey, key, &keylen) != 1) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "EVP_PKEY_get_raw_private_key() failed");
+            goto failed;
+        }
+
+        EVP_PKEY_free(pkey);
+        pkey = NULL;
+
+        hpkey = EVP_HPKE_KEY_new();
+        if (hpkey == NULL) {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "EVP_HPKE_KEY_new() failed");
+        }
+
+        if (EVP_HPKE_KEY_init(hpkey, EVP_hpke_x25519_hkdf_sha256(),
+                              key, keylen) != 1)
+        {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "EVP_HPKE_KEY_init() failed");
+            goto failed;
+        }
+
+        /*
+         * PEM file contains ECHConfigList, whereas SSL_ECH_KEYS_add()
+         * expects ECHConfig, without the 2-byte length prefix
+         */
+
+        if (SSL_ECH_KEYS_add(keys, i == 0, config + 2, configlen - 2, hpkey)
+            != 1)
+        {
+            ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                          "SSL_ECH_KEYS_add() failed");
+            goto failed;
+        }
+
+        EVP_HPKE_KEY_free(hpkey);
+        hpkey = NULL;
+
+        OPENSSL_free(config);
+        config = NULL;
+
+        BIO_free(bio);
+        bio = NULL;
+    }
+
+    if (SSL_CTX_set1_ech_keys(ssl->ctx, keys) != 1) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "SSL_CTX_set1_ech_keys() failed");
+        goto failed;
+    }
+
+    SSL_ECH_KEYS_free(keys);
+
+    ngx_explicit_memzero(&key, 32);
+
+    return NGX_OK;
+
+failed:
+
+    SSL_ECH_KEYS_free(keys);
+
+    if (bio) {
+        BIO_free(bio);
+    }
+
+    if (pkey) {
+        EVP_PKEY_free(pkey);
+    }
+
+    if (config) {
+        OPENSSL_free(config);
+    }
+
+    if (hpkey) {
+        EVP_HPKE_KEY_free(hpkey);
+    }
+
+    ngx_explicit_memzero(&key, 32);
+
+    return NGX_ERROR;
+
+    }
+#else
+    ngx_log_error(NGX_LOG_WARN, ssl->log, 0,
+                  "\"ssl_encrypted_hello_key\" is not supported on this "
+                  "platform, ignored");
+    return NGX_OK;
+#endif
+}
+
+
+ngx_int_t
 ngx_ssl_conf_commands(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_array_t *commands)
 {
     if (commands == NULL) {

@@ -407,6 +407,9 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
       (uintptr_t) ngx_ssl_get_early_data,
       NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_NOCACHEABLE, 0 },
 
+    { ngx_string("ssl_encrypted_hello"), NULL, ngx_http_ssl_variable,
+      (uintptr_t) ngx_ssl_get_encrypted_hello, NGX_HTTP_VAR_CHANGEABLE, 0 },
+
     { ngx_string("ssl_server_name"), NULL, ngx_http_ssl_variable,
       (uintptr_t) ngx_ssl_get_server_name, NGX_HTTP_VAR_CHANGEABLE, 0 },
 

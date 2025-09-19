@@ -5918,6 +5918,51 @@ ngx_ssl_get_early_data(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
 
 
 ngx_int_t
+ngx_ssl_get_encrypted_hello(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
+{
+    s->len = 0;
+
+#ifdef OSSL_ECH_FOR_RETRY
+    {
+    int    status;
+    char  *outer, *inner;
+
+    /* OpenSSL */
+
+    outer = NULL;
+    inner = NULL;
+
+    status = SSL_ech_get1_status(c->ssl->connection, &outer, &inner);
+
+    if (status == SSL_ECH_STATUS_SUCCESS
+        || status == SSL_ECH_STATUS_BAD_NAME)
+    {
+        ngx_str_set(s, "1");
+    }
+
+    if (outer) {
+        OPENSSL_free(outer);
+    }
+
+    if (inner) {
+        OPENSSL_free(inner);
+    }
+    }
+#elif defined SSL_R_UNSUPPORTED_ECH_SERVER_CONFIG
+
+    /* BoringSSL */
+
+    if (SSL_ech_accepted(c->ssl->connection)) {
+        ngx_str_set(s, "1");
+    }
+
+#endif
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
 ngx_ssl_get_server_name(ngx_connection_t *c, ngx_pool_t *pool, ngx_str_t *s)
 {
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME

@@ -1126,6 +1126,11 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
         return SSL_TLSEXT_ERR_OK;
     }
 
+    if (c->ssl->handshake_rejected) {
+        *ad = SSL_AD_UNRECOGNIZED_NAME;
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+
     hc = c->data;
 
     if (arg != NULL) {

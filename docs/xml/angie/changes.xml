@@ -90,10 +90,10 @@ directive.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.29.0.
+вся функциональность nginx 1.29.1.
 </para>
 <para lang="en">
-all functionality of nginx 1.29.0.
+all functionality of nginx 1.29.1.
 </para>
 </change>
 

@@ -309,6 +309,7 @@ typedef struct {
 #if (NGX_PCRE)
     unsigned                    captures:1;
 #endif
+    unsigned                    allow_connect:1;
 
 #if (NGX_HTTP_CLIENT)
     unsigned                    is_client:1;

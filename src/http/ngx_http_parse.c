@@ -113,6 +113,7 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
         sw_schema,
         sw_schema_slash,
         sw_schema_slash_slash,
+        sw_spaces_before_host,
         sw_host_start,
         sw_host,
         sw_host_end,
@@ -185,6 +186,7 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
             if (ch == ' ') {
                 r->method_end = p - 1;
                 m = r->request_start;
+                state = sw_spaces_before_uri;
 
                 switch (p - m) {
 
@@ -274,6 +276,7 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
                     if (ngx_str7_cmp(m, 'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '))
                     {
                         r->method = NGX_HTTP_CONNECT;
+                        state = sw_spaces_before_host;
                     }
 
                     break;
@@ -296,7 +299,6 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
                     break;
                 }
 
-                state = sw_spaces_before_uri;
                 break;
             }
 
@@ -372,6 +374,14 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
             }
             break;
 
+        case sw_spaces_before_host:
+
+            if (ch == ' ') {
+                break;
+            }
+
+            /* fall through */
+
         case sw_host_start:
 
             r->host_start = p;
@@ -401,6 +411,15 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
         case sw_host_end:
 
             r->host_end = p;
+
+            if (r->method == NGX_HTTP_CONNECT) {
+                if (ch == ':') {
+                    state = sw_port;
+                    break;
+                }
+
+                return NGX_HTTP_PARSE_INVALID_REQUEST;
+            }
 
             switch (ch) {
             case ':':
@@ -479,6 +498,15 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
 
                 r->port = r->port * 10 + (ch - '0');
                 break;
+            }
+
+            if (r->method == NGX_HTTP_CONNECT) {
+                if (ch == ' ') {
+                    state = sw_http_09;
+                    break;
+                }
+
+                return NGX_HTTP_PARSE_INVALID_REQUEST;
             }
 
             switch (ch) {
@@ -716,6 +744,16 @@ ngx_http_parse_request_line(ngx_http_request_t *r, ngx_buf_t *b)
         case sw_http_HTTP:
             switch (ch) {
             case '/':
+
+                /*
+                 * use single "/" from request line to preserve pointers,
+                 * if request line will be copied to large client buffer
+                 */
+                if (r->method == NGX_HTTP_CONNECT) {
+                    r->uri_start = p;
+                    r->uri_end = p + 1;
+                }
+
                 state = sw_first_major_digit;
                 break;
             default:

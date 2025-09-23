@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -102,7 +103,10 @@ is($frame->{headers}->{'x-early'}, '1', 'reused session is early');
 
 $s->send_chain();
 
-$frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
+$frames = $s->read(all => [
+	{ sid => $s->new_stream(), fin => 1 },
+	{ type => "HANDSHAKE_DONE" }
+]);
 
 TODO: {
 local $TODO = 'not yet'

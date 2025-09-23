@@ -5,7 +5,6 @@
 
 # clang
 
-. auto/cc/clang.version
 
 CC_TEST_FLAGS="-pipe"
 

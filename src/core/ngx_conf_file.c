@@ -353,6 +353,61 @@ done:
 }
 
 
+ngx_int_t
+ngx_conf_parse_chunk(ngx_conf_t *cf, void *ctx, ngx_str_t *chunk,
+    ngx_uint_t modtype, ngx_uint_t type)
+{
+    char             *rv;
+    ngx_buf_t         b;
+    ngx_conf_t        pcf;
+    ngx_array_t       args;
+    ngx_conf_file_t   conf_file;
+
+    ngx_memzero(&conf_file, sizeof(ngx_conf_file_t));
+    ngx_memzero(&b, sizeof(ngx_buf_t));
+
+    if (ngx_array_init(&args, cf->pool, 1, sizeof(ngx_str_t)) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    b.start = chunk->data;
+    b.pos = b.start;
+    b.last = b.start + chunk->len;
+    b.end = b.last;
+    b.temporary = 1;
+
+    conf_file.file.fd = ngx_stderr; /* any valid goes (not actually used) */
+
+    conf_file.file.name = cf->conf_file->file.name;
+    conf_file.line = cf->conf_file->line;
+
+    pcf = *cf;
+
+    cf->ctx = ctx;
+    cf->args = &args;
+    cf->module_type = modtype;
+
+    cf->conf_file = &conf_file;
+    cf->conf_file->buffer = &b;
+
+    cf->cmd_type = type;
+
+    rv = ngx_conf_parse(cf, NULL);
+
+    *cf = pcf;
+
+    if (rv == NGX_CONF_OK) {
+        return NGX_OK;
+    }
+
+    if (rv != NGX_CONF_ERROR) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s", rv);
+    }
+
+    return NGX_ERROR;
+}
+
+
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 {

@@ -47,9 +47,6 @@ static void **ngx_http_client_find_loc_conf(ngx_conf_t *cf,
     ngx_http_conf_ctx_t *srv_ctx, ngx_str_t *name);
 static ngx_http_conf_ctx_t *ngx_http_client_create_srv_ctx(ngx_conf_t *cf);
 static ngx_http_core_main_conf_t *ngx_http_client_get_main_conf(ngx_conf_t *cf);
-static ngx_int_t ngx_http_client_parse_conf(ngx_conf_t *cf,
-    ngx_http_conf_ctx_t *ctx, ngx_str_t *commands, ngx_uint_t modtype,
-    ngx_uint_t type);
 
 static ngx_int_t ngx_http_client_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_client_header_filter(ngx_http_request_t *r);
@@ -169,8 +166,8 @@ ngx_http_client_create_location(ngx_conf_t *cf, ngx_str_t *name,
     loc_cmd.len = ngx_sprintf(buf, "location %V{}}", name) - loc_cmd.data;
 
     /* this will create location in given server */
-    if (ngx_http_client_parse_conf(cf, srv_ctx, &loc_cmd, NGX_HTTP_MODULE,
-                                   NGX_HTTP_SRV_CONF)
+    if (ngx_conf_parse_chunk(cf, srv_ctx, &loc_cmd, NGX_HTTP_MODULE,
+                             NGX_HTTP_SRV_CONF)
         != NGX_OK)
     {
         return NULL;
@@ -193,8 +190,8 @@ done:
 
     /* now parse commands in found or created location */
 
-    if (ngx_http_client_parse_conf(cf, ctx, commands, NGX_HTTP_MODULE,
-                                   NGX_HTTP_LOC_CONF)
+    if (ngx_conf_parse_chunk(cf, ctx, commands, NGX_HTTP_MODULE,
+                             NGX_HTTP_LOC_CONF)
         != NGX_OK)
     {
         return NULL;
@@ -284,61 +281,6 @@ ngx_http_client_find_loc_conf(ngx_conf_t *cf, ngx_http_conf_ctx_t *srv_ctx,
 }
 
 
-static ngx_int_t
-ngx_http_client_parse_conf(ngx_conf_t *cf, ngx_http_conf_ctx_t *ctx,
-    ngx_str_t *commands, ngx_uint_t modtype, ngx_uint_t type)
-{
-    char             *rv;
-    ngx_buf_t         b;
-    ngx_conf_t        pcf;
-    ngx_array_t       args;
-    ngx_conf_file_t   conf_file;
-
-    ngx_memzero(&conf_file, sizeof(ngx_conf_file_t));
-    ngx_memzero(&b, sizeof(ngx_buf_t));
-
-    if (ngx_array_init(&args, cf->pool, 1, sizeof(ngx_str_t)) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    b.start = commands->data;
-    b.pos = b.start;
-    b.last = b.start + commands->len;
-    b.end = b.last;
-    b.temporary = 1;
-
-    conf_file.file.fd = ngx_stderr; /* any valid goes (not actually used) */
-
-    conf_file.file.name = cf->conf_file->file.name;
-    conf_file.line = cf->conf_file->line;
-
-    pcf = *cf;
-
-    cf->ctx = ctx;
-    cf->args = &args;
-    cf->module_type = modtype;
-
-    cf->conf_file = &conf_file;
-    cf->conf_file->buffer = &b;
-
-    cf->cmd_type = type;
-
-    rv = ngx_conf_parse(cf, NULL);
-
-    *cf = pcf;
-
-    if (rv == NGX_CONF_OK) {
-        return NGX_OK;
-    }
-
-    if (rv != NGX_CONF_ERROR) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s", rv);
-    }
-
-    return NGX_ERROR;
-}
-
-
 static ngx_http_core_main_conf_t *
 ngx_http_client_get_main_conf(ngx_conf_t *cf)
 {
@@ -356,8 +298,8 @@ ngx_http_client_get_main_conf(ngx_conf_t *cf)
 
     hctx = (ngx_http_conf_ctx_t *) cf->cycle->conf_ctx;
 
-    if (ngx_http_client_parse_conf(cf, hctx, &http_block, NGX_CORE_MODULE,
-                                   NGX_MAIN_CONF)
+    if (ngx_conf_parse_chunk(cf, hctx, &http_block, NGX_CORE_MODULE,
+                             NGX_MAIN_CONF)
         != NGX_OK)
     {
         return NULL;
@@ -382,8 +324,8 @@ ngx_http_client_create_srv_ctx(ngx_conf_t *cf)
 
     hctx = (ngx_http_conf_ctx_t *) cf->cycle->conf_ctx[ngx_http_module.index];
 
-    if (ngx_http_client_parse_conf(cf, hctx, &client_block, NGX_HTTP_MODULE,
-                                   NGX_HTTP_MAIN_CONF)
+    if (ngx_conf_parse_chunk(cf, hctx, &client_block, NGX_HTTP_MODULE,
+                             NGX_HTTP_MAIN_CONF)
         != NGX_OK)
     {
         return NULL;

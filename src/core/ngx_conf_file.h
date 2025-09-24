@@ -268,6 +268,8 @@ char *ngx_conf_check_num_bounds(ngx_conf_t *cf, void *post, void *data);
 
 char *ngx_conf_param(ngx_conf_t *cf);
 char *ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename);
+ngx_int_t ngx_conf_parse_chunk(ngx_conf_t *cf, void *ctx, ngx_str_t *chunk,
+    ngx_uint_t modtype, ngx_uint_t type);
 char *ngx_conf_include(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 

@@ -97,6 +97,19 @@ all functionality of nginx 1.29.1.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+в конфигурации ACME отменено требование задавать отдельный блок "server"
+с директивой "listen 80", если настроена HTTP-верификация; при необходимости
+слушающий порт можно изменить с помощью новой директивы "acme_http_port".
+</para>
+<para lang="en">
+removed the need to define a separate "server" block with a "listen 80"
+directive for ACME HTTP challenges; the listening port can be customized
+using the new "acme_http_port" directive if necessary.
+</para>
+</change>
+
 </changes>
 
 

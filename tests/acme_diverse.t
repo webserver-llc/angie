@@ -64,8 +64,7 @@ my $d = $t->testdir();
 
 my $hook_port = port(9000);
 my $pebble_port = port(14000);
-my $http_port = port(5002);
-my $angie_http_port = port(5003);
+my $http_port = port(5003);
 my $challtestsrv_mgmt_port = port(9055);
 
 my (@clients, @servers);
@@ -193,6 +192,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    # Prevent the "could not build optimal variables_hash..." warning
     variables_hash_max_size 2048;
 
     # We don't need a resolver directive because we specify IPs
@@ -200,20 +200,10 @@ http {
     #resolver localhost:$dns_port ipv6=off;
 
     acme_dns_port $angie_dns_port;
+    acme_http_port $http_port;
 
 $conf_clients
 $conf_servers
-
-    server {
-        # XXX for http-01 validation with pebble.
-        # it will send a validating HTTP request to this
-        # port instead of 80; Angie will issue a warning though
-        listen               $angie_http_port;
-
-        location / {
-            return           200 "HELLO";
-        }
-    }
 
     server {
         listen       localhost:%%PORT_8080%%;
@@ -245,7 +235,7 @@ $acme_helper->start_challtestsrv({
 
 $acme_helper->start_pebble({
 	pebble_port => $pebble_port,
-	http_port => $angie_http_port
+	http_port => $http_port
 });
 
 $t->run();
@@ -360,7 +350,7 @@ $acme_helper->start_challtestsrv({
 
 $acme_helper->start_pebble({
 	pebble_port => $pebble_port,
-	http_port => $angie_http_port
+	http_port => $http_port
 });
 
 $t->run_daemon(\&hook_handler, $t, $hook_port);

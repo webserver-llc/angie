@@ -2,8 +2,8 @@
 
 # (C) 2025 Web Server LLC
 
-# This test verifies that $acme_cert_key_* is empty, along with $acme_cert_*,
-# when the certificate is unavailable.
+# The test verifies that requests sent to a socket dedicated exclusively
+# to ACME challenges are handled correctly.
 
 # This script requires pebble and pebble-challtestsrv
 # (see Test::Nginx::ACME for details)
@@ -19,7 +19,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_content /;
+use Test::Nginx qw/ :DEFAULT http_content/;
 use Test::Nginx::ACME;
 
 ###############################################################################
@@ -28,7 +28,6 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
-my $d = $t->testdir();
 
 # XXX
 # We don't use the port function here, because the port it creates is currently
@@ -37,14 +36,12 @@ my $d = $t->testdir();
 # "Address already in use" error).
 # While it is not entirely safe to use this port number, this shouldn't cause
 # problems in most cases.
-my $dns_port = 13053;
+my $dns_port = 17553;
 
 my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
 
 my $pebble_port = port(14000);
 my $http_port = port(5002);
-
-$t->prepare_ssl();
 
 $t->write_file_expand('nginx.conf', <<"EOF");
 %%TEST_GLOBALS%%
@@ -62,47 +59,29 @@ http {
     acme_client test https://localhost:$pebble_port/dir
                 email=admin\@angie-test.com;
 
-    # We use a temporary certificate and key
-    # until we obtain a proper certificate through ACME.
-
-    map \$acme_cert_test \$cert_test {
-        ''       $d/localhost.crt;
-        default  \$acme_cert_test;
-    }
-
-    map \$acme_cert_key_test \$cert_key_test {
-        ''       $d/localhost.key;
-        default  \$acme_cert_key_test;
-    }
-
-    # Both \$cert and \$cert_key must contain 'EMPTY'
-    # until we obtain a certificate.
-
-    map \$acme_cert_test \$cert {
-        ''       'EMPTY';
-        default  'CERT';
-    }
-
-    map \$acme_cert_key_test \$cert_key {
-        ''       'EMPTY';
-        default  'KEY';
-    }
-
     server {
         listen               %%PORT_8443%% ssl;
-        server_name          angie-test1.com;
+        server_name          angie-test900.com
+                             angie-test901.com
+                             angie-test902.com;
 
-        ssl_certificate      \$cert_test;
-        ssl_certificate_key  \$cert_key_test;
+        ssl_certificate      \$acme_cert_test;
+        ssl_certificate_key  \$acme_cert_key_test;
 
         acme                 test;
 
         location / {
-            return           200 "\$cert_key \$cert";
+            return           200 "SECURED";
         }
     }
 
-    acme_http_port $http_port;
+    acme_http_port 127.0.0.1:$http_port;
+
+    server {
+        listen *:$http_port;
+        return 200 '\$request_uri';
+    }
+
 }
 
 EOF
@@ -118,23 +97,52 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 
 $t->plan(2);
 
-my ($obtained, $empty_key) = (0, 0);
+my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
 
-for (1 .. 480) {
-	my $s = http_content(http_get('/', SSL => 1));
+my $obtained = 0;
+my $expected = -1;
+my $obtained_enddate = '';
+my $count = 1;
+my $octet = 1;
 
-	if (defined $s) {
-		if (!$empty_key) {
-			$empty_key = $s eq 'EMPTY EMPTY';
-		}
+my $loop_start = time();
 
-		$obtained = $s eq 'KEY CERT';
+for (;;) {
+	if (-s $cert_file) {
+		$obtained_enddate
+			= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
 
-		last if $obtained;
+		next if $obtained_enddate eq '';
+
+		chomp $obtained_enddate;
+
+		my $s = strftime("%H:%M:%S GMT", gmtime());
+		note("$0: obtained certificate on $s; enddate: $obtained_enddate");
+
+		$obtained = 1;
 	}
 
-	select undef, undef, undef, 0.5;
+	if ($expected) {
+		# These requests should be accepted because they are sent to addresses
+		# matching a wildcard specified in a server block.
+
+		my $s = http_content(
+			http_get("/$count", PeerAddr => "127.0.0.$octet:" . port($http_port)));
+
+		$expected = ($s eq "/$count");
+
+		$count++;
+
+		$octet++;
+		$octet = 1 if $octet > 2;
+	}
+
+	last if $obtained || (time() - $loop_start > 30);
 }
 
-ok($empty_key, 'key empty without certificate');
 ok($obtained, 'obtained certificate');
+
+$expected = ($expected > 0);
+
+ok($expected, 'handled all unexpected requests');
+

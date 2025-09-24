@@ -72,16 +72,7 @@ http {
         }
     }
 
-    server {
-        # XXX for http-01 validation with pebble.
-        # it will send a validating HTTP request to this
-        # port instead of 80; Angie will issue a warning though
-        listen               $http_port;
-
-        location / {
-            return           200 "HELLO";
-        }
-    }
+    acme_http_port           $http_port;
 }
 
 stream {

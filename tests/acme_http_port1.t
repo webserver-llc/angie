@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 
-# (C) 2024 Web Server LLC
+# (C) 2025 Web Server LLC
 
-# ACME HTTP-01 challenge test
+# The test verifies that requests sent to a socket dedicated exclusively
+# to ACME challenges are handled correctly.
 
 # This script requires pebble and pebble-challtestsrv
 # (see Test::Nginx::ACME for details)
@@ -18,7 +19,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT /;
+use Test::Nginx qw/ :DEFAULT http_content/;
 use Test::Nginx::ACME;
 
 ###############################################################################
@@ -35,7 +36,7 @@ my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
 # "Address already in use" error).
 # While it is not entirely safe to use this port number, this shouldn't cause
 # problems in most cases.
-my $dns_port = 10053;
+my $dns_port = 17053;
 
 my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
 
@@ -75,6 +76,12 @@ http {
     }
 
     acme_http_port $http_port;
+
+    server {
+        listen 127.0.0.1:$http_port;
+        return 200 '\$request_uri';
+    }
+
 }
 
 EOF
@@ -83,72 +90,70 @@ $acme_helper->start_challtestsrv();
 
 $acme_helper->start_pebble({
 	pebble_port => $pebble_port, http_port => $http_port,
-	certificate_validity_period => 10
 });
 
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform', 1);
 
-$t->plan(1);
+$t->plan(3);
 
-subtest 'obtaining and renewing a certificate' => sub {
-	my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
+my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
 
-	# First, obtain the certificate.
+my $obtained = 0;
+my $expected = -1;
+my $unexpected = -1;
+my $obtained_enddate = '';
+my $count = 1;
 
-	my $obtained = 0;
-	my $obtained_enddate = '';
+my $loop_start = time();
 
-	for (1 .. 480) {
-		if (-s $cert_file) {
-			$obtained_enddate
-				= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
-
-			next if $obtained_enddate eq '';
-
-			chomp $obtained_enddate;
-
-			my $s = strftime("%H:%M:%S GMT", gmtime());
-			note("$0: obtained certificate on $s; enddate: $obtained_enddate");
-
-			$obtained = 1;
-			last;
-		}
-
-		select undef, undef, undef, 0.5;
-	}
-
-	ok($obtained, 'obtained certificate')
-		or return 0;
-
-	# Then try to use it.
-
-	like(http_get('/', SSL => 1), qr/SECURED/, 'used certificate');
-
-	# Finally, renew the certificate.
-
-	my $renewed = 0;
-	my $renewed_enddate = '';
-
-	for (1 .. 480) {
-		select undef, undef, undef, 0.5;
-
-		$renewed_enddate
+for (;;) {
+	if (-s $cert_file) {
+		$obtained_enddate
 			= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
 
-		next if $renewed_enddate eq '';
+		next if $obtained_enddate eq '';
 
-		chomp $renewed_enddate;
+		chomp $obtained_enddate;
 
-		if ($renewed_enddate ne $obtained_enddate) {
-			my $s = strftime("%H:%M:%S GMT", gmtime());
-			note("$0: renewed certificate on $s; enddate: $renewed_enddate");
+		my $s = strftime("%H:%M:%S GMT", gmtime());
+		note("$0: obtained certificate on $s; enddate: $obtained_enddate");
 
-			$renewed = 1;
-			last;
-		}
+		$obtained = 1;
 	}
 
-	ok($renewed, 'renewed certificate');
-};
+	if ($expected) {
+		# These requests should be accepted because they are sent to an address
+		# specified in a server block.
+
+		my $s = http_content(
+			http_get("/$count", PeerAddr => '127.0.0.1:' . port($http_port)));
+
+		$expected = ($s eq "/$count");
+
+		$count++;
+	}
+
+	if ($unexpected) {
+		# These requests should be rejected, even though they are sent to
+		# an address matching the pattern specified in the acme_http_port
+		# directive.
+
+		my $s = http_get('/xxx', PeerAddr => '127.0.0.2:' . port($http_port)) // '';
+
+		$unexpected = ($s eq ''	);
+	}
+
+	last if $obtained || (time() - $loop_start > 30);
+}
+
+ok($obtained, 'obtained certificate');
+
+$expected = ($expected > 0);
+
+ok($expected, 'handled all expected requests');
+
+$unexpected = ($unexpected > 0);
+
+ok($unexpected, 'handled all unexpected requests');
 

@@ -52,7 +52,7 @@ http {
     ssl_certificate_key rsa.key;
 
     server {
-        listen %%PORT_8081_UDP%% quic;
+        listen %%PORT_8981_UDP%% quic;
 
         status_zone $uri zone=uri;
 
@@ -63,7 +63,7 @@ http {
     }
 
     server {
-        listen %%PORT_8082_UDP%% quic;
+        listen %%PORT_8982_UDP%% quic;
 
         status_zone $uri zone=uri;
 
@@ -74,7 +74,7 @@ http {
     }
 
     server {
-        listen %%PORT_8083_UDP%% quic;
+        listen %%PORT_8983_UDP%% quic;
 
         status_zone $uri zone=uri:15;
 
@@ -85,7 +85,7 @@ http {
     }
 
     server {
-        listen %%PORT_8084_UDP%% quic;
+        listen %%PORT_8984_UDP%% quic;
         server_name *.a.example.com;
 
         status_zone $host zone=a_host:6;
@@ -97,7 +97,7 @@ http {
     }
 
     server {
-        listen %%PORT_8084_UDP%% quic;
+        listen %%PORT_8984_UDP%% quic;
         server_name *.b.example.com;
 
         status_zone $host zone=b_host:5;
@@ -109,7 +109,7 @@ http {
     }
 
     server {
-        listen %%PORT_8085_UDP%% quic;
+        listen %%PORT_8985_UDP%% quic;
 
         status_zone single;
 
@@ -120,7 +120,7 @@ http {
     }
 
     server {
-        listen %%PORT_8086_UDP%% quic;
+        listen %%PORT_8986_UDP%% quic;
 
         status_zone single;
 
@@ -131,7 +131,7 @@ http {
     }
 
     server {
-        listen %%PORT_8087_UDP%% quic;
+        listen %%PORT_8987_UDP%% quic;
 
         server_name *.sni.a.example.com;
 
@@ -146,7 +146,7 @@ http {
     }
 
     server {
-        listen %%PORT_8088_UDP%% quic;
+        listen %%PORT_8988_UDP%% quic;
 
         server_name *.sni.b.example.com;
 
@@ -161,7 +161,7 @@ http {
     }
 
     server {
-        listen %%PORT_8093_UDP%% quic;
+        listen %%PORT_8993_UDP%% quic;
         server_name *.example.com;
 
         status_zone $host zone=ssl_host:4;
@@ -173,7 +173,7 @@ http {
     }
 
     server {
-        listen %%PORT_8095_UDP%% quic;
+        listen %%PORT_8995_UDP%% quic;
         server_name *.example.com;
 
         status_zone $host zone=hosts:5;
@@ -195,7 +195,7 @@ http {
     }
 
     server {
-        listen %%PORT_8096_UDP%% quic;
+        listen %%PORT_8996_UDP%% quic;
 
         location / {
             status_zone $uri zone=locations:10;
@@ -205,7 +205,7 @@ http {
 
     server {
         server_name a.com;
-        listen %%PORT_8097_UDP%% quic;
+        listen %%PORT_8997_UDP%% quic;
         status_zone a_sni_host;
 
         location / {
@@ -215,7 +215,7 @@ http {
 
     server {
         server_name b.com;
-        listen %%PORT_8097_UDP%% quic;
+        listen %%PORT_8997_UDP%% quic;
         status_zone b_sni_host;
 
         location / {
@@ -324,8 +324,8 @@ sub check_single_zone {
 
 sub test_single_zone {
 	for (1 .. 5) {
-		get('/', 8085);
-		get('/', 8086);
+		get('/', 8985);
+		get('/', 8986);
 	}
 
 	check_single_zone();
@@ -368,15 +368,15 @@ sub check_sni_zone {
 
 sub test_sni_zone {
 	for (1 .. 5) {
-		get('/', 8087, "$_.sni.$a");
-		get('/', 8088, "$_.sni.$b");
+		get('/', 8987, "$_.sni.$a");
+		get('/', 8988, "$_.sni.$b");
 	}
 
 	for (1 .. 5) {
-		get('/', 8087, "$_.sni.$a");
-		get('/', 8087, "f.$_.sni.$a");
-		get('/', 8088, "$_.sni.$b");
-		get('/', 8088, "f.$_.sni.$b");
+		get('/', 8987, "$_.sni.$a");
+		get('/', 8987, "f.$_.sni.$a");
+		get('/', 8988, "$_.sni.$b");
+		get('/', 8988, "f.$_.sni.$b");
 	}
 
 	check_sni_zone();
@@ -441,15 +441,15 @@ sub check_host_zone {
 
 sub test_host_zone {
 	for (1 .. 5) {
-		get('/', 8084, host => "$_.$a");
-		get('/', 8084, host => "$_.$b");
+		get('/', 8984, host => "$_.$a");
+		get('/', 8984, host => "$_.$b");
 	}
 
 	for (1 .. 5) {
-		get('/', 8084, host => "$_.$a");
-		get('/', 8084, host => "f.$_.$a");
-		get('/', 8084, host => "$_.$b");
-		get('/', 8084, host => "f.$_.$b");
+		get('/', 8984, host => "$_.$a");
+		get('/', 8984, host => "f.$_.$a");
+		get('/', 8984, host => "$_.$b");
+		get('/', 8984, host => "f.$_.$b");
 	}
 
 	check_host_zone();
@@ -484,20 +484,20 @@ sub check_uri_zone {
 sub test_uri_zone {
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
-			get("/$i.$j", 8080 + $j);
+			get("/$i.$j", 8980 + $j);
 		}
 	}
 
 	for my $i (1 .. 5) {
 		for my $j (1 .. 3) {
-			get("/$i.$j.f", 8080 + $j);
+			get("/$i.$j.f", 8980 + $j);
 		}
 	}
 
 	my $uri = '/' . ('a' x 254);
 
 	for my $i (1 .. 3) {
-		get($uri, 8081);
+		get($uri, 8981);
 		$uri .= 'a';
 	}
 
@@ -525,11 +525,11 @@ sub check_locations_zone {
 
 sub test_locations_zone {
 	for (1 .. 20) {
-		get("/location_$_", 8096);
+		get("/location_$_", 8996);
 	}
 
 	for (1 .. 10) {
-		get("/location_$_", 8096);
+		get("/location_$_", 8996);
 	}
 
 	check_locations_zone();
@@ -569,24 +569,24 @@ sub check_host_uri_zone {
 
 sub test_host_uri_zone {
 	for (1 .. 5) {
-		get("/loc_$_.1", 8095, host => $a);
-		get("/loc_$_.2", 8095, 'localhost', $a);
+		get("/loc_$_.1", 8995, host => $a);
+		get("/loc_$_.2", 8995, 'localhost', $a);
 
-		get("/loc1", 8095, 'localhost', $a);
-		get("/loc2", 8095, 'localhost', $a);
+		get("/loc1", 8995, 'localhost', $a);
+		get("/loc2", 8995, 'localhost', $a);
 	}
 
 	for (1 .. 5) {
-		get("/loc_$_.1.f", 8095, 'localhost', $b);
-		get("/loc_$_.2.f", 8095, 'localhost', $b);
+		get("/loc_$_.1.f", 8995, 'localhost', $b);
+		get("/loc_$_.2.f", 8995, 'localhost', $b);
 
-		get("/loc1", 8095, 'localhost', $b);
-		get("/loc2", 8095, 'localhost', $b);
+		get("/loc1", 8995, 'localhost', $b);
+		get("/loc2", 8995, 'localhost', $b);
 	}
 
 	for (1 .. 5) {
-		get("/loc_$_.1", 8095);
-		get("/loc_$_.2", 8095);
+		get("/loc_$_.1", 8995);
+		get("/loc_$_.2", 8995);
 	}
 
 	check_host_uri_zone();
@@ -602,8 +602,8 @@ sub check_sni_host_zone {
 }
 
 sub test_sni_host_zone {
-	get('/', 8097, 'a.com', 'b.com');
-	get('/', 8097, 'b.com', 'a.com');
+	get('/', 8997, 'a.com', 'b.com');
+	get('/', 8997, 'b.com', 'a.com');
 
 	check_sni_host_zone();
 }

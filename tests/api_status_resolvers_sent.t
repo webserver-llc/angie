@@ -47,14 +47,14 @@ mail {
     server {
         listen    127.0.0.1:8025;
         protocol  smtp;
-        resolver  127.0.0.1:%%PORT_8070_UDP%% status_zone=rzone;
+        resolver  127.0.0.1:%%PORT_8970_UDP%% status_zone=rzone;
     }
 }
 
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    resolver 127.0.0.1:%%PORT_8070_UDP%% status_zone=rzone;
+    resolver 127.0.0.1:%%PORT_8970_UDP%% status_zone=rzone;
 
     upstream u {
         zone u 1m;
@@ -109,12 +109,12 @@ http {
 EOF
 
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->run_daemon(\&dns_daemon, port(8070), $t);
+$t->run_daemon(\&dns_daemon, port(8970), $t);
 
 $t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8026));
-$t->waitforfile($t->testdir . '/' . port(8070));
+$t->waitforfile($t->testdir . '/' . port(8970));
 
 ###############################################################################
 

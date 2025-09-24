@@ -60,17 +60,17 @@ stream {
 
     upstream u {
         zone z 1m;
-        server test.example.com:%%PORT_8083_UDP%% resolve;
+        server test.example.com:%%PORT_8983_UDP%% resolve;
     }
 
     server {
-        listen 127.0.0.1:%%PORT_8081_UDP%% udp;
+        listen 127.0.0.1:%%PORT_8981_UDP%% udp;
         proxy_connection_drop on;
         proxy_pass u;
     }
 
     server {
-        listen 127.0.0.1:%%PORT_8082_UDP%% udp;
+        listen 127.0.0.1:%%PORT_8982_UDP%% udp;
         proxy_connection_drop off;
         proxy_pass u;
     }
@@ -85,8 +85,8 @@ my $addr_set2 = {'test.example.com' => ['127.0.0.2']};
 # TODO: use substituted ports for parallel execution for DNS server
 $t->start_resolver(5757, $addr_set1);
 
-$t->run_daemon(\&udp_daemon, port(8083), $t);
-$t->waitforfile($t->testdir() . '/' . port(8083));
+$t->run_daemon(\&udp_daemon, port(8983), $t);
+$t->waitforfile($t->testdir() . '/' . port(8983));
 
 $t->run()->plan(5);
 
@@ -95,7 +95,7 @@ wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 ###############################################################################
 
 # Connection drop on
-my $s = dgram('127.0.0.1:' . port(8081));
+my $s = dgram('127.0.0.1:' . port(8981));
 
 my $real_port = $s->io('ping');
 
@@ -113,7 +113,7 @@ $t->restart_resolver(5757, $addr_set1);
 wait_peer('127.0.0.1') or diag("$0: Peer is not ready");
 
 # Connection drop off
-$s = dgram('127.0.0.1:' . port(8082));
+$s = dgram('127.0.0.1:' . port(8982));
 
 $real_port = $s->io('ping');
 
@@ -149,7 +149,7 @@ sub udp_daemon {
 
 sub wait_peer {
 	my ($peer) = @_;
-	$peer .= ':' . port(8083);
+	$peer .= ':' . port(8983);
 
 	my $ok = 0;
 	for (1 .. 50) {

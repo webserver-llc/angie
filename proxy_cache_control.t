@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)->plan(19);
+my $t = Test::Nginx->new()->has(qw/http proxy cache rewrite/)->plan(20);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -71,6 +71,12 @@ http {
 
         location /cache-control {
             add_header Cache-Control max-age=60;
+            return 204;
+        }
+
+        location /cache-control-overflow {
+            # sufficiently large for 32-bit and 64-bit representations
+            add_header Cache-Control max-age=9223372036854775808;
             return 204;
         }
 
@@ -191,6 +197,14 @@ $t->run();
 
 like(get('/expires'), qr/HIT/, 'expires');
 like(get('/cache-control'), qr/HIT/, 'cache-control');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.2');
+
+like(get('/cache-control-overflow'), qr/HIT/, 'cache-control overflow');
+
+}
+
 like(get('/x-accel-expires'), qr/HIT/, 'x-accel-expires');
 like(get('/x-accel-expires-at'), qr/EXPIRED/, 'x-accel-expires at');
 

@@ -1,5 +1,5 @@
 
-scgi_param  REQUEST_METHOD     $request_method;
+scgi_param  REQUEST_METHOD     $upstream_request_method;
 scgi_param  REQUEST_URI        $request_uri;
 scgi_param  QUERY_STRING       $query_string;
 scgi_param  CONTENT_TYPE       $content_type;

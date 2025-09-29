@@ -1,6 +1,6 @@
 
 uwsgi_param  QUERY_STRING       $query_string;
-uwsgi_param  REQUEST_METHOD     $request_method;
+uwsgi_param  REQUEST_METHOD     $upstream_request_method;
 uwsgi_param  CONTENT_TYPE       $content_type;
 uwsgi_param  CONTENT_LENGTH     $content_length;
 

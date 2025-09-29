@@ -7,6 +7,40 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="change">
+<para lang="ru">
+параметр "REQUEST_METHOD" в файлах конфигурации "fastcgi.conf", fastcgi_params",
+"uwsgi_params" и "scgi_params" теперь устанавливается через переменную
+"$upstream_request_method", которая принимает значение GET для HEAD-запросов
+при настройке кэширования; это предотвращает проблему, когда ранее в результате
+HEAD-запроса могло происходить сохранение пустых ответов, которые затем
+отдавались на GET запросы, так как в типичной конфигурации метод запроса не
+является ключом кэширования.
+</para>
+<para lang="en">
+the "REQUEST_METHOD" parameter in the "fastcgi.conf", fastcgi_params",
+"uwsgi_params", and "scgi_params" configuration files now is set via
+the "$upstream_request_method" variable, which takes the value GET for HEAD
+requests when caching is configured; this prevents an issue where a HEAD request
+could previously result in storing an empty response, which would then be served
+for GET requests, since the request method is not a part of the cache key in
+common configurations.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+переменная "$upstream_request_method", содержащая метод запроса к проксируемому
+серверу, который может отличаться от метода запроса клиента при использовании
+кэширования или директивы "proxy_method".
+</para>
+<para lang="en">
+the "$upstream_request_method" variable that contains the upstream request
+method, which can be different from client request method when caching is
+enabled or the "proxy_method" is set.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 директива "proxy_method" игнорировалась при срабатывании директивы

@@ -176,6 +176,10 @@ static ngx_int_t ngx_http_upstream_response_time_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_upstream_response_length_variable(
     ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+
+static ngx_int_t ngx_http_upstream_request_method_variable(
+    ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+
 static ngx_int_t ngx_http_upstream_header_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_upstream_trailer_variable(ngx_http_request_t *r,
@@ -484,6 +488,10 @@ static ngx_http_variable_t  ngx_http_upstream_vars[] = {
 
 #endif
 
+    { ngx_string("upstream_request_method"), NULL,
+      ngx_http_upstream_request_method_variable, 0,
+      NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_NOHASH, 0 },
+
 #if (NGX_HTTP_UPSTREAM_STICKY)
 
     { ngx_string("upstream_sticky_status"), NULL,
@@ -638,6 +646,8 @@ ngx_http_upstream_init_request(ngx_http_request_t *r)
     }
 
     u = r->upstream;
+
+    u->method = r->method_name;
 
 #if (NGX_HTTP_CACHE)
 
@@ -6687,6 +6697,29 @@ ngx_http_upstream_cache_etag(ngx_http_request_t *r,
 }
 
 #endif
+
+
+static ngx_int_t
+ngx_http_upstream_request_method_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_upstream_t  *u;
+
+    u = r->upstream;
+
+    if (u != NULL && u->method.data) {
+        v->len = u->method.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = u->method.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
 
 
 #if (NGX_HTTP_UPSTREAM_STICKY)

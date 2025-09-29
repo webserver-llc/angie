@@ -1598,12 +1598,10 @@ ngx_http_proxy_create_request(ngx_http_request_t *r)
             return NGX_ERROR;
         }
 
-    } else if (u->method.len) {
-        /* HEAD was changed to GET to cache response */
-        method = u->method;
+        u->method = method;
 
     } else {
-        method = r->method_name;
+        method = u->method;
     }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_proxy_module);
@@ -6586,12 +6584,10 @@ ngx_http_v3_proxy_encode_method(ngx_http_request_t *r,
                 return NGX_ERROR;
             }
 
-        } else if (u->method.len) {
-            /* HEAD was changed to GET to cache response */
-            method = u->method;
+            u->method = method;
 
         } else {
-            method = r->method_name;
+            method = u->method;
         }
 
         if (method.len == 4

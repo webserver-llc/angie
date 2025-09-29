@@ -7,6 +7,17 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+директива "proxy_method" игнорировалась при срабатывании директивы
+"proxy_cache_convert_head on".
+</para>
+<para lang="en">
+the "proxy_method" directive was ignored if "proxy_cache_convert_head on" was
+triggered.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 переменная "$http_host" в запросах по протоколу HTTP/3 теперь инициализируется

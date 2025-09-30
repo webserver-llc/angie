@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http rewrite http_v2 grpc/)
-	->has(qw/upstream_keepalive/)->plan(146);
+	->has(qw/upstream_keepalive/)->plan(147);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -207,6 +207,10 @@ $f->{settings}(0, 1 => 4096);
 $frames = $f->{http_end}();
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 ok($c = $frame->{headers}{'x-connection'}, 'keepalive 2 - connection');
+
+$frames = $f->{read_settings}();
+($frame) = grep { $_->{type} eq "SETTINGS" } @$frames;
+is($frame->{flags}, 1, 'pending frames acked');
 
 $frames = $f->{http_start}('/KeepAlive', reuse => 1);
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
@@ -768,6 +772,9 @@ reused:
 	};
 	$f->{settings} = sub {
 		$c->h2_settings(@_);
+	};
+	$f->{read_settings} = sub {
+		return $c->read(all => [{ type => 'SETTINGS' }]);
 	};
 	$f->{goaway} = sub {
 		$c->h2_goaway(@_);

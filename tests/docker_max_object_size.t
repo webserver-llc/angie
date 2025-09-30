@@ -31,10 +31,9 @@ if (system('docker version 1>/dev/null 2>1') == 0) {
 	$endpoint = '/var/run/docker.sock';
 	$container_engine = 'docker';
 
-# TODO
-#} elsif (system('podman version 1>/dev/null 2>1') == 0) {
-#	$endpoint = '/tmp/podman.sock';
-#	$container_engine = 'podman';
+} elsif (system('podman version 1>/dev/null 2>1') == 0) {
+	$endpoint = '/tmp/podman.sock';
+	$container_engine = 'podman';
 
 } else {
 	plan(skip_all => 'no Docker');

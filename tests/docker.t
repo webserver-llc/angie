@@ -121,6 +121,8 @@ system("$container_engine network create test_net 1>/dev/null 2>1");
 system("$container_engine network inspect test_net 1>/dev/null 2>1") == 0
 	or die "can't create $container_engine network";
 
+stop_containers();
+
 test_containers($t, 3);
 test_containers($t, 10);
 test_containers($t, 1);
@@ -200,6 +202,10 @@ sub start_containers {
 }
 
 sub stop_containers {
+	if (`$container_engine ps -a -q` eq '') {
+		return;
+	}
+
 	system("$container_engine stop \$($container_engine ps -a -q) "
 		. '1>/dev/null 2>1') == 0
 		or die "cannot stop containers";

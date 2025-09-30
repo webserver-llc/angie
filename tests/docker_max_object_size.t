@@ -49,6 +49,8 @@ my $t = Test::Nginx->new()
 
 ###############################################################################
 
+stop_containers();
+
 start_containers($t, 5);
 
 restart_with_size($t, '4k');
@@ -167,6 +169,10 @@ sub start_containers {
 }
 
 sub stop_containers {
+	if (`$container_engine ps -a -q` eq '') {
+		return;
+	}
+
 	system("$container_engine stop \$($container_engine ps -a -q)"
 		. ' 1>/dev/null 2>1') == 0
 		 or die "cannot stop containers";

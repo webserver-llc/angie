@@ -28,12 +28,12 @@ plan(skip_all => 'unsafe, will stop all currently active containers.')
 my $endpoint = "";
 my $container_engine = "";
 
-if (system('docker version 1>/dev/null 2>1') == 0) {
+if (system('docker version 1>/dev/null 2>&1') == 0) {
 	$endpoint = '/var/run/docker.sock';
 	$container_engine = 'docker';
 
 # TODO:
-#} elsif (system('podman version 1>/dev/null 2>1') == 0) {
+#} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
 #	$endpoint = '/tmp/podman.sock';
 #	$container_engine = 'podman';
 
@@ -117,8 +117,8 @@ $t->run();
 
 ###############################################################################
 
-system("$container_engine network create test_net 1>/dev/null 2>1");
-system("$container_engine network inspect test_net 1>/dev/null 2>1") == 0
+system("$container_engine network create test_net 1>/dev/null 2>&1");
+system("$container_engine network inspect test_net 1>/dev/null 2>&1") == 0
 	or die "can't create $container_engine network";
 
 stop_containers();
@@ -207,11 +207,11 @@ sub stop_containers {
 	}
 
 	system("$container_engine stop \$($container_engine ps -a -q) "
-		. '1>/dev/null 2>1') == 0
+		. '1>/dev/null 2>&1') == 0
 		or die "cannot stop containers";
 
 	system("$container_engine rm \$($container_engine ps -a -q)"
-		. ' 1>/dev/null 2>1') == 0
+		. ' 1>/dev/null 2>&1') == 0
 		or die "cannot remove containers";
 }
 
@@ -219,7 +219,7 @@ sub pause_containers {
 	my ($pause) = @_;
 
 	system("$container_engine $pause \$($container_engine ps -a -q)"
-		. ' 1>/dev/null 2>1');
+		. ' 1>/dev/null 2>&1');
 }
 
 sub check_peers {

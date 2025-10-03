@@ -208,6 +208,7 @@ like(get('/cache-control-before-expires'), qr/HIT/,
 	'cache-control before expires');
 like(get('/cache-control-after-expires'), qr/HIT/,
 	'cache-control after expires');
+
 like(get('/cache-control-no-cache-before-expires'), qr/MISS/,
 	'cache-control no-cache before expires');
 like(get('/cache-control-no-cache-after-expires'), qr/MISS/,
@@ -217,6 +218,7 @@ like(get('/cache-control-no-cache-after-expires'), qr/MISS/,
 
 like(get('/x-accel-expires-before'), qr/HIT/, 'x-accel-expires before');
 like(get('/x-accel-expires-after'), qr/HIT/, 'x-accel-expires after');
+
 like(get('/x-accel-expires-0-before'), qr/MISS/, 'x-accel-expires 0 before');
 like(get('/x-accel-expires-0-after'), qr/MISS/, 'x-accel-expires 0 after');
 

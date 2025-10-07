@@ -16,6 +16,7 @@ BEGIN {
 	our @EXPORT = qw/ log_in log_out http http_get http_head port /;
 	our @EXPORT_OK = qw/
 		http_gzip_request http_gzip_like http_start http_end http_content
+		http_post
 	/;
 	our %EXPORT_TAGS = (
 		gzip => [ qw/ http_gzip_request http_gzip_like / ]
@@ -174,6 +175,8 @@ sub has_module($) {
 		perl	=> '--with-http_perl_module',
 		http_api
 			=> '(?s)^(?!.*--without-http_api_module)',
+		prometheus
+			=> '(?s)^(?!.*--without-http_prometheus_module)',
 		auth_request
 			=> '--with-http_auth_request_module',
 		realip	=> '--with-http_realip_module',
@@ -1214,6 +1217,17 @@ sub http_get($;%) {
 	return http(<<EOF, %extra);
 GET $url HTTP/1.0
 Host: localhost
+
+EOF
+}
+
+sub http_post($;%) {
+	my ($url, %extra) = @_;
+	my $content_length = length($extra{body} // 0);
+	return http(<<EOF, %extra);
+POST $url HTTP/1.0
+Host: localhost
+Content-Length: $content_length
 
 EOF
 }

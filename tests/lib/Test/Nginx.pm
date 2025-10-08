@@ -1410,8 +1410,7 @@ sub http_get_value {
 
 ###############################################################################
 
-sub prepare_ssl($)
-{
+sub prepare_ssl($) {
 	my ($self) = @_;
 
 	$self->write_file('openssl.conf', <<EOF);
@@ -1431,6 +1430,8 @@ EOF
 			. ">>$d/openssl.out 2>&1") == 0
 			or die "Can't create certificate for $name: $!\n";
 	}
+
+	return $self;
 }
 
 # runs tests. allows to run a specific test case

@@ -186,6 +186,7 @@ sub has_module($) {
 		sub	=> '--with-http_sub_module',
 		acme	=> '--with-http_acme_module',
 		debug   => '--with-debug',
+		quic_bpf=> '(?s)^(?!.*--without-quic_bpf_module)',
 		charset	=> '(?s)^(?!.*--without-http_charset_module)',
 		gzip	=> '(?s)^(?!.*--without-http_gzip_module)',
 		ssi	=> '(?s)^(?!.*--without-http_ssi_module)',

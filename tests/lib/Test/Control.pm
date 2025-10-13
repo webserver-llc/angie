@@ -26,13 +26,13 @@ sub send_signal {
 }
 
 sub upgrade {
-	my ($t, $pid, $nworkers) = @_;
+	my ($t, $pid, $old_nworkers, $new_nworkers) = @_;
 
 	ok($pid, "old master pid $pid file is not empty")
 		or return;
 
 	# ensure that all workers forked and renamed properly
-	wait_for_active_workers($pid, $nworkers)
+	wait_for_active_workers($pid, $old_nworkers)
 		or return;
 
 	check_master_processes_pids($t, [$pid],
@@ -110,7 +110,7 @@ sub upgrade {
 		or return;
 
 	# wait till workers are forked from new master
-	wait_for_active_workers($new_pid, $nworkers)
+	wait_for_active_workers($new_pid, $new_nworkers // $old_nworkers)
 		or return;
 
 	# all workers are forked, we can safely check for masters

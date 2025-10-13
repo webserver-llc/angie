@@ -1,5 +1,6 @@
 package Test::Nginx::HTTP3;
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -15,6 +16,11 @@ use IO::Select;
 use Data::Dumper;
 
 use Test::Nginx;
+
+use Exporter qw/ import /;
+BEGIN {
+	our @EXPORT_OK = qw/ http3_get http3_start http3_end http3_close /;
+}
 
 sub new {
 	my $self = {};
@@ -34,9 +40,19 @@ sub new {
 	require Crypt::Digest;
 	require Crypt::Mac::HMAC;
 
+	my $lport;
+
+	if (defined($extra{local_port})) {
+		$lport = port($extra{local_port}, udp => 1);
+	} else {
+		$lport = undef;
+	}
+
 	$self->{socket} = IO::Socket::INET->new(
 		Proto => "udp",
-		PeerAddr => '127.0.0.1:' . port($port || 8980),
+		PeerAddr => '127.0.0.1:' . port($port || 8980, udp => 1),
+		LocalPort => $lport,
+		LocalAddr => $extra{local_addr} || '127.0.0.1',
 	);
 
 	$self->{repeat} = 0;
@@ -265,6 +281,7 @@ sub DESTROY {
 
 	return unless $self->{socket};
 	return unless $self->{keys}[3];
+	return unless $self->{keys}[3]{w};
 	my $frame = build_cc(0, "graceful shutdown");
 	$self->{socket}->syswrite($self->encrypt_aead($frame, 3));
 }
@@ -1743,6 +1760,10 @@ sub decrypt_aead {
 	$offpn += $len;
 
 	my $sample = substr($buf, $offpn + 4, 16);
+	if (!defined($self->{keys}[$level]{r})) {
+		# decryption keys are not available at this level, skip
+		return 0;
+	}
 	my ($ad, $pnl, $pn) = $self->decrypt_ad($buf,
 		$self->{keys}[$level]{r}{hp}, $sample, $offpn, $level);
 	Test::Nginx::log_core('||', "ad = " . unpack("H*", $ad));
@@ -2516,6 +2537,67 @@ sub tls_named_group {
 }
 
 ###############################################################################
+
+sub http3_start {
+	my ($host, $dport, $laddr, $lport) = @_;
+
+	my $s = Test::Nginx::HTTP3->new(
+		$dport,
+		sni => $host,
+		local_addr => $laddr,
+		local_port => $lport
+	);
+	if (!defined $s) {
+		Test::More::diag("failed to create new H3 socket on lport:$lport");
+		return undef;
+	}
+	my $sid = $s->new_stream({ host => $host });
+
+	return ($s, $sid);
+}
+
+sub http3_end {
+	my ($s, $sid) = @_;
+
+	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+	my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
+
+	return $frame->{data};
+}
+
+sub http3_avail_keys_level {
+	my ($s) = @_;
+
+	for (my $i = 3; $i > 0; $i--) {
+		if (defined $s->{keys}[$i]) {
+			return $i;
+		}
+	}
+	return 0;
+}
+
+sub http3_close {
+	my ($s) = @_;
+	my $frame = $s->build_cc(0, "graceful shutdown");
+	$s->{socket}
+		->syswrite($s->encrypt_aead($frame, http3_avail_keys_level($s)));
+}
+
+sub http3_get {
+	my ($host, $dport, $laddr, $lport) = @_;
+
+	my ($s, $sid) = http3_start($host, $dport, $laddr, $lport);
+	if (!defined($s) || !defined($sid)) {
+		Test::More::diag("failed to perform HTTP/3 request to $host:$dport"
+			. " from $laddr:$lport");
+		return undef;
+	}
+
+	my $frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+	my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
+	return $frame->{data};
+}
 
 1;
 

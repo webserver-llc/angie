@@ -9,6 +9,7 @@ package Test::Nginx;
 
 use warnings;
 use strict;
+use feature 'state';
 
 use Exporter qw/ import /;
 
@@ -36,6 +37,8 @@ use Test::More qw//;
 
 use Test::Nginx::Config;
 use Test::API qw/ api_status traverse_api_status /;
+use Test::Control qw/wait_for_reload stop_pid/;
+use Test::Utils qw/trim/;
 
 ###############################################################################
 
@@ -526,7 +529,7 @@ sub run(;$) {
 	unless ($nginx_started) {
 
 		# try to kill pid to prevent tests from hanging
-		$self->_stop_pid($pid, 1)
+		stop_pid($pid, 1)
 			unless defined $nginx_started;
 
 		die "Can't start nginx";
@@ -758,7 +761,7 @@ sub stop_resolver {
 		return;
 	}
 
-	$self->_stop_pid($pid, 1);
+	stop_pid($pid, 1);
 
 	my $is_running = `ps -h $pid | grep -v defunct | wc -l`;
 	$is_running =~ s/^\s+|\s+$//g;
@@ -798,7 +801,13 @@ sub wait_for_resolver {
 	return undef;
 }
 
-sub reload() {
+sub get_master_pid {
+	my ($self, $fname) = @_;
+
+	return trim($self->read_file($fname // 'nginx.pid'));
+}
+
+sub reload {
 	my ($self, $api_gen_url) = @_;
 
 	return $self unless $self->{_started};
@@ -809,7 +818,9 @@ sub reload() {
 		$generation = http_get_value($api_gen_url);
 	}
 
-	my $pid = $self->read_file('nginx.pid');
+	my $pid = $self->get_master_pid();
+
+	# TODO: get current generation
 
 	if ($^O eq 'MSWin32') {
 		my $testdir = $self->{_testdir};
@@ -824,6 +835,7 @@ sub reload() {
 		kill 'HUP', $pid;
 	}
 
+	# TODO get rid of api_gen_url
 	if ($api_gen_url) {
 		my $new_generation;
 		for (1 .. 50) {
@@ -834,47 +846,13 @@ sub reload() {
 		}
 	}
 
-	return $self;
-}
-
-sub _stop_pid {
-	my ($self, $pid, $force) = @_;
-
-	my $exited;
-
-	unless ($force) {
-
-		# let's try graceful shutdown first
-		kill 'QUIT', $pid;
-
-		for (1 .. 900) {
-			$exited = waitpid($pid, WNOHANG) != 0;
-			last if $exited;
-			select undef, undef, undef, 0.1;
-		}
-	}
-
-	# then try fast shutdown
-	if (!$exited) {
-		kill 'TERM', $pid;
-
-		for (1 .. 900) {
-			$exited = waitpid($pid, WNOHANG) != 0;
-			last if $exited;
-			select undef, undef, undef, 0.1;
-		}
-	}
-
-	# last try: brutal kill
-	# this will kill the master process and all its worker processes
-	if (!$exited) {
-		kill '-KILL', getpgrp($pid);
-
-		waitpid($pid, 0);
-	}
+	# wait until all old workers will start shut down
+	# TODO pass new_generation
+	wait_for_reload($pid);
 
 	return $self;
 }
+
 
 sub stop() {
 	my ($self) = @_;
@@ -883,9 +861,9 @@ sub stop() {
 
 	return $self unless $self->{_started};
 
-	my $pid = $self->read_file('nginx.pid');
+	my $pid = $self->get_master_pid();
 
-	$self->_stop_pid($pid);
+	stop_pid($pid);
 
 	$self->{_started} = 0;
 
@@ -951,6 +929,32 @@ sub find_in_file {
 	}
 
 	return @found;
+}
+
+# reads only new lines from error.log file
+sub tail_error_log {
+	my $self = shift;
+
+	state $error_log_fh;
+
+	my $test_dir = $self->{_testdir};
+
+	unless (defined $error_log_fh) {
+		open($error_log_fh, '<', $test_dir . '/error.log')
+			or die "Can't open $test_dir/error.log: $!";
+	}
+
+	seek($error_log_fh, 0, 1);
+
+	my @error_log;
+	for my $line (<$error_log_fh>) {
+		$line = trim($line);
+		next if $line =~ /\[debug\]/;
+		#diag($line);
+		push @error_log, $line;
+	}
+
+	return \@error_log;
 }
 
 sub write_file($$) {

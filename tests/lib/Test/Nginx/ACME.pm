@@ -13,6 +13,8 @@ use strict;
 
 use POSIX qw/ waitpid WNOHANG /;
 use Test::More;
+
+use Test::Control qw/stop_pid/;
 use Test::Nginx qw/port/;
 
 # This module requires pebble and pebble-challtestsrv (see
@@ -194,7 +196,7 @@ sub stop_pebble {
 		select undef, undef, undef, 0.1;
 	}
 
-	$self->{t}->_stop_pid($pid, 1) unless $exited;
+	stop_pid($pid, 1) unless $exited;
 	undef $self->{t}{pebble};
 
 	note("Pebble $pid stopped");
@@ -268,7 +270,7 @@ sub stop_challtestsrv {
 		select undef, undef, undef, 0.1;
 	}
 
-	$self->{t}->_stop_pid($pid, 1) unless $exited;
+	stop_pid($pid, 1) unless $exited;
 	undef $self->{t}{challtestsrv};
 
 	note("Challtestsrv $pid stopped");

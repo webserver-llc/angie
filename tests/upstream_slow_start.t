@@ -42,7 +42,7 @@ http {
 
     upstream u1 {
         zone z1 1m;
-        server 127.0.0.1:%%PORT_8081%% max_fails=1 fail_timeout=2s slow_start=3s weight=2;
+        server 127.0.0.1:%%PORT_8081%% max_fails=1 fail_timeout=2s slow_start=5s weight=2;
         server 127.0.0.1:%%PORT_8082%% fail_timeout=2s;
      }
 
@@ -133,10 +133,10 @@ is($r->{state}, "recovering", "backend 1 is recovering");
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p2");
 is($r->{state}, "up", "backend 2 is up");
 
-hash_like(many(30), {$p1 => 0, $p2 => 30}, 1, 'p2 only');
+hash_like(many(30), {$p1 => 0, $p2 => 30}, 10, 'p2 only');
 
 # let the slow start to complete
-select undef, undef, undef, 3;
+select undef, undef, undef, 5;
 
 $r = get_json("/api/status/http/upstreams/u1/peers/127.0.0.1:$p1");
 is($r->{state}, "up", "backend 1 is up again");

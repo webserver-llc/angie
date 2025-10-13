@@ -164,6 +164,20 @@ using the new "acme_http_port" directive if necessary.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+добавлена поддержка Encrypted Client Hello (ECH) в HTTP и Stream SSL-модулях.
+Новая директивой "ssl_encrypted_hello_key" позволяет задать файл с приватным
+ключом.  Переменная "$ssl_encrypted_hello" содержит информацию об использовании
+ECH.
+</para>
+<para lang="en">
+added support for Encrypted Client Hello (ECH) in HTTP and Stream SSL modules.
+The new "ssl_encrypted_hello_key" directive specifies the file with private
+key.  The "$ssl_encrypted_hello" variable contains information about ECH usage.
+</para>
+</change>
+
 </changes>
 
 

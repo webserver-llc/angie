@@ -7,6 +7,15 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="feature">
+<para lang="ru">
+поддержка форматов AVIF и HEIC в Image Filter.
+</para>
+<para lang="en">
+support for AVIF and HEIC formats in Image Filter.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 параметр "REQUEST_METHOD" в файлах конфигурации "fastcgi.conf", fastcgi_params",

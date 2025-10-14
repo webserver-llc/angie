@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # (C) 2024 Web Server LLC
+# (C) Maxim Dounin
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -23,12 +24,12 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
-plan(skip_all => 'may not work, leaves coredump')
+plan(skip_all => 'may not work')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $t = Test::Nginx->new()->has(qw/http proxy http_ssl/)->has_daemon('openssl')
+my $t = Test::Nginx->new()
+	->has(qw/http proxy http_ssl/)
+	->has_daemon('openssl')
 	->has_daemon('softhsm2-util');
 
 plan(skip_all => 'unsupported OpenSSL version')
@@ -97,7 +98,27 @@ EOF
 # http://mailman.nginx.org/pipermail/nginx-devel/2014-October/006151.html
 #
 # Note that library paths vary on different systems,
-# and may need to be adjusted.
+# and may need to be adjusted. We try to detect some known ones.
+#
+# Still, detected libraries might not match OpenSSL library used when
+# building nginx, or the "openssl" tool in path, so everything will fail.
+# As such, this test is marked unsafe.
+
+# Libraries on various systems: FreeBSD, Alpine, Ubuntu
+
+my ($engine) = grep { -e $_ } qw!
+	/usr/local/lib/engines/pkcs11.so
+	/usr/lib/engines-3/pkcs11.so
+	/usr/lib/x86_64-linux-gnu/engines-3/pkcs11.so
+	/usr/lib/aarch64-linux-gnu/engines-3/pkcs11.so
+	/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so
+	/usr/lib/aarch64-linux-gnu/engines-1.1/pkcs11.so
+	/usr/lib64/engines-1.1/pkcs11.so
+	/usr/lib64/engines-3/pkcs11.so
+	/usr/lib64/openssl/engines-1.1/pkcs11.so
+!;
+
+plan(skip_all => 'no libp11 pkcs11 engine') unless $engine;
 
 my $libsofthsm2_path;
 my @so_paths = (
@@ -106,6 +127,7 @@ my @so_paths = (
 	'/usr/local/lib/softhsm',	# FreeBSD
 	'/opt/local/lib/softhsm',	# MacPorts
 	'/lib64',			# RHEL-based
+	'/usr/lib/x86_64-linux-gnu/softhsm', # Ubuntu
 	split /:/, $ENV{TEST_ANGIE_SOFTHSM} || ''
 );
 
@@ -130,7 +152,7 @@ pkcs11 = pkcs11_section
 
 [pkcs11_section]
 engine_id = pkcs11
-dynamic_path = /usr/local/lib/engines/pkcs11.so
+dynamic_path = $engine
 MODULE_PATH = $libsofthsm2_path
 init = 1
 PIN = 1234
@@ -142,7 +164,6 @@ distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
 EOF
 
-$openssl_conf =~ s|^(?=dynamic_path)|# |m if $^O ne 'freebsd';
 $t->write_file('openssl.conf', $openssl_conf);
 
 my $d = $t->testdir();
@@ -157,29 +178,34 @@ mkdir($d . '/tokens');
 $ENV{SOFTHSM2_CONF} = "$d/softhsm2.conf";
 $ENV{OPENSSL_CONF} = "$d/openssl.conf";
 
+my $conf_paths = "SOFTHSM2_CONF=$ENV{SOFTHSM2_CONF} "
+	. "OPENSSL_CONF=$ENV{OPENSSL_CONF}";
 foreach my $name ('localhost') {
 	my $cmd = 'softhsm2-util --init-token --slot 0 --label NginxZero '
 		. '--pin 1234 --so-pin 1234 '
 		. ">>$d/openssl.out 2>&1";
 
-	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+	note("$conf_paths $cmd");
 
-	system($cmd);
+	system($cmd) == 0
+		or die "Can't initialize softhsm token: $!\n";
 
 	if ($use_pkcs11_tool) {
 		$cmd = "pkcs11-tool --module=$libsofthsm2_path "
-			. '-p 1234 -l -k -d 0 -a nx_key_0 --key-type rsa:2048 '
+			. '--token-label NginxZero --pin 1234 --login '
+			. '--keypairgen --id 0 --label nx_key_0 --key-type rsa:2048 '
 			. ">>$d/openssl.out 2>&1";
 
-		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+		note("$conf_paths $cmd");
 
-		system($cmd);
+		system($cmd) == 0
+			or die "Can't generate pkcs11 keypair: $!\n";;
 
 	} else {
 		$cmd = "openssl genrsa -out $d/$name.key 2048 "
 			. ">>$d/openssl.out 2>&1";
 
-		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+		note("$conf_paths $cmd");
 
 		system($cmd) == 0
 			or die "Can't create private key: $!\n";
@@ -188,7 +214,7 @@ foreach my $name ('localhost') {
 			. '--token NginxZero --pin 1234 '
 			. ">>$d/openssl.out 2>&1";
 
-		note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+		note("$conf_paths $cmd");
 
 		system($cmd) == 0
 			or die "Can't import private key: $!\n";
@@ -199,7 +225,7 @@ foreach my $name ('localhost') {
 		. "-engine pkcs11 -keyform engine -key id_00 "
 		. ">>$d/openssl.out 2>&1";
 
-	note("SOFTHSM2_CONF=$d/softhsm2.conf OPENSSL_CONF=$d/openssl.conf $cmd");
+	note("$conf_paths $cmd");
 
 	system($cmd) == 0
 		or plan(skip_all => "missing engine");

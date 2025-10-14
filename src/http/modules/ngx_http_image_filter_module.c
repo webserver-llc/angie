@@ -38,43 +38,47 @@
 
 
 typedef struct {
-    ngx_uint_t                   filter;
-    ngx_uint_t                   width;
-    ngx_uint_t                   height;
-    ngx_uint_t                   angle;
-    ngx_uint_t                   jpeg_quality;
-    ngx_uint_t                   webp_quality;
-    ngx_uint_t                   sharpen;
+    ngx_uint_t                      value;
+    ngx_http_complex_value_t       *complex_value;
+} ngx_http_image_filter_value_t;
 
-    ngx_flag_t                   transparency;
-    ngx_flag_t                   interlace;
 
-    ngx_http_complex_value_t    *wcv;
-    ngx_http_complex_value_t    *hcv;
-    ngx_http_complex_value_t    *acv;
-    ngx_http_complex_value_t    *jqcv;
-    ngx_http_complex_value_t    *wqcv;
-    ngx_http_complex_value_t    *shcv;
+typedef struct {
+    ngx_uint_t                      filter;
+    ngx_uint_t                      width;
+    ngx_uint_t                      height;
+    ngx_uint_t                      angle;
 
-    size_t                       buffer_size;
+    ngx_flag_t                      transparency;
+    ngx_flag_t                      interlace;
+
+    ngx_http_complex_value_t       *wcv;
+    ngx_http_complex_value_t       *hcv;
+    ngx_http_complex_value_t       *acv;
+
+    ngx_http_image_filter_value_t   jpeg_quality;
+    ngx_http_image_filter_value_t   webp_quality;
+    ngx_http_image_filter_value_t   sharpen;
+
+    size_t                          buffer_size;
 } ngx_http_image_filter_conf_t;
 
 
 typedef struct {
-    u_char                      *image;
-    u_char                      *last;
+    u_char                         *image;
+    u_char                         *last;
 
-    size_t                       length;
+    size_t                          length;
 
-    ngx_uint_t                   width;
-    ngx_uint_t                   height;
-    ngx_uint_t                   max_width;
-    ngx_uint_t                   max_height;
-    ngx_uint_t                   angle;
+    ngx_uint_t                      width;
+    ngx_uint_t                      height;
+    ngx_uint_t                      max_width;
+    ngx_uint_t                      max_height;
+    ngx_uint_t                      angle;
 
-    ngx_uint_t                   phase;
-    ngx_uint_t                   type;
-    ngx_uint_t                   force;
+    ngx_uint_t                      phase;
+    ngx_uint_t                      type;
+    ngx_uint_t                      force;
 } ngx_http_image_filter_ctx_t;
 
 
@@ -108,14 +112,14 @@ static ngx_uint_t ngx_http_image_filter_value(ngx_str_t *value);
 static void *ngx_http_image_filter_create_conf(ngx_conf_t *cf);
 static char *ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent,
     void *child);
+static void ngx_http_image_filter_merge_value(
+    ngx_http_image_filter_value_t *conf, ngx_http_image_filter_value_t *prev,
+    ngx_uint_t default_value);
 static char *ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
-static char *ngx_http_image_filter_jpeg_quality(ngx_conf_t *cf,
+static char* ngx_http_image_filter_conf_value(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
-static char *ngx_http_image_filter_webp_quality(ngx_conf_t *cf,
-    ngx_command_t *cmd, void *conf);
-static char *ngx_http_image_filter_sharpen(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
+
 static ngx_int_t ngx_http_image_filter_init(ngx_conf_t *cf);
 
 
@@ -130,23 +134,23 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
 
     { ngx_string("image_filter_jpeg_quality"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_image_filter_jpeg_quality,
+      ngx_http_image_filter_conf_value,
       NGX_HTTP_LOC_CONF_OFFSET,
-      0,
+      offsetof(ngx_http_image_filter_conf_t, jpeg_quality),
       NULL },
 
     { ngx_string("image_filter_webp_quality"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_image_filter_webp_quality,
+      ngx_http_image_filter_conf_value,
       NGX_HTTP_LOC_CONF_OFFSET,
-      0,
+      offsetof(ngx_http_image_filter_conf_t, webp_quality),
       NULL },
 
     { ngx_string("image_filter_sharpen"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_image_filter_sharpen,
+      ngx_http_image_filter_conf_value,
       NGX_HTTP_LOC_CONF_OFFSET,
-      0,
+      offsetof(ngx_http_image_filter_conf_t, sharpen),
       NULL },
 
     { ngx_string("image_filter_transparency"),
@@ -1042,7 +1046,8 @@ transparent:
         gdImageColorTransparent(dst, gdImageColorExact(dst, red, green, blue));
     }
 
-    sharpen = ngx_http_image_filter_get_value(r, conf->shcv, conf->sharpen);
+    sharpen = ngx_http_image_filter_get_value(r, conf->sharpen.complex_value,
+                                              conf->sharpen.value);
     if (sharpen > 0) {
         gdImageSharpen(dst, sharpen);
     }
@@ -1179,7 +1184,8 @@ ngx_http_image_out(ngx_http_request_t *r, ngx_uint_t type, gdImagePtr img,
     case NGX_HTTP_IMAGE_JPEG:
         conf = ngx_http_get_module_loc_conf(r, ngx_http_image_filter_module);
 
-        q = ngx_http_image_filter_get_value(r, conf->jqcv, conf->jpeg_quality);
+        q = ngx_http_image_filter_get_value(r, conf->jpeg_quality.complex_value,
+                                            conf->jpeg_quality.value);
         if (q <= 0) {
             return NULL;
         }
@@ -1202,7 +1208,8 @@ ngx_http_image_out(ngx_http_request_t *r, ngx_uint_t type, gdImagePtr img,
 #if (NGX_HAVE_GD_WEBP)
         conf = ngx_http_get_module_loc_conf(r, ngx_http_image_filter_module);
 
-        q = ngx_http_image_filter_get_value(r, conf->wqcv, conf->webp_quality);
+        q = ngx_http_image_filter_get_value(r, conf->webp_quality.complex_value,
+                                            conf->webp_quality.value);
         if (q <= 0) {
             return NULL;
         }
@@ -1290,15 +1297,15 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
      *     conf->wcv = NULL;
      *     conf->hcv = NULL;
      *     conf->acv = NULL;
-     *     conf->jqcv = NULL;
-     *     conf->wqcv = NULL;
-     *     conf->shcv = NULL;
+     *     conf->jpeg_quality.complex_value = NULL;
+     *     conf->webp_quality.complex_value = NULL;
+     *     conf->sharpen.complex_value = NULL;
      */
 
     conf->filter = NGX_CONF_UNSET_UINT;
-    conf->jpeg_quality = NGX_CONF_UNSET_UINT;
-    conf->webp_quality = NGX_CONF_UNSET_UINT;
-    conf->sharpen = NGX_CONF_UNSET_UINT;
+    conf->jpeg_quality.value = NGX_CONF_UNSET_UINT;
+    conf->webp_quality.value = NGX_CONF_UNSET_UINT;
+    conf->sharpen.value = NGX_CONF_UNSET_UINT;
     conf->transparency = NGX_CONF_UNSET;
     conf->interlace = NGX_CONF_UNSET;
     conf->buffer_size = NGX_CONF_UNSET_SIZE;
@@ -1329,33 +1336,15 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
         }
     }
 
-    if (conf->jpeg_quality == NGX_CONF_UNSET_UINT) {
+    /* 75 is libjpeg default quality */
+    ngx_http_image_filter_merge_value(&conf->jpeg_quality, &prev->jpeg_quality,
+                                      75);
 
-        /* 75 is libjpeg default quality */
-        ngx_conf_merge_uint_value(conf->jpeg_quality, prev->jpeg_quality, 75);
+    /* 80 is libwebp default quality */
+    ngx_http_image_filter_merge_value(&conf->webp_quality, &prev->webp_quality,
+                                      80);
 
-        if (conf->jqcv == NULL) {
-            conf->jqcv = prev->jqcv;
-        }
-    }
-
-    if (conf->webp_quality == NGX_CONF_UNSET_UINT) {
-
-        /* 80 is libwebp default quality */
-        ngx_conf_merge_uint_value(conf->webp_quality, prev->webp_quality, 80);
-
-        if (conf->wqcv == NULL) {
-            conf->wqcv = prev->wqcv;
-        }
-    }
-
-    if (conf->sharpen == NGX_CONF_UNSET_UINT) {
-        ngx_conf_merge_uint_value(conf->sharpen, prev->sharpen, 0);
-
-        if (conf->shcv == NULL) {
-            conf->shcv = prev->shcv;
-        }
-    }
+    ngx_http_image_filter_merge_value(&conf->sharpen, &prev->sharpen, 0);
 
     ngx_conf_merge_value(conf->transparency, prev->transparency, 1);
 
@@ -1365,6 +1354,22 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
                               1 * 1024 * 1024);
 
     return NGX_CONF_OK;
+}
+
+
+static void
+ngx_http_image_filter_merge_value(ngx_http_image_filter_value_t *conf,
+    ngx_http_image_filter_value_t *prev, ngx_uint_t default_value)
+{
+    if (conf->value != NGX_CONF_UNSET_UINT) {
+        return;
+    }
+
+    ngx_conf_merge_uint_value(conf->value, prev->value, default_value);
+
+    if (conf->complex_value == NULL) {
+        conf->complex_value = prev->complex_value;
+    }
 }
 
 
@@ -1522,15 +1527,18 @@ failed:
 
 
 static char *
-ngx_http_image_filter_jpeg_quality(ngx_conf_t *cf, ngx_command_t *cmd,
+ngx_http_image_filter_conf_value(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf)
 {
-    ngx_http_image_filter_conf_t *imcf = conf;
+    char *p = conf;
 
     ngx_str_t                         *value;
     ngx_int_t                          n;
     ngx_http_complex_value_t           cv;
+    ngx_http_image_filter_value_t     *vp;
     ngx_http_compile_complex_value_t   ccv;
+
+    vp = (ngx_http_image_filter_value_t *) (p + cmd->offset);
 
     value = cf->args->elts;
 
@@ -1553,109 +1561,16 @@ ngx_http_image_filter_jpeg_quality(ngx_conf_t *cf, ngx_command_t *cmd,
             return NGX_CONF_ERROR;
         }
 
-        imcf->jpeg_quality = (ngx_uint_t) n;
+        vp->value = (ngx_uint_t) n;
 
     } else {
-        imcf->jqcv = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
-        if (imcf->jqcv == NULL) {
+        vp->complex_value = ngx_palloc(cf->pool,
+                                       sizeof(ngx_http_complex_value_t));
+        if (vp->complex_value == NULL) {
             return NGX_CONF_ERROR;
         }
 
-        *imcf->jqcv = cv;
-    }
-
-    return NGX_CONF_OK;
-}
-
-
-static char *
-ngx_http_image_filter_webp_quality(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf)
-{
-    ngx_http_image_filter_conf_t *imcf = conf;
-
-    ngx_str_t                         *value;
-    ngx_int_t                          n;
-    ngx_http_complex_value_t           cv;
-    ngx_http_compile_complex_value_t   ccv;
-
-    value = cf->args->elts;
-
-    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
-
-    ccv.cf = cf;
-    ccv.value = &value[1];
-    ccv.complex_value = &cv;
-
-    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
-        return NGX_CONF_ERROR;
-    }
-
-    if (cv.lengths == NULL) {
-        n = ngx_http_image_filter_value(&value[1]);
-
-        if (n <= 0) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "invalid value \"%V\"", &value[1]);
-            return NGX_CONF_ERROR;
-        }
-
-        imcf->webp_quality = (ngx_uint_t) n;
-
-    } else {
-        imcf->wqcv = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
-        if (imcf->wqcv == NULL) {
-            return NGX_CONF_ERROR;
-        }
-
-        *imcf->wqcv = cv;
-    }
-
-    return NGX_CONF_OK;
-}
-
-
-static char *
-ngx_http_image_filter_sharpen(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf)
-{
-    ngx_http_image_filter_conf_t *imcf = conf;
-
-    ngx_str_t                         *value;
-    ngx_int_t                          n;
-    ngx_http_complex_value_t           cv;
-    ngx_http_compile_complex_value_t   ccv;
-
-    value = cf->args->elts;
-
-    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
-
-    ccv.cf = cf;
-    ccv.value = &value[1];
-    ccv.complex_value = &cv;
-
-    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
-        return NGX_CONF_ERROR;
-    }
-
-    if (cv.lengths == NULL) {
-        n = ngx_http_image_filter_value(&value[1]);
-
-        if (n < 0) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "invalid value \"%V\"", &value[1]);
-            return NGX_CONF_ERROR;
-        }
-
-        imcf->sharpen = (ngx_uint_t) n;
-
-    } else {
-        imcf->shcv = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
-        if (imcf->shcv == NULL) {
-            return NGX_CONF_ERROR;
-        }
-
-        *imcf->shcv = cv;
+        *vp->complex_value = cv;
     }
 
     return NGX_CONF_OK;

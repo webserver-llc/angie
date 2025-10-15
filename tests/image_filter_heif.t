@@ -403,7 +403,7 @@ sub http_get_format {
 
 sub avif_supported {
 	return (GD::supportsFileType('.avif', 1)
-		|| ($GD::VERSION < 2.74 && http_get_format('/convert_avif/img.avif')))
+		|| ($GD::VERSION < 2.74 && http_get_format('/resize/simple.avif')));
 }
 
 sub heic_supported {

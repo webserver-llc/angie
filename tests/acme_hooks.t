@@ -204,8 +204,7 @@ $acme_helper->start_pebble({
 
 $t->run_daemon(\&hook_handler, $t, $hook_port);
 
-$t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
+$t->run();
 
 $t->plan(scalar @clients + 2);
 

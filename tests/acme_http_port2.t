@@ -19,7 +19,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx qw/ :DEFAULT http_content/;
+use Test::Nginx qw/ :DEFAULT http_content /;
 use Test::Nginx::ACME;
 
 ###############################################################################
@@ -127,7 +127,7 @@ for (;;) {
 		# matching a wildcard specified in a server block.
 
 		my $s = http_content(
-			http_get("/$count", PeerAddr => "127.0.0.$octet:" . port($http_port)));
+			http_get("/$count", PeerAddr => "127.0.0.$octet:" . $http_port));
 
 		$expected = ($s eq "/$count");
 

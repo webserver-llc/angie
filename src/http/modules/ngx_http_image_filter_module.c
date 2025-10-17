@@ -40,6 +40,15 @@
 #define NGX_HTTP_IMAGE_BUFFERED  0x08
 
 
+#define ngx_image_filter_parse_uint32(p)                                      \
+    ((uint32_t) (p)[0] << 24 | (p)[1] << 16 | (p)[2] << 8 | (p)[3])
+
+#define ngx_image_filter_parse_uint64(p)                                      \
+    ( (uint64_t) (p)[0] << 56 | (uint64_t) (p)[1] << 48                       \
+    | (uint64_t) (p)[2] << 40 | (uint64_t) (p)[3] << 32                       \
+    | (uint64_t) (p)[4] << 24 | (p)[5] << 16 | (p)[6] << 8 | (p)[7])
+
+
 typedef struct {
     ngx_uint_t                      value;
     ngx_http_complex_value_t       *complex_value;
@@ -100,7 +109,6 @@ static ngx_buf_t *ngx_http_image_asis(ngx_http_request_t *r,
 static void ngx_http_image_length(ngx_http_request_t *r, ngx_buf_t *b);
 static ngx_int_t ngx_http_image_size(ngx_http_request_t *r,
     ngx_http_image_filter_ctx_t *ctx);
-static uint64_t ngx_heif_box_extended_len(u_char *p);
 
 static ngx_buf_t *ngx_http_image_resize(ngx_http_request_t *r,
     ngx_http_image_filter_ctx_t *ctx);
@@ -509,7 +517,7 @@ ngx_http_image_test(ngx_http_request_t *r, ngx_chain_t *in)
             return NGX_HTTP_IMAGE_HEIC;
         }
 
-        len = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+        len = ngx_image_filter_parse_uint32(p);
 
         if ((size_t) (in->buf->last - p) < len || len < 16) {
             return NGX_HTTP_IMAGE_NONE;
@@ -879,7 +887,7 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
     case NGX_HTTP_IMAGE_HEIC:
     case NGX_HTTP_IMAGE_AVIF:
 
-        heif_box_len = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+        heif_box_len = ngx_image_filter_parse_uint32(p);
 
         if (heif_box_len > ctx->length) {
             return NGX_DECLINED;
@@ -896,7 +904,7 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
                 return NGX_DECLINED;
             }
 
-            heif_box_len = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+            heif_box_len = ngx_image_filter_parse_uint32(p);
 
             if (heif_box_len == 1) {
 
@@ -904,7 +912,7 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
                     return NGX_DECLINED;
                 }
 
-                heif_box_len = ngx_heif_box_extended_len(p);
+                heif_box_len = ngx_image_filter_parse_uint64(&p[8]);
             }
 
             if (heif_box_len > (uint64_t) (last - p)) {
@@ -935,13 +943,14 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
 
             if (p[4] == 'i' && p[5] == 's' && p[6] == 'p' && p[7] == 'e') {
 
-                width = p[12]  << 24 | p[13] << 16 | p[14] << 8 | p[15];
-                height = p[16] << 24 | p[17] << 16 | p[18] << 8 | p[19];
+                width = ngx_image_filter_parse_uint32(&p[12]);
+
+                height = ngx_image_filter_parse_uint32(&p[16]);
 
                 break;
             }
 
-            heif_box_len = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+            heif_box_len = ngx_image_filter_parse_uint32(p);
 
             /* box with zero length continues until EOF */
             if (heif_box_len == 0) {
@@ -957,7 +966,7 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
             }
 
             if (heif_box_len == 1) {
-                heif_box_len = ngx_heif_box_extended_len(p);
+                heif_box_len = ngx_image_filter_parse_uint64(&p[8]);
             }
 
             if (heif_box_len > (uint64_t) (last - p)) {
@@ -981,15 +990,6 @@ ngx_http_image_size(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
     ctx->height = height;
 
     return NGX_OK;
-}
-
-
-static uint64_t
-ngx_heif_box_extended_len(u_char *p)
-{
-    return (((uint64_t) p[8]  << 56) | ((uint64_t) p[9]  << 48)
-            | ((uint64_t) p[10] << 40) | ((uint64_t) p[11] << 32)
-            | p[12] << 24 | p[13] << 16 | p[14] <<  8 | p[15]);
 }
 
 

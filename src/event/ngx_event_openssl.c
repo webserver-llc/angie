@@ -2124,21 +2124,34 @@ ngx_ssl_new_client_session(ngx_ssl_conn_t *ssl_conn, ngx_ssl_session_t *sess)
 }
 
 
-void
+ngx_int_t
 ngx_ssl_set_client_hello_callback(SSL_CTX *ssl_ctx,
     ngx_ssl_client_hello_arg *cb)
 {
 #ifdef SSL_CLIENT_HELLO_SUCCESS
 
     SSL_CTX_set_client_hello_cb(ssl_ctx, ngx_ssl_client_hello_callback, NULL);
-    SSL_CTX_set_ex_data(ssl_ctx, ngx_ssl_client_hello_arg_index, cb);
 
 #elif defined OPENSSL_IS_BORINGSSL
 
     SSL_CTX_set_select_certificate_cb(ssl_ctx, ngx_ssl_select_certificate);
-    SSL_CTX_set_ex_data(ssl_ctx, ngx_ssl_client_hello_arg_index, cb);
 
 #endif
+
+#if (defined SSL_CLIENT_HELLO_SUCCESS) || (defined OPENSSL_IS_BORINGSSL)
+
+    ngx_ssl_t  *ssl;
+
+    if (SSL_CTX_set_ex_data(ssl_ctx, ngx_ssl_client_hello_arg_index, cb) == 0) {
+        ssl = SSL_CTX_get_ex_data(ssl_ctx, ngx_ssl_index);
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "SSL_CTX_set_ex_data() failed");
+        return NGX_ERROR;
+    }
+
+#endif
+
+    return NGX_OK;
 }
 
 

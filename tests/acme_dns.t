@@ -25,7 +25,7 @@ use Test::Nginx::ACME;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/);
 
 # XXX
 my $dns_port = 12053;

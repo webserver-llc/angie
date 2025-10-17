@@ -26,7 +26,8 @@ use Test::Nginx::ACME;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http_acme stream_acme socket_ssl stream_return/);
+my $t = Test::Nginx->new()->has(qw/http_acme http_ssl socket_ssl/)
+	->has(qw/stream stream_acme stream_ssl stream_return/);
 
 # XXX
 # We don't use the port function here, because the port it creates is currently

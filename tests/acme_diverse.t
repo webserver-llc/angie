@@ -49,7 +49,7 @@ select STDOUT; $| = 1;
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/);
 
 # XXX
 my $dns_port = 11053;

@@ -31,7 +31,7 @@ select STDOUT; $| = 1;
 eval { require Date::Parse; };
 plan(skip_all => 'Date::Parse not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/acme socket_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/);
 
 # XXX
 # We don't use the port function here, because the port it creates is currently

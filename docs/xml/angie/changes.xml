@@ -178,6 +178,19 @@ key.  The "$ssl_encrypted_hello" variable contains information about ECH usage.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+Процедуры перезагрузки конфигурации и обновления исполняемого файла на лету
+теперь работают штатно с HTTP/3 соединениями. Реализован корректный роутинг
+соединений ко всем существующими процессами при помощи bpf модуля.
+</para>
+<para lang="en">
+Reload and binary upgrade procedures are now working correctly with HTTP/3
+connections. Connections are properly routed to all existing processes using
+the bpf module.
+</para>
+</change>
+
 </changes>
 
 

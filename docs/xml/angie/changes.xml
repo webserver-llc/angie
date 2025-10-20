@@ -233,6 +233,17 @@ support for ALPN validation for ACME, enabled by specifying "alpn" in the
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+параметр "route" директивы "sticky" теперь может включать
+комплексные переменные.
+</para>
+<para lang="en">
+the "route" parameter of the "sticky" directive may now
+include complex values.
+</para>
+</change>
+
 </changes>
 
 

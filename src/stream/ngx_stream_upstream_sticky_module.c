@@ -223,9 +223,8 @@ static ngx_int_t
 ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
     ngx_stream_upstream_srv_conf_t *us)
 {
-    ngx_int_t                               *vars;
     ngx_uint_t                               i;
-    ngx_stream_variable_value_t             *vv;
+    ngx_stream_complex_value_t              *vars;
     ngx_stream_upstream_sticky_srv_conf_t   *scf;
     ngx_stream_upstream_sticky_peer_data_t  *sp;
 
@@ -258,14 +257,13 @@ ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
 
     for (i = 0; i < scf->lookup_vars.nelts; i++) {
 
-        vv = ngx_stream_get_indexed_variable(s, vars[i]);
-
-        if (vv == NULL || vv->not_found || vv->len == 0) {
-            continue;
+        if (ngx_stream_complex_value(s, &vars[i], &sp->hint) != NGX_OK) {
+            return NGX_ERROR;
         }
 
-        sp->hint.data = vv->data;
-        sp->hint.len = vv->len;
+        if (sp->hint.len == 0) {
+            continue;
+        }
 
         ngx_log_debug2(NGX_LOG_DEBUG_STREAM, s->connection->log, 0,
                        "sticky: extracted hint \"%V\" from variable %ui",
@@ -350,7 +348,8 @@ ngx_stream_upstream_sticky_create_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    if (ngx_array_init(&conf->lookup_vars, cf->pool, 4, sizeof(ngx_uint_t))
+    if (ngx_array_init(&conf->lookup_vars, cf->pool, 4,
+                       sizeof(ngx_stream_complex_value_t))
         != NGX_OK)
     {
         return NULL;
@@ -417,30 +416,27 @@ ngx_stream_upstream_sticky_route(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_stream_upstream_sticky_srv_conf_t  *scf = conf;
 
-    ngx_str_t   *value;
-    ngx_int_t   *v;
-    ngx_uint_t   i;
+    ngx_str_t                           *value;
+    ngx_uint_t                           i;
+    ngx_stream_complex_value_t          *cv;
+    ngx_stream_compile_complex_value_t   ccv;
 
     value = cf->args->elts;
 
     for (i = 2; i < cf->args->nelts; i++) {
 
-        if (value[i].len < 2 || value[i].data[0] != '$') {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "variables expected as \"route\" arguments");
+        cv = ngx_array_push(&scf->lookup_vars);
+        if (cv == NULL) {
             return NGX_CONF_ERROR;
         }
 
-        value[i].len--;
-        value[i].data++;
+        ngx_memzero(&ccv, sizeof(ngx_stream_compile_complex_value_t));
 
-        v = ngx_array_push(&scf->lookup_vars);
-        if (v == NULL) {
-            return NGX_CONF_ERROR;
-        }
+        ccv.cf = cf;
+        ccv.value = &value[i];
+        ccv.complex_value = cv;
 
-        *v = ngx_stream_get_variable_index(cf, &value[i]);
-        if (*v == NGX_ERROR) {
+        if (ngx_stream_compile_complex_value(&ccv) != NGX_OK) {
             return NGX_CONF_ERROR;
         }
     }

@@ -11,27 +11,30 @@
 
 
 typedef struct {
-    ngx_array_t                        lookup_vars;
-    ngx_stream_complex_value_t        *secret;
-    ngx_flag_t                         strict;
+    ngx_array_t                              lookup_vars;
+    ngx_stream_complex_value_t              *secret;
+    ngx_flag_t                               strict;
 
-    ngx_stream_upstream_init_pt        original_init_upstream;
-    ngx_stream_upstream_init_peer_pt   original_init_peer;
+    ngx_stream_upstream_init_pt              original_init_upstream;
+    ngx_stream_upstream_init_peer_pt         original_init_peer;
 
 } ngx_stream_upstream_sticky_srv_conf_t;
 
 
 typedef struct {
-    ngx_str_t                          hint;
-    ngx_str_t                          salt;
+    ngx_stream_upstream_sticky_srv_conf_t   *conf;
 
-    ngx_event_get_peer_pt              original_get_peer;
+    ngx_str_t                                hint;
+    ngx_str_t                                salt;
+
+    ngx_event_get_peer_pt                    original_get_peer;
 } ngx_stream_upstream_sticky_peer_data_t;
 
 
 static ngx_int_t ngx_stream_upstream_sticky_select_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp,
-    ngx_stream_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc);
+    ngx_stream_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc,
+    ngx_str_t *hint);
 static size_t ngx_stream_upstream_sticky_hash(ngx_str_t *in, ngx_str_t *salt,
     u_char *out);
 static ngx_int_t ngx_stream_upstream_init_sticky(ngx_conf_t *cf,
@@ -104,31 +107,22 @@ ngx_module_t  ngx_stream_upstream_sticky_module = {
 
 static ngx_int_t
 ngx_stream_upstream_sticky_select_peer(ngx_stream_upstream_rr_peer_data_t *rrp,
-    ngx_stream_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc)
+    ngx_stream_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc,
+    ngx_str_t *hint)
 {
-    size_t       len;
-    u_char      *sid, hashed[NGX_STREAM_UPSTREAM_SID_LEN];
-    ngx_str_t   *hint;
-    ngx_uint_t   i;
+    size_t                           len;
+    u_char                          *sid;
+    ngx_uint_t                       i;
+    ngx_stream_session_t            *s;
+    ngx_stream_upstream_state_t     *us;
+    ngx_stream_upstream_rr_peer_t   *peer;
+    ngx_stream_upstream_rr_peers_t  *peers;
 
-    ngx_stream_session_t                   *s;
-    ngx_stream_upstream_state_t            *us;
-    ngx_stream_upstream_rr_peer_t          *peer;
-    ngx_stream_upstream_rr_peers_t         *peers;
-    ngx_stream_upstream_sticky_srv_conf_t  *scf;
+    u_char                           buf[NGX_STREAM_UPSTREAM_SID_LEN];
 
     s = pc->ctx;
 
-    hint = &sp->hint;
     us = s->upstream->state;
-
-    if (hint->len == 0) {
-        us->sticky_status = NGX_STREAM_UPSTREAM_STICKY_STATUS_NEW;
-
-        ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0,
-                       "sticky: no hint provided");
-        return NGX_OK;
-    }
 
     peers = rrp->peers;
 
@@ -153,9 +147,8 @@ again:
         }
 
         if (sp->salt.len) {
-            len = ngx_stream_upstream_sticky_hash(&peer->sid, &sp->salt,
-                                                  hashed);
-            sid = hashed;
+            len = ngx_stream_upstream_sticky_hash(&peer->sid, &sp->salt, buf);
+            sid = buf;
 
         } else {
             len = peer->sid.len;
@@ -186,16 +179,19 @@ again:
         goto again;
     }
 
-    us->sticky_status = NGX_STREAM_UPSTREAM_STICKY_STATUS_MISS;
-
-    ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0, "sticky: no match");
-
     ngx_stream_upstream_rr_peers_unlock(peers);
 
-    scf = ngx_stream_conf_upstream_srv_conf(s->upstream->upstream,
-                                            ngx_stream_upstream_sticky_module);
+    us->sticky_status = NGX_STREAM_UPSTREAM_STICKY_STATUS_MISS;
 
-    return scf->strict ? NGX_BUSY : NGX_OK;
+    ngx_log_debug1(NGX_LOG_DEBUG_STREAM, pc->log, 0,
+                   "sticky: no match strict:%i", sp->conf->strict);
+
+    if (sp->conf->strict) {
+        pc->name = peers->name;
+        return NGX_BUSY;
+    }
+
+    return NGX_DECLINED;
 }
 
 
@@ -258,17 +254,19 @@ ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
     scf = ngx_stream_conf_upstream_srv_conf(us,
                                             ngx_stream_upstream_sticky_module);
 
+    if (scf->original_init_peer(s, us) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
     sp = ngx_pcalloc(s->connection->pool,
                      sizeof(ngx_stream_upstream_sticky_peer_data_t));
     if (sp == NULL) {
         return NGX_ERROR;
     }
 
-    ngx_stream_set_ctx(s, sp, ngx_stream_upstream_sticky_module);
+    sp->conf = scf;
 
-    if (scf->original_init_peer(s, us) != NGX_OK) {
-        return NGX_ERROR;
-    }
+    ngx_stream_set_ctx(s, sp, ngx_stream_upstream_sticky_module);
 
     sp->original_get_peer = s->upstream->peer.get;
     s->upstream->peer.get = ngx_stream_upstream_get_sticky_peer;
@@ -289,7 +287,7 @@ ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
         sp->hint.len = vv->len;
 
         ngx_log_debug2(NGX_LOG_DEBUG_STREAM, s->connection->log, 0,
-                       "sticky: extracted hint %V from variable %ui",
+                       "sticky: extracted hint \"%V\" from variable %ui",
                        &sp->hint, i);
         break;
     }
@@ -314,28 +312,49 @@ ngx_stream_upstream_get_sticky_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_int_t                                rc;
     ngx_stream_session_t                    *s;
+    ngx_stream_upstream_state_t             *us;
     ngx_stream_upstream_sticky_peer_data_t  *sp;
 
     ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0, "sticky: get peer");
 
     s = pc->ctx;
 
+    pc->cached = 0;
+    pc->connection = NULL;
+
     sp = ngx_stream_get_module_ctx(s, ngx_stream_upstream_sticky_module);
 
-    rc = ngx_stream_upstream_sticky_select_peer(rrp, sp, pc);
+    if (sp->hint.len == 0) {
+        us = s->upstream->state;
+        us->sticky_status = NGX_STREAM_UPSTREAM_STICKY_STATUS_NEW;
 
-    if (rc == NGX_BUSY) {
-        pc->name = rrp->peers->name;
-        return NGX_BUSY;
+        ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0,
+                       "sticky: no hint provided");
+
+    } else {
+
+        rc = ngx_stream_upstream_sticky_select_peer(rrp, sp, pc, &sp->hint);
+
+        switch (rc) {
+        case NGX_OK:
+            return NGX_OK;
+
+        case NGX_DECLINED:
+            /* use original balancer */
+            break;
+
+        case NGX_BUSY:
+            pc->name = rrp->peers->name;
+            return NGX_BUSY;
+        }
     }
 
-    if (pc->sockaddr) {
-        /* peer selected by sticky, we are done */
-        return NGX_OK;
+    rc = sp->original_get_peer(pc, data);
+    if (rc != NGX_OK) {
+        return rc;
     }
 
-    /* sticky peer not found, fallback allowed to original balancer */
-    return sp->original_get_peer(pc, data);
+    return NGX_OK;
 }
 
 

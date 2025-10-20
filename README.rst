@@ -19,35 +19,35 @@ Getting Started
 ---------------
 
 To start using **Angie**, see the official documentation in
-`English <https://en.angie.software/angie/docs/>`_,
-`Russian <https://angie.software/angie/docs/>`_,
-`Chinese <https://cn.angie.software/angie/docs/>`_,
-`Spanish <https://es.angie.software/angie/docs/>`_, or
-`Portuguese <https://pt.angie.software/angie/docs/>`_:
+`English <https://en.angie.software/angie/docs/>`__,
+`Russian <https://angie.software/angie/docs/>`__,
+`Chinese <https://cn.angie.software/angie/docs/>`__,
+`Spanish <https://es.angie.software/angie/docs/>`__, or
+`Portuguese <https://pt.angie.software/angie/docs/>`__:
 
 - `Installation <https://en.angie.software/angie/docs/installation/>`_
-  (`ru <https://angie.software/angie/docs/installation/>`_,
-  `cn <https://cn.angie.software/angie/docs/installation/>`_,
-  `es <https://es.angie.software/angie/docs/installation/>`_,
-  `pt <https://pt.angie.software/angie/docs/installation/>`_)
+  (`ru <https://angie.software/angie/docs/installation/>`__,
+  `cn <https://cn.angie.software/angie/docs/installation/>`__,
+  `es <https://es.angie.software/angie/docs/installation/>`__,
+  `pt <https://pt.angie.software/angie/docs/installation/>`__)
 
 - `Runtime configuration <https://en.angie.software/angie/docs/configuration/>`_
-  (`ru <https://angie.software/angie/docs/configuration/>`_,
-  `cn <https://cn.angie.software/angie/docs/configuration/>`_,
-  `es <https://es.angie.software/angie/docs/configuration/>`_,
-  `pt <https://pt.angie.software/angie/docs/configuration/>`_)
+  (`ru <https://angie.software/angie/docs/configuration/>`__,
+  `cn <https://cn.angie.software/angie/docs/configuration/>`__,
+  `es <https://es.angie.software/angie/docs/configuration/>`__,
+  `pt <https://pt.angie.software/angie/docs/configuration/>`__)
 
 - `Troubleshooting and feedback channels <https://en.angie.software/angie/docs/troubleshooting/>`_
-  (`ru <https://angie.software/angie/docs/troubleshooting/>`_,
-  `cn <https://cn.angie.software/angie/docs/troubleshooting/>`_,
-  `es <https://es.angie.software/angie/docs/troubleshooting/>`_,
-  `pt <https://pt.angie.software/angie/docs/troubleshooting/>`_)
+  (`ru <https://angie.software/angie/docs/troubleshooting/>`__,
+  `cn <https://cn.angie.software/angie/docs/troubleshooting/>`__,
+  `es <https://es.angie.software/angie/docs/troubleshooting/>`__,
+  `pt <https://pt.angie.software/angie/docs/troubleshooting/>`__)
 
 - `Development and contribution <https://en.angie.software/angie/docs/development/>`_
-  (`ru <https://angie.software/angie/docs/development/>`_,
-  `cn <https://cn.angie.software/angie/docs/development/>`_,
-  `es <https://es.angie.software/angie/docs/development/>`_,
-  `pt <https://pt.angie.software/angie/docs/development/>`_)
+  (`ru <https://angie.software/angie/docs/development/>`__,
+  `cn <https://cn.angie.software/angie/docs/development/>`__,
+  `es <https://es.angie.software/angie/docs/development/>`__,
+  `pt <https://pt.angie.software/angie/docs/development/>`__)
 
 
 Features

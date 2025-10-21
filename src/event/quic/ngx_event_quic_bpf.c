@@ -1172,10 +1172,6 @@ ngx_quic_bpf_import_maps(ngx_cycle_t *cycle)
 
         case NGX_QUIC_BPF_GSEP:
 
-            if (nglob > 1) {
-                goto failed;
-            }
-
             fd = ngx_atoi(v, p - v);
             if (fd == NGX_ERROR) {
                 goto failed;

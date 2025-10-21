@@ -118,7 +118,10 @@ $t->stop();
 
 my $log = $t->read_file("error.log");
 
-like($log, qr/attempt to use \$sent_body variable on incoming request while logging request/, "log warning");
-like($log, qr/attempt to use \$sent_body variable on incoming request while sending response/, "ssi warning");
+my $warn = 'attempt to use \$sent_body variable when there\'s no response body '
+	.'saved in memory';
+
+like($log, qr/$warn while logging request/, "log warning");
+like($log, qr/$warn while sending response/, "ssi warning");
 
 ###############################################################################

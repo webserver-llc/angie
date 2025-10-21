@@ -191,6 +191,17 @@ the bpf module.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+переменная "$sent_body" содержащая тело ответа подзапроса или запроса от
+клиентского модуля.
+</para>
+<para lang="en">
+the "$sent_body" variable containing response body of a subrequest or
+external request by client module.
+</para>
+</change>
+
 </changes>
 
 

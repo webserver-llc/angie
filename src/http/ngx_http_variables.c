@@ -123,6 +123,8 @@ static ngx_int_t ngx_http_variable_sent_keep_alive(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_variable_sent_transfer_encoding(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_variable_sent_body(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 static void ngx_http_variable_set_limit_rate(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
@@ -339,6 +341,9 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
 
     { ngx_string("sent_http_link"), NULL, ngx_http_variable_header,
       offsetof(ngx_http_request_t, headers_out.link), 0, 0 },
+
+    { ngx_string("sent_body"), NULL, ngx_http_variable_sent_body,
+      0, NGX_HTTP_VAR_PREFIX, 0 },
 
     { ngx_string("limit_rate"), ngx_http_variable_set_limit_rate,
       ngx_http_variable_request_get_size,
@@ -2065,6 +2070,57 @@ ngx_http_variable_sent_transfer_encoding(ngx_http_request_t *r,
 
     } else {
         v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_variable_sent_body(ngx_http_request_t *r, ngx_http_variable_value_t *v,
+    uintptr_t data)
+{
+    u_char       *p;
+    ngx_chain_t  *cl;
+
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    if (!(r->connection->stub || r->subrequest_in_memory)) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                      "attempt to use $sent_body variable when there's no "
+                      "response body saved in memory");
+        v->len = 0;
+        return NGX_OK;
+    }
+
+    if (r->out == NULL || r->out->buf == NULL) {
+        v->len = 0;
+        return NGX_OK;
+    }
+
+    cl = r->out;
+
+    if (cl->next == NULL) {
+        v->len = cl->buf->last - cl->buf->pos;
+        v->data = cl->buf->pos;
+        return NGX_OK;
+    }
+
+    v->len = 0;
+
+    for (/* void */ ; cl; cl = cl->next) {
+        v->len += cl->buf->last - cl->buf->pos;
+    }
+
+    v->data = ngx_pnalloc(r->pool, v->len);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    for (cl = r->out, p = v->data; cl; cl = cl->next) {
+        p = ngx_cpymem(p, cl->buf->pos, cl->buf->last - cl->buf->pos);
     }
 
     return NGX_OK;

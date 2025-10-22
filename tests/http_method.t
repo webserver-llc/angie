@@ -22,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(2)
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -59,13 +59,27 @@ Connection: close
 
 EOF
 
-like(http(<<EOF), qr/ 405 (?!.*200 OK)/s, 'connect');
+like(http(<<EOF), qr/ 400 Bad (?!.*200 OK)/s, 'connect uri');
 CONNECT / HTTP/1.1
 Host: localhost
 
 GET / HTTP/1.1
 Host: localhost
 Connection: close
+
+EOF
+
+
+like(http(<<EOF), qr/ 405 /s, 'connect');
+CONNECT localhost:8080 HTTP/1.1
+Host: localhost
+
+EOF
+
+
+like(http(<<EOF), qr/ 400 Bad /s, 'connect no port');
+CONNECT localhost HTTP/1.1
+Host: localhost
 
 EOF
 

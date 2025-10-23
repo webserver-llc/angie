@@ -315,12 +315,15 @@ $t->run()->plan(30);
 
 ###############################################################################
 
-check_path('/test/simple.avif');
-check_path('/test/iprp_ipco.avif');
-check_size('simple.avif', 10, 6);
-check_size('iprp_ipco.avif', 10, 7);
+SKIP: {
+	skip 'AVIF is not supported', 20
+		if !format_supported('/resize/simple.avif');
 
-if (avif_supported()) {
+	check_path('/test/simple.avif');
+	check_path('/test/iprp_ipco.avif');
+	check_size('simple.avif', 10, 6);
+	check_size('iprp_ipco.avif', 10, 7);
+
 	check_path('/resize/simple.avif');
 	check_path('/avif_quality/simple.avif');
 	check_path('/avif_quality_var/simple.avif?q=20&s=2');
@@ -328,29 +331,18 @@ if (avif_supported()) {
 	check_path('/resize/iprp_ipco.avif');
 	check_path('/avif_quality/iprp_ipco.avif');
 	check_path('/avif_quality_var/simple.avif?q=30&s=3');
-
-} else {
-	check_path_unsupported('/resize/simple.avif');
-	check_path_unsupported('/avif_quality/simple.avif');
-	check_path_unsupported('/avif_quality_var/simple.avif?q=20&s=2');
-
-	check_path_unsupported('/resize/iprp_ipco.avif');
-	check_path_unsupported('/avif_quality/iprp_ipco.avif');
-	check_path_unsupported('/avif_quality/iprp_ipco.avif?q=30&s=3');
 }
 
-check_path('/test/iprp_ipco.heic');
-check_size('iprp_ipco.heic', 64, 64);
+SKIP: {
+	skip 'HEIC is not supported', 10
+		if rosa13_broken_x265() || !format_supported('/resize/iprp_ipco.heic');
 
-if (heic_supported($t)) {
+	check_path('/test/iprp_ipco.heic');
+	check_size('iprp_ipco.heic', 64, 64);
+
 	check_path('/resize/iprp_ipco.heic');
 	check_path('/heic_quality/iprp_ipco.heic');
 	check_path('/heic_quality_var/iprp_ipco.heic?q=40');
-
-} else {
-	check_path_unsupported('/resize/iprp_ipco.heic');
-	check_path_unsupported('/heic_quality/iprp_ipco.heic');
-	check_path_unsupported('/heic_quality/iprp_ipco.heic?q=40');
 }
 
 ###############################################################################
@@ -362,15 +354,6 @@ sub check_size {
 
 	is($j->{img}{width}, $width, "width $file");
 	is($j->{img}{height}, $height, "height $file");
-}
-
-sub check_path_unsupported {
-	my ($file) = @_;
-
-	my $r = http_get($file);
-
-	like($r, qr/415/, "$file unsupported");
-	like($r, qr!Content-Type: text/html!, "content-type text/html");
 }
 
 sub get_file_format {
@@ -393,43 +376,25 @@ sub check_path {
 	like($r, qr!Content-Type: image/$format!, "content-type $file");
 }
 
-sub http_get_format {
+sub format_supported {
 	my ($file) = @_;
 
 	my $r = http_get($file);
 
-	return ($r =~ qr/200 OK/);
+	return !($r =~ qr/415/);
 }
 
-sub avif_supported {
-	return (GD::supportsFileType('.avif', 1)
-		|| ($GD::VERSION < 2.74 && http_get_format('/resize/simple.avif')));
-}
+sub rosa13_broken_x265 {
+	open(my $fh, '<', '/etc/os-release') or return 0;
+	my $data = do { local $/; <$fh> };
+	close($fh);
 
-sub heic_supported {
-	my ($t) = @_;
+	my $id = ($data =~ /^ID=(\w+)/m) ? $1 : '';
+	my $version = ($data =~ /^VERSION_ID=(\S+)/m) ? $1 : '';
 
-	if ($GD::VERSION < 2.74) {
-		return http_get_format('/resize/iprp_ipco.heic');
-	}
-
-	if (!GD::supportsFileType('.heic', 1)) {
+	if ($id ne 'rosa' || $version ne 13) {
 		return 0;
 	}
 
-	if (!defined &GD::Image::heif) {
-		return 0;
-	}
-
-	GD::Image->trueColor(1);
-
-	my $im = GD::Image->new(100, 100);
-
-	if (!defined $im->heif) {
-		return 0;
-	}
-
-	$im = eval {GD::Image->newFromHeif($t->testdir() . '/iprp_ipco.heic');};
-
-	return (defined $im) ? 1 : 0;
+	return (-e '/usr/lib64/libx265.so.212') ? 1 : 0;
 }

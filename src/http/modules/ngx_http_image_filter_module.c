@@ -19,6 +19,7 @@
 #define NGX_HTTP_IMAGE_RESIZE    3
 #define NGX_HTTP_IMAGE_CROP      4
 #define NGX_HTTP_IMAGE_ROTATE    5
+#define NGX_HTTP_IMAGE_CONVERT   6
 
 
 #define NGX_HTTP_IMAGE_START     0
@@ -74,6 +75,7 @@ typedef struct {
     ngx_http_image_filter_value_t   avif_quality;
     ngx_http_image_filter_value_t   avif_speed;
     ngx_http_image_filter_value_t   sharpen;
+    ngx_http_image_filter_value_t   output_type;
 
     size_t                          buffer_size;
 } ngx_http_image_filter_conf_t;
@@ -94,6 +96,7 @@ typedef struct {
     ngx_uint_t                      phase;
     ngx_uint_t                      type;
     ngx_uint_t                      force;
+    ngx_uint_t                      output_type;
 } ngx_http_image_filter_ctx_t;
 
 
@@ -132,6 +135,7 @@ static void ngx_http_image_filter_merge_value(
     ngx_uint_t default_value);
 static char *ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static ngx_uint_t ngx_http_image_filter_output_type(ngx_str_t *value);
 static char* ngx_http_image_filter_conf_value(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 static char* ngx_http_image_filter_avif_quality(ngx_conf_t *cf,
@@ -329,7 +333,7 @@ static ngx_int_t
 ngx_http_image_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
     ngx_int_t                      rc;
-    ngx_str_t                     *ct;
+    ngx_str_t                     *ct, value;
     ngx_chain_t                    out;
     ngx_http_image_filter_ctx_t   *ctx;
     ngx_http_image_filter_conf_t  *conf;
@@ -374,7 +378,28 @@ ngx_http_image_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
         /* override content type */
 
-        ct = &ngx_http_image_types[ctx->type - 1];
+        if (conf->output_type.complex_value == NULL) {
+            ctx->output_type = conf->output_type.value;
+
+        } else {
+
+            if (ngx_http_complex_value(r, conf->output_type.complex_value,
+                                       &value)
+                != NGX_OK)
+            {
+                return ngx_http_filter_finalize_request(r,
+                                               &ngx_http_image_filter_module,
+                                               NGX_HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            ctx->output_type = ngx_http_image_filter_output_type(&value);
+        }
+
+        if (ctx->output_type == NGX_HTTP_IMAGE_NONE) {
+            ctx->output_type = ctx->type;
+        }
+
+        ct = &ngx_http_image_types[ctx->output_type - 1];
         r->headers_out.content_type_len = ct->len;
         r->headers_out.content_type = *ct;
         r->headers_out.content_type_lowcase = NULL;
@@ -633,6 +658,15 @@ ngx_http_image_process(ngx_http_request_t *r)
         return ngx_http_image_resize(r, ctx);
     }
 
+    if (conf->filter == NGX_HTTP_IMAGE_CONVERT) {
+
+        if (ctx->output_type == ctx->type) {
+            return ngx_http_image_asis(r, ctx);
+        }
+
+        return ngx_http_image_resize(r, ctx);
+    }
+
     ctx->max_width = ngx_http_image_filter_get_value(r, conf->wcv, conf->width);
     if (ctx->max_width == 0) {
         return NULL;
@@ -648,7 +682,8 @@ ngx_http_image_process(ngx_http_request_t *r)
         && ctx->width <= ctx->max_width
         && ctx->height <= ctx->max_height
         && ctx->angle == 0
-        && !ctx->force)
+        && !ctx->force
+        && ctx->output_type == ctx->type)
     {
         return ngx_http_image_asis(r, ctx);
     }
@@ -1020,7 +1055,8 @@ ngx_http_image_resize(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
     if (!ctx->force
         && ctx->angle == 0
         && (ngx_uint_t) sx <= ctx->max_width
-        && (ngx_uint_t) sy <= ctx->max_height)
+        && (ngx_uint_t) sy <= ctx->max_height
+        && ctx->output_type == ctx->type)
     {
         gdImageDestroy(src);
         return ngx_http_image_asis(r, ctx);
@@ -1050,6 +1086,11 @@ ngx_http_image_resize(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
 transparent:
 
     gdImageColorTransparent(src, -1);
+
+    if (conf->filter == NGX_HTTP_IMAGE_CONVERT) {
+        dst = src;
+        goto output;
+    }
 
     dx = sx;
     dy = sy;
@@ -1215,6 +1256,8 @@ transparent:
         }
     }
 
+output:
+
     if (transparent != -1 && colors) {
         gdImageColorTransparent(dst, gdImageColorExact(dst, red, green, blue));
     }
@@ -1227,7 +1270,7 @@ transparent:
 
     gdImageInterlace(dst, (int) conf->interlace);
 
-    out = ngx_http_image_out(r, ctx->type, dst, &size);
+    out = ngx_http_image_out(r, ctx->output_type, dst, &size);
 
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "image: %d x %d %d", sx, sy, colors);
@@ -1540,6 +1583,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
      *     conf->avif_quality.complex_value = NULL;
      *     conf->avif_speed.complex_value = NULL;
      *     conf->sharpen.complex_value = NULL;
+     *     conf->output_type.complex_value = NULL;
      */
 
     conf->filter = NGX_CONF_UNSET_UINT;
@@ -1549,6 +1593,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
     conf->avif_quality.value = NGX_CONF_UNSET_UINT;
     conf->avif_speed.value = NGX_CONF_UNSET_UINT;
     conf->sharpen.value = NGX_CONF_UNSET_UINT;
+    conf->output_type.value = NGX_CONF_UNSET_UINT;
     conf->transparency = NGX_CONF_UNSET;
     conf->interlace = NGX_CONF_UNSET;
     conf->buffer_size = NGX_CONF_UNSET_SIZE;
@@ -1596,6 +1641,9 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_image_filter_merge_value(&conf->avif_speed, &prev->avif_speed, 6);
 
     ngx_http_image_filter_merge_value(&conf->sharpen, &prev->sharpen, 0);
+
+    ngx_http_image_filter_merge_value(&conf->output_type, &prev->output_type,
+                                      NGX_HTTP_IMAGE_NONE);
 
     ngx_conf_merge_value(conf->transparency, prev->transparency, 1);
 
@@ -1695,6 +1743,43 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
             return NGX_CONF_OK;
 
+        } else if (ngx_strcmp(value[i].data, "convert") == 0) {
+
+            if (imcf->filter == NGX_CONF_UNSET_UINT) {
+                imcf->filter = NGX_HTTP_IMAGE_CONVERT;
+            }
+
+            ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+            ccv.cf = cf;
+            ccv.value = &value[++i];
+            ccv.complex_value = &cv;
+
+            if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+                return NGX_CONF_ERROR;
+            }
+
+            if (cv.lengths == NULL) {
+                imcf->output_type.value = ngx_http_image_filter_output_type(
+                                                                    &value[i]);
+                if (imcf->output_type.value == NGX_HTTP_IMAGE_NONE) {
+                    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                       "invalid parameter \"%V\"", &value[i]);
+                    return NGX_CONF_ERROR;
+                }
+
+            } else {
+                imcf->output_type.complex_value = ngx_palloc(cf->pool,
+                                             sizeof(ngx_http_complex_value_t));
+                if (imcf->output_type.complex_value == NULL) {
+                    return NGX_CONF_ERROR;
+                }
+
+                *imcf->output_type.complex_value = cv;
+            }
+
+            return NGX_CONF_OK;
+
         } else {
             goto failed;
         }
@@ -1774,6 +1859,30 @@ failed:
                        &value[i]);
 
     return NGX_CONF_ERROR;
+}
+
+
+static ngx_uint_t
+ngx_http_image_filter_output_type(ngx_str_t *value)
+{
+    size_t      len;
+    ngx_str_t   type;
+    ngx_uint_t  i;
+
+    len = sizeof(ngx_http_image_types) / sizeof(ngx_http_image_types[0]);
+
+    for (i = 0; i < len; i++) {
+        type.data = ngx_http_image_types[i].data + 6;
+        type.len = ngx_http_image_types[i].len - 6;
+
+        if (type.len == value->len
+            && ngx_strncmp(type.data, value->data, type.len) == 0)
+        {
+            return i + 1;
+        }
+    }
+
+    return NGX_HTTP_IMAGE_NONE;
 }
 
 

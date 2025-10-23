@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+параметр "convert" для директивы "image_filter", который позволяет задавать
+новый формат изображений.
+</para>
+<para lang="en">
+the "convert" parameter for the "image_filter" directive, used to set
+the new image format.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 поддержка форматов AVIF и HEIC в Image Filter.
 </para>
 <para lang="en">

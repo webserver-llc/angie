@@ -30,7 +30,8 @@ select STDOUT; $| = 1;
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
+	->has_daemon('openssl');
 
 # XXX
 # We don't use the port function here, because the port it creates is currently

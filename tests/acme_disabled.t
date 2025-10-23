@@ -31,7 +31,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl/)
+	->has_daemon('openssl');
 
 my $d = $t->testdir();
 

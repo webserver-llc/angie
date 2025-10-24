@@ -133,6 +133,11 @@ ngx_http_v3_parse_varlen_int(ngx_connection_t *c,
 
         case sw_length_2:
 
+            if (st->value > (UINT64_MAX >> 8)) {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "http3 variable length integer overflow");
+                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+            }
             st->value = (st->value << 8) + ch;
             if ((st->value & 0xc000) == 0x4000) {
                 st->value &= 0x3fff;
@@ -144,6 +149,11 @@ ngx_http_v3_parse_varlen_int(ngx_connection_t *c,
 
         case sw_length_4:
 
+            if (st->value > (UINT64_MAX >> 8)) {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "http3 variable length integer overflow");
+                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+            }
             st->value = (st->value << 8) + ch;
             if ((st->value & 0xc0000000) == 0x80000000) {
                 st->value &= 0x3fffffff;
@@ -158,12 +168,22 @@ ngx_http_v3_parse_varlen_int(ngx_connection_t *c,
         case sw_length_6:
         case sw_length_7:
 
+            if (st->value > (UINT64_MAX >> 8)) {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "http3 variable length integer overflow");
+                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+            }
             st->value = (st->value << 8) + ch;
             st->state++;
             break;
 
         case sw_length_8:
 
+            if (st->value > (UINT64_MAX >> 8)) {
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "http3 variable length integer overflow");
+                return NGX_HTTP_V3_ERR_EXCESSIVE_LOAD;
+            }
             st->value = (st->value << 8) + ch;
             st->value &= 0x3fffffffffffffff;
             goto done;

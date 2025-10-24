@@ -91,7 +91,7 @@ my $d = $t->testdir();
 # start with no state and empty cache
 
 $t->try_run(
-	'Angie was built without support for the persistent shared memory', 1);
+	'Angie was built without support for the persistent shared memory');
 
 $t->plan(18);
 

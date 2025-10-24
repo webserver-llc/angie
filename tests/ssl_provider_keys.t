@@ -182,7 +182,7 @@ foreach my $name ('localhost') {
 $t->write_file('pin.txt', '1234');
 $t->write_file('index.html', '');
 
-$t->try_run('incompatible with sanitizer', 1)->plan(2);
+$t->try_run('incompatible with sanitizer')->plan(2);
 
 ###############################################################################
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -86,7 +87,9 @@ foreach my $name ('localhost', 'override') {
 }
 
 $t->write_file('index.html', '');
-$t->try_run('no ssl_conf_command')->plan(1);
+$t->try_run(
+	'"proxy_ssl_conf_command" directive is not supported on this platform')
+	->plan(1);
 
 ###############################################################################
 

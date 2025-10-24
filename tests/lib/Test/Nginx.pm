@@ -407,8 +407,8 @@ sub has_daemon($) {
 	return $self;
 }
 
-sub try_run($$) {
-	my ($self, $message, $check_message) = @_;
+sub try_run {
+	my ($self, @messages) = @_;
 
 	eval {
 		open OLDERR, ">&", \*STDERR; close STDERR;
@@ -425,16 +425,17 @@ sub try_run($$) {
 		close F;
 	}
 
-	my $message_found = 0;
-	if ($check_message) {
-		$message_found =
-			($self->read_file('error.log') =~ quotemeta($message));
+	my $error_log = $self->read_file('error.log');
+	foreach my $message (@messages) {
+		if ($error_log =~ quotemeta($message)) {
+			Test::More::plan(skip_all => $message);
+			return $self;
+		}
 	}
 
-	Test::More::plan(skip_all => $message)
-		if $message_found || !$check_message;
+	Test::More::diag($@);
 
-	return $self;
+	die;
 }
 
 sub retry_run($$) {

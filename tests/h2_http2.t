@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -109,7 +110,7 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', '');
-$t->try_run();
+$t->run();
 
 ###############################################################################
 

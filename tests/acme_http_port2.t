@@ -94,7 +94,7 @@ $acme_helper->start_pebble({
 });
 
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
+	. 'directives are not supported on this platform');
 
 $t->plan(2);
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -80,7 +81,8 @@ foreach my $name ('localhost', 'override') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_conf_command')->plan(3);
+$t->try_run('"ssl_conf_command" directive is not supported on this platform')
+	->plan(3);
 
 ###############################################################################
 

@@ -205,23 +205,21 @@ foreach my $name ('localhost') {
 		or plan(skip_all => "missing engine");
 }
 
-$t->try_run('no such engine:id=pkcs11', 1)->plan(2);
+if ($t->has_module('LibreSSL|BoringSSL|AWS-LC')) {
+	$t->try_run('loading "engine:..." certificate keys is not supported');
+} elsif ($t->{_configure_args} =~ /tongsuo/
+	|| $t->has_module('OpenSSL [.0-9]+\+quic')) {
+	$t->try_run('no such engine:id=pkcs11');
+} else {
+	$t->run();
+}
 
+$t->plan(2);
 $t->write_file('index.html', '');
 
 ###############################################################################
 
-TODO: {
-	my $error = 'loading "engine:..." certificate keys is not supported';
-
-	local $TODO;
-	if ($t->has_module('LibreSSL|BoringSSL|AWS-LC')) {
-		$TODO = $error . ' in LibreSSL, BoringSSL, and AWS-LC';
-		$t->skip_errors_check('emerg', $error);
-	}
-
-	like(http_get('/proxy'), qr/200 OK/, 'ssl engine keys');
-	like(http_get('/var'), qr/200 OK/, 'ssl_certificate with variable');
-}
+like(http_get('/proxy'), qr/200 OK/, 'ssl engine keys');
+like(http_get('/var'), qr/200 OK/, 'ssl_certificate with variable');
 
 ###############################################################################

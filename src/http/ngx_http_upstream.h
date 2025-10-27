@@ -293,7 +293,7 @@ typedef struct {
     ngx_http_v3_settings_t           h3_settings;
 #endif
 
-    NGX_COMPAT_BEGIN(2)
+    NGX_COMPAT_BEGIN(6)
     NGX_COMPAT_END
 } ngx_http_upstream_conf_t;
 

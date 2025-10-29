@@ -213,6 +213,15 @@ external request by client module.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+в Makefile добавлена цель "test", запускающая тесты.
+</para>
+<para lang="en">
+the new Makefile target "test" executing the test suite.
+</para>
+</change>
+
 </changes>
 
 

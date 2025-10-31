@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,7 +25,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/)
+my $t = Test::Nginx->new()->has(qw/http reload/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -48,7 +49,7 @@ http {
 
 EOF
 
-$t->run()->plan(1);
+$t->run()->plan(2);
 
 ###############################################################################
 
@@ -56,7 +57,7 @@ my $s = http('', start => 1);
 
 select undef, undef, undef, 0.2;
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 if (IO::Select->new($s)->can_read(5)) {
 	Test::Nginx::log_core('||', "select: can_read");

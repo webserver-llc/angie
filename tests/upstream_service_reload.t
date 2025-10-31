@@ -28,7 +28,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/http upstream_zone/);
+my $t = Test::Nginx->new()->has(qw/http upstream_zone reload/);
 
 $t->skip_errors_check('crit', "Can't assign requested address")
 	if $^O eq 'freebsd';
@@ -72,7 +72,7 @@ EOF
 my $p = port(8081);
 
 $t->run_daemon(\&dns_daemon, $t)->waitforfile($t->testdir . '/' . port(8980));
-$t->try_run('no resolve in upstream server')->plan(6);
+$t->try_run('no resolve in upstream server')->plan(7);
 
 ###############################################################################
 
@@ -82,8 +82,7 @@ like(http_get('/'), qr/X-IP: 127.0.0.201:$p/, 'reload - before - request 2');
 
 update_name({ERROR => 'SERVFAIL'}, 0);
 
-$t->reload();
-waitforworker($t);
+ok($t->reload(), 'reloaded');
 
 like(http_get('/'), qr/X-IP: 127.0.0.201:$p/, 'reload - preresolve - request');
 like(http_get('/'), qr/X-IP: 127.0.0.201:$p/, 'reload - preresolve - request 2');
@@ -93,15 +92,6 @@ like(http_get('/'), qr/X-IP: 127.0.0.202:$p/, 'reload - update - request');
 like(http_get('/'), qr/X-IP: 127.0.0.202:$p/, 'reload - update - request 2');
 
 ###############################################################################
-
-sub waitforworker {
-	my ($t) = @_;
-
-	for (1 .. 30) {
-		last if $t->read_file('error.log') =~ /exited with code/;
-		select undef, undef, undef, 0.2;
-	}
-}
 
 sub update_name {
 	my ($name, $plan) = @_;

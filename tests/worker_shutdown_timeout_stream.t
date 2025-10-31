@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -25,7 +26,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(3)
+my $t = Test::Nginx->new()->has(qw/stream reload/)->plan(4)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -58,7 +59,7 @@ $s->check(qr/^220 /, "greeting");
 $s->send('EHLO example.com');
 $s->check(qr/^250 /, "ehlo");
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 ok($s->can_read(), 'stream connection shutdown');
 

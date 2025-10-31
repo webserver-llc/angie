@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -26,7 +27,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(142);
+	->plan(143);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -1092,7 +1093,11 @@ $s = Test::Nginx::HTTP2->new(port(8080));
 $sid = $s->new_stream({ path => '/t1.html' });
 $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
-$t->reload();
+SKIP: {
+skip 'reload is not working (perl >= 5.32 required)', 6
+	unless !$t->has_feature('reload');
+
+ok($t->reload(), 'reloaded');
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
@@ -1132,7 +1137,7 @@ ok($frame, 'GOAWAY on connection close - idle stream');
 $frames = $active->read(all => [{ type => 'GOAWAY' }]);
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'GOAWAY on connection close - active stream');
-
+}
 ###############################################################################
 
 sub gunzip_like {

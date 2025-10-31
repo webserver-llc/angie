@@ -21,11 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/);
-
-# see https://trac.nginx.org/nginx/ticket/1831
-plan(skip_all => "perl >= 5.32 required")
-	if ($t->has_module('perl') && $] < 5.032000);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_zone/);
 
 # mmap/munmap may fail due to ASLR and test does some retries
 $t->todo_alerts();
@@ -62,10 +58,6 @@ http {
         proxy_cache cz;
         proxy_cache_valid 200 1d;
 
-        location /api/ {
-            api /;
-        }
-
         location / {
             add_header X-STATUS $upstream_cache_status;
             proxy_pass http://u/;
@@ -93,7 +85,7 @@ my $d = $t->testdir();
 $t->try_run(
 	'Angie was built without support for the persistent shared memory');
 
-$t->plan(18);
+$t->plan(19);
 
 # fill the cache with some requests:
 
@@ -149,10 +141,6 @@ http {
 
         proxy_cache cz;
         proxy_cache_valid 200 1d;
-
-        location /api/ {
-            api /;
-        }
 
         location / {
             add_header X-STATUS $upstream_cache_status;
@@ -210,10 +198,6 @@ http {
         proxy_cache cz;
         proxy_cache_valid 200 1d;
 
-        location /api/ {
-            api /;
-        }
-
         location / {
             add_header X-STATUS $upstream_cache_status;
             proxy_pass http://u/;
@@ -241,7 +225,7 @@ $t->retry_run(200);
 like(http_get("/bbb"), qr/200/, "new response");
 like(http_get("/bbb"), qr/X-STATUS: HIT/, "new response cached");
 
-$t->reload('/api/status/angie/generation');
+ok($t->reload(), 'reloaded');
 
 like(http_get("/a"), qr/X-STATUS: HIT/, "existing a cache");
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,7 +25,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(2)
+my $t = Test::Nginx->new()->has(qw/http proxy reload/)->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -74,7 +75,7 @@ if ($sel->can_read(5)) {
 
 like($buf, qr!HTTP/1.1 101!, 'upgraded connection');
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 ok($sel->can_read(3), 'upgraded connection shutdown');
 

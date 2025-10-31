@@ -29,7 +29,7 @@ select STDOUT; $| = 1;
 
 plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
-my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone/);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone reload/);
 
 $t->skip_errors_check('crit', "Can't assign requested address")
 	if $^O eq 'freebsd';
@@ -71,7 +71,7 @@ EOF
 my $p = port(8081);
 
 $t->run_daemon(\&dns_daemon, $t)->waitforfile($t->testdir . '/' . port(8980));
-$t->try_run('no resolve in upstream server')->plan(6);
+$t->try_run('no resolve in upstream server')->plan(7);
 
 ###############################################################################
 
@@ -81,8 +81,7 @@ stream('127.0.0.1:' . port(8082))->read();
 
 update_name({ERROR => 'SERVFAIL'}, 0);
 
-$t->reload();
-waitforworker($t);
+ok($t->reload(), 'reloaded');
 
 stream('127.0.0.1:' . port(8082))->read();
 stream('127.0.0.1:' . port(8082))->read();
@@ -107,15 +106,6 @@ like($f->getline(), qr/127.0.0.202:$p/, 'log - update');
 like($f->getline(), qr/127.0.0.202:$p/, 'log - update 2');
 
 ###############################################################################
-
-sub waitforworker {
-	my ($t) = @_;
-
-	for (1 .. 30) {
-		last if $t->read_file('error.log') =~ /exited with code/;
-		select undef, undef, undef, 0.2;
-	}
-}
 
 sub update_name {
 	my ($name, $plan) = @_;

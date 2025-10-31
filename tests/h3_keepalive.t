@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,7 +25,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
-	->has_daemon('openssl')->plan(15)
+	->has_daemon('openssl')->plan(16)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -168,12 +169,16 @@ is($frame->{last_sid}, 8, 'keepalive time limit - GOAWAY last stream');
 
 # graceful shutdown in idle state
 
+SKIP: {
+skip 'reload is not working (perl >= 5.32 required)', 3
+	unless $t->has_feature('reload');
+
 $s = Test::Nginx::HTTP3->new();
 $sid = $s->new_stream();
 
 select undef, undef, undef, 0.1;
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 
@@ -181,4 +186,5 @@ $frames = $s->read(all => [{ type => 'GOAWAY' }]);
 is($frame->{sid}, 3, 'graceful shutdown - GOAWAY stream type');
 is($frame->{last_sid}, 4, 'graceful shutdown - GOAWAY last stream');
 
+}
 ###############################################################################

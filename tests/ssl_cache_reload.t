@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl reload/)
 	->has_daemon('openssl');
 
 $t->write_file_expand('nginx.conf', << 'EOF');
@@ -92,7 +93,7 @@ like(get_cert_cn(8444), qr!/CN=2.example.com!, 'certificate 2');
 update($t, "1.example.com", "3.example.com", update_metadata => 1);
 update($t, "2.example.com", "3.example.com") unless $^O eq 'MSWin32';
 
-ok(reload($t), 'reload');
+ok($t->reload(), 'reload');
 
 like(get_cert_cn(8443), qr!/CN=3.example.com!, 'certificate updated');
 like(get_cert_cn(8444), qr!/CN=2.example.com!, 'certificate cached');
@@ -122,17 +123,6 @@ sub update {
 			$t->write_file("$old.$ext", $t->read_file("$new.$ext"));
 			utime(time(), $mtime, "$d/$old.$ext");
 		}
-	}
-}
-
-sub reload {
-	my ($t) = @_;
-
-	$t->reload();
-
-	for (1 .. 30) {
-		return 1 if $t->read_file('error.log') =~ /exited with code/;
-		select undef, undef, undef, 0.2;
 	}
 }
 

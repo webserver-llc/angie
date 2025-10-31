@@ -26,11 +26,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'OS is not linux') if $^O ne 'linux';
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api proxy upstream_zone debug/);
-
-# see https://trac.nginx.org/nginx/ticket/1831
-plan(skip_all => "perl >= 5.32 required")
-	if ($t->has_module('perl') && $] < 5.032000);
+	->has(qw/http http_api proxy upstream_zone debug reload/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -163,7 +159,7 @@ my %addrs = (
 
 $t->start_resolver(5353, \%addrs);
 
-$t->run()->plan(16);
+$t->run()->plan(19);
 
 ###############################################################################
 
@@ -220,7 +216,7 @@ cmp_bag(
 );
 
 # perform reload to trigger the codepath for pre-resolve
-$t->reload('/api/status/angie/generation');
+ok($t->reload(), 'reloaded');
 
 # no need to wait for resolver, we expect cached result
 
@@ -235,7 +231,7 @@ is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
 # and verify upstreams are still accessible
 
 $t->stop_resolver();
-$t->reload('/api/status/angie/generation');
+ok($t->reload(), 'reloaded');
 
 $j = get_json("/api/status/http/upstreams/u/peers/");
 is($j->{"127.0.0.1:$port1"}{server}, "foo.example.com:$port1",
@@ -255,7 +251,7 @@ my @nxaddrs = ('backup.example.com');
 $t->start_resolver(5353, \%addrs, {nxaddrs => \@nxaddrs});
 
 # reload nginx to force resolve
-$t->reload('/api/status/angie/generation');
+ok($t->reload(), 'reloaded');
 
 # wait 3 seconds to ensure re-resolve (valid=1s)
 select undef, undef, undef, 3;

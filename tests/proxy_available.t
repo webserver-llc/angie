@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,7 +25,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(2);
+my $t = Test::Nginx->new()->has(qw/http proxy reload/)->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -74,7 +75,7 @@ $t->waitforsocket('127.0.0.1:' . port(8082));
 my $s = http_get('/buffered', start => 1);
 IO::Select->new($s)->can_read(3);
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 like(http_end($s), qr/AND-THIS/, 'zero available - buffered');
 

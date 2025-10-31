@@ -37,8 +37,8 @@ use Test::More qw//;
 
 use Test::Nginx::Config;
 use Test::API qw/ api_status traverse_api_status /;
-use Test::Control qw/wait_for_reload stop_pid/;
-use Test::Utils qw/trim/;
+use Test::Control qw/ wait_for_reload stop_pid worker_generations /;
+use Test::Utils qw/ trim /;
 
 ###############################################################################
 
@@ -376,6 +376,14 @@ sub has_feature($) {
 		return 0 if $@;
 		eval { die if $Crypt::Misc::VERSION < 0.067; };
 		return !$@;
+	}
+
+	if ($feature eq 'reload') {
+		# see https://trac.nginx.org/nginx/ticket/1831
+		# perl >= 5.32 required
+		return 0 if $self->has_module('perl')
+			&& $] > 5.028002 && $] < 5.032000;
+		return 1;
 	}
 
 	return 0;
@@ -810,19 +818,19 @@ sub get_master_pid {
 }
 
 sub reload {
-	my ($self, $api_gen_url) = @_;
+	my ($self) = @_;
 
-	return $self unless $self->{_started};
-
-	my $generation;
-
-	if ($api_gen_url) {
-		$generation = http_get_value($api_gen_url);
-	}
+	return 0 unless $self->{_started};
 
 	my $pid = $self->get_master_pid();
 
-	# TODO: get current generation
+	my @generations = worker_generations($pid);
+	my $generation;
+	if (@generations == 1) {
+		$generation = $generations[0];
+	} else {
+		die "Something is wrong: too many generations of workers";
+	}
 
 	if ($^O eq 'MSWin32') {
 		my $testdir = $self->{_testdir};
@@ -837,24 +845,11 @@ sub reload {
 		kill 'HUP', $pid;
 	}
 
-	# TODO get rid of api_gen_url
-	if ($api_gen_url) {
-		my $new_generation;
-		for (1 .. 50) {
-			$new_generation = http_get_value($api_gen_url);
-			return if $new_generation == $generation + 1;
+	# wait until all old workers will start to shut down
+	my $reloaded = wait_for_reload($pid, $generation + 1);
 
-			select undef, undef, undef, 0.1;
-		}
-	}
-
-	# wait until all old workers will start shut down
-	# TODO pass new_generation
-	wait_for_reload($pid);
-
-	return $self;
+	return $reloaded;
 }
-
 
 sub stop() {
 	my ($self) = @_;

@@ -57,10 +57,6 @@ my $t = Test::Nginx->new()
 	->has(qw/http http_ssl http_v3 quic_bpf rewrite socket_ssl_alpn cryptx/)
 	->has_daemon('openssl')->prepare_ssl();
 
-# see https://trac.nginx.org/nginx/ticket/1831
-plan(skip_all => "perl >= 5.32 required")
-	if ($t->has_module('perl') && $] < 5.032000);
-
 sub generate_config {
 	my ($t, $nworkers) = @_;
 
@@ -89,9 +85,6 @@ http {
         location / {
             return 200 \$pid;
         }
-        location /api/ {
-            api /;
-        }
     }
 }
 
@@ -116,11 +109,17 @@ our $last_port = BASE_PORT;
 our $passed = 0;
 
 subtest 'reload test: 8 -> 8' => sub {
+	plan(skip_all => 'reload is not working (perl >= 5.32 required)')
+		unless $t->has_feature('reload');
+
 	my $worker_map = quic_reload($t, START_WORKERS, START_WORKERS);
 	$passed = ok(defined $worker_map, 'reload ok');
 };
 
 subtest 'reload test: 8 -> 3' => sub {
+	plan(skip_all => 'reload is not working (perl >= 5.32 required)')
+		unless $t->has_feature('reload');
+
 	return unless $passed;
 
 	my $worker_map = quic_reload($t, START_WORKERS, 3);
@@ -129,6 +128,9 @@ subtest 'reload test: 8 -> 3' => sub {
 
 my $worker_map;
 subtest 'reload test: 3 -> 4' => sub {
+	plan(skip_all => 'reload is not working (perl >= 5.32 required)')
+		unless $t->has_feature('reload');
+
 	return unless $passed;
 
 	$worker_map = quic_reload($t, 3, 4);
@@ -173,8 +175,7 @@ sub quic_reload {
 		generate_config($t, $new_nworkers);
 	}
 
-	$t->reload('/api/status/angie/generation');
-	note('reload done');
+	ok($t->reload(), 'reload done');
 	show_angie_procs(angie_ps(), 'after reload');
 
 	# we are ready to perform the tests:

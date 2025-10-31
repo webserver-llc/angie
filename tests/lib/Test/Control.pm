@@ -9,7 +9,8 @@ use strict;
 
 use Exporter qw/import/;
 our @EXPORT_OK = qw/upgrade terminate_pid check_master_processes_pids
-	angie_ps show_angie_procs send_signal wait_for_reload stop_pid/;
+	angie_ps show_angie_procs send_signal wait_for_reload stop_pid
+	worker_generations/;
 
 use POSIX qw/ waitpid WNOHANG /;
 use Test::Deep;
@@ -169,12 +170,12 @@ sub check_master_processes_pids {
 
 # return structured information about all angie processes running in system
 sub angie_ps {
-	my $binary = shift // 'angie:';
+	my $binary = shift // 'angie';
 
 	my @all_procs = split "\n", `ps axwwo pid,ppid,command`;
 
 	# consider everything that has '$binary' in 'command' to be related
-	my @matches = grep { /$binary/ } @all_procs;
+	my @matches = grep { /$binary:/ } @all_procs;
 
 	my (@workers, @masters, @caches, @procs);
 
@@ -189,7 +190,7 @@ sub angie_ps {
 
 		# sort out process types and extract additional information
 		if ($cmd =~ /worker process is shutting down/) {
-			my ($generation) = $cmd =~ /#(\d+)$/;
+			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?$/;
 
 			my %worker = (
 				%proc,
@@ -200,7 +201,7 @@ sub angie_ps {
 			push @workers, \%worker;
 
 		} elsif ($cmd =~ /worker process/) {
-			my ($generation) = $cmd =~ /#(\d+)$/;
+			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?$/;
 
 			my %worker = (
 				%proc,
@@ -399,10 +400,11 @@ sub wait_for_active_workers {
 	}
 
 	diag("timed out waiting for workers: still only $wc of $nworkers workers");
+
 	return 0;
 }
 
-sub worker_generation_count {
+sub worker_generations {
 	my ($master_pid) = @_;
 
 	my $info = angie_ps();
@@ -415,22 +417,25 @@ sub worker_generation_count {
 		}
 	}
 
-	return scalar keys %generations;
+	return keys %generations;
 }
 
-# TODO accept new_generation and check it
 sub wait_for_reload {
-	my ($master_pid) = @_;
+	my ($master_pid, $new_generation) = @_;
 
 	my $gc;
 	for (1 .. 150) {
-		$gc = worker_generation_count($master_pid);
+		my @generations = worker_generations($master_pid);
+		$gc = @generations;
 
-		return if $gc == 1;
+		return 1 if $gc == 1 && $generations[0] == $new_generation;
+
 		select undef, undef, undef, 0.02;
 	}
 
 	diag("timed out waiting reload: still $gc different generations running");
+
+	return 0;
 }
 
 sub pid_is_alive {

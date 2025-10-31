@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -25,7 +26,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2/)->plan(19)
+my $t = Test::Nginx->new()->has(qw/http http_v2/)->plan(20)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -164,6 +165,10 @@ is($frame->{last_sid}, $sid, 'keepalive time limit - GOAWAY last stream');
 
 # graceful shutdown in idle state
 
+SKIP: {
+skip 'reload is not working (perl >= 5.32 required)', 5
+	unless $t->has_feature('reload');
+
 $s = Test::Nginx::HTTP2->new();
 $s->{socket}->setsockopt(SOL_SOCKET, SO_RCVBUF, 64*1024) or die $!;
 $s->h2_settings(0, 0x4 => 2**20);
@@ -175,7 +180,7 @@ $sid = $s->new_stream();
 
 select undef, undef, undef, 0.1;
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 select undef, undef, undef, 0.3;
 
@@ -193,5 +198,5 @@ is($sum, 400000, 'graceful shutdown in idle - all data received');
 ($frame) = grep { $_->{type} eq "GOAWAY" } @$frames;
 ok($frame, 'graceful shutdown in idle - GOAWAY');
 is($frame->{last_sid}, $sid, 'graceful shutdown in idle - GOAWAY last stream');
-
+}
 ###############################################################################

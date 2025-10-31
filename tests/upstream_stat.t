@@ -26,7 +26,6 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()
 	->has(qw/http http_api proxy upstream_zone upstream_hash/)
 	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
-
 %%TEST_GLOBALS%%
 
 daemon off;
@@ -295,6 +294,9 @@ subtest 'verify peer fails' => sub {
 };
 
 subtest 'counters after reload' => sub {
+	plan(skip_all => 'reload is not working (perl >= 5.32 required)')
+		unless $t->has_feature('reload');
+
 	my $j = get_json('/status/upstreams/uk/');
 	is($j->{keepalive}, 1, 'nonzero keepalive connections');
 
@@ -302,10 +304,7 @@ subtest 'counters after reload' => sub {
 	is($j->{200}, 3, 'peer requests');
 
 	# now reload and check some stats...
-	$t->reload();
-
-	# TODO: avoid delay
-	select undef, undef, undef, 0.5;
+	ok($t->reload(), 'reloaded');
 
 	# expect:
 	#   - no keepalive connections
@@ -330,6 +329,5 @@ subtest 'counters after reload' => sub {
 
 	is($v, 1, '1 request total to consistent hash upstream');
 };
-
 ###############################################################################
 

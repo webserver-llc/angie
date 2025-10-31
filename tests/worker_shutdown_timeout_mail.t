@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -27,7 +28,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/)->plan(4)
+my $t = Test::Nginx->new()->has(qw/mail imap http rewrite reload/)->plan(5)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -83,7 +84,7 @@ $s->check(qr/^250 /, "ehlo");
 $s->send('AUTH PLAIN ' . encode_base64("\0test\@example.com\0secret", ''));
 $s->authok('auth plain');
 
-$t->reload();
+ok($t->reload(), 'reloaded');
 
 ok($s->can_read(), 'mail connection shutdown');
 

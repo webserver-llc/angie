@@ -87,4 +87,8 @@ TEST_ANGIE_TC
             ...
         }
 
+TEST_ANGIE_DOCKER_REGISTRY
+
+    Sets the location of a Docker Registry. Default value is 'docker.io'.
+
 Happy testing!

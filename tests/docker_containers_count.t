@@ -44,6 +44,8 @@ system("$container_engine network create test_net 1>/dev/null 2>&1");
 system("$container_engine network inspect test_net 1>/dev/null 2>&1") == 0
 	or die "can't create $container_engine network";
 
+my $registry = $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io';
+
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
 	->plan(26);
@@ -179,7 +181,7 @@ sub start_containers {
 
 	for (my $idx = 0; $idx < $count; $idx++) {
 		 system("$container_engine run -d $labels --name whoami-$idx"
-			  . ' --network test_net docker.io/traefik/whoami'
+			  . " --network test_net $registry/traefik/whoami"
 			  . ' 1>/dev/null') == 0
 			  or die "cannot start containers";
 	}

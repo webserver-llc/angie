@@ -18,9 +18,12 @@
 
 typedef struct ngx_acme_client_s            ngx_acme_client_t;
 
+typedef struct {
+    ngx_str_t                    name;
+    ngx_acme_client_t           *ref;
+} ngx_acme_client_ref_t;
 
-ngx_array_t *ngx_acme_clients(ngx_conf_t *cf);
-ngx_str_t *ngx_acme_client_name(ngx_acme_client_t *cli);
+
 ngx_int_t ngx_acme_handle_cert_variable(ngx_pool_t *pool,
     ngx_variable_value_t *v, ngx_acme_client_t *cli);
 ngx_int_t ngx_acme_handle_cert_key_variable(ngx_variable_value_t *v,
@@ -28,5 +31,9 @@ ngx_int_t ngx_acme_handle_cert_key_variable(ngx_variable_value_t *v,
 ngx_int_t ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     ngx_array_t *server_names, u_char *cf_file_name, ngx_uint_t cf_line);
 
+#if (NGX_STREAM_ACME)
+ngx_acme_client_ref_t *ngx_stream_acme_find_client(ngx_conf_t *cf,
+    ngx_str_t *name);
+#endif
 
 #endif /* _NGX_ACME_H_INCLUDED_ */

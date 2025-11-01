@@ -4017,6 +4017,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     ngx_http_core_loc_conf_t    *clcf, *pclcf;
     ngx_http_acme_main_conf_t   *amcf;
     ngx_http_core_main_conf_t   *cmcf;
+#if (NGX_STREAM_ACME)
+    ngx_acme_client_ref_t       *scli;
+#endif
 
     amcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_acme_module);
 
@@ -4109,7 +4112,17 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             return NGX_ERROR;
         }
 
+#if (NGX_STREAM_ACME)
+        scli = ngx_stream_acme_find_client(cf, &cli->name);
+
+        if (scli != NULL) {
+            scli->ref = cli;
+        }
+
+        if (cli->domains->nelts == 0 && scli == NULL) {
+#else
         if (cli->domains->nelts == 0) {
+#endif
             /*
              * The client is defined but not referenced in any of the server
              * blocks.
@@ -5797,24 +5810,6 @@ ngx_clone_table_elt(ngx_pool_t *pool, ngx_str_t *dst,
     }
 
     return NGX_OK;
-}
-
-
-ngx_array_t *
-ngx_acme_clients(ngx_conf_t *cf)
-{
-    ngx_http_acme_main_conf_t  *amcf;
-
-    amcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_acme_module);
-
-    return amcf != NULL ? &amcf->clients : NULL;
-}
-
-
-ngx_str_t *
-ngx_acme_client_name(ngx_acme_client_t *cli)
-{
-    return &cli->name;
 }
 
 

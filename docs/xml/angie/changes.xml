@@ -33,6 +33,30 @@ the configuration were defined with "enabled=off".
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+если ACME-клиент использовался в блоке "stream", но не в блоке "http",
+он дезактивировался с сообщением "ACME client is not defined but referenced"
+и не получал сертификата.
+</para>
+<para lang="en">
+if an ACME client had been referenced in the "stream" block but not in the
+"http" block, it was disabled during configuration parsing, issued an "ACME
+client is not defined but referenced" message, and never fetched a certificate.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+если ACME-клиент используется в блоке "stream", располагать блок "http" перед
+блоком "stream" теперь не обязательно.
+</para>
+<para lang="en">
+if the ACME client is used in the "stream" block, an "http" block is no longer
+required before the "stream" block.
+</para>
+</change>
+
 </changes>
 
 

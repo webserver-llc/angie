@@ -7,7 +7,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-#include <ngx_md5.h>
+#include <ngx_sticky.h>
 
 
 typedef struct {
@@ -35,8 +35,6 @@ static ngx_int_t ngx_stream_upstream_sticky_select_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp,
     ngx_stream_upstream_sticky_peer_data_t *sp, ngx_peer_connection_t *pc,
     ngx_str_t *hint);
-static size_t ngx_stream_upstream_sticky_hash(ngx_str_t *in, ngx_str_t *salt,
-    u_char *out);
 static ngx_int_t ngx_stream_upstream_init_sticky(ngx_conf_t *cf,
     ngx_stream_upstream_srv_conf_t *us);
 static ngx_int_t ngx_stream_upstream_init_sticky_peer(ngx_stream_session_t *s,
@@ -118,7 +116,7 @@ ngx_stream_upstream_sticky_select_peer(ngx_stream_upstream_rr_peer_data_t *rrp,
     ngx_stream_upstream_rr_peer_t   *peer;
     ngx_stream_upstream_rr_peers_t  *peers;
 
-    u_char                           buf[NGX_STREAM_UPSTREAM_SID_LEN];
+    u_char                           buf[NGX_STICKY_SID_LEN];
 
     s = pc->ctx;
 
@@ -147,7 +145,7 @@ again:
         }
 
         if (sp->salt.len) {
-            len = ngx_stream_upstream_sticky_hash(&peer->sid, &sp->salt, buf);
+            len = ngx_sticky_hash(&peer->sid, &sp->salt, buf);
             sid = buf;
 
         } else {
@@ -192,23 +190,6 @@ again:
     }
 
     return NGX_DECLINED;
-}
-
-
-static size_t
-ngx_stream_upstream_sticky_hash(ngx_str_t *in, ngx_str_t *salt, u_char *out)
-{
-    ngx_md5_t  md5;
-    u_char     hash[16];
-
-    ngx_md5_init(&md5);
-    ngx_md5_update(&md5, in->data, in->len);
-    ngx_md5_update(&md5, salt->data, salt->len);
-    ngx_md5_final(hash, &md5);
-
-    ngx_hex_dump(out, hash, 16);
-
-    return 32;
 }
 
 

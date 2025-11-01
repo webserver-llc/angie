@@ -1579,6 +1579,14 @@ if [ $USE_DOCKER = YES ]; then
 fi
 
 
+if [ $HTTP = YES ] || [ $STREAM != NO ]; then
+    if [ $HTTP_UPSTREAM_STICKY = YES ] || [ $STREAM_UPSTREAM_STICKY = YES ]
+    then
+        CORE_DEPS="$CORE_DEPS src/core/ngx_sticky.h"
+    fi
+fi
+
+
 modules="$CORE_MODULES $EVENT_MODULES"
 
 

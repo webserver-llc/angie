@@ -49,13 +49,6 @@
 #define ngx_http_acme_get_main_conf() \
     ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_acme_module)
 
-#if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
-#define X509V3_EXT_conf_nid_f   X509V3_EXT_nconf_nid
-#define X509V3_EXT_conf_nid_n   "X509V3_EXT_nconf_nid()"
-#else
-#define X509V3_EXT_conf_nid_f   X509V3_EXT_conf_nid
-#define X509V3_EXT_conf_nid_n   "X509V3_EXT_conf_nid()"
-#endif
 
 #if (NGX_DEBUG)
 
@@ -931,31 +924,32 @@ ngx_http_acme_encoded_ec_params(ngx_http_acme_session_t *ses,
     by = BN_new();
 
     if (!bx || !by) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_new() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "BN_new() failed");
         goto failed;
     }
 
     ec = EVP_PKEY_get0_EC_KEY(key->key);
     if (!ec) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "EVP_PKEY_get0_EC_KEY() failed");
         goto failed;
     }
 
     g = EC_KEY_get0_group(ec);
     if (!g) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EC_KEY_get0_group() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EC_KEY_get0_group() failed");
         goto failed;
     }
 
     pubkey = EC_KEY_get0_public_key(ec);
     if (!pubkey) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EC_KEY_get0_group() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
+                      "EC_KEY_get0_public_key() failed");
         goto failed;
     }
 
     if (!EC_POINT_get_affine_coordinates(g, pubkey, bx, by, NULL)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "EC_POINT_get_affine_coordinates() failed");
         goto failed;
     }
@@ -1020,7 +1014,7 @@ ngx_http_acme_encoded_rsa_params(ngx_http_acme_session_t *ses,
     rsa = EVP_PKEY_get0_RSA(key->key);
 
     if (!rsa) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_PKEY_get0_RSA() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_PKEY_get0_RSA() failed");
         return NGX_ERROR;
     }
 
@@ -1064,7 +1058,7 @@ ngx_http_acme_bn_encode(ngx_http_acme_session_t *ses, ngx_str_t * dst,
     }
 
     if ((size_t) BN_bn2bin(bn, bn_data) != n) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
 
@@ -1191,7 +1185,7 @@ ngx_http_acme_jws_encode(ngx_http_acme_session_t *ses,
 
     emc = EVP_MD_CTX_create();
     if (!emc) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_MD_CTX_create() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_MD_CTX_create() failed");
         goto failed;
     }
 
@@ -1203,17 +1197,17 @@ ngx_http_acme_jws_encode(ngx_http_acme_session_t *ses,
     }
 
     if (!EVP_SignInit_ex(emc, hash_type, NULL)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_SignInit_ex() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_SignInit_ex() failed");
         goto failed;
     }
 
     if (!EVP_SignUpdate(emc, enc_combined.data, enc_combined.len)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_SignUpdate() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_SignUpdate() failed");
         goto failed;
     }
 
     if (!EVP_SignFinal(emc, sig.data, &n, key->key)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_SignFinal() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_SignFinal() failed");
         goto failed;
     }
 
@@ -1292,7 +1286,7 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
     s = d2i_ECDSA_SIG(NULL, &tmp, sig->len);
 
     if (!s) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "d2i_ECDSA_SIG() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "d2i_ECDSA_SIG() failed");
         return NGX_ERROR;
     }
 
@@ -1314,7 +1308,7 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
     }
 
     if ((size_t) BN_bn2bin(br, p) != n) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
 
@@ -1333,7 +1327,7 @@ ngx_http_acme_ec_decode(ngx_http_acme_session_t *ses, size_t hash_size,
     }
 
     if ((size_t) BN_bn2bin(bs, p) != n) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "BN_bn2bin() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "BN_bn2bin() failed");
         goto failed;
     }
 
@@ -1566,14 +1560,14 @@ ngx_http_acme_key_gen(ngx_acme_client_t *cli, ngx_acme_privkey_t *key)
     bio = NULL;
     k = NULL;
 
-    if (!EVP_PKEY_keygen_init(epc)) {
+    if (EVP_PKEY_keygen_init(epc) < 1) {
         ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0,
                       "EVP_PKEY_keygen_init() failed");
         goto failed;
     }
 
     if (key->type == NGX_KT_RSA) {
-        if (!EVP_PKEY_CTX_set_rsa_keygen_bits(epc, key->bits)) {
+        if (EVP_PKEY_CTX_set_rsa_keygen_bits(epc, key->bits) < 1) {
             ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0,
                           "EVP_PKEY_CTX_set_rsa_keygen_bits() failed");
             goto failed;
@@ -1595,14 +1589,14 @@ ngx_http_acme_key_gen(ngx_acme_client_t *cli, ngx_acme_privkey_t *key)
             goto failed;
         }
 
-        if (!EVP_PKEY_CTX_set_ec_paramgen_curve_nid(epc, n)) {
+        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(epc, n) < 1) {
             ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0,
                           "EVP_PKEY_CTX_set_ec_paramgen_curve_nid");
             goto failed;
         }
     }
 
-    if (!EVP_PKEY_keygen(epc, &k)) {
+    if (EVP_PKEY_keygen(epc, &k) < 1) {
         ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "EVP_PKEY_keygen() failed");
         goto failed;
     }
@@ -1700,7 +1694,7 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
 
     crq = X509_REQ_new();
     if (!crq) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509_REQ_new() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "X509_REQ_new() failed");
         return NGX_ERROR;
     }
 
@@ -1708,12 +1702,12 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
 
     name = X509_NAME_new();
     if (!name) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509_NAME_new() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "X509_NAME_new() failed");
         goto failed;
     }
 
     if (!X509_REQ_set_pubkey(crq, key->key)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509_REQ_set_pubkey() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "X509_REQ_set_pubkey() failed");
         goto failed;
     }
 
@@ -1723,13 +1717,13 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
     if (!X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, s.data, s.len,
                                     -1, 0))
     {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "X509_NAME_add_entry_by_txt() failed");
         goto failed;
     }
 
     if (!X509_REQ_set_subject_name(crq, name)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "X509_REQ_set_subject_name() failed");
         goto failed;
     }
@@ -1758,44 +1752,44 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
 
     exts = sk_X509_EXTENSION_new_null();
     if (!exts) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "sk_X509_EXTENSION_new_null() failed");
         goto failed;
     }
 
-    ext = X509V3_EXT_conf_nid_f(NULL, NULL, NID_subject_alt_name, (char *) san);
+    ext = X509V3_EXT_nconf(NULL, NULL, "subjectAltName", (char *) san);
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
-                      X509V3_EXT_conf_nid_n " failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
+                      "X509V3_EXT_nconf() failed");
         goto failed;
     }
 
     sk_X509_EXTENSION_push(exts, ext);
 
-    ext = X509V3_EXT_conf_nid_f(NULL, NULL, NID_key_usage, key_usage);
+    ext = X509V3_EXT_nconf(NULL, NULL, "keyUsage", key_usage);
     if (!ext) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
-                      X509V3_EXT_conf_nid_n " failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
+                      "X509V3_EXT_nconf() failed");
         goto failed;
     }
 
     sk_X509_EXTENSION_push(exts, ext);
 
     if (!X509_REQ_add_extensions(crq, exts)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0,
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
                       "X509_REQ_add_extensions() failed");
         goto failed;
     }
 
     if (!X509_REQ_sign(crq, key->key, hash_type)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "X509_REQ_sign() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "X509_REQ_sign() failed");
         goto failed;
     }
 
     csr_size = i2d_X509_REQ(crq, NULL);
 
     if (csr_size < 0) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "i2d_X509_REQ() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "i2d_X509_REQ() failed");
         goto failed;
     }
 
@@ -1807,7 +1801,7 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
     p = csr_data;
 
     if (i2d_X509_REQ(crq, &p) != csr_size) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "i2d_X509_REQ() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "i2d_X509_REQ() failed");
         goto failed;
     }
 
@@ -1910,24 +1904,24 @@ ngx_http_acme_sha256_base64url(ngx_http_acme_session_t *ses,
 
     emc = EVP_MD_CTX_create();
     if (!emc) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_MD_CTX_create() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_MD_CTX_create() failed");
         return NGX_ERROR;
     }
 
     rc = NGX_ERROR;
 
     if (!EVP_DigestInit_ex(emc, EVP_sha256(), NULL)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_DigestInit_ex() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_DigestInit_ex() failed");
         goto failed;
     }
 
     if (!EVP_DigestUpdate(emc, str->data, str->len)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_DigestUpdate() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_DigestUpdate() failed");
         goto failed;
     }
 
     if (!EVP_DigestFinal_ex(emc, hash, &size)) {
-        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "EVP_DigestFinal_ex() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_DigestFinal_ex() failed");
         goto failed;
     }
 
@@ -6364,7 +6358,8 @@ ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
 
 
 static ngx_int_t
-ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain) {
+ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain)
+{
     ngx_str_t   *s;
     ngx_int_t    i;
     ngx_uint_t   wclen;

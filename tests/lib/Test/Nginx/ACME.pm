@@ -219,6 +219,9 @@ sub start_challtestsrv {
 	my $dns_port = defined $params->{dns_port}
 		? $params->{dns_port}
 		: $self->{dns_port};
+	my $tlsalpn_port = defined $params->{tlsalpn_port}
+		? ':' . $params->{tlsalpn_port}
+		: '';
 
 	my $d = $self->{t}->testdir();
 	$self->{t}->run_daemon($challtestsrv,
@@ -228,7 +231,7 @@ sub start_challtestsrv {
 		'-http01', $http_port,
 		'-https01', '',
 		'-doh', '',
-		'-tlsalpn01', '',
+		'-tlsalpn01', $tlsalpn_port,
 	);
 
 	my $pid = $self->{t}{_daemons}[-1];

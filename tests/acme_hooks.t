@@ -33,6 +33,8 @@ plan(skip_all => 'FCGI not installed') if $@;
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
+my $has_alpn = !$t->has_module('BoringSSL|AWS-LC|LibreSSL');
+
 # XXX
 # We don't use the port function here, because the port it creates is currently
 # incompatible with challtestsrv (they both create a pair of tcp/udp sockets on
@@ -51,6 +53,7 @@ my $d = $t->testdir();
 
 my $hook_port = port(9000);
 my $http_port = port(5002);
+my $tls_port = port(5001);
 my $pebble_port = port(14000);
 my $challtestsrv_mgmt_port = port(8055);
 
@@ -63,11 +66,17 @@ my @keys = (
 
 my @challenges = ('http', 'dns');
 
+if ($has_alpn) {
+	push @challenges, 'alpn';
+}
+
+my $server_count = @challenges * @keys;
+
 my $domain_count = 1;
 
 # Each iteration creates 2 clients, one with the RSA key type, the other with
 # the ECDSA. Each subsequent iteration also assigns a different challenge type.
-for (1 .. 6) {
+for (1 .. $server_count) {
 	my $n = $_;
 
 	my $chlg = $challenges[($n - 1) % @challenges];
@@ -90,7 +99,7 @@ for (1 .. 6) {
 
 	for my $key (@keys) {
 		my $cli = {
-			name => "test${n}_$key->{type}",
+			name => "test${n}_$key->{type}_$chlg",
 			key_type => $key->{type},
 			key_bits => $key->{bits},
 			challenge => $chlg,
@@ -194,13 +203,15 @@ $conf_clients
 $t->write_file_expand('nginx.conf', $conf);
 
 $acme_helper->start_challtestsrv({
+	mgmt_port => $challtestsrv_mgmt_port,
 	http_port => $http_port,
-	mgmt_port => $challtestsrv_mgmt_port
+	tlsalpn_port => $tls_port,
 });
 
 $acme_helper->start_pebble({
 	pebble_port => $pebble_port,
-	http_port => $http_port
+	http_port => $http_port,
+	tls_port => $tls_port,
 });
 
 $t->run_daemon(\&hook_handler, $t, $hook_port);
@@ -212,7 +223,7 @@ $t->plan(scalar @clients + 2);
 my $renewed_count = 0;
 my $loop_start = time();
 
-for (1 .. 360 * @clients) {
+for (1 .. 60 * @clients) {
 
 	for my $cli (@clients) {
 		next if $cli->{renewed};
@@ -259,7 +270,7 @@ my $s = '';
 $s = $t->read_file('uri.txt') if -f $t->testdir() . '/uri.txt';
 
 my $used_uri = $s =~ /URI:/;
-my $bad_uri = !$used_uri or ($s =~ /URI: 0/);
+my $bad_uri = !$used_uri || ($s =~ /URI: 0/);
 
 ok($used_uri, 'used uri parameter');
 ok(!$bad_uri, 'valid uri parameter');
@@ -278,6 +289,11 @@ sub hook_add {
 
 		http_post('/set-txt',
 			body => "{\"host\":\"$name\",\"value\":\"$keyauth\"}");
+
+	} elsif ($challenge eq 'alpn') {
+		http_post('/add-tlsalpn01',
+			body => "{\"host\":\"$domain\",\"content\":\"$keyauth\"}");
+
 	} else {
 		die('Unknown challenge ' . $challenge);
 	}
@@ -293,6 +309,9 @@ sub hook_remove {
 		my $name = "_acme-challenge.$domain.";
 
 		http_post('/clear-txt', body => "{\"host\":\"$name\"}");
+
+	} elsif ($challenge eq 'alpn') {
+		http_post('/del-tlsalpn01', body => "{\"host\":\"$domain\"}");
 
 	} else {
 		die('Unknown challenge ' . $challenge);
@@ -353,6 +372,13 @@ sub hook_handler {
 
 		open my $f, '>>', $t->testdir() . '/uri.txt'
 			or die "Couldn't open uri.txt: $!";
+
+		# print $f "\tclient:    $h{client}\n";
+		# print $f "\thook:      $h{hook}\n";
+		# print $f "\tchallenge: $h{challenge}\n";
+		# print $f "\tdomain:    $h{domain}\n";
+		# print $f "\ttoken:     $h{token}\n";
+		# print $f "\tkeyauth:   $h{keyauth}\n";
 
 		print $f "URI: $uri_status\n";
 

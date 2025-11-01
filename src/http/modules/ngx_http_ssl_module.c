@@ -14,6 +14,10 @@
 #include <ngx_event_quic_openssl_compat.h>
 #endif
 
+#if (NGX_HTTP_ACME)
+#include <ngx_acme.h>
+#endif
+
 
 typedef ngx_int_t (*ngx_ssl_variable_handler_pt)(ngx_connection_t *c,
     ngx_pool_t *pool, ngx_str_t *s);
@@ -549,7 +553,11 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
 
     if (SSL_select_next_proto((unsigned char **) out, outlen, srv, srvlen,
                               in, inlen)
-        != OPENSSL_NPN_NEGOTIATED)
+        != OPENSSL_NPN_NEGOTIATED
+#if (NGX_HTTP_ACME)
+        && ngx_acme_select_alpn_proto(out, outlen, in, inlen) != NGX_OK
+#endif
+        )
     {
         return SSL_TLSEXT_ERR_ALERT_FATAL;
     }

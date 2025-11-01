@@ -1081,6 +1081,24 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
         }
 #endif
 
+#if (NGX_HTTP_ACME                                                              \
+     && defined TLSEXT_TYPE_application_layer_protocol_negotiation)
+        {
+        unsigned int          len;
+        const unsigned char  *data;
+
+        SSL_get0_alpn_selected(c->ssl->connection, &data, &len);
+
+        if (len == 10 && ngx_memcmp(data, "acme-tls/1", 10) == 0) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                           "http close acme alpn connection");
+
+            ngx_http_close_connection(c);
+            return;
+        }
+        }
+#endif
+
         c->log->action = "waiting for request";
 
         c->read->handler = ngx_http_wait_request_handler;

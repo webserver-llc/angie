@@ -1358,6 +1358,8 @@ if [ $STREAM != NO ]; then
             exit 1
         fi
 
+        have=NGX_STREAM_ACME . auto/have
+
         ngx_module_name=ngx_stream_acme_module
         ngx_module_incs=
         ngx_module_deps=

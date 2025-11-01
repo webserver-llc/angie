@@ -265,7 +265,8 @@ ngx_stream_acme_cert_variable(ngx_stream_session_t *s,
 {
 
     return ngx_acme_handle_cert_variable(s->connection->pool, v,
-                                         (ngx_acme_client_t *) data);
+                                         (ngx_acme_client_t *) data,
+                                         s->connection->ssl);
 }
 
 
@@ -274,5 +275,7 @@ ngx_stream_acme_cert_key_variable(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data)
 {
 
-    return ngx_acme_handle_cert_key_variable(v, (ngx_acme_client_t *) data);
+    return ngx_acme_handle_cert_key_variable(s->connection->pool, v,
+                                             (ngx_acme_client_t *) data,
+                                             s->connection->ssl);
 }

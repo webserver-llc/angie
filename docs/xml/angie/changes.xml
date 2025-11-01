@@ -222,6 +222,17 @@ the new Makefile target "test" executing the test suite.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка ALPN-верификации для ACME, задаётся при помощи значения "alpn"
+в качестве параметра "challenge" директивы "acme_client".
+</para>
+<para lang="en">
+support for ALPN validation for ACME, enabled by specifying "alpn" in the
+"challenge" parameter of the "acme_client" directive.
+</para>
+</change>
+
 </changes>
 
 

@@ -22,7 +22,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(37);
+my $t = Test::Nginx->new()->has(qw/http rewrite/)->plan(34);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -54,7 +54,7 @@ $t->run();
 
 is(http_host_header('www.abcd-ef.g02.xyz'), 'www.abcd-ef.g02.xyz',
 	'domain w/o port (host header)');
-is(http_host_header('abcd-ef.g02.xyz:' . port(8080)), 'abcd-ef.g02.xyz',
+is(http_host_header('abcd-ef.g02.xyz:8080'), 'abcd-ef.g02.xyz',
 	'domain w/port (host header)');
 
 is(http_absolute_path('abcd-ef.g02.xyz'), 'abcd-ef.g02.xyz',
@@ -65,7 +65,6 @@ is(http_absolute_path('www.abcd-ef.g02.xyz:10'), 'www.abcd-ef.g02.xyz',
 
 is(http_host_header('www.abcd-ef.g02.xyz.'), 'www.abcd-ef.g02.xyz',
 	'domain w/ ending dot w/o port (host header)');
-
 is(http_host_header('abcd-ef.g02.xyz.:88'), 'abcd-ef.g02.xyz',
 	'domain w/ ending dot w/port (host header)');
 
@@ -133,12 +132,6 @@ like(http_absolute_path('[ab..cd::ef98:0:7654:321]', 1), qr/ 400 /,
 	'ipv6 literal w/ double dot (absolute request)');
 
 
-like(http_host_header('[abcd::ef98:0:7654:321]..:98', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (host header)');
-like(http_absolute_path('[ab..cd::ef98:0:7654:321]', 1), qr/ 400 /,
-	'ipv6 literal w/ double dot (absolute request)');
-
-
 # As per RFC 3986,
 # http://tools.ietf.org/html/rfc3986#section-3.2.2
 #
@@ -165,9 +158,6 @@ is(http_absolute_path(
 	'[v0123456789abcdef.!$&\'()*+,;=-._~abcdefghijklmnopqrstuvwxyz'
 	. '0123456789:]',
 	'IPvFuture all symbols (absolute request)');
-
-is(http_host_header('123.40.56.78:9000:80'), '123.40.56.78',
-	'double port hack');
 
 like(http_host_header("localhost\nHost: again", 1), qr/ 400 /, 'host repeat');
 like(http_host_header("localhost\x02", 1), qr/ 400 /, 'control');

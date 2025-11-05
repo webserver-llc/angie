@@ -1182,7 +1182,7 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
         goto done;
     }
 
-    rc = ngx_http_validate_host(&host, c->pool, 1);
+    rc = ngx_http_validate_host(&host, NULL, c->pool, 1);
 
     if (rc == NGX_ERROR) {
         goto error;
@@ -1358,6 +1358,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
     ssize_t              n;
     ngx_int_t            rc, rv;
     ngx_str_t            host;
+    in_port_t            port;
     ngx_connection_t    *c;
     ngx_http_request_t  *r;
 
@@ -1420,7 +1421,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 host.len = r->host_end - r->host_start;
                 host.data = r->host_start;
 
-                rc = ngx_http_validate_host(&host, r->pool, 0);
+                rc = ngx_http_validate_host(&host, &port, r->pool, 0);
 
                 if (rc == NGX_DECLINED) {
                     ngx_log_error(NGX_LOG_INFO, c->log, 0,
@@ -1439,6 +1440,7 @@ ngx_http_process_request_line(ngx_event_t *rev)
                 }
 
                 r->headers_in.server = host;
+                r->port = port;
             }
 
             if (r->http_version < NGX_HTTP_VERSION_10) {
@@ -2096,9 +2098,9 @@ static ngx_int_t
 ngx_http_process_host(ngx_http_request_t *r, ngx_table_elt_t *h,
     ngx_uint_t offset)
 {
-    u_char     *p;
-    ngx_int_t   rc;
-    ngx_str_t   host;
+    ngx_int_t  rc;
+    ngx_str_t  host;
+    in_port_t  port;
 
     if (r->headers_in.host) {
         ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
@@ -2115,7 +2117,7 @@ ngx_http_process_host(ngx_http_request_t *r, ngx_table_elt_t *h,
 
     host = h->value;
 
-    rc = ngx_http_validate_host(&host, r->pool, 0);
+    rc = ngx_http_validate_host(&host, &port, r->pool, 0);
 
     if (rc == NGX_DECLINED) {
         ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
@@ -2138,17 +2140,7 @@ ngx_http_process_host(ngx_http_request_t *r, ngx_table_elt_t *h,
     }
 
     r->headers_in.server = host;
-
-    p = ngx_strlchr(h->value.data + host.len,
-                    h->value.data + h->value.len, ':');
-
-    if (p) {
-        rc = ngx_atoi(p + 1, h->value.data + h->value.len - p - 1);
-
-        if (rc > 0 && rc < 65536) {
-            r->port = rc;
-        }
-    }
+    r->port = port;
 
     return NGX_OK;
 }
@@ -2444,7 +2436,8 @@ ngx_http_process_request(ngx_http_request_t *r)
 
 
 ngx_int_t
-ngx_http_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
+ngx_http_validate_host(ngx_str_t *host, in_port_t *portp, ngx_pool_t *pool,
+    ngx_uint_t alloc)
 {
     u_char     *h, ch;
     size_t      i, dot_pos, host_len;
@@ -2631,6 +2624,10 @@ ngx_http_validate_host(ngx_str_t *host, ngx_pool_t *pool, ngx_uint_t alloc)
     }
 
     host->len = host_len;
+
+    if (portp) {
+        *portp = port;
+    }
 
     return NGX_OK;
 }

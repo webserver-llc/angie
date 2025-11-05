@@ -419,6 +419,7 @@ extern int  ngx_ssl_ticket_keys_index;
 extern int  ngx_ssl_ocsp_index;
 extern int  ngx_ssl_index;
 extern int  ngx_ssl_certificate_name_index;
+extern int  ngx_ssl_certificate_comp_index;
 extern int  ngx_ssl_client_hello_arg_index;
 
 

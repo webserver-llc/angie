@@ -155,10 +155,12 @@ directive.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.29.2.
+вся функциональность nginx 1.29.3, за исключением директив "add_header_inherit"
+и "add_trailer_inherit".
 </para>
 <para lang="en">
-all functionality of nginx 1.29.2.
+all functionality of nginx 1.29.3 except the "add_header_inherit"
+and "add_trailer_inherit" directives.
 </para>
 </change>
 

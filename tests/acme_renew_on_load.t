@@ -223,8 +223,8 @@ my $s = $t->read_file('acme.log');
 my $renewed_on_load = 0;
 if ($renewed1) {
 	$renewed_on_load = $s =~ /
-		forced\srenewal\sof\scertificate,\s
-		renewal\sscheduled\snow,\sACME\sclient:\stest1
+		valid\scertificate,\s
+		forced\srenewal\sscheduled\snow,\sACME\sclient:\stest1
 	/x;
 }
 ok($renewed_on_load, "client1: certificate renewed on load");

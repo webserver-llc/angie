@@ -287,6 +287,18 @@ renewal completed.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+некоторые конфигурации блока "client" могли вызывать падение
+рабочих процессов при использовании переменных, обращающихся к
+соединению-заглушке.
+</para>
+<para lang="en">
+some "client" block configurations might cause worker processes crash
+when using variables referring to the stub connection.
+</para>
+</change>
+
 </changes>
 
 

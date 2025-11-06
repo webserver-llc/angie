@@ -589,6 +589,9 @@ ngx_http_client_init_connection(ngx_http_client_t *htc)
     c->local_sockaddr = (struct sockaddr *) sin;
     c->local_socklen = sizeof(struct sockaddr_in);
 
+    c->sockaddr = c->local_sockaddr;
+    c->socklen = c->local_socklen;
+
     c->type = SOCK_STREAM;
 
     c->start_time = ngx_current_msec;

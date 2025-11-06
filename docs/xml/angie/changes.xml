@@ -270,6 +270,23 @@ required before the "stream" block.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при получении сертификата для ACME-клиента, у которого задана опция
+"renew_on_load" и отсутствовал ранее полученный сертификат, возникала
+ошибка "Bad file descriptor". Если ранее полученный сертификат присутствовал,
+он не загружался, что могло привести к неработоспособности сервера до
+окончания обновления сертификата.
+</para>
+<para lang="en">
+certificate renewal for an ACME client with the "renew_on_load" option
+enabled but without a previously obtained certificate would result in
+a "Bad file descriptor" error. If a previously obtained certificate was
+present, it wasn’t loaded, potentially leaving the server unusable until
+renewal completed.
+</para>
+</change>
+
 </changes>
 
 

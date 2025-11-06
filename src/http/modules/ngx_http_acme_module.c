@@ -5199,10 +5199,7 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
         cli->renew_time = now;
 
-        if (cli->renew_on_load && cli->enabled) {
-            s = "forced renewal of";
-
-        } else if (shc != NULL && shc->len != 0) {
+        if (shc != NULL && shc->len != 0) {
             if (ngx_http_acme_file_load(cli->log, &cli->certificate_file,
                                         shc->data_start, shc->len)
                 != NGX_OK)
@@ -5221,8 +5218,11 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 
             } else {
                 s = "valid";
-                cli->expiry_time = t;
-                cli->renew_time = t - cli->renew_before_expiry;
+
+                if (!cli->renew_on_load) {
+                    cli->expiry_time = t;
+                    cli->renew_time = t - cli->renew_before_expiry;
+                }
             }
 
         } else {
@@ -5251,7 +5251,8 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                    : "now";
 
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                          "%s certificate, renewal scheduled %s", s, s2);
+                          "%s certificate, %srenewal scheduled %s", s,
+                          cli->renew_on_load ? "forced " : "", s2);
 
         } else {
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,

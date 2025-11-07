@@ -285,6 +285,11 @@ sub has_module($) {
 
 	return 1 if $self->{_configure_args} =~ $re;
 
+	$self->{_active_modules} = `$NGINX -m 2>&1`
+		if !defined $self->{_active_modules};
+
+	return 1 if $self->{_active_modules} =~ /^ngx_$feature\_module$/m;
+
 	my %modules = (
 		http_geoip
 			=> 'ngx_http_geoip_module',
@@ -385,6 +390,11 @@ sub has_feature($) {
 			&& $] > 5.028002 && $] < 5.032000;
 		return 1;
 	}
+
+	$self->{_build_env} = `$NGINX --build-env 2>&1`
+		if !defined $self->{_build_env};
+
+	return 1 if $self->{_build_env} =~ /^\U$feature\E: 1$/m;
 
 	return 0;
 }

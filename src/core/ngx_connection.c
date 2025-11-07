@@ -1067,81 +1067,102 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 
 #endif
 
-#if (NGX_HAVE_IP_MTU_DISCOVER)
+    }
+}
 
-        if (ls[i].quic && ls[i].sockaddr->sa_family == AF_INET) {
+
+#if (NGX_QUIC)
+
+void
+ngx_configure_quic_socket(ngx_cycle_t *cycle, ngx_listening_t *ls,
+    ngx_socket_t fd)
+{
+
+#if (NGX_HAVE_IP_MTU_DISCOVER)
+    {
+        int  value;
+
+        if (ls->sockaddr->sa_family == AF_INET) {
             value = IP_PMTUDISC_DO;
 
-            if (setsockopt(ls[i].fd, IPPROTO_IP, IP_MTU_DISCOVER,
+            if (setsockopt(fd, IPPROTO_IP, IP_MTU_DISCOVER,
                            (const void *) &value, sizeof(int))
                 == -1)
             {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                               "setsockopt(IP_MTU_DISCOVER) "
                               "for %V failed, ignored",
-                              &ls[i].addr_text);
+                              &ls->addr_text);
             }
         }
-
+    }
 #elif (NGX_HAVE_IP_DONTFRAG)
+    {
+        int  value;
 
-        if (ls[i].quic && ls[i].sockaddr->sa_family == AF_INET) {
+        if (ls->sockaddr->sa_family == AF_INET) {
             value = 1;
 
-            if (setsockopt(ls[i].fd, IPPROTO_IP, IP_DONTFRAG,
+            if (setsockopt(fd, IPPROTO_IP, IP_DONTFRAG,
                            (const void *) &value, sizeof(int))
                 == -1)
             {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                               "setsockopt(IP_DONTFRAG) "
                               "for %V failed, ignored",
-                              &ls[i].addr_text);
+                              &ls->addr_text);
             }
         }
+    }
 
 #endif
 
 #if (NGX_HAVE_INET6)
 
 #if (NGX_HAVE_IPV6_MTU_DISCOVER)
+    {
+        int  value;
 
-        if (ls[i].quic && ls[i].sockaddr->sa_family == AF_INET6) {
+        if (ls->sockaddr->sa_family == AF_INET6) {
             value = IPV6_PMTUDISC_DO;
 
-            if (setsockopt(ls[i].fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
+            if (setsockopt(fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
                            (const void *) &value, sizeof(int))
                 == -1)
             {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                               "setsockopt(IPV6_MTU_DISCOVER) "
                               "for %V failed, ignored",
-                              &ls[i].addr_text);
+                              &ls->addr_text);
             }
         }
+    }
 
 #elif (NGX_HAVE_IP_DONTFRAG)
+    {
+        int  value;
 
-        if (ls[i].quic && ls[i].sockaddr->sa_family == AF_INET6) {
+        if (ls->sockaddr->sa_family == AF_INET6) {
             value = 1;
 
-            if (setsockopt(ls[i].fd, IPPROTO_IPV6, IPV6_DONTFRAG,
+            if (setsockopt(fd, IPPROTO_IPV6, IPV6_DONTFRAG,
                            (const void *) &value, sizeof(int))
                 == -1)
             {
                 ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                               "setsockopt(IPV6_DONTFRAG) "
                               "for %V failed, ignored",
-                              &ls[i].addr_text);
+                              &ls->addr_text);
             }
         }
-
-#endif
-
-#endif
     }
+#endif
 
-    return;
+#endif /* NGX_HAVE_INET6 */
+
 }
+
+#endif /* NGX_QUIC */
 
 
 void

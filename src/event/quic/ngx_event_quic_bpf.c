@@ -1009,6 +1009,8 @@ ngx_quic_bpf_add_worker_socket(ngx_cycle_t *cycle, ngx_quic_bpf_group_t *grp,
     }
 #endif
 
+    ngx_configure_quic_socket(cycle, ls, s);
+
     if (bind(s, ls->sockaddr, ls->socklen) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,
                       "quic bpf bind() failed");
@@ -1032,7 +1034,7 @@ ngx_quic_bpf_add_worker_socket(ngx_cycle_t *cycle, ngx_quic_bpf_group_t *grp,
 
     bls = grp->listening.elts;
     bls[ls->worker].fd = s;
-    bls[ls->worker].listening  = ls;
+    bls[ls->worker].listening = ls;
 
     return NGX_OK;
 

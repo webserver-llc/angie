@@ -437,7 +437,7 @@ ngx_http_prometheus_render_object(ngx_data_item_t *item, u_char *p, u_char *end,
             }
 
             if ((size_t) (end - p) < str.len) {
-                continue;
+                goto skip;
             }
 
             ngx_memcpy(p, str.data, str.len);
@@ -448,6 +448,8 @@ ngx_http_prometheus_render_object(ngx_data_item_t *item, u_char *p, u_char *end,
             {
                 return NGX_ERROR;
             }
+
+        skip:
 
             item = item->next->next;
         } while (item != NULL);

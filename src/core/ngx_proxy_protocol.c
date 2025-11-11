@@ -584,6 +584,10 @@ ngx_proxy_protocol_v2_write(ngx_connection_t *c,
     ngx_proxy_protocol_inet6_addrs_t  *in6;
 #endif
 
+#if (NGX_SUPPRESS_WARN)
+    tlvs_nelts = 0;
+#endif
+
     /* evaluate TLV values and calculate TLVs length */
     if (ngx_proxy_protocol_eval_tlvs(c, conf, &tlvs, &tlvs_nelts, &pp_hdr_len)
         != NGX_OK)

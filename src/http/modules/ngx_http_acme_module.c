@@ -4045,10 +4045,10 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             cli = cli_p[j];
 
             if (cli->server.len == 0) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "ACME client \"%V\" is not defined but "
-                                   "referenced in %V:%ui", &cli->name,
-                                   &cli->cf_filename, cli->cf_line);
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "ACME client \"%V\" is not defined but "
+                              "referenced in %V:%ui", &cli->name,
+                              &cli->cf_filename, cli->cf_line);
                 return NGX_ERROR;
             }
 
@@ -4097,18 +4097,18 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         cli = ((ngx_acme_client_t **) amcf->clients.elts)[i];
 
         if (cli->server.len == 0) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "ACME client \"%V\" is not defined but "
-                               "referenced in %V:%ui", &cli->name,
-                               &cli->cf_filename, cli->cf_line);
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                          "ACME client \"%V\" is not defined but "
+                          "referenced in %V:%ui", &cli->name,
+                          &cli->cf_filename, cli->cf_line);
             return NGX_ERROR;
         }
 
         if (cli->hook_clcf != NULL && cli->hook_clcf->handler == NULL) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "no request handler configured in the "
-                               "\"location\" block with ACME hook for client "
-                               "\"%V\"", &cli->name);
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                          "no request handler configured in the "
+                          "\"location\" block with ACME hook for client "
+                          "\"%V\"", &cli->name);
             return NGX_ERROR;
         }
 
@@ -4130,19 +4130,19 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
             cli->enabled = 0;
 
-            ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                               "ACME client \"%V\" is defined but not used",
-                               &cli->name);
+            ngx_log_error(NGX_LOG_WARN, cf->log, 0,
+                          "ACME client \"%V\" is defined but not used",
+                          &cli->name);
         }
 
         if (cli->enabled) {
             if (cli->server_url.addrs == NULL
                 && clcf->resolver->connections.nelts == 0)
             {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                   "no resolver configured for resolving %V "
-                                   "at run time for ACME client \"%V\"",
-                                   &cli->server_url.host, &cli->name);
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "no resolver configured for resolving %V "
+                              "at run time for ACME client \"%V\"",
+                              &cli->server_url.host, &cli->name);
 
                 return NGX_ERROR;
             }
@@ -4210,10 +4210,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
          */
 
         if (cli->certificate_file_size > NGX_ACME_MAX_SH_FILE) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                               "size of file \"%V\" exceeds %d bytes",
-                               &cli->certificate_file.name,
-                               NGX_ACME_MAX_SH_FILE);
+            ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                          "size of file \"%V\" exceeds %d bytes",
+                          &cli->certificate_file.name, NGX_ACME_MAX_SH_FILE);
             return NGX_ERROR;
         }
 
@@ -4291,10 +4290,9 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             }
 
             if (!n) {
-                ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                                   "this configuration requires a server "
-                                   "listening on port 80 for ACME HTTP "
-                                   "challenge");
+                ngx_log_error(NGX_LOG_WARN, cf->log, 0,
+                              "this configuration requires a server "
+                              "listening on port 80 for ACME HTTP challenge");
             }
 
             h = ngx_array_push(
@@ -5475,9 +5473,9 @@ ngx_http_acme_add_listen(ngx_http_acme_main_conf_t *amcf)
     }
 
     if (ngx_inet_get_port(addr->sockaddr) <= 1024 && geteuid() != 0) {
-        ngx_conf_log_error(NGX_LOG_WARN, amcf->cf, 0,
-                           "this configuration requires super-user privileges "
-                           "to handle ACME DNS challenge");
+        ngx_log_error(NGX_LOG_WARN, amcf->cf->log, 0,
+                      "this configuration requires super-user privileges "
+                      "to handle ACME DNS challenge");
     }
 
     ls = ngx_create_listening(amcf->cf, addr->sockaddr, addr->socklen);
@@ -5836,10 +5834,9 @@ ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
         if (ngx_http_acme_check_server_name(&sn[n],
                                             cli->challenge != NGX_AC_HTTP_01))
         {
-            ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
-                               "unsupported domain format \"%V\" used "
-                               "by ACME client \"%V\", ignored", &name,
-                               &cli->name);
+            ngx_log_error(NGX_LOG_WARN, cf->log, 0,
+                          "unsupported domain format \"%V\" used "
+                          "by ACME client \"%V\", ignored", &name, &cli->name);
             continue;
         }
 
@@ -5875,13 +5872,11 @@ ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     }
 
     if (valid_domains == 0) {
-        cf->conf_file->line = cli->cf_line;
-        cf->conf_file->file.name = cli->cf_filename;
-
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "no valid domain name defined in server "
-                           "block at %s:%ui for ACME client \"%V\"",
-                           cf_file_name, cf_line, &cli->name);
+        ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                      "no valid domain name defined in server "
+                      "block at %s:%ui for ACME client \"%V\" in %V:%ui",
+                      cf_file_name, cf_line, &cli->name,
+                      &cli->cf_filename, cli->cf_line);
 
         return NGX_ERROR;
     }

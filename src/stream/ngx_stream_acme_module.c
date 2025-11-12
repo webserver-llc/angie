@@ -113,10 +113,10 @@ ngx_stream_acme_postconfig(ngx_conf_t *cf)
             cli = cli_p[j];
 
             if (cli->ref == NULL) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                                "ACME client \"%V\" is not defined but "
-                                "referenced in %s:%ui", &cli->name,
-                                cscf->file_name, cscf->line);
+                ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                              "ACME client \"%V\" is not defined but "
+                              "referenced in %s:%ui", &cli->name,
+                              cscf->file_name, cscf->line);
 
                 return NGX_ERROR;
             }

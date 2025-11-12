@@ -21,6 +21,9 @@ typedef struct ngx_acme_client_s            ngx_acme_client_t;
 typedef struct {
     ngx_str_t                    name;
     ngx_acme_client_t           *ref;
+
+    u_char                      *file_name;
+    ngx_uint_t                   line;
 } ngx_acme_client_ref_t;
 
 

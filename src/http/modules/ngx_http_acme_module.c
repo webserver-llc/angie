@@ -6664,7 +6664,7 @@ ngx_http_acme_port(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if (rc != NGX_OK) {
-        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "invalid port value \"%V\"",
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid port value \"%V\"",
                            &((ngx_str_t *) cf->args->elts)[1]);
         return NGX_CONF_ERROR;
     }

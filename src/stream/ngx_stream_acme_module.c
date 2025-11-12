@@ -264,6 +264,7 @@ ngx_stream_acme(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     cli->name = value[1];
+    cli->ref = NULL;
 
 found:
 

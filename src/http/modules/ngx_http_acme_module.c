@@ -5157,7 +5157,7 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (cli->server.len != 0) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "ACME client %V is already defined in %V:%ui",
+                           "duplicate ACME client \"%V\" defined in %V:%ui and",
                             &value[1], &cli->cf_filename, cli->cf_line);
 
         return NGX_CONF_ERROR;

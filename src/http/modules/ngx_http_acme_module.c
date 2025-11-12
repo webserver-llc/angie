@@ -4064,7 +4064,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
     if (ngx_create_dir(amcf->path.data, 0700) == NGX_FILE_ERROR) {
         err = ngx_errno;
         if (err != NGX_EEXIST) {
-            ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+            ngx_log_error(NGX_LOG_EMERG, cf->log, err,
                           ngx_create_dir_n " \"%s\" failed", amcf->path.data);
             return NGX_ERROR;
         }
@@ -4231,7 +4231,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         {
             err = ngx_errno;
             if (err != NGX_EEXIST) {
-                ngx_log_error(NGX_LOG_EMERG, ngx_cycle->log, err,
+                ngx_log_error(NGX_LOG_EMERG, cf->log, err,
                               ngx_create_dir_n " \"%s\" failed",
                               cli->path.data);
                 return NGX_ERROR;

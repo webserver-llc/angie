@@ -1,4 +1,37 @@
 
+Changes with Angie 1.10.3                                        13 Nov 2025
+
+    *) Security: processing of a specially crafted login/password when using
+       the "none" authentication method in the SMTP module might cause
+       worker process memory disclosure to the authentication server
+       (CVE-2025-53859); the fix was ported from nginx 1.29.1.
+
+    *) Bugfix: when the "renew_on_load" option of the "acme_client"
+       directive was used, a previously obtained certificate would not be
+       loaded if it existed. This could limit functionality until the
+       certificate renewal was completed. If the certificate did not exist,
+       attempts to obtain a new one would fail with the error "[alert]
+       lseek() failed (9: Bad file descriptor)".
+
+    *) Bugfix: if an ACME client was referenced in the "stream" block but
+       not the "http" block, it was disabled with the warning "[warn] ACME
+       client ... is defined but not used" and would never fetch a
+       certificate.
+
+    *) Bugfix: if all "acme_client" directives had the "enabled=off"
+       parameter and the relevant "$acme_cert_*" variables were used in the
+       configuration, Angie would not run, reporting the error "[emerg]
+       unknown acme_cert_* variable".
+
+    *) Bugfix: if the ACME client was used in the "stream" block that came
+       before an "http" block, then Angie did not run, reporting the error
+       "[emerg] ACME client .. is not defined but referenced".
+
+    *) Bugfix: some "client" block configurations might cause worker
+       processes to crash when using variables that refer to an incoming
+       connection missing in this case.
+
+
 Changes with Angie 1.10.2                                        21 Aug 2025
 
     *) Bugfix: proxy module settings in the "http" block could break

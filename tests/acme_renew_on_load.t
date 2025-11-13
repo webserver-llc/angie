@@ -60,8 +60,8 @@ my $pebble_port = port(14000);
 # uses a copy of the same valid certificate. Also, each server has an ACME
 # client to renew the certificate. Client 1 is configured to renew its
 # certificate straight away and Client 2 to renew its certificate when it
-# expires. Then the script waits until both certificates are renewed, and
-# checks if they were renewed as configured.
+# expires. Then the script waits until Client 1 has renewed its certificate, and
+# checks if Client 2 has scheduled its certificate for renewal as expected.
 
 $t->write_file_expand('nginx.conf', <<"EOF");
 %%TEST_GLOBALS%%
@@ -95,7 +95,7 @@ http {
         acme                 $client1;
 
         location / {
-            return           200 "SECURED";
+            return           200 "SECURED 1";
         }
     }
 
@@ -109,7 +109,7 @@ http {
         acme                 $client2;
 
         location / {
-            return           200 "SECURED";
+            return           200 "SECURED 2";
         }
     }
 
@@ -158,10 +158,9 @@ default_days  = 365
 [my_ca_policy]
 EOF
 
-# how long the original certificate lives before we renew it (sec)
-my $orig_validity_time = 15;
-
-my $enddate = strftime("%y%m%d%H%M%SZ", gmtime(time() + $orig_validity_time));
+# We don't wait until the certificate expires, so we give it
+# quite a long validity period.
+my $enddate = strftime("%y%m%d%H%M%SZ", gmtime(time() + 60 * 60 * 24));
 
 system("openssl genrsa -out $d/ca.key 4096 2>/dev/null") == 0
 	&& system("openssl req -new -x509 -nodes -days 3650 "
@@ -189,65 +188,75 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 
 $t->plan(4);
 
-my ($renewed1, $renewed2) = (0, 0);
+# Before we start renewal, just check that the original
+# certificate works fine.
+like(get("angie-$client1.com"), qr/SECURED 1/,
+	'original certificate works as expected');
 
-for (1 .. 480) {
-	if (!$renewed1) {
+my $renewed = 0;
+
+for (1 .. 20) {
+	if (!$renewed) {
 		my $s = `openssl x509 -in $cert1 -issuer -noout`;
 
 		if ($s =~ /^issuer.*pebble/i) {
-			$renewed1 = time();
+			$renewed = time();
 		}
 	}
 
-	if (!$renewed2) {
-		my $s = `openssl x509 -in $cert2 -issuer -noout`;
+	last if $renewed;
 
-		if ($s =~ /^issuer.*pebble/i) {
-			$renewed2 = time();
-		}
-	}
-
-	last if $renewed1 && $renewed2;
-
-	select undef, undef, undef, 0.5;
+	select undef, undef, undef, 1;
 }
 
-ok($renewed1, "client1: certificate renewed");
-ok($renewed2, "client2: certificate renewed");
+ok($renewed, "client1: certificate renewed");
 
 $t->stop();
 
 my $s = $t->read_file('acme.log');
 
 my $renewed_on_load = 0;
-if ($renewed1) {
+if ($renewed) {
 	$renewed_on_load = $s =~ /
-		valid\scertificate,\s
+		\svalid\scertificate,\s
 		forced\srenewal\sscheduled\snow,\sACME\sclient:\stest1
 	/x;
 }
+
 ok($renewed_on_load, "client1: certificate renewed on load");
 
-my $renewed_as_scheduled = 0;
-if ($renewed2) {
-	my $ts = $1
-		if $s =~ /
-			valid\scertificate,\srenewal\sscheduled\s
-			([[:alpha:]]+\s+[[:alpha:]]+\s+\d+\s+\d+\:\d+\:\d+\s+\d+),\s
-			ACME\sclient:\stest2
-		/x;
+my $scheduled_for_renewal = 0;
+my $ts = $1
+	if $s =~ /
+		\svalid\scertificate,\srenewal\sscheduled\s
+		([[:alpha:]]+\s+[[:alpha:]]+\s+\d+\s+\d+\:\d+\:\d+\s+\d+),\s
+		ACME\sclient:\stest2
+	/x;
 
-	my $t1 = Date::Parse::str2time($ts) // 0;
+my $t1 = Date::Parse::str2time($ts) // 0;
 
-	$ts = `openssl x509 -in $orig_cert -noout -enddate`;
-	$ts =~ s/notAfter=//;
+$ts = `openssl x509 -in $orig_cert -noout -enddate`;
+$ts =~ s/notAfter=//;
 
-	chomp $ts;
+chomp $ts;
 
-	my $t2 = Date::Parse::str2time($ts) // 0;
+my $t2 = Date::Parse::str2time($ts) // 0;
 
-	$renewed_as_scheduled = ($t1 != 0) && ($t1 == $t2);
+$scheduled_for_renewal = ($t1 != 0) && ($t1 == $t2);
+
+ok($scheduled_for_renewal, "client2: certificate renews on " . $ts);
+
+###############################################################################
+
+sub get {
+    my ($host) = @_;
+    my $r = http(
+        "GET / HTTP/1.0\nHost: $host\n\n",
+        PeerAddr => '127.0.0.1:' . $ssl_port,
+        SSL => 1,
+        SSL_hostname => $host
+    )
+        or return "$@";
+    return $r;
 }
-ok($renewed_as_scheduled, "client2: certificate renewed as scheduled");
 

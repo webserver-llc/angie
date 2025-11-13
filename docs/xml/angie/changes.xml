@@ -129,17 +129,6 @@ fixed upstream server status while receiving errorous answer when the
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-переменные "$acme_cert*" вызывали ошибку "unknown variable", если все клиенты
-в конфигурации были определены с параметром "enabled=off".
-</para>
-<para lang="en">
-the "$acme_cert*" variables caused "unknown variable" errors if all clients in
-the configuration were defined with "enabled=off".
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 поддержка PROXY protocol V2 в сторону проксируемых серверов с возможностью
@@ -246,56 +235,92 @@ include complex values.
 </para>
 </change>
 
+</changes>
+
+
+<changes ver="1.10.3" date="2025-11-13">
+
+<change type="security">
+<para lang="ru">
+обработка специально созданного логина/пароля при использовании метода
+аутентификации "none" в SMTP-модуле могла приводить к отправке серверу
+аутентификации части содержимого памяти рабочего процесса (CVE-2025-53859);
+исправление портировано из nginx 1.29.1.
+</para>
+<para lang="en">
+processing of a specially crafted login/password when using the "none"
+authentication method in the SMTP module might cause worker process memory
+disclosure to the authentication server (CVE-2025-53859);
+the fix was ported from nginx 1.29.1.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если при использовании опции "renew_on_load" директивы "acme_client"
+присутствовал ранее полученный сертификат, то он не загружался, что могло
+ограничивать работоспособность до окончания обновления сертификата; если
+сертификат отсутствовал, то попытки получения нового завершались ошибкой
+"[alert] lseek() failed (9: Bad file descriptor)".
+</para>
+<para lang="en">
+when the "renew_on_load" option of the "acme_client" directive was used, a
+previously obtained certificate would not be loaded if it existed.  This could
+limit functionality until the certificate renewal was completed.  If the
+certificate did not exist, attempts to obtain a new one would fail with
+the error "[alert] lseek() failed (9: Bad file descriptor)".
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 если ACME-клиент использовался в блоке "stream", но не в блоке "http",
-он дезактивировался с сообщением "ACME client is not defined but referenced"
-и не получал сертификата.
+он деактивировался с предупреждением "[warn] ACME client .. is defined but not
+used" и не получал сертификата.
 </para>
 <para lang="en">
-if an ACME client had been referenced in the "stream" block but not in the
-"http" block, it was disabled during configuration parsing, issued an "ACME
-client is not defined but referenced" message, and never fetched a certificate.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-если ACME-клиент используется в блоке "stream", располагать блок "http" перед
-блоком "stream" теперь не обязательно.
-</para>
-<para lang="en">
-if the ACME client is used in the "stream" block, an "http" block is no longer
-required before the "stream" block.
+if an ACME client was referenced in the "stream" block but not the "http" block,
+it was disabled with the warning "[warn] ACME client ... is defined but not
+used" and would never fetch a certificate.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-при получении сертификата для ACME-клиента, у которого задана опция
-"renew_on_load" и отсутствовал ранее полученный сертификат, возникала
-ошибка "Bad file descriptor". Если ранее полученный сертификат присутствовал,
-он не загружался, что могло привести к неработоспособности сервера до
-окончания обновления сертификата.
+если все директивы "acme_client" содержали параметр "enabled=off" и
+соответствующие переменные "$acme_cert_*" использовались в конфигурации,
+то Angie не запускался, сообщая об ошибке "[emerg] unknown acme_cert_*
+variable".
 </para>
 <para lang="en">
-certificate renewal for an ACME client with the "renew_on_load" option
-enabled but without a previously obtained certificate would result in
-a "Bad file descriptor" error. If a previously obtained certificate was
-present, it wasn’t loaded, potentially leaving the server unusable until
-renewal completed.
+if all "acme_client" directives had the "enabled=off" parameter and the relevant
+"$acme_cert_*" variables were used in the configuration, Angie would not run,
+reporting the error "[emerg] unknown acme_cert_* variable".
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-некоторые конфигурации блока "client" могли вызывать падение
-рабочих процессов при использовании переменных, обращающихся к
-соединению-заглушке.
+если ACME-клиент использовался в блоке "stream", который располагался перед
+блоком "http", то Angie не запускался, сообщая об ошибке "[emerg] ACME client
+.. is not defined but referenced".
 </para>
 <para lang="en">
-some "client" block configurations might cause worker processes crash
-when using variables referring to the stub connection.
+if the ACME client was used in the "stream" block that came before an "http"
+block, then Angie did not run, reporting the error "[emerg] ACME client .. is
+not defined but referenced".
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+некоторые конфигурации блока "client" могли вызывать падение рабочих процессов
+при использовании переменных, связанных с отсутствующим в данном случае входящим
+соединением.
+</para>
+<para lang="en">
+some "client" block configurations might cause worker processes to crash
+when using variables that refer to an incoming connection missing in this case.
 </para>
 </change>
 

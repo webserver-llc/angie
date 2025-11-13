@@ -56,7 +56,7 @@ Host: localhost
 EOF
 
 TODO: {
-local $TODO = 'not yet';
+local $TODO = 'not yet' unless $t->has_version('1.29.3');
 
 like(http(<<EOF), qr/405 Not Allowed/, 'connect');
 CONNECT localhost:8080 HTTP/1.1

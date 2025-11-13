@@ -95,6 +95,7 @@ $t->plan(4);
 # compressed_certificate(25)
 
 my $cert_ht;
+my $has_zlib = 0;
 
 like(get('/', 8443), qr/200 OK/, 'request');
 is($cert_ht, 11, 'cert compression off');
@@ -110,7 +111,7 @@ is($cert_ht, $exp, 'cert compression on');
 ###############################################################################
 
 sub test_tls13 {
-	http_get('/', SSL => 1) =~ /TLSv1.3/;
+	http_get('/', SSL => 1) =~ /TLSv1.3/ && $has_zlib;
 }
 
 sub get {
@@ -133,13 +134,51 @@ sub get_ssl_socket {
 
 sub cb {
 	my ($s, $wr, $ssl_ver, $ct, $buf) = @_;
-	return unless $wr == 0 && $ct == 22;
 
-	my $ht = unpack("C", $buf);
-	return unless $ht == 11 || $ht == 25;
+	if ($wr == 1 && $ssl_ver == 0x0304 && $ct == 22) {
 
-	log_in("ssl cert handshake type: " . $ht);
-	$cert_ht = $ht;
+		return if $has_zlib;
+		return unless unpack("C", $buf) == 1;
+
+		# TLSv1.3 ClientHello
+
+		my $n = 6 + 32;
+		my $slen = unpack("C", substr($buf, $n));
+		$n += 1 + $slen;
+		my $clen = unpack("n", substr($buf, $n));
+		$n += 2 + $clen + 2 + 2;
+
+		while ($n < length($buf)) {
+
+			my $ext = unpack("n", substr($buf, $n));
+			my $len = unpack("n", substr($buf, $n + 2));
+
+			if ($ext != 27) {
+				$n += 4 + $len;
+				next;
+			}
+
+			# compress_certificate(27)
+
+			$n += 4;
+			for (my $k = 1; $k < $len; $k += 2) {
+				my $algo = unpack("n", substr($buf, $n + $k));
+				$has_zlib = 1 if $algo == 1;
+				last;
+			}
+
+			last;
+		}
+	}
+
+	if ($wr == 0 && $ct == 22) {
+
+		my $ht = unpack("C", $buf);
+		return unless $ht == 11 || $ht == 25;
+
+		log_in("ssl cert handshake type: " . $ht);
+		$cert_ht = $ht;
+	}
 }
 
 ###############################################################################

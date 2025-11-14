@@ -198,6 +198,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_array_t                  clients;
     ngx_event_t                  timer_event;
     size_t                       max_key_auth_size;
+    size_t                       max_response_size;
     ngx_http_acme_sh_keyauth_t  *sh;
     ngx_http_acme_sh_alpn_t     *alpn;
     ngx_str_t                    path;
@@ -461,6 +462,7 @@ static ngx_int_t ngx_str_clone(ngx_pool_t *pool, ngx_str_t *dst,
 static ngx_uint_t ngx_dec_count(ngx_int_t i);
 static int ngx_clone_table_elt(ngx_pool_t *pool, ngx_str_t *dst,
     ngx_table_elt_t *src);
+static size_t ngx_calc_cert_size(ngx_array_t *domains);
 
 
 static const ngx_str_t ngx_acme_challenge_names[] = {
@@ -483,6 +485,13 @@ static ngx_command_t  ngx_http_acme_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_http_acme_main_conf_t, path),
+      NULL },
+
+    { ngx_string("acme_max_response_size"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_http_acme_main_conf_t, max_response_size),
       NULL },
 
     { ngx_string("acme_client"),
@@ -2307,7 +2316,7 @@ ngx_http_acme_send_request(ngx_http_acme_session_t *ses, ngx_uint_t method,
         return NGX_ERROR;
     }
 
-    if (ngx_http_acme_init_request(r, ses, method, ses->client->max_cert_size,
+    if (ngx_http_acme_init_request(r, ses, method, amcf->max_response_size,
                                    body)
         != NGX_OK)
     {
@@ -3145,6 +3154,14 @@ certificate:
         ngx_log_error(NGX_LOG_ALERT, ses->log, ngx_errno,
                       "ftruncate(\"%V\") failed",
                       &ses->client->certificate_file.name);
+        return NGX_ERROR;
+    }
+
+    if (ses->body.len > ses->client->max_cert_size) {
+        ngx_log_error(NGX_LOG_CRIT, ses->log, 0,
+                      "certificate was downloaded but was too large to fit in "
+                      "shared memory, use \"max_cert_size\" with a value of "
+                      "at least %z", ses->body.len);
         return NGX_ERROR;
     }
 
@@ -4851,6 +4868,13 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
             return NGX_ERROR;
         }
 
+        if (cli->enabled && cli->max_cert_size == 0) {
+            cli->max_cert_size = ngx_calc_cert_size(cli->domains);
+
+            ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cli->log, 0,
+                "acme max_cert_size calculated: %z", cli->max_cert_size);
+        }
+
         if (cli->certificate_file_size > cli->max_cert_size) {
             cli->max_cert_size = cli->certificate_file_size;
         }
@@ -5328,7 +5352,7 @@ ngx_http_acme_create_session(ngx_acme_client_t *cli)
 
     log = cli->log;
 
-    pool = ngx_create_pool(cli->max_cert_size * 2, log);
+    pool = ngx_create_pool(NGX_DEFAULT_POOL_SIZE, log);
     if (pool == NULL) {
         return NULL;
     }
@@ -5671,6 +5695,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
 
     ngx_memcpy(&amcf->log, cf->log, sizeof(ngx_log_t));
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
+    amcf->max_response_size = NGX_CONF_UNSET_SIZE;
 
     return amcf;
 }
@@ -5690,6 +5715,7 @@ ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf)
     }
 
     ngx_conf_init_size_value(amcf->max_key_auth_size, 2 * 1024);
+    ngx_conf_init_size_value(amcf->max_response_size, 32 * 1024);
 
     return NGX_CONF_OK;
 }
@@ -6610,7 +6636,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
 
     cli->renew_before_expiry = 60 * 60 * 24 * 30;
     cli->retry_after_error = 60 * 60 * 2;
-    cli->max_cert_size = 8 * 1024;
+    /* cli->max_cert_size = 0; */
     cli->challenge = NGX_AC_HTTP_01;
     cli->renew_on_load = 0;
     cli->account_key.file.fd = NGX_INVALID_FILE;
@@ -6782,6 +6808,32 @@ ngx_clone_table_elt(ngx_pool_t *pool, ngx_str_t *dst,
     }
 
     return NGX_OK;
+}
+
+
+static size_t
+ngx_calc_cert_size(ngx_array_t *domains)
+{
+    size_t      sz;
+    ngx_str_t   *s;
+    ngx_uint_t  i;
+
+    /*
+     * This calculation was obtained through trial and error
+     * and is not precise. Its only purpose is to ensure that
+     * the expected certificate size is sufficient to hold
+     * certificates with many domains.
+     */
+
+    sz = 0;
+
+    for (i = 0; i < domains->nelts; i++) {
+        s = &((ngx_str_t *) domains->elts)[i];
+
+        sz += s->len + 2;
+    }
+
+    return 8 * 1024 + (sz * 7) / 5;
 }
 
 

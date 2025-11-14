@@ -9,6 +9,39 @@
 
 <change type="feature">
 <para lang="ru">
+В модуле ACME автоматически вычисляется приблизительный размер получаемого
+сертификата, что практически устраняет необходимость использования параметра
+"max_cert_size". Этот параметр, тем не менее, оставлен для использования на
+случай если ручная конфигурация размера сертификата всё же понадобится.
+</para>
+<para lang="en">
+In the ACME module, the approximate size of a renewed certificate is now
+calculated automatically, making the "max_cert_size" parameter largely
+unnecessary. The parameter is retained, however, for cases where manual
+configuration is still needed.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+В модуле ACME добавлена новая директива "acme_max_response_size", с помощью
+которой можно увеличить размер буфера ответа от ACME-сервера, если обновляется
+сертификат для большого количества доменов и обновление завершилось ошибкой
+"too big subrequest response while sending to client". В большинстве случаев
+в этом не будет необходимости, т.к. буфер ответа имеет достаточно большой
+размер.
+</para>
+<para lang="en">
+In the ACME module, a new "acme_max_response_size" directive has been added
+to allow increasing the response buffer when renewing a certificate with many
+domain names, if the renewal fails with the error "too big subrequest response
+while sending to client". This should rarely be necessary, as the default value
+is sufficient for most cases.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 параметр "convert" для директивы "image_filter", который позволяет задавать
 новый формат изображений.
 </para>

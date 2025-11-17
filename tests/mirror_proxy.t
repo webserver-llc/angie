@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -100,7 +101,6 @@ like(http_post('/off'), qr/X-Body: 1234567890\x0d?$/m, 'mirror_request_body');
 my $s = http_post('/delay?1', start => 1);
 like(read_keepalive($s), qr/X-Body: 1234567890\x0d?$/m, 'mirror delay');
 
-$t->todo_alerts();
 $t->stop();
 
 my $log = $t->read_file('test.log');
@@ -108,6 +108,9 @@ like($log, qr!^/:1234567890$!m, 'log - request body');
 like($log, qr!^/mirror:1234567890$!m, 'log - request body in mirror');
 like($log, qr!^/off:1234567890$!m, 'log - mirror_request_body off');
 like($log, qr!^/mirror/off:-$!m,, 'log - mirror_request_body off in mirror');
+
+$t->skip_errors_check('alert', 'open socket #\d+ left in connection',
+	'aborting');
 
 ###############################################################################
 

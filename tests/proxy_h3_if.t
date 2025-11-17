@@ -30,7 +30,7 @@ $t->prepare_ssl();
 
 $t->has_daemon('openssl')->plan(15);
 
-$t->write_file_expand('nginx.conf', <<'EOF')->todo_alerts();
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -211,6 +211,7 @@ like(http_get('/proxy-pass-uri-lmt-different'),
 # segmentation fault in old versions,
 # fixed to return 500 Internal Error in nginx 1.3.10
 
+$t->skip_errors_check('alert', 'no upstream configuration');
 like(http_get('/proxy-inside-if-crash'), qr!500 Internal Server Error!,
 	'proxy_pass inside if');
 

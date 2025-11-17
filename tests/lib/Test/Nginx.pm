@@ -51,7 +51,6 @@ sub new {
 	bless $self;
 
 	$self->{_pid} = $$;
-	$self->{_alerts} = 1;
 	$self->{_errors_to_skip} = {};
 
 	my $tname = (caller(0))[1];
@@ -81,24 +80,7 @@ sub DESTROY {
 	$self->stop_resolver();
 
 	if (Test::More->builder->expected_tests) {
-		local $Test::Nginx::TODO = 'alerts' unless $self->{_alerts};
-
-		my @alerts = $self->find_in_file('error.log', qr/.+\[alert\].+/);
-
-		local $Test::Nginx::TODO = 'alerts' if @alerts
-			&& $^O eq 'solaris'
-			&& ! grep { $_ !~ /phantom event/ } @alerts;
-
-		local $Test::Nginx::TODO = 'alerts' if @alerts
-			&& $^O eq 'MSWin32'
-			&& ! grep { $_ !~ qr/CloseHandle|TerminateProcess/ }
-				@alerts;
-
-		Test::More::is(join("\n", @alerts), '', 'no alerts');
-	}
-
-	if (Test::More->builder->expected_tests) {
-		foreach my $level (qw(crit emerg)) {
+		foreach my $level (qw(alert crit emerg)) {
 			my $errors_re = join('|',
 				@{ $self->{_errors_to_skip}{$level} // [] });
 
@@ -480,14 +462,6 @@ sub plan($) {
 	$plan += 1 if $ENV{TEST_ANGIE_VALGRIND};
 
 	Test::More::plan(tests => $plan + 5);
-
-	return $self;
-}
-
-sub todo_alerts() {
-	my ($self) = @_;
-
-	$self->{_alerts} = 0;
 
 	return $self;
 }

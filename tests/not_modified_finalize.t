@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for not modified filter and filter finalization.
@@ -75,7 +76,7 @@ $t->run();
 
 like(http_match_get('/t.html'), qr//, 'request 412');
 
-$t->todo_alerts();
+$t->skip_errors_check('alert', 'stalled cache updating');
 
 # in addition, in 1.11.10 .. 1.17.1, if the response was previously
 # cached, such a request resulted in r->cache null pointer dereference

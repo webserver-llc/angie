@@ -27,7 +27,7 @@
 
 
 #define NGX_MODULE_SIGNATURE_0                                                \
-    "Angie,"                                                                  \
+    NGX_ANGIE_SIGN ","                                                        \
     ngx_value(NGX_PTR_SIZE) ","                                               \
     ngx_value(NGX_SIG_ATOMIC_T_SIZE) ","                                      \
     ngx_value(NGX_TIME_T_SIZE) ","

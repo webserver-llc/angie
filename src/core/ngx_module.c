@@ -158,6 +158,7 @@ ngx_add_module(ngx_conf_t *cf, ngx_str_t *file, ngx_module_t *module,
     char **order)
 {
     void               *rv;
+    const char         *p;
     ngx_uint_t          i, m, before;
     ngx_core_module_t  *core_module;
 
@@ -168,6 +169,24 @@ ngx_add_module(ngx_conf_t *cf, ngx_str_t *file, ngx_module_t *module,
     }
 
     if (module->angie_sign != ngx_angie_sign) {
+
+        if (ngx_strncmp(module->signature, "Angie", 5) == 0) {
+
+            p = ngx_strchr(module->signature, ',');
+            if (p == NULL) {
+                goto unknown_module;
+            }
+
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "module \"%V\" was built for \"%*s\" "
+                               "but you are running \"%s\"",
+                               file, p - module->signature, module->signature,
+                               NGX_ANGIE_SIGN);
+            return NGX_ERROR;
+        }
+
+    unknown_module:
+
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "module \"%V\" is built not for Angie", file);
         return NGX_ERROR;

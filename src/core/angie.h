@@ -22,6 +22,7 @@
 #define NGX_OLDPID_EXT     ".oldbin"
 
 #define ngx_angie_sign     ('A' + 'n' + 'g' + 'i' + 'e')
+#define NGX_ANGIE_SIGN     "Angie"
 
 
 extern ngx_time_t  ngx_build_time;

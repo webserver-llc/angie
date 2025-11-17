@@ -112,7 +112,16 @@ like(http_get('/'), qr/200/, "request ok");
 is($t->read_file("ubody.log"), "sent_body=XX\n", "empty value in log");
 like(http_get('/ssi.html'), qr/XTESTsent_body=XX/, "empty value in SSI");
 
-like(http_get('/js.html'), qr/sent_body=<TEST>/, "subrequest via njs has var");
+TODO: {
+	local $TODO = 'njs isn\'t compatible with -fsanitize=cfi'
+		if $t->has_module('fsanitize=cfi');
+
+	like(http_get('/js.html'), qr/sent_body=<TEST>/,
+		"subrequest via njs has var");
+
+	$t->skip_errors_check('alert', 'worker process \d+ exited on signal 5|4')
+		if $TODO;
+}
 
 $t->stop();
 

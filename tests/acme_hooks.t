@@ -173,6 +173,8 @@ http {
 
     resolver localhost:$dns_port ipv6=off;
 
+    variables_hash_max_size 2048;
+
     server {
         listen       localhost:%%PORT_8080%%;
 

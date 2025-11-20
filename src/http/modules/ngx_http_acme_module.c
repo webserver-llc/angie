@@ -6837,6 +6837,24 @@ ngx_calc_cert_size(ngx_array_t *domains)
 }
 
 
+ngx_array_t *
+ngx_acme_clients(ngx_conf_t *cf)
+{
+    ngx_http_acme_main_conf_t  *amcf;
+
+    amcf = ngx_http_cycle_get_module_main_conf(cf->cycle, ngx_http_acme_module);
+
+    return amcf != NULL ? &amcf->clients : NULL;
+}
+
+
+ngx_str_t *
+ngx_acme_client_name(ngx_acme_client_t *cli)
+{
+    return &cli->name;
+}
+
+
 ngx_int_t
 ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     ngx_array_t *server_names, u_char *cf_file_name, ngx_uint_t cf_line)

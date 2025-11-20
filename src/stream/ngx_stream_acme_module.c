@@ -27,7 +27,7 @@ static ngx_int_t ngx_stream_acme_postconfig(ngx_conf_t *cf);
 static void *ngx_stream_acme_create_main_conf(ngx_conf_t *cf);
 static void *ngx_stream_acme_create_srv_conf(ngx_conf_t *cf);
 static ngx_int_t ngx_stream_acme_add_client_var(ngx_conf_t *cf,
-    ngx_acme_client_ref_t *cli, ngx_stream_variable_t *var);
+    ngx_acme_client_t *cli, ngx_stream_variable_t *var);
 static ngx_int_t ngx_stream_acme_add_vars(ngx_conf_t *cf);
 static ngx_int_t ngx_stream_acme_cert_variable(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data);
@@ -137,16 +137,20 @@ ngx_stream_acme_postconfig(ngx_conf_t *cf)
 static ngx_int_t
 ngx_stream_acme_add_vars(ngx_conf_t *cf)
 {
-    ngx_uint_t                    i;
-    ngx_acme_client_ref_t        *cli;
-    ngx_stream_variable_t        *v;
-    ngx_stream_acme_main_conf_t  *amcf;
+    ngx_uint_t              i;
+    ngx_array_t            *clients;
+    ngx_acme_client_t      *cli;
+    ngx_stream_variable_t  *v;
 
-    amcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_acme_module);
+    clients = ngx_acme_clients(cf);
 
-    for (i = 0; i < amcf->clients.nelts; i++) {
+    if (clients == NULL) {
+        return NGX_OK;
+    }
 
-        cli = &((ngx_acme_client_ref_t *) amcf->clients.elts)[i];
+    for (i = 0; i < clients->nelts; i++) {
+
+        cli = ((ngx_acme_client_t **) clients->elts)[i];
 
         for (v = ngx_stream_acme_vars; v->name.len; v++) {
             if (ngx_stream_acme_add_client_var(cf, cli, v) != NGX_OK) {
@@ -160,13 +164,13 @@ ngx_stream_acme_add_vars(ngx_conf_t *cf)
 
 
 static ngx_int_t
-ngx_stream_acme_add_client_var(ngx_conf_t *cf, ngx_acme_client_ref_t *cli,
+ngx_stream_acme_add_client_var(ngx_conf_t *cf, ngx_acme_client_t *cli,
     ngx_stream_variable_t *var)
 {
     ngx_str_t               name, *s;
     ngx_stream_variable_t  *v;
 
-    s = &cli->name;
+    s = ngx_acme_client_name(cli);
     name.len = var->name.len + s->len;
 
     name.data = ngx_pnalloc(cf->pool, name.len);
@@ -183,7 +187,7 @@ ngx_stream_acme_add_client_var(ngx_conf_t *cf, ngx_acme_client_ref_t *cli,
     }
 
     v->get_handler = var->get_handler;
-    v->data = (uintptr_t) cli->ref;
+    v->data = (uintptr_t) cli;
 
     return NGX_OK;
 

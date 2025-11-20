@@ -7,6 +7,21 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+если ACME-клиент не использовался в блоке "stream" в директивах "acme",
+попытка использовать в блоке "stream" соответствующие переменные
+$acme_cert_* завершалась ошибкой "unknown variable";
+проблема появилась в 1.10.3.
+</para>
+<para lang="en">
+if an ACME client was never referenced in the "stream" block using
+"acme" directives, using a corresponding $acme_cert_* variable there
+would result in an "unknown variable" error.
+the bug had appeared in 1.10.3.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 В модуле ACME автоматически вычисляется приблизительный размер получаемого

@@ -120,58 +120,18 @@ EOF
 
 # Create the original certificate and copy it to the clients' directories.
 
-my $cert_db = "cert_db";
-my $cert_db_path = "$d/$cert_db";
-my $cert_db_filename = "certs.db";
+$t->create_certificate(domains => [$domain1, $domain2]);
+
 my $client_dir1 = "$d/acme_client/$client1";
 my $client_dir2 = "$d/acme_client/$client2";
-my $orig_cert = "$d/orig-certificate.pem";
-my $orig_key = "$d/orig-private.key";
+my $orig_cert = "$d/default.crt";
+my $orig_key = "$d/default.key";
 my $cert1 = "$client_dir1/certificate.pem";
 my $cert_key1 = "$client_dir1/private.key";
 my $cert2 = "$client_dir2/certificate.pem";
 my $cert_key2 = "$client_dir2/private.key";
 
-make_path($cert_db_path, $client_dir1, $client_dir2);
-$t->write_file("$cert_db/$cert_db_filename", '');
-
-$t->write_file('openssl.conf', <<EOF);
-[v3_req]
-authorityKeyIdentifier=keyid,issuer
-basicConstraints=CA:FALSE
-keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-subjectAltName = \@alt_names
-[alt_names]
-DNS.1 = $domain1
-DNS.2 = $domain2
-[ca]
-default_ca = my_default_ca
-[my_default_ca]
-new_certs_dir = $cert_db_path
-database      = $cert_db_path/$cert_db_filename
-default_md    = default
-rand_serial   = 1
-policy        = my_ca_policy
-copy_extensions = copy
-email_in_dn   = no
-default_days  = 365
-[my_ca_policy]
-EOF
-
-# We don't wait until the certificate expires, so we give it
-# quite a long validity period.
-my $enddate = strftime("%y%m%d%H%M%SZ", gmtime(time() + 60 * 60 * 24));
-
-system("openssl genrsa -out $d/ca.key 4096 2>/dev/null") == 0
-	&& system("openssl req -new -x509 -nodes -days 3650 "
-		. "-subj '/CN=Original Test CA' -key $d/ca.key -out $d/ca.crt") == 0
-	&& system("openssl req -new -nodes -out $d/csr.pem -newkey rsa:4096 "
-		. "-keyout $orig_key -subj '/CN=Original Test CA' 2>/dev/null") == 0
-	&& system("openssl ca -batch -notext -config $d/openssl.conf "
-		. "-extensions v3_req -startdate 250101080000Z -enddate $enddate "
-		. "-out $orig_cert -cert $d/ca.crt -keyfile $d/ca.key "
-		. "-in $d/csr.pem 2>/dev/null") == 0
-	|| die("Can't create the original certificate: $!");
+make_path($client_dir1, $client_dir2);
 
 copy($orig_cert, $cert1) && copy($orig_key, $cert_key1)
 	&& copy($orig_cert, $cert2) && copy($orig_key, $cert_key2)

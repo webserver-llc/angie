@@ -25,7 +25,8 @@ use Test::Nginx::ACME;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/acme socket_ssl http_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme socket_ssl http_ssl/)
+	->has_daemon('openssl');
 
 plan(skip_all => 'no proper ALPN support')
 	if $t->has_module('BoringSSL|AWS-LC|LibreSSL');
@@ -153,7 +154,7 @@ $acme_helper->start_challtestsrv();
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
+	. 'directives are not supported on this platform');
 
 $t->plan(scalar @clients);
 

@@ -20,6 +20,14 @@
 # are ready; if this happens, the client will encounter an error and
 # automatically retry the update based on its configuration.
 #
+# TODO: There wouldn't be any retries at all if ACME server and clients
+# were running synchronously. Either the ACME client or the ACME server
+# needs to be redesigned.
+# Another option is to play around with certificates - provide it with
+# certificates with a known lifetime, which will ensure it doesn't start
+# the next update before a certain time. But again, this doesn't guarantee
+# it will have time to update within that time. So, we need to think about it.
+#
 # The test is considered successful when all ACME clients obtain their
 # certificates as expected.
 
@@ -48,6 +56,8 @@ select STDOUT; $| = 1;
 
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
+
+plan(skip_all => 'long test') unless $ENV{TEST_ANGIE_UNSAFE};
 
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
 	->has_daemon('openssl');
@@ -260,7 +270,7 @@ $acme_helper->start_pebble({
 });
 
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
-	. 'directives are not supported on this platform', 1);
+	. 'directives are not supported on this platform');
 
 $t->plan(scalar @clients + 2);
 

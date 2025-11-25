@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT http_start http_end /;
+use Socket qw/ CRLF /;
 
 ###############################################################################
 
@@ -754,27 +755,26 @@ $data
 EOF
 }
 
+sub make_chunk {
+	my ($data, $last) = @_;
+	my $length = sprintf("%x", length $data);
+	my $chunk = $length ? $length . CRLF . $data . CRLF : '';
+	if (defined($last)) {
+		$chunk .= '0' . CRLF . CRLF;
+	}
+	return $chunk;
+}
+
 sub send_chunks {
-    my ($sock, $delay) = @_;
-    $sock->write(<<EOF);
-3
-abc
-EOF
+	my ($sock, $delay) = @_;
+	$sock->write(make_chunk('abc'));
 
-select(undef, undef, undef, $delay);
-    $sock->write(<<EOF);
-4
-defg
-EOF
+	select(undef, undef, undef, $delay);
+	$sock->write(make_chunk('defg'));
 
-select(undef, undef, undef, $delay);
+	select(undef, undef, undef, $delay);
 
-    $sock->write(<<EOF);
-2
-hk
-0
-
-EOF
+	$sock->write(make_chunk('hk', 1));
 }
 
 sub http_post_chunks {
@@ -792,25 +792,14 @@ EOF
 
 	my $s = http_start($request);
 
-	$s->write(<<EOF);
-3
-abc
-EOF
-
-	$s->write(<<EOF);
-4
-defg
-EOF
+	$s->write(make_chunk('abc'));
+	$s->write(make_chunk('defg'));
 
 # insert delay before the last chunk to trigger chunked output filter
 select(undef, undef, undef, 1);
 
-	$s->write(<<EOF);
-2
-hk
-0
+	$s->write(make_chunk('hk', 1));
 
-EOF
 	return http_end($s);
 }
 

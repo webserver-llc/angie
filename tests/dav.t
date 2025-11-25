@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use Test::More;
+use Socket qw/ CRLF /;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -225,44 +226,34 @@ EOF
 
 like($r, qr/415 Unsupported/, 'delete body');
 
-$r = http(<<EOF);
+my $chunked = 'a' . CRLF . '0123456789' . CRLF . '0' . CRLF . CRLF;
+
+$r = http(<<EOF . $chunked);
 MKCOL /test/ HTTP/1.1
 Host: localhost
 Connection: close
 Transfer-Encoding: chunked
 
-a
-0123456789
-0
-
 EOF
 
 like($r, qr/415 Unsupported/, 'mkcol body chunked');
 
-$r = http(<<EOF);
+$r = http(<<EOF . $chunked);
 COPY /file HTTP/1.1
 Host: localhost
 Destination: /file.exist
 Connection: close
 Transfer-Encoding: chunked
 
-a
-0123456789
-0
-
 EOF
 
 like($r, qr/415 Unsupported/, 'copy body chunked');
 
-$r = http(<<EOF);
+$r = http(<<EOF . $chunked);
 DELETE /file HTTP/1.1
 Host: localhost
 Connection: close
 Transfer-Encoding: chunked
-
-a
-0123456789
-0
 
 EOF
 

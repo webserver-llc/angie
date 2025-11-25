@@ -67,7 +67,7 @@ static ngx_int_t ngx_http_prometheus_render_object(ngx_data_item_t *item,
 static ngx_int_t ngx_http_prometheus_render_list(ngx_data_item_t *item,
     u_char *p, u_char *end, ngx_http_prometheus_render_ctx_t *ctx);
 static ngx_int_t ngx_http_prometheus_render_value(ngx_data_item_t *item,
-    u_char *p, u_char *end, ngx_http_prometheus_render_ctx_t *ctx);
+    u_char *p, ngx_http_prometheus_render_ctx_t *ctx);
 static ngx_int_t ngx_http_prometheus_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 #endif
@@ -408,7 +408,7 @@ ngx_http_prometheus_render_item(ngx_data_item_t *item, u_char *p, u_char *end,
         return ngx_http_prometheus_render_list(item->data.child, p, end, ctx);
 
     default:
-        return ngx_http_prometheus_render_value(item, p, end, ctx);
+        return ngx_http_prometheus_render_value(item, p, ctx);
     }
 }
 
@@ -497,7 +497,7 @@ ngx_http_prometheus_render_list(ngx_data_item_t *item, u_char *p, u_char *end,
 
 
 static ngx_int_t
-ngx_http_prometheus_render_value(ngx_data_item_t *item, u_char *p, u_char *end,
+ngx_http_prometheus_render_value(ngx_data_item_t *item, u_char *p,
     ngx_http_prometheus_render_ctx_t *ctx)
 {
     ngx_str_t                      path;

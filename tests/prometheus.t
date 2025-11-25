@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api prometheus rewrite/)->plan(18);
+	->has(qw/http http_api prometheus rewrite/)->plan(21);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -56,6 +56,25 @@ http {
             path=~^/http/server_zones/([^/]+)/responses/([^/]+)$
             type=counter
             'help=Response codes in server zone';
+
+        'angie_http_server_zones_count' $p8s_value
+            path=/http/server_zones/
+            type=gauge
+            'help=Count of server zones';
+
+        'angie_http_server_zones_responses_count{zone="$1"}' $p8s_value
+            path=~^/http/server_zones/([^/]+)/responses/$
+            type=gauge
+            'help=Count of response codes in server zone';
+
+        'angie_http_upstream_test_peers_count' $p8s_value
+            path=/http/upstreams/test/peers/
+            type=gauge
+            'help=Count of upstream test peers';
+    }
+
+    upstream test {
+        zone test 32k;
     }
 
     server {
@@ -131,6 +150,17 @@ like($metrics,
 like($metrics,
 	qr/^angie_http_server_zones_responses\{zone="test_zone",code="200"\} 1$/m,
 	'response code metric with multiple labels, code 200');
+
+# Test metrics count
+like($metrics,
+	qr/^angie_http_server_zones_responses_count\{zone="test_zone"\} 2$/m,
+	'response code count metric');
+like($metrics,
+	qr/^angie_http_server_zones_count 1$/m,
+	'server zones count metric');
+like($metrics,
+	qr/^angie_http_upstream_test_peers_count 0$/m,
+	'upstream peers count metric');
 
 # Test method restrictions
 like(http_post('/metrics'), qr/405 Method Not Allowed/,

@@ -57,6 +57,19 @@ is sufficient for most cases.
 
 <change type="feature">
 <para lang="ru">
+возможность подсчета количества элементов в списках и объектах при экспорте
+метрик Prometheus; пути, оканчивающиеся косой чертой, теперь возвращают
+количество элементов в соответствующей коллекции API.
+</para>
+<para lang="en">
+ability to count the number of items in lists and objects when exporting
+Prometheus metrics; paths ending with a trailing slash now return the count
+of items in the corresponding API collection.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 параметр "convert" для директивы "image_filter", который позволяет задавать
 новый формат изображений.
 </para>

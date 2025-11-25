@@ -417,45 +417,45 @@ static ngx_int_t
 ngx_http_prometheus_render_object(ngx_data_item_t *item, u_char *p, u_char *end,
     ngx_http_prometheus_render_ctx_t *ctx)
 {
-    ngx_str_t  str;
+    ngx_str_t        str;
+    ngx_uint_t       i;
+    ngx_data_item_t  count;
 
-    if (item != NULL) {
-        if (p == end) {
-            return NGX_OK;
-        }
-
-        *p++ = '/';
-
-        do {
-            if (item->type == NGX_DATA_STR_TYPE) {
-                str.len = item->data.str.length;
-                str.data = item->data.str.start;
-
-            } else {
-                str.len = item->data.string.length;
-                str.data = item->data.string.start;
-            }
-
-            if ((size_t) (end - p) < str.len) {
-                goto skip;
-            }
-
-            ngx_memcpy(p, str.data, str.len);
-
-            if (ngx_http_prometheus_render_item(item->next, p + str.len, end,
-                                                ctx)
-                != NGX_OK)
-            {
-                return NGX_ERROR;
-            }
-
-        skip:
-
-            item = item->next->next;
-        } while (item != NULL);
+    if (p == end) {
+        return NGX_OK;
     }
 
-    return NGX_OK;
+    i = 0;
+    *p++ = '/';
+
+    for ( /* void */ ; item != NULL; i++, item = item->next->next) {
+
+        if (item->type == NGX_DATA_STR_TYPE) {
+            str.len = item->data.str.length;
+            str.data = item->data.str.start;
+
+        } else {
+            str.len = item->data.string.length;
+            str.data = item->data.string.start;
+        }
+
+        if ((size_t) (end - p) < str.len) {
+            continue;
+        }
+
+        ngx_memcpy(p, str.data, str.len);
+
+        if (ngx_http_prometheus_render_item(item->next, p + str.len, end, ctx)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    count.data.integer = i;
+    count.type = NGX_DATA_INTEGER_TYPE;
+
+    return ngx_http_prometheus_render_value(&count, p, ctx);
 }
 
 
@@ -463,36 +463,35 @@ static ngx_int_t
 ngx_http_prometheus_render_list(ngx_data_item_t *item, u_char *p, u_char *end,
     ngx_http_prometheus_render_ctx_t *ctx)
 {
-    u_char      *pos;
-    ngx_uint_t   i;
+    u_char           *pos;
+    ngx_uint_t        i;
+    ngx_data_item_t   count;
 
-    if (item != NULL) {
-        if (p == end) {
-            return NGX_OK;
-        }
-
-        *p++ = '/';
-        i = 0;
-
-        do {
-            pos = ngx_slprintf(p, end, "%ui", i);
-
-            if (pos == end) {
-                break;
-            }
-
-            if (ngx_http_prometheus_render_item(item->next, pos, end, ctx)
-                != NGX_OK)
-            {
-                return NGX_ERROR;
-            }
-
-            i++;
-            item = item->next;
-        } while (item != NULL);
+    if (p == end) {
+        return NGX_OK;
     }
 
-    return NGX_OK;
+    i = 0;
+    *p++ = '/';
+
+    for ( /* void */ ; item != NULL; i++, item = item->next) {
+        pos = ngx_slprintf(p, end, "%ui", i);
+
+        if (pos == end) {
+            continue;
+        }
+
+        if (ngx_http_prometheus_render_item(item->next, pos, end, ctx)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
+    }
+
+    count.data.integer = i;
+    count.type = NGX_DATA_INTEGER_TYPE;
+
+    return ngx_http_prometheus_render_value(&count, p, ctx);
 }
 
 

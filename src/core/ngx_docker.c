@@ -508,8 +508,8 @@ ngx_docker_process_network(ngx_docker_container_t *dc,
         return NGX_ERROR;
     }
 
-    ngx_log_debug(NGX_LOG_DEBUG_EVENT, log, 0,
-                  "Docker container IP: \"%V\"", &dc->ip);
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                   "Docker container IP: \"%V\"", &dc->ip);
 
     url_len = dc->ip.len + sizeof("65535");
 
@@ -669,8 +669,8 @@ ngx_docker_process_container(ngx_docker_container_t *dc, ngx_buf_t *b,
         goto error;
     }
 
-    ngx_log_debug(NGX_LOG_DEBUG_EVENT, log, 0,
-                  "Docker container ID: \"%V\"", &dc->id);
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                   "Docker container ID: \"%V\"", &dc->id);
 
     ngx_str_set(&target, "State");
     item = ngx_data_object_take(json, &target);
@@ -741,8 +741,8 @@ ngx_docker_process_containers(ngx_buf_t *b, ngx_pool_t *pool,
             continue;
         }
 
-        ngx_log_debug(NGX_LOG_DEBUG_EVENT, log, 0,
-                      "Docker container ID: \"%V\"", &id);
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                       "Docker container ID: \"%V\"", &id);
 
         dc = ngx_docker_create_container(&id, log);
         if (dc == NULL) {
@@ -814,8 +814,8 @@ ngx_docker_process_event(ngx_data_item_t *json, ngx_rbtree_t *rbtree,
         return NULL;
     }
 
-    ngx_log_debug(NGX_LOG_DEBUG_EVENT, log, 0,
-                  "Docker container ID: \"%V\"", &id);
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                   "Docker container ID: \"%V\"", &id);
 
     ngx_str_set(&target, "status");
     if (ngx_docker_get_object_value(json, &target, &str) != NGX_OK) {
@@ -826,8 +826,8 @@ ngx_docker_process_event(ngx_data_item_t *json, ngx_rbtree_t *rbtree,
         return NULL;
     }
 
-    ngx_log_debug(NGX_LOG_DEBUG_EVENT, log, 0,
-                  "Docker container status: \"%V\"", &str);
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
+                   "Docker container status: \"%V\"", &str);
 
     if (str.len == 5 && ngx_strncmp(str.data, "start", 5) == 0) {
         return ngx_docker_process_event_start(&id, item, rbtree, log);

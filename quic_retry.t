@@ -110,9 +110,6 @@ is($frame->{error}, 11, 'retry token invalid');
 
 # connection with retry token, corrupted
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.2');
-
 substr($retry_token, 32) ^= "\xff";
 $s = Test::Nginx::HTTP3->new(8980, token => $retry_token, probe => 1);
 $frames = $s->read(all => [{ type => 'CONNECTION_CLOSE' }]);
@@ -120,28 +117,19 @@ $frames = $s->read(all => [{ type => 'CONNECTION_CLOSE' }]);
 ($frame) = grep { $_->{type} eq "CONNECTION_CLOSE" } @$frames;
 is($frame->{error}, 11, 'retry token decrypt error');
 
-}
-
 # resending client Initial packets after receiving a Retry packet
 # to simulate server Initial packet loss triggering its retransmit,
 # used to create extra nginx connections before 1bc204a3a (1.25.3),
 # caught by CRYPTO stream mismatch among server Initial packets
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.3');
-
 $s = new_connection_resend();
 $sid = $s->new_stream();
 
-eval {
-	# would die on "bad inner" sanity check
-	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-};
+# would die on "bad inner" sanity check
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 403, 'resend initial');
-
-}
 
 ###############################################################################
 

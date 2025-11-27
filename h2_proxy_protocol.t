@@ -74,12 +74,7 @@ is($frame->{headers}->{'x-pp'}, '192.0.2.1', 'PROXY remote addr');
 
 # invalid PROXY protocol string
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.1');
-
 $proxy = 'BOGUS TCP4 192.0.2.1 192.0.2.2 1234 5678' . CRLF;
 ok(!http($proxy), 'PROXY invalid protocol');
-
-}
 
 ###############################################################################

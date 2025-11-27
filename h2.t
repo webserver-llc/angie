@@ -1016,14 +1016,9 @@ is($frame->{headers}->{':status'}, 200, 'http2_max_concurrent_streams 3');
 
 # invalid connection preface
 
-TODO: {
-local $TODO = 'not yet' unless $t->has_version('1.25.1');
-
 like(http('x' x 16), qr/400 Bad Request/, 'invalid preface');
 like(http('PRI * HTTP/2.0' . CRLF . CRLF . 'x' x 8), qr/400 Bad Request/,
 	'invalid preface 2');
-
-}
 
 # GOAWAY on SYN_STREAM with even StreamID
 

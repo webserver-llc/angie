@@ -24,7 +24,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_pass stream_ssl_preread stream_geo/)
-	->has(qw/http http_ssl sni socket_ssl_sni/)->has_daemon('openssl');
+	->has(qw/http http_ssl sni socket_ssl_sni/)->has_daemon('openssl')
+	->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -110,7 +111,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no pass module')->plan(6);
+$t->run();
 
 ###############################################################################
 

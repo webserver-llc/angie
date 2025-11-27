@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v3 proxy rewrite cryptx/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(50);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -108,10 +108,6 @@ foreach my $name ('localhost') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
-
-$t->plan(50);
-
-# suppress deprecation warning
 
 $t->run();
 

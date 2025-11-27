@@ -125,10 +125,8 @@ is($frame->{error}, 11, 'retry token decrypt error');
 $s = new_connection_resend();
 $sid = $s->new_stream();
 
-eval {
-	# would die on "bad inner" sanity check
-	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-};
+# would die on "bad inner" sanity check
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 ($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
 is($frame->{headers}->{':status'}, 403, 'resend initial');

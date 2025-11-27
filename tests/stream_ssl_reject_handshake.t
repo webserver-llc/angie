@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_return sni socket_ssl_sni/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -103,7 +103,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_reject_handshake')->plan(7);
+$t->run();
 
 ###############################################################################
 

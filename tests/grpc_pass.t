@@ -23,7 +23,9 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl http_v2 grpc rewrite/)
-	->has_daemon('openssl')->write_file_expand('nginx.conf', <<'EOF');
+	->has_daemon('openssl')->plan(5);
+
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -99,10 +101,7 @@ foreach my $name ('localhost') {
 }
 
 $t->run_daemon(\&dns_daemon, port(8982), $t);
-
-$t->run()->plan(5);
-
-$t->waitforfile($t->testdir . '/' . port(8982));
+$t->run()->waitforfile($t->testdir . '/' . port(8982));
 
 ###############################################################################
 

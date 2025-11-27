@@ -93,9 +93,7 @@ foreach my $name ('localhost') {
 $t->write_file('tbig.html',
 	join('', map { sprintf "XX%06dXX", $_ } (1 .. 500000)));
 
-$t->run();
-
-$t->plan(1);
+$t->run()->plan(1);
 
 ###############################################################################
 

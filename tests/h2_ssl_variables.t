@@ -86,9 +86,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run();
-
-$t->plan(4);
+$t->run()->plan(4);
 
 ###############################################################################
 

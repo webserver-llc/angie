@@ -88,9 +88,7 @@ foreach my $name ('localhost', 'client') {
 
 $t->write_file('t', 'SEE-THIS');
 
-$t->run();
-
-$t->plan(3);
+$t->run()->plan(3);
 
 ###############################################################################
 

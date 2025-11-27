@@ -43,6 +43,7 @@ http {
         listen       127.0.0.1:8080;
         server_name  on;
 
+        http2 on;
         absolute_redirect on;
         error_page 400 /return301;
 
@@ -78,6 +79,8 @@ http {
     server {
         listen       127.0.0.1:8080;
         server_name  off;
+
+        http2 on;
 
         location / { }
 

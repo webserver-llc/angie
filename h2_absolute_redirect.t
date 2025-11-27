@@ -39,9 +39,10 @@ http {
     absolute_redirect off;
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  on;
 
+        http2 on;
         absolute_redirect on;
         error_page 400 /return301;
 
@@ -75,8 +76,10 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  off;
+
+        http2 on;
 
         location / { }
 
@@ -107,11 +110,7 @@ EOF
 mkdir($t->testdir() . '/dir');
 mkdir($t->testdir() . '/dir sp');
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run()->plan(23);
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

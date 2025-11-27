@@ -70,8 +70,10 @@ http {
 
     server {
         listen       127.0.0.1:8081 ssl;
-        listen       127.0.0.1:8082 ssl http2;
+        listen       127.0.0.1:8082 ssl;
         server_name  localhost;
+
+        http2 on;
 
         ssl_certificate localhost.crt;
         ssl_certificate_key localhost.key;
@@ -104,12 +106,7 @@ foreach my $name ('localhost', 'override') {
 }
 
 $t->write_file('index.html', '');
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->try_run('no ssl_conf_command')->plan(3);
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

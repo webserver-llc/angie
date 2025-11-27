@@ -38,9 +38,11 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         listen       127.0.0.1:8081;
         server_name  localhost;
+
+        http2 on;
 
         error_page 400 /proxy/t.html;
 
@@ -77,12 +79,7 @@ EOF
 $t->write_file('index.html', '');
 $t->write_file('t.html', 'SEE-THIS');
 $t->write_file('slow.html', 'SEE-THIS');
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

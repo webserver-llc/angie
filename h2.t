@@ -40,8 +40,10 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    http2 on;
+
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         listen       127.0.0.1:8081;
         server_name  localhost;
 
@@ -88,26 +90,26 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8082 http2;
+        listen       127.0.0.1:8082;
         server_name  localhost;
         return 200   first;
     }
 
     server {
-        listen       127.0.0.1:8082 http2;
+        listen       127.0.0.1:8082;
         server_name  localhost2;
         return 200   second;
     }
 
     server {
-        listen       127.0.0.1:8083 http2;
+        listen       127.0.0.1:8083;
         server_name  localhost;
 
         http2_max_concurrent_streams 1;
     }
 
     server {
-        listen       127.0.0.1:8086 http2;
+        listen       127.0.0.1:8086;
         server_name  localhost;
 
         send_timeout 1s;
@@ -115,7 +117,7 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8087 http2;
+        listen       127.0.0.1:8087;
         server_name  localhost;
 
         client_header_timeout 1s;
@@ -132,11 +134,7 @@ http {
 
 EOF
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 # file size is slightly beyond initial window size: 2**16 + 80 bytes
 

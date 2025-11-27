@@ -48,16 +48,17 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8081 http2 ssl;
+        listen       127.0.0.1:8081 ssl;
         server_name  localhost;
+
+        http2 on;
+        http2_body_preread_size 128k;
 
         ssl_certificate_key localhost.key;
         ssl_certificate localhost.crt;
 
         ssl_verify_client optional;
         ssl_client_certificate client.crt;
-
-        http2_body_preread_size 128k;
 
         location / {
             grpc_pass 127.0.0.1:8082;
@@ -66,9 +67,10 @@ http {
     }
 
     server {
-        listen       127.0.0.1:8080 http2;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
+        http2 on;
         http2_body_preread_size 128k;
 
         location / {
@@ -131,12 +133,7 @@ foreach my $name ('client') {
 sleep 1 if $^O eq 'MSWin32';
 
 $t->write_file('password', 'client');
-
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

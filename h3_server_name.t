@@ -40,11 +40,13 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    http2 on;
+
     ssl_certificate_key localhost.key;
     ssl_certificate localhost.crt;
 
     server {
-        listen       127.0.0.1:8443 ssl http2;
+        listen       127.0.0.1:8443 ssl;
         listen       127.0.0.1:%%PORT_8980_UDP%% quic;
         server_name  ~^(?P<name>.+)\.example\.com$;
 
@@ -74,11 +76,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

@@ -22,8 +22,6 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'long configuration parsing') unless $ENV{TEST_ANGIE_UNSAFE};
-
 my $t = Test::Nginx->new()->has(qw/http geo/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
@@ -66,7 +64,7 @@ $t->write_file('1', '');
 $t->write_file('base.conf', join('', map {
 	"127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." . $_ % 256 .
 	"-127." . $_/256/256 % 256 . "." . $_/256 % 256 . "." .$_ % 256 . " " .
-	($_ == 1 ? "loopback" : "range$_") . ";" } (0 .. 100000)));
+	($_ == 1 ? "loopback" : "range$_") . ";\n" } (0 .. 100000)));
 
 $t->run();
 

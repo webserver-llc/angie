@@ -15,6 +15,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
+use Test::Docker;
 use Test::Nginx;
 use Test::Utils qw/get_json/;
 
@@ -23,33 +24,11 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'unsafe, will stop all currently active containers.')
-	unless $ENV{TEST_ANGIE_UNSAFE};
-
-my $endpoint = '';
-my $container_engine = '';
-
-if (system('docker version 1>/dev/null 2>&1') == 0) {
-	$endpoint = '/var/run/docker.sock';
-	$container_engine = 'docker';
-
-} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
-	$endpoint = '/tmp/podman.sock';
-	$container_engine = 'podman';
-
-} else {
-	plan(skip_all => 'no Docker or Podman');
-}
-
-my $registry = $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io';
-
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
 	->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
 
-system("$container_engine network create test_net 1>/dev/null 2>&1");
-system("$container_engine network inspect test_net 1>/dev/null 2>&1") == 0
-	or die "can't create $container_engine network";
+my $docker_helper = Test::Docker->new();
 
 $t->write_file_expand('nginx.conf', <<"EOF");
 
@@ -63,7 +42,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:$endpoint;
+    docker_endpoint unix:$docker_helper->{endpoint};
 
     upstream u1 {
         zone http_z 1m;
@@ -120,32 +99,37 @@ stream {
 
 EOF
 
+my $container_engine = $docker_helper->{container_engine};
 my %test_cases = (
 	"3 $container_engine containers" => {
-		test_sub => \&test_containers, test_params => {count => 3},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 3},
 	},
 	"10 $container_engine containers" => {
-		test_sub => \&test_containers, test_params => {count => 10},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 10},
 	},
 	"1 $container_engine container" => {
-		test_sub => \&test_containers, test_params => {count => 1},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 1},
 	},
 	"15 $container_engine containers" => {
-		test_sub => \&test_containers, test_params => {count => 15},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 15},
 	},
 	"4 $container_engine containers" => {
-		test_sub => \&test_containers, test_params => {count => 4},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 4},
 	},
 	"30 $container_engine containers" => {
-		test_sub => \&test_containers, test_params => {count => 30},
+		test_sub    => \&test_containers,
+		test_params => {docker_helper => $docker_helper, count => 30},
 	},
 );
 
 $t->plan(scalar keys %test_cases);
 
 $t->run();
-
-stop_containers();
 
 $t->run_tests(\%test_cases);
 
@@ -154,9 +138,14 @@ $t->run_tests(\%test_cases);
 sub test_containers {
 	my ($t, $test_params) = @_;
 
-	start_containers($test_params->{count});
+	my $docker_helper = $test_params->{docker_helper};
 
-	my @ips = get_container_ips($t);
+	# containers from the previous subtest may still exist
+	$docker_helper->stop_containers();
+
+	$docker_helper->start_containers($test_params->{count}, prepare_labels());
+
+	my @ips = $docker_helper->get_container_ips();
 
 	my %expected_peers = (
 		http => {
@@ -196,44 +185,20 @@ sub test_containers {
 
 	if (check_peers_created($expected)) {
 
-		pause_containers('pause');
+		$docker_helper->pause_containers('pause');
 
 		check_peers($expected, 'down');
 
-		pause_containers('unpause');
+		$docker_helper->pause_containers('unpause');
 
 		check_peers($expected, 'up');
 	}
 
-	stop_containers();
+	$docker_helper->stop_containers();
 }
 
-sub get_container_ips {
-	my ($t) = @_;
-
-	my $tdir = $t->testdir();
-	my $ip_file = 'containers_ip.txt';
-
-	system(
-		"$container_engine ps --format \"{{.ID}}\" | while read -r line ; do "
-			. "echo \$($container_engine inspect --format "
-			. '"{{ .NetworkSettings.Networks.test_net.IPAddress }}" $line)'
-			. ">> $tdir/$ip_file; "
-			. 'done') == 0
-		or die "cannot get $container_engine container's IP";
-
-	my $data = $t->read_file($ip_file);
-
-	unlink("$tdir/$ip_file");
-
-	return split("\n", $data);
-}
-
-sub start_containers {
-	my ($count) = @_;
-
-	my $labels = '-l "angie.network=test_net"'
-		. ' -l "angie.http.upstreams.u1.port=80"'
+sub prepare_labels {
+	my $labels = ' -l "angie.http.upstreams.u1.port=80"'
 		. ' -l "angie.http.upstreams.u1.weight=2"'
 		. ' -l "angie.http.upstreams.u1.max_conns=20"'
 		. ' -l "angie.http.upstreams.u1.max_fails=5"'
@@ -269,33 +234,7 @@ sub start_containers {
 		. ' -l "angie.stream.upstreams.u2.backup=true"'
 		. ' -l "angie.stream.upstreams.u2.sid=sid4"';
 
-	for (my $idx = 0; $idx < $count; $idx++) {
-		system("$container_engine run -d $labels --name whoami-$idx"
-			. " --network test_net $registry/traefik/whoami"
-			. ' 1> /dev/null') == 0
-			or die "cannot start $container_engine containers";
-	}
-}
-
-sub stop_containers {
-	if (`$container_engine ps -a -q` eq '') {
-		return;
-	}
-
-	system("$container_engine stop \$($container_engine ps -a -q) "
-		. '1>/dev/null 2>&1') == 0
-		or die "cannot stop $container_engine containers";
-
-	system("$container_engine rm \$($container_engine ps -a -q)"
-		. ' 1>/dev/null 2>&1') == 0
-		or die "cannot remove $container_engine containers";
-}
-
-sub pause_containers {
-	my ($pause) = @_;
-
-	system("$container_engine $pause \$($container_engine ps -a -q)"
-		. ' 1>/dev/null 2>&1');
+	return $labels;
 }
 
 sub check_peers_created {

@@ -102,11 +102,11 @@ port(8080);
 
 $t->write_file('t', '');
 
-$t->run_daemon(\&dns_daemon, port(8981), port(8084), $t)
-	->waitforfile($t->testdir . '/' . port(8981));
+$t->run_daemon(\&dns_daemon, port(8981), port(8084), $t);
+$t->waitforfile($t->testdir . '/' . port(8981));
 
-$t->run_daemon(\&dns_daemon, port(8982), port(8085), $t, tcp => 1)
-	->waitforfile($t->testdir . '/' . port(8982));
+$t->run_daemon(\&dns_daemon, port(8982), port(8085), $t, tcp => 1);
+$t->waitforfile($t->testdir . '/' . port(8982));
 port(8982, socket => 1)->close();
 
 $t->try_run('no resolve in upstream server')->plan(21);

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Maxim Dounin
 
 # Test for fastcgi backend with fastcgi_buffering off.
@@ -64,7 +65,8 @@ $t->write_file('inmemory.html',
 
 $t->run()->plan(2);
 
-$t->run_daemon(\&fastcgi_daemon)->waitforsocket('127.0.0.1:' . port(8081));
+$t->run_daemon(\&fastcgi_daemon);
+$t->waitforsocket('127.0.0.1:' . port(8081));
 
 ###############################################################################
 

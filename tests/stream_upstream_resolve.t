@@ -74,8 +74,8 @@ EOF
 
 port(8084);
 
-$t->run_daemon(\&dns_daemon, port(8983), $t)
-	->waitforfile($t->testdir . '/' . port(8983));
+$t->run_daemon(\&dns_daemon, port(8983), $t);
+$t->waitforfile($t->testdir . '/' . port(8983));
 $t->try_run('no resolve in upstream server')->plan(11);
 
 ###############################################################################

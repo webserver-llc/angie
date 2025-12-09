@@ -153,12 +153,11 @@ EOF
 	# to be rejected unless explicitly specified.
 	$ENV{PEBBLE_WFE_NONCEREJECT} //= 0;
 
-	$self->{t}->run_daemon($pebble,
+	my $pid = $self->{t}->run_daemon($pebble,
 		'-config', "$d/$pebble_config",
 		'-dnsserver', '127.0.0.1:' . $dns_port
 	);
 
-	my $pid = $self->{t}{_daemons}[-1];
 	$self->{t}{pebble} = $pid;
 
 	if ($mgmt_addr) {
@@ -224,7 +223,7 @@ sub start_challtestsrv {
 		: '';
 
 	my $d = $self->{t}->testdir();
-	$self->{t}->run_daemon($challtestsrv,
+	my $pid = $self->{t}->run_daemon($challtestsrv,
 		'-management', ":$mgmt_port",
 		'-defaultIPv6', '',
 		'-dns01', ":$dns_port",
@@ -233,8 +232,6 @@ sub start_challtestsrv {
 		'-doh', '',
 		'-tlsalpn01', $tlsalpn_port,
 	);
-
-	my $pid = $self->{t}{_daemons}[-1];
 
 	$self->{t}{challtestsrv} = $pid;
 

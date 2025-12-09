@@ -729,10 +729,8 @@ EOF
 	$self->write_file('test_hosts', $hosts);
 
 	my $d = $self->testdir();
-	$self->run_daemon('dnsmasq', '-C', "$d/dns.conf", '-k',
+	my $resolver_pid = $self->run_daemon('dnsmasq', '-C', "$d/dns.conf", '-k',
 		"--log-facility=$d/dns.log", '-q', "--pid-file=$d/dnsmasq.pid");
-
-	my $resolver_pid = $self->{_daemons}[-1];
 
 	$self->wait_for_resolver('127.0.0.1', $port, 'dns.example.com',
 		'127.0.0.1');
@@ -990,7 +988,7 @@ sub run_daemon($;@) {
 	$self->{_daemons} = [] unless defined $self->{_daemons};
 	push @{$self->{_daemons}}, $pid;
 
-	return $self;
+	return $pid;
 }
 
 sub testdir() {

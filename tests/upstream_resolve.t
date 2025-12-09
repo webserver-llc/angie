@@ -85,7 +85,8 @@ port(8083);
 
 $t->write_file('t', '');
 
-$t->run_daemon(\&dns_daemon, $t)->waitforfile($t->testdir . '/' . port(8982));
+$t->run_daemon(\&dns_daemon, $t);
+$t->waitforfile($t->testdir . '/' . port(8982));
 $t->try_run('no resolve in upstream server')->plan(18);
 
 ###############################################################################

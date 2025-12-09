@@ -81,7 +81,8 @@ http {
 
 EOF
 
-$t->run_daemon(\&dns_daemon, $t)->waitforfile($t->testdir . '/' . port(8980));
+$t->run_daemon(\&dns_daemon, $t);
+$t->waitforfile($t->testdir . '/' . port(8980));
 $t->try_run('no resolve in upstream server')->plan(10);
 
 ###############################################################################

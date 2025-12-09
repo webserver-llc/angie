@@ -9,6 +9,7 @@
 use warnings;
 use strict;
 
+use Test::Deep qw/ deep_diag cmp_details superhashof /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -25,28 +26,32 @@ select STDOUT; $| = 1;
 plan(skip_all => 'unsafe, will stop all currently active containers.')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $endpoint = "";
-my $container_engine = "";
+my $endpoint = '';
+my $container_engine = '';
 
 if (system('docker version 1>/dev/null 2>&1') == 0) {
 	$endpoint = '/var/run/docker.sock';
 	$container_engine = 'docker';
 
-# TODO:
-#} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
-#	$endpoint = '/tmp/podman.sock';
-#	$container_engine = 'podman';
+} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
+	$endpoint = '/tmp/podman.sock';
+	$container_engine = 'podman';
 
 } else {
-	plan(skip_all => 'no Docker');
+	plan(skip_all => 'no Docker or Podman');
 }
 
 my $registry = $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io';
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
-	->has(qw/stream stream_upstream_zone stream_upstream_sticky/)->plan(1512)
-	->write_file_expand('nginx.conf', <<"EOF");
+	->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
+
+system("$container_engine network create test_net 1>/dev/null 2>&1");
+system("$container_engine network inspect test_net 1>/dev/null 2>&1") == 0
+	or die "can't create $container_engine network";
+
+$t->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%
 
@@ -115,26 +120,95 @@ stream {
 
 EOF
 
+my %test_cases = (
+	"3 $container_engine containers" => {
+		test_sub => \&test_containers, test_params => {count => 3},
+	},
+	"10 $container_engine containers" => {
+		test_sub => \&test_containers, test_params => {count => 10},
+	},
+	"1 $container_engine container" => {
+		test_sub => \&test_containers, test_params => {count => 1},
+	},
+	"15 $container_engine containers" => {
+		test_sub => \&test_containers, test_params => {count => 15},
+	},
+	"4 $container_engine containers" => {
+		test_sub => \&test_containers, test_params => {count => 4},
+	},
+	"30 $container_engine containers" => {
+		test_sub => \&test_containers, test_params => {count => 30},
+	},
+);
+
+$t->plan(scalar keys %test_cases);
+
 $t->run();
-
-###############################################################################
-
-system("$container_engine network create test_net 1>/dev/null 2>&1");
-system("$container_engine network inspect test_net 1>/dev/null 2>&1") == 0
-	or die "can't create $container_engine network";
 
 stop_containers();
 
-test_containers($t, 3);
-test_containers($t, 10);
-test_containers($t, 1);
-test_containers($t, 15);
-test_containers($t, 4);
-test_containers($t, 30);
+$t->run_tests(\%test_cases);
 
 ###############################################################################
 
-sub get_containers_ip {
+sub test_containers {
+	my ($t, $test_params) = @_;
+
+	start_containers($test_params->{count});
+
+	my @ips = get_container_ips($t);
+
+	my %expected_peers = (
+		http => {
+			u1 => {
+				80 => {sid => 'sid1', weight => 2, backup => JSON::false()},
+			},
+			u2 => {
+				90 => {sid => 'sid2', weight => 5, backup => JSON::true()},
+			},
+		},
+		stream => {
+			u1 => {
+				81 => {sid => 'sid3', weight => 10, backup => JSON::false()},
+			},
+			u2 => {
+				91 => {sid => 'sid4', weight => 15, backup => JSON::true()},
+			},
+		},
+	);
+
+	my $expected;
+	while (my ($type, $upstreams) = each %expected_peers) {
+		while (my ($upstream_name, $upstream) = each %{ $upstreams }) {
+			while (my ($port, $peer) = each %{ $upstream }) {
+				foreach my $ip (@ips) {
+					my $peer_addr = "$ip:$port";
+					$expected->{$type}{$upstream_name}{$peer_addr} =
+						superhashof({
+							%{ $peer },
+							server => $peer_addr,
+							state  => 'up',
+						});
+				}
+			}
+		}
+	}
+
+	if (check_peers_created($expected)) {
+
+		pause_containers('pause');
+
+		check_peers($expected, 'down');
+
+		pause_containers('unpause');
+
+		check_peers($expected, 'up');
+	}
+
+	stop_containers();
+}
+
+sub get_container_ips {
 	my ($t) = @_;
 
 	my $tdir = $t->testdir();
@@ -145,8 +219,8 @@ sub get_containers_ip {
 			. "echo \$($container_engine inspect --format "
 			. '"{{ .NetworkSettings.Networks.test_net.IPAddress }}" $line)'
 			. ">> $tdir/$ip_file; "
-		. 'done') == 0
-		or die "cannot get container's IP";
+			. 'done') == 0
+		or die "cannot get $container_engine container's IP";
 
 	my $data = $t->read_file($ip_file);
 
@@ -156,50 +230,50 @@ sub get_containers_ip {
 }
 
 sub start_containers {
-	my ($t, $count) = @_;
+	my ($count) = @_;
 
 	my $labels = '-l "angie.network=test_net"'
-		 . ' -l "angie.http.upstreams.u1.port=80"'
-		 . ' -l "angie.http.upstreams.u1.weight=2"'
-		 . ' -l "angie.http.upstreams.u1.max_conns=20"'
-		 . ' -l "angie.http.upstreams.u1.max_fails=5"'
-		 . ' -l "angie.http.upstreams.u1.fail_timeout=10s"'
-		 . ' -l "angie.http.upstreams.u1.slow_start=10s"'
-		 . ' -l "angie.http.upstreams.u1.backup=false"'
-		 . ' -l "angie.http.upstreams.u1.sid=sid1"'
+		. ' -l "angie.http.upstreams.u1.port=80"'
+		. ' -l "angie.http.upstreams.u1.weight=2"'
+		. ' -l "angie.http.upstreams.u1.max_conns=20"'
+		. ' -l "angie.http.upstreams.u1.max_fails=5"'
+		. ' -l "angie.http.upstreams.u1.fail_timeout=10s"'
+		. ' -l "angie.http.upstreams.u1.slow_start=10s"'
+		. ' -l "angie.http.upstreams.u1.backup=false"'
+		. ' -l "angie.http.upstreams.u1.sid=sid1"'
 
-		 . ' -l "angie.http.upstreams.u2.port=90"'
-		 . ' -l "angie.http.upstreams.u2.weight=5"'
-		 . ' -l "angie.http.upstreams.u2.max_conns=25"'
-		 . ' -l "angie.http.upstreams.u2.max_fails=10"'
-		 . ' -l "angie.http.upstreams.u2.fail_timeout=5s"'
-		 . ' -l "angie.http.upstreams.u2.slow_start=5s"'
-		 . ' -l "angie.http.upstreams.u2.backup=true"'
-		 . ' -l "angie.http.upstreams.u2.sid=sid2"'
+		. ' -l "angie.http.upstreams.u2.port=90"'
+		. ' -l "angie.http.upstreams.u2.weight=5"'
+		. ' -l "angie.http.upstreams.u2.max_conns=25"'
+		. ' -l "angie.http.upstreams.u2.max_fails=10"'
+		. ' -l "angie.http.upstreams.u2.fail_timeout=5s"'
+		. ' -l "angie.http.upstreams.u2.slow_start=5s"'
+		. ' -l "angie.http.upstreams.u2.backup=true"'
+		. ' -l "angie.http.upstreams.u2.sid=sid2"'
 
-		 . ' -l "angie.stream.upstreams.u1.port=81"'
-		 . ' -l "angie.stream.upstreams.u1.weight=10"'
-		 . ' -l "angie.stream.upstreams.u1.max_conns=20"'
-		 . ' -l "angie.stream.upstreams.u1.max_fails=5"'
-		 . ' -l "angie.stream.upstreams.u1.slow_start=15s"'
-		 . ' -l "angie.stream.upstreams.u1.fail_timeout=15s"'
-		 . ' -l "angie.stream.upstreams.u1.backup=false"'
-		 . ' -l "angie.stream.upstreams.u1.sid=sid3"'
+		. ' -l "angie.stream.upstreams.u1.port=81"'
+		. ' -l "angie.stream.upstreams.u1.weight=10"'
+		. ' -l "angie.stream.upstreams.u1.max_conns=20"'
+		. ' -l "angie.stream.upstreams.u1.max_fails=5"'
+		. ' -l "angie.stream.upstreams.u1.slow_start=15s"'
+		. ' -l "angie.stream.upstreams.u1.fail_timeout=15s"'
+		. ' -l "angie.stream.upstreams.u1.backup=false"'
+		. ' -l "angie.stream.upstreams.u1.sid=sid3"'
 
-		 . ' -l "angie.stream.upstreams.u2.port=91"'
-		 . ' -l "angie.stream.upstreams.u2.weight=15"'
-		 . ' -l "angie.stream.upstreams.u2.max_conns=25"'
-		 . ' -l "angie.stream.upstreams.u2.max_fails=1"'
-		 . ' -l "angie.stream.upstreams.u2.slow_start=3s"'
-		 . ' -l "angie.stream.upstreams.u2.fail_timeout=3s"'
-		 . ' -l "angie.stream.upstreams.u2.backup=true"'
-		 . ' -l "angie.stream.upstreams.u2.sid=sid4"';
+		. ' -l "angie.stream.upstreams.u2.port=91"'
+		. ' -l "angie.stream.upstreams.u2.weight=15"'
+		. ' -l "angie.stream.upstreams.u2.max_conns=25"'
+		. ' -l "angie.stream.upstreams.u2.max_fails=1"'
+		. ' -l "angie.stream.upstreams.u2.slow_start=3s"'
+		. ' -l "angie.stream.upstreams.u2.fail_timeout=3s"'
+		. ' -l "angie.stream.upstreams.u2.backup=true"'
+		. ' -l "angie.stream.upstreams.u2.sid=sid4"';
 
 	for (my $idx = 0; $idx < $count; $idx++) {
-		 system("$container_engine run -d $labels --name whoami-$idx"
-			  . " --network test_net $registry/traefik/whoami"
-			  . ' 1> /dev/null') == 0
-			  or die "cannot start containers";
+		system("$container_engine run -d $labels --name whoami-$idx"
+			. " --network test_net $registry/traefik/whoami"
+			. ' 1> /dev/null') == 0
+			or die "cannot start $container_engine containers";
 	}
 }
 
@@ -210,11 +284,11 @@ sub stop_containers {
 
 	system("$container_engine stop \$($container_engine ps -a -q) "
 		. '1>/dev/null 2>&1') == 0
-		or die "cannot stop containers";
+		or die "cannot stop $container_engine containers";
 
 	system("$container_engine rm \$($container_engine ps -a -q)"
 		. ' 1>/dev/null 2>&1') == 0
-		or die "cannot remove containers";
+		or die "cannot remove $container_engine containers";
 }
 
 sub pause_containers {
@@ -224,77 +298,76 @@ sub pause_containers {
 		. ' 1>/dev/null 2>&1');
 }
 
-sub check_peers {
-	my ($t, $type, $upstream, $port, $sid, $weight, $backup) = @_;
+sub check_peers_created {
+	my ($expected) = @_;
 
-	my @ips = get_containers_ip($t);
+	my ($ok, $stack, $got);
 
-	my $j = get_json("/api/status/$type/upstreams/$upstream/");
+	for (0 .. 120) {
+		my $api_status = get_json('/api/status/');
 
-	for my $ip (@ips) {
-		my $peer = "$ip:$port";
-
-		if (!(exists $j->{peers}{$peer})) {
-			for (1 .. 50) {
-				$j = get_json("/api/status/$type/upstreams/$upstream/");
-				last if exists $j->{peers}{$peer};
-				select undef, undef, undef, 0.5;
+		foreach my $type (qw(http stream)) {
+			my $upstreams = $api_status->{$type}{upstreams};
+			while (my ($upstream_name, $upstream) = each %{ $upstreams }) {
+				while (my ($peer_addr, $peer) = each %{ $upstream->{peers} }) {
+					$got->{$type}{$upstream_name}{$peer_addr} = $peer;
+				}
 			}
 		}
 
-		is($j->{peers}{$peer}{server}, $peer, "create $type peer '$peer'");
-		is($j->{peers}{$peer}{sid}, $sid, "$type peer '$peer' sid $sid");
-		is($j->{peers}{$peer}{weight}, $weight,
-			"$type peer '$peer' weight $weight");
-		is($j->{peers}{$peer}{backup}, $backup,
-			"$type peer '$peer' backup $backup");
+		($ok, $stack) = cmp_details($got, $expected);
+
+		last if $ok;
+
+		select undef, undef, undef, 0.5;
 	}
 
-	pause_containers('pause');
-
-	for my $ip (@ips) {
-		my $peer = "$ip:$port";
-
-		if ($j->{peers}{$peer}{state} eq 'up') {
-			for (1 .. 50) {
-				$j = get_json("/api/status/$type/upstreams/$upstream/");
-				last if $j->{peers}{$peer}{state} eq 'down';
-				select undef, undef, undef, 0.5;
-			}
-		}
-
-		is($j->{peers}{$peer}{state}, 'down', "$type peer '$peer' is down");
+	unless ($ok) {
+		diag(deep_diag($stack));
+		diag(explain({got => $got}));
 	}
 
-	pause_containers('unpause');
-
-	for my $ip (@ips) {
-		my $peer = "$ip:$port";
-
-		if ($j->{peers}{$peer}{state} eq 'down') {
-			for (1 .. 50) {
-				$j = get_json("/api/status/$type/upstreams/$upstream/");
-				last if $j->{peers}{$peer}{state} eq 'up';
-				select undef, undef, undef, 0.5;
-			}
-		}
-
-		is($j->{peers}{$peer}{state}, 'up', "$type peer '$peer' is up");
-	}
+	return ok($ok, "all $container_engine peers created");
 }
 
-sub test_containers {
-	my ($t, $count) = @_;
+sub check_peers {
+	my ($expected, $state_expected) = @_;
 
-	start_containers($t, $count);
+	my ($ok, $stack, $got);
 
-	check_peers($t, 'http', 'u1', 80, 'sid1', 2, 0);
-	check_peers($t, 'http', 'u2', 90, 'sid2', 5, 1);
+	for (0 .. 120) {
+		my $api_status = get_json('/api/status/');
 
-	check_peers($t, 'stream', 'u1', 81, 'sid3', 10, 0);
-	check_peers($t, 'stream', 'u2', 91, 'sid4', 15, 1);
+		foreach my $type (qw(http stream)) {
+			my $upstreams = $api_status->{$type}{upstreams};
+			while (my ($upstream_name, $upstream) = each %{ $upstreams }) {
+				while (my ($peer_addr, $peer) = each %{ $upstream->{peers} }) {
+					$got->{$type}{$upstream_name}{$peer_addr} = $peer;
+				}
+			}
+		}
 
-	stop_containers();
+		while (my ($type, $upstreams) = each %{ $expected }) {
+			while (my ($upstream_name, $upstream) = each %{ $upstreams }) {
+				while (my ($peer_addr, $peer) = each %{ $upstream }) {
+					$peer->{val}{state} = $state_expected;
+				}
+			}
+		}
+
+		($ok, $stack) = cmp_details($got, $expected);
+
+		last if $ok;
+
+		select undef, undef, undef, 0.5;
+	}
+
+	unless ($ok) {
+		diag(deep_diag($stack));
+		diag(explain({got => $got}));
+	}
+
+	return ok($ok, "all $container_engine peers are $state_expected");
 }
 
 ###############################################################################

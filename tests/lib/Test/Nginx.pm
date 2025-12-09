@@ -1608,12 +1608,16 @@ EOF
 sub run_tests {
 	my ($self, $test_cases) = @_;
 
-	while (my ($test_case_name, $test_case_sub) = each %{$test_cases}) {
-		my $test_case_params = {};
-		if (ref $test_case_sub eq 'HASH') {
-			$test_case_params = $test_case_sub->{test_params};
-			$test_case_sub    = $test_case_sub->{test_sub};
+	while (my ($test_case_name, $test_case) = each %{ $test_cases }) {
+		my ($test_case_sub, $test_case_params);
+
+		if (ref $test_case eq 'HASH') {
+			$test_case_sub  = delete $test_case->{test_sub};
+			$test_case_params = $test_case->{test_params};
+		} else {
+			$test_case_sub = $test_case;
 		}
+		$test_case_params->{test_case_name} = $test_case_name;
 
 		SKIP: {
 			Test::More::skip "subtest '$test_case_name'", 1

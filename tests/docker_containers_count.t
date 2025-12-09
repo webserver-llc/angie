@@ -43,7 +43,7 @@ if (system('docker version 1>/dev/null 2>&1') == 0) {
 my $registry = $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io';
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
+	->has(qw/http http_api upstream_zone docker proxy/)
 	->plan(27);
 
 system("$container_engine network create test_net 1>/dev/null 2>&1");

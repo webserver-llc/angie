@@ -18,6 +18,15 @@ Thanks to Kirill A. Korinsky and Maxim Dounin (freenginx).
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+в API статистики добавлена информация об ACME-клиентах.
+</para>
+<para lang="en">
+the statistics API now includes information on ACME clients.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 если ACME-клиент не использовался в блоке "stream" в директивах "acme",

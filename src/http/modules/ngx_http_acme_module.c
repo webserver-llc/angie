@@ -31,6 +31,13 @@
  */
 #define NGX_ACME_ISSUANCE_TIMEOUT       60
 
+/* Certificate statuses */
+#define NGX_ACME_CERT_VALID             0
+#define NGX_ACME_CERT_EXPIRED           1
+#define NGX_ACME_CERT_MISSING           2
+#define NGX_ACME_CERT_MISMATCH          3
+#define NGX_ACME_CERT_ERROR             4
+
 #define NGX_ACME_MAX_SH_FILE            65535 /* USHRT_MAX */
 
 #define ngx_http_acme_key_supported(type, bits) \
@@ -142,6 +149,20 @@ typedef struct {
     ngx_file_t                   file;
     size_t                       file_size;
 } ngx_acme_privkey_t;
+
+
+#if (NGX_API)
+
+typedef struct {
+    time_t                       expiry_time;
+    time_t                       renew_time;
+    uint8_t                      cli_status;
+    uint8_t                      cert_status;
+    uint8_t                      details_len;
+    u_char                       details[125];
+} ngx_api_acme_sh_client_t;
+
+#endif
 
 
 typedef struct ngx_acme_client_s           ngx_acme_client_t;
@@ -276,6 +297,9 @@ struct ngx_http_acme_sh_keyauth_s {
 
 struct ngx_http_acme_sh_cert_s {
     ngx_atomic_t                 lock;
+#if (NGX_API)
+    ngx_api_acme_sh_client_t     cli;
+#endif
     u_short                      len;
     u_char                       data_start[1];
 };
@@ -361,8 +385,9 @@ static ngx_int_t ngx_http_acme_sha256(ngx_http_acme_session_t *ses,
     ngx_str_t *str, ngx_uint_t base64url, ngx_str_t *encoded);
 static time_t ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time,
     ngx_log_t *log);
-static time_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli,
-    ngx_uint_t log_diagnosis, const u_char *cert_data, size_t cert_len);
+static ngx_uint_t ngx_http_acme_cert_validity(ngx_acme_client_t *cli,
+    ngx_uint_t log_diagnosis, const u_char *cert_data, size_t cert_len,
+    time_t *cert_expiry);
 static ngx_int_t ngx_http_acme_full_path(ngx_pool_t *pool, ngx_str_t *name,
     ngx_str_t *filename, ngx_str_t *full_path);
 static ngx_int_t ngx_http_acme_init_request(ngx_http_request_t *r,
@@ -598,6 +623,69 @@ static ngx_http_variable_t  ngx_http_acme_hook_vars[] = {
 
     ngx_http_null_variable
 };
+
+
+#if (NGX_API)
+
+/* ACME client statuses */
+#define NGX_API_CLI_DISABLED     0
+#define NGX_API_CLI_READY        1
+#define NGX_API_CLI_FAILED       2
+#define NGX_API_CLI_REQUESTING   3
+
+
+static void ngx_api_set_cli_status(ngx_acme_client_t *cli,
+    ngx_uint_t status, const char *fmt, ...);
+static void ngx_api_set_cli_status_unlocked(ngx_api_acme_sh_client_t *sh,
+    ngx_uint_t status, const char *fmt, ...);
+static void ngx_api_vset_cli_status_unlocked(ngx_api_acme_sh_client_t *sh,
+    ngx_uint_t status, const char *fmt, va_list args);
+static ngx_int_t ngx_api_http_acme_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_acme_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_acme_client_status_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_acme_certificate_status_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_acme_client_details_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_acme_client_renew_time_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+
+
+static ngx_api_entry_t  ngx_api_acme_entries[] = {
+
+    {
+        .name      = ngx_string("state"),
+        .handler   = ngx_api_acme_client_status_handler,
+    },
+
+    {
+        .name      = ngx_string("certificate"),
+        .handler   = ngx_api_acme_certificate_status_handler,
+    },
+
+    {
+        .name      = ngx_string("details"),
+        .handler   = ngx_api_acme_client_details_handler,
+    },
+
+    {
+        .name      = ngx_string("next_run"),
+        .handler   = ngx_api_acme_client_renew_time_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_acme_client_entry = {
+    .name      = ngx_string("acme_clients"),
+    .handler   = ngx_api_http_acme_handler,
+};
+
+#endif
 
 
 static u_char *
@@ -2044,14 +2132,11 @@ ngx_http_acme_parse_ssl_time(const ASN1_TIME *asn1time, ngx_log_t *log)
 
 
 /*
- * Return values:
- * + expiry time of the certificate if the certificate is valid;
- * + NGX_DECLINED if the certificate is invalid (e.g. expired);
- * + NGX_ERROR if an OpenSSL or system error occurred.
+ * Returns one of the NGX_ACME_CERT_... values.
  */
-static time_t
+static ngx_uint_t
 ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
-    const u_char *cert_data, size_t cert_len)
+    const u_char *cert_data, size_t cert_len, time_t *cert_expiry)
 {
     int               type, i, found;
 #if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
@@ -2062,8 +2147,8 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
     BIO              *bio;
     X509             *x509;
     u_char           *s;
-    time_t            rc;
-    ngx_uint_t        di;
+    time_t            expiry;
+    ngx_uint_t        rc, di;
     ngx_str_t         domain;
     X509_NAME        *subj_name;
     ASN1_STRING      *value;
@@ -2076,7 +2161,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
 
     if (bio == NULL) {
         ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "BIO_new_mem_buf() failed");
-        return NGX_ERROR;
+        return NGX_ACME_CERT_ERROR;
     }
 
     x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
@@ -2084,7 +2169,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
     if (x509 == NULL) {
         ngx_ssl_error(NGX_LOG_ALERT, cli->log, 0, "PEM_read_bio_X509() failed");
         BIO_free(bio);
-        return NGX_ERROR;
+        return NGX_ACME_CERT_ERROR;
     }
 
 #if OPENSSL_VERSION_NUMBER > 0x10100000L
@@ -2093,21 +2178,24 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
     t = (const ASN1_TIME *) X509_get_notAfter(x509);
 #endif
 
-    rc = ngx_http_acme_parse_ssl_time(t, cli->log);
+    expiry = ngx_http_acme_parse_ssl_time(t, cli->log);
 
-    if (rc == (time_t) NGX_ERROR) {
+    if (expiry == (time_t) NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, cli->log, 0,
                       "couldn't extract time from certificate");
+
+        rc = NGX_ACME_CERT_ERROR;
         goto failed;
     }
 
-    if (ngx_time() >= rc) {
-        /* expired */
+    *cert_expiry = expiry;
+
+    if (ngx_time() >= expiry) {
         if (log_diagnosis) {
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0, "certificate expired");
         }
 
-        rc = NGX_DECLINED;
+        rc = NGX_ACME_CERT_EXPIRED;
         goto failed;
     }
 
@@ -2119,9 +2207,11 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
                           "no SAN entry in certificate");
         }
 
-        rc = NGX_DECLINED;
+        rc = NGX_ACME_CERT_MISMATCH;
         goto failed;
     }
+
+    rc = NGX_ACME_CERT_VALID;
 
     subj_name = X509_get_subject_name(x509);
 
@@ -2205,7 +2295,7 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
                               &domain);
             }
 
-            rc = NGX_DECLINED;
+            rc = NGX_ACME_CERT_MISMATCH;
             break;
         }
     }
@@ -2272,6 +2362,11 @@ ngx_http_acme_run(ngx_http_acme_session_t *ses)
     if (rc != NGX_OK) {
         goto failed;
     }
+
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Submitting an order for a certificate.");
+#endif
 
     NGX_ACME_SPAWN(run, cert_issue, (ses), rc);
 
@@ -2400,6 +2495,13 @@ ngx_http_acme_hook_notify(ngx_http_acme_session_t *ses, ngx_acme_hook_t hook)
 
     ngx_log_error(NGX_LOG_INFO, ses->log, 0, "ACME hook %V: request sent",
                   &ngx_acme_hook_names[ses->hook]);
+
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "A request was sent to the ACME hook (%V). "
+                           "Waiting for a reply.",
+                           &ngx_acme_hook_names[ses->hook]);
+#endif
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
@@ -2937,6 +3039,11 @@ ngx_http_acme_cert_issue(ngx_http_acme_session_t *ses)
                   "polling for authorization status (%d sec)",
                   NGX_ACME_AUTHORIZATION_TIMEOUT);
 
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Polling for authorization status.");
+#endif
+
     ses->deadline = ngx_time() + NGX_ACME_AUTHORIZATION_TIMEOUT;
 
 poll_status:
@@ -2981,6 +3088,11 @@ poll_status:
 finalize:
 
     DBG_STATUS((ses->client, "finalizing"));
+
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Finalizing the certificate.");
+#endif
 
     rc = ngx_data_object_get_str(ses->json, &ses->request_url, "finalize", 0);
 
@@ -3065,6 +3177,11 @@ certificate:
 
     DBG_STATUS((ses->client, "downloading certificate"));
 
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Downloading the certificate.");
+#endif
+
     if (ngx_data_object_get_str(ses->json, &ses->cert_url, "certificate", 0)
         != NGX_OK)
     {
@@ -3085,10 +3202,10 @@ certificate:
         NGX_ACME_TERMINATE(cert_issue, NGX_ERROR);
     }
 
-    t = ngx_http_acme_cert_validity(ses->client, 0, ses->body.data,
-                                    ses->body.len);
-
-    if (t != (time_t) NGX_ERROR && t != (time_t) NGX_DECLINED) {
+    if (ngx_http_acme_cert_validity(ses->client, 0, ses->body.data,
+                                    ses->body.len, &t)
+        == NGX_ACME_CERT_VALID)
+    {
         ses->client->expiry_time = t;
         ses->client->renew_time = t - ses->client->renew_before_expiry;
 
@@ -3171,6 +3288,19 @@ certificate:
                ses->body.len);
     ses->client->sh_cert->len = ses->body.len;
 
+#if (NGX_API)
+    ngx_api_set_cli_status_unlocked(&ses->client->sh_cert->cli,
+                                    NGX_API_CLI_READY,
+                                    "The certificate was obtained on %s, the "
+                                    "client is ready for renewal.",
+                                    strtok(ctime(&t), "\n"));
+
+    ses->client->sh_cert->cli.cert_status = NGX_ACME_CERT_VALID;
+
+    ses->client->sh_cert->cli.expiry_time = ses->client->expiry_time;
+    ses->client->sh_cert->cli.renew_time = ses->client->renew_time;
+#endif
+
     ngx_rwlock_unlock(&ses->client->sh_cert->lock);
 
     NGX_ACME_END(cert_issue);
@@ -3188,6 +3318,11 @@ ngx_http_acme_authorize(ngx_http_acme_session_t *ses)
     ngx_acme_client_t  *cli;
 
     NGX_ACME_BEGIN(authorize);
+
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Authorizing identifiers.");
+#endif
 
     ses->auths = ngx_data_object_get_value(ses->json, "authorizations", 0);
 
@@ -3425,6 +3560,11 @@ challenge_found:
     ngx_log_error(NGX_LOG_INFO, ses->log, 0,
                   "polling for challenge status of \"%V\" (%d sec)",
                   &ses->ident, NGX_ACME_CHALLENGE_TIMEOUT);
+
+#if (NGX_API)
+    ngx_api_set_cli_status(ses->client, NGX_API_CLI_REQUESTING,
+                           "Authorizing the identifier \"%V\".", &ses->ident);
+#endif
 
     ses->deadline = ngx_time() + NGX_ACME_CHALLENGE_TIMEOUT;
 
@@ -4462,6 +4602,11 @@ ngx_http_acme_timer_handler(ngx_event_t *ev)
         if (!cli->session) {
             return;
         }
+
+#if (NGX_API)
+        ngx_api_set_cli_status(cli, NGX_API_CLI_REQUESTING,
+                               "Initializing the ACME account.");
+#endif
     }
 
     ses = cli->session;
@@ -4488,6 +4633,28 @@ ngx_http_acme_timer_handler(ngx_event_t *ev)
                               "will retry to obtain certificate on %s",
                               strtok(ctime(&cli->renew_time), "\n"));
             }
+
+#if (NGX_API)
+            ngx_rwlock_wlock(&cli->sh_cert->lock);
+
+            if (cli->enabled) {
+                ngx_api_set_cli_status_unlocked(&cli->sh_cert->cli,
+                                                NGX_API_CLI_FAILED,
+                                                "Certificate issuance has "
+                                                "failed (see logs for more "
+                                                "info).");
+
+                cli->sh_cert->cli.renew_time = cli->renew_time;
+
+            } else {
+                ngx_api_set_cli_status_unlocked(&cli->sh_cert->cli,
+                                                NGX_API_CLI_DISABLED,
+                                                "The client has been disabled "
+                                                "(see logs for more info).");
+            }
+
+            ngx_rwlock_unlock(&cli->sh_cert->lock);
+#endif
         }
 
         amcf->current = ngx_http_acme_nearest_client(amcf);
@@ -4673,6 +4840,14 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         /* no acme* directives in config - nothing to do */
         return NGX_OK;
     }
+
+#if (NGX_API)
+    if (ngx_api_add(cf->cycle, "/status/http", &ngx_api_acme_client_entry)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+#endif
 
     if (amcf->listen_ctx != NULL
         && ngx_http_acme_merge_listen_ctx(cf, amcf) != NGX_OK)
@@ -5146,16 +5321,25 @@ ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path, ngx_str_t *filename,
 static ngx_int_t
 ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
 {
-    char                       *s, *s2;
+    char                       *s;
     size_t                      sz;
     u_char                     *p;
     time_t                      t, now;
     ngx_log_t                  *error_log;
-    ngx_uint_t                  i;
+    ngx_uint_t                  i, status;
     ngx_acme_client_t          *cli;
     ngx_http_acme_sh_cert_t    *shc;
     ngx_http_core_loc_conf_t   *pclcf;
     ngx_http_acme_main_conf_t  *amcf;
+
+    /* Array order must match the NGX_ACME_CERT_* constant definitions. */
+    static const char * const statuses[] = {
+        "valid",
+        "expired",
+        "no",
+        "invalid",
+        "couldn't parse",
+    };
 
     if (shm_zone->shm.exists) {
         /* Angie doesn't support Windows, so this probably can't happen... */
@@ -5230,22 +5414,15 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                 return NGX_ERROR;
             }
 
-            t = ngx_http_acme_cert_validity(cli, 1, shc->data_start, shc->len);
+            status = ngx_http_acme_cert_validity(cli, 1, shc->data_start,
+                                                      shc->len, &t);
 
-            if (t == (time_t) NGX_ERROR) {
-                s = "couldn't parse";
+            if (status == NGX_ACME_CERT_ERROR) {
                 shc->len = 0;
 
-            } else if (t == (time_t) NGX_DECLINED) {
-                s = "invalid";
-
-            } else {
-                s = "valid";
-
-                if (!cli->renew_on_load) {
-                    cli->expiry_time = t;
-                    cli->renew_time = t - cli->renew_before_expiry;
-                }
+            } else if (status == NGX_ACME_CERT_VALID && !cli->renew_on_load) {
+                cli->expiry_time = t;
+                cli->renew_time = t - cli->renew_before_expiry;
             }
 
         } else {
@@ -5265,22 +5442,44 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                 }
             }
 
-            s = "no";
+            status = NGX_ACME_CERT_MISSING;
         }
 
         if (cli->enabled) {
-            s2 = (cli->renew_time > now)
-                 ? strtok(ctime(&cli->renew_time), "\n")
-                   : "now";
+            s = (cli->renew_time > now)
+                ? strtok(ctime(&cli->renew_time), "\n")
+                  : "now";
+
+#if (NGX_API)
+            ngx_api_set_cli_status_unlocked(&shc->cli, NGX_API_CLI_READY,
+                                            "The client is ready to request "
+                                            "a certificate.");
+
+            shc->cli.expiry_time = cli->expiry_time;
+            shc->cli.renew_time = cli->renew_time;
+#endif
 
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                          "%s certificate, %srenewal scheduled %s", s,
-                          cli->renew_on_load ? "forced " : "", s2);
+                          "%s certificate, %srenewal scheduled %s",
+                          statuses[status],
+                          cli->renew_on_load ? "forced " : "", s);
 
         } else {
+
+#if (NGX_API)
+            ngx_api_set_cli_status_unlocked(&shc->cli, NGX_API_CLI_DISABLED,
+                                           "The client is disabled in the "
+                                           "configuration.");
+#endif
+
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
-                          "%s certificate, renewal disabled", s);
+                          "%s certificate, renewal disabled",
+                          statuses[status]);
         }
+
+#if (NGX_API)
+        shc->cli.cert_status = status;
+#endif
 
         amcf->current = NULL;
 
@@ -7145,3 +7344,206 @@ ngx_acme_is_alpn_needed(ngx_conf_t *cf)
 
     return (amcf != NULL) && ngx_http_acme_challenge_is(amcf, NGX_AC_ALPN_01);
 }
+
+
+#if (NGX_API)
+
+static void
+ngx_api_set_cli_status(ngx_acme_client_t *cli, ngx_uint_t status,
+    const char *fmt, ...)
+{
+    va_list                    args;
+
+    ngx_rwlock_wlock(&cli->sh_cert->lock);
+
+    va_start(args, fmt);
+    ngx_api_vset_cli_status_unlocked(&cli->sh_cert->cli, status, fmt, args);
+    va_end(args);
+
+    ngx_rwlock_unlock(&cli->sh_cert->lock);
+}
+
+
+static void
+ngx_api_set_cli_status_unlocked(ngx_api_acme_sh_client_t *sh,
+    ngx_uint_t status, const char *fmt, ...)
+{
+    va_list  args;
+
+    va_start(args, fmt);
+    ngx_api_vset_cli_status_unlocked(sh, status, fmt, args);
+    va_end(args);
+}
+
+
+static void
+ngx_api_vset_cli_status_unlocked(ngx_api_acme_sh_client_t *sh,
+    ngx_uint_t status, const char *fmt, va_list args)
+{
+    u_char  *p;
+
+    sh->cli_status = status;
+
+    p = ngx_vsnprintf(sh->details, sizeof(sh->details), fmt, args);
+
+    sh->details_len = p - sh->details;
+
+    if (sh->details_len == sizeof(sh->details)) {
+        /*
+         * If the value doesn't fit in the buffer, insert a triple dot
+         * at the end.
+         */
+        *--p = '.';
+        *--p = '.';
+        *--p = '.';
+    }
+}
+
+
+static ngx_int_t
+ngx_api_http_acme_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_api_iter_ctx_t          ictx;
+    ngx_api_acme_sh_client_t    sh;
+    ngx_http_acme_main_conf_t  *amcf;
+
+    amcf = ngx_http_acme_get_main_conf();
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_acme_entries;
+
+    ictx.ctx = &sh;
+    ictx.elts = amcf->clients.elts;
+
+    return ngx_api_object_iterate(ngx_api_acme_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_acme_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_acme_client_t          **cli_p;
+    ngx_api_acme_sh_client_t    *sh;
+    ngx_http_acme_main_conf_t   *amcf;
+
+    cli_p = ictx->elts;
+
+    amcf = ngx_http_acme_get_main_conf();
+
+    if (cli_p == ((ngx_acme_client_t **) amcf->clients.elts)
+                  + amcf->clients.nelts)
+    {
+        return NGX_DECLINED;
+    }
+
+    sh = ictx->ctx;
+
+    ngx_rwlock_rlock(&(*cli_p)->sh_cert->lock);
+
+    ngx_memcpy(sh, &(*cli_p)->sh_cert->cli, sizeof(ngx_api_acme_sh_client_t));
+
+    ngx_rwlock_unlock(&(*cli_p)->sh_cert->lock);
+
+    ictx->entry.name.data = (*cli_p)->name.data;
+    ictx->entry.name.len = (*cli_p)->name.len;
+
+    ictx->elts = cli_p + 1;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_acme_client_renew_time_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_time_t                 tp;
+    ngx_api_acme_sh_client_t  *sh;
+
+    sh = ctx;
+
+    if (sh->cli_status == NGX_API_CLI_DISABLED
+        || sh->cli_status == NGX_API_CLI_REQUESTING)
+    {
+        return NGX_DECLINED;
+    }
+
+    ngx_memzero(&tp, sizeof(ngx_time_t));
+
+    tp.sec = sh->renew_time;
+
+    data.tp = &tp;
+
+    return ngx_api_time_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_acme_client_status_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_acme_sh_client_t  *sh;
+
+    /* Array order must match the NGX_API_CLI_* constant definitions. */
+    static ngx_str_t statuses[] = {
+        ngx_string("disabled"),
+        ngx_string("ready"),
+        ngx_string("failed"),
+        ngx_string("requesting"),
+    };
+
+    sh = ctx;
+
+    data.str = &statuses[sh->cli_status];
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_acme_certificate_status_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_acme_sh_client_t  *sh;
+
+    /* Array order must match the NGX_ACME_CERT_* constant definitions. */
+    static ngx_str_t statuses[] = {
+        ngx_string("valid"),
+        ngx_string("expired"),
+        ngx_string("missing"),
+        ngx_string("mismatch"),
+        ngx_string("error"),
+    };
+
+    sh = ctx;
+
+    if (sh->expiry_time != 0 && ngx_time() >= sh->expiry_time) {
+        data.str = &statuses[NGX_ACME_CERT_EXPIRED];
+
+    } else {
+        data.str = &statuses[sh->cert_status];
+    }
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_acme_client_details_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_str_t                   s;
+    ngx_api_acme_sh_client_t  *sh;
+
+    sh = ctx;
+
+    s.data = sh->details;
+    s.len = sh->details_len;
+
+    data.str = &s;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+#endif

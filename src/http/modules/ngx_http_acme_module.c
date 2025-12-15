@@ -5467,19 +5467,18 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
         } else {
 
 #if (NGX_API)
-            ngx_api_set_cli_status_unlocked(&shc->cli, NGX_API_CLI_DISABLED,
-                                           "The client is disabled in the "
-                                           "configuration.");
+            if (shc != NULL) {
+                ngx_api_set_cli_status_unlocked(&shc->cli,
+                                                NGX_API_CLI_DISABLED,
+                                                "The client is disabled in "
+                                                "the configuration.");
+            }
 #endif
 
             ngx_log_error(NGX_LOG_NOTICE, cli->log, 0,
                           "%s certificate, renewal disabled",
                           statuses[status]);
         }
-
-#if (NGX_API)
-        shc->cli.cert_status = status;
-#endif
 
         amcf->current = NULL;
 
@@ -5493,6 +5492,10 @@ ngx_http_acme_shm_init(ngx_shm_zone_t *shm_zone, void *data)
                                    cli->certificate_file_size);
 
             p += ngx_align(sz, NGX_ALIGNMENT);
+
+#if (NGX_API)
+            shc->cli.cert_status = status;
+#endif
         }
     }
 

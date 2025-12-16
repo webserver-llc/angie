@@ -116,6 +116,13 @@ sub read {
 		last;
 	}
 
+	if (!defined $buf && ref $self->{_socket} eq 'IO::Socket::SSL'
+		&& $IO::Socket::SSL::VERSION >= 2.091
+		&& $IO::Socket::SSL::VERSION <= 2.095)
+	{
+		$buf = '';
+	}
+
 	log_in($buf);
 	return $buf;
 }

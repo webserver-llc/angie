@@ -327,6 +327,17 @@ include complex values.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+теперь Angie не пытается загрузить кэш из файла по прежнему адресу
+при тестировании конфигурации
+</para>
+<para lang="en">
+now Angie does not try to load cache from the file using previous address
+when testing configuration
+</para>
+</change>
+
 </changes>
 
 

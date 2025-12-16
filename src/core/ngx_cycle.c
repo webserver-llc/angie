@@ -1606,14 +1606,17 @@ done:
     ngx_memzero(shm_zone, sizeof(ngx_shm_zone_t));
 
     shm_zone->shm.log = cf->cycle->log;
-    shm_zone->shm.addr = addr;
     shm_zone->shm.size = zp->size;
     shm_zone->shm.name = zp->name;
     shm_zone->tag = zp->tag;
     shm_zone->state = zstate;
     shm_zone->signature = sign;
-    /* additional step needed: read shm pages from file */
-    shm_zone->restore = addr ? 1 : 0;
+
+    if (!ngx_test_config) {
+        shm_zone->shm.addr = addr;
+        /* additional step needed: read shm pages from file */
+        shm_zone->restore = addr ? 1 : 0;
+    }
 
     return shm_zone;
 }

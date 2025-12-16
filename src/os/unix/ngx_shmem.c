@@ -57,6 +57,10 @@ ngx_shm_alloc(ngx_shm_t *shm)
 void
 ngx_shm_free(ngx_shm_t *shm)
 {
+    if (shm->addr == MAP_FAILED) {
+        return;
+    }
+
     if (munmap((void *) shm->addr, shm->size) == -1) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
                       "munmap(%p, %uz) failed", shm->addr, shm->size);
@@ -123,6 +127,10 @@ ngx_shm_alloc(ngx_shm_t *shm)
 void
 ngx_shm_free(ngx_shm_t *shm)
 {
+    if (shm->addr == MAP_FAILED) {
+        return;
+    }
+
     if (munmap((void *) shm->addr, shm->size) == -1) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
                       "munmap(%p, %uz) failed", shm->addr, shm->size);
@@ -178,6 +186,10 @@ ngx_shm_alloc(ngx_shm_t *shm)
 void
 ngx_shm_free(ngx_shm_t *shm)
 {
+    if (shm->addr == (void *) -1) {
+        return;
+    }
+
     if (shmdt(shm->addr) == -1) {
         ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
                       "shmdt(%p) failed", shm->addr);

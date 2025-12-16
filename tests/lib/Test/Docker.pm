@@ -29,6 +29,14 @@ sub new {
 
 	} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
 		$self->{endpoint} = '/tmp/podman.sock';
+		unless (-e $self->{endpoint}) {
+			die 'incorrect podman setup: ' . $self->{endpoint} . ' is missing';
+		}
+		unless (-w $self->{endpoint}) {
+			die 'incorrect podman setup: ' . $self->{endpoint}
+				. ' is not writable';
+		}
+
 		$self->{container_engine} = 'podman';
 
 	} else {

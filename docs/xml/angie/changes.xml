@@ -351,6 +351,19 @@ when testing configuration
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при совместном использовании директив try_files и proxy_pass с URI
+в рабочем процессе мог произойти segmentation fault.
+исправление портировано из nginx 1.29.4.
+</para>
+<para lang="en">
+a segmentation fault might occur in a worker process
+if the "try_files" directive and "proxy_pass" with a URI were used.
+the fix was ported from nginx 1.29.4.
+</para>
+</change>
+
 </changes>
 
 

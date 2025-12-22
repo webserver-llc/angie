@@ -241,8 +241,12 @@ ngx_api_object_iterate(ngx_api_iter_pt iter, ngx_api_iter_ctx_t *ictx,
             return rc;
         }
 
-        rc = ngx_data_object_add_str(obj, &ictx->entry.name, actx->out,
-                                     actx->pool);
+        rc = ictx->read_only
+             ? ngx_data_object_add_const_str(obj, &ictx->entry.name,
+                                             actx->out, actx->pool)
+             : ngx_data_object_add_str(obj, &ictx->entry.name,
+                                       actx->out, actx->pool);
+
         if (rc != NGX_OK) {
             return NGX_ERROR;
         }

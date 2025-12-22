@@ -147,6 +147,24 @@ ngx_data_object_add_str(ngx_data_item_t *obj, ngx_str_t *name,
 
 
 ngx_int_t
+ngx_data_object_add_const_str(ngx_data_item_t *obj, ngx_str_t *name,
+    ngx_data_item_t *item, ngx_pool_t *pool)
+{
+    ngx_data_item_t  *str;
+
+    str = ngx_data_new_item(pool, NGX_DATA_STRING_TYPE);
+    if (str == NULL) {
+        return NGX_ERROR;
+    }
+
+    str->data.string.start = name->data;
+    str->data.string.length = name->len;
+
+    return ngx_data_object_add(obj, str, item);
+}
+
+
+ngx_int_t
 ngx_data_list_add(ngx_data_item_t *list, ngx_data_item_t *item)
 {
     ngx_data_container_t  *cont;

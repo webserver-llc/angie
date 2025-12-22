@@ -62,6 +62,7 @@ typedef struct {
     ngx_api_entry_t             entry;
     void                       *ctx;
     void                       *elts;
+    ngx_uint_t                  read_only;  /* unsigned read_only:1 */
 } ngx_api_iter_ctx_t;
 
 typedef ngx_int_t (*ngx_api_iter_pt)(ngx_api_iter_ctx_t *ictx,

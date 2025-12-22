@@ -90,6 +90,7 @@ like(http_get('/padding/cl'), qr/\x0d\x0aSEE-THIS$/s, 'body padding length');
 
 TODO: {
 local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /sendfile on/;
+local $TODO = 'not yet' if $t->read_file('nginx.conf') =~ /aio (on|threads)/;
 
 like(http_get('/less'), qr/Content-Length: 8.*SEE-$/s, 'body less cl');
 like(http_get('/less'), qr/X-Cache-Status: MISS/, 'body less cl cache');

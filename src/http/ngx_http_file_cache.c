@@ -2982,6 +2982,8 @@ ngx_api_http_caches_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 {
     ngx_api_iter_ctx_t  ictx;
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.data.ents = ngx_api_http_cache_entries;
     ictx.entry.handler = ngx_api_http_cache_handler;
     ictx.elts = ngx_cycle->paths.elts;

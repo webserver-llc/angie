@@ -865,6 +865,8 @@ ngx_api_stream_limit_conns_handler(ngx_api_entry_data_t data,
     lcmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
                                                   ngx_stream_limit_conn_module);
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_stream_limit_conn_entries;
     ictx.elts = lcmcf->limit_conns;

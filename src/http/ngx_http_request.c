@@ -4461,6 +4461,8 @@ ngx_api_status_zone_iterate(ngx_api_ctx_t *actx, ngx_http_stats_zone_t *zones,
 
     rc = NGX_DECLINED;
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = entries;
 
@@ -4566,6 +4568,8 @@ ngx_api_http_response_codes_handler(ngx_api_entry_data_t data,
     ngx_api_iter_ctx_t   ictx;
 
     codes = (u_char *) stats_zone->stats.any + data.off;
+
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
 
     ictx.entry.handler = ngx_api_number_handler;
     ictx.ctx = (void *) 0;

@@ -654,6 +654,8 @@ ngx_api_stream_server_zones_handler(ngx_api_entry_data_t data,
     cmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
                                                  ngx_stream_core_module);
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     rc = NGX_DECLINED;
 
     ictx.entry.handler = ngx_api_object_handler;

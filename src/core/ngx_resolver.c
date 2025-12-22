@@ -5156,6 +5156,8 @@ ngx_api_resolvers_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     rcf = (ngx_resolver_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx,
                                                ngx_resolver_module);
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_resolver_entries;
     ictx.elts = rcf->resolver_zones;

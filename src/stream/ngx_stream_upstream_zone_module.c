@@ -879,6 +879,8 @@ ngx_api_stream_upstreams_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
                                                  ngx_stream_upstream_module);
     upstreams = umcf->upstreams;
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_stream_upstream_entries;
     ictx.elts = &upstreams;

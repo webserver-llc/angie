@@ -1256,6 +1256,8 @@ ngx_api_http_limit_reqs_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     lrmcf = ngx_http_cycle_get_module_main_conf(ngx_cycle,
                                                 ngx_http_limit_req_module);
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_http_limit_req_entries;
     ictx.elts = lrmcf->limit_reqs;

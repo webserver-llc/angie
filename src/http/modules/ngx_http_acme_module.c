@@ -7413,6 +7413,8 @@ ngx_api_http_acme_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 
     amcf = ngx_http_acme_get_main_conf();
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_object_handler;
     ictx.entry.data.ents = ngx_api_acme_entries;
 

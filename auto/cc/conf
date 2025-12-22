@@ -260,6 +260,26 @@ if [ "$NGX_PLATFORM" != win32 ]; then
     . auto/feature
 
 
+    ngx_feature="gcc builtin 64 bit count leading zeros"
+    ngx_feature_name="NGX_HAVE_GCC_CLZLL"
+    ngx_feature_run=no
+    ngx_feature_incs=
+    ngx_feature_path=
+    ngx_feature_libs=
+    ngx_feature_test="if (__builtin_clzll(1ULL) != 63) return 1;"
+    . auto/feature
+
+
+    ngx_feature="gcc builtin ceil"
+    ngx_feature_name="NGX_HAVE_GCC_CEIL"
+    ngx_feature_run=no
+    ngx_feature_incs=
+    ngx_feature_path=
+    ngx_feature_libs=
+    ngx_feature_test="if (__builtin_ceil(3.56) != 4.0) return 1;"
+    . auto/feature
+
+
     ngx_feature="gcc attribute packed"
     ngx_feature_name=NGX_HAVE_GCC_ATTRIBUTE_PACKED
     ngx_feature_run=no

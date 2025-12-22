@@ -155,6 +155,19 @@ enabled or the "proxy_method" is set.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+поддержка произвольных числовых метрик, отображаемых в API статистике
+в реальном времени; добавлены директивы "metric_zone", "metric_complex_zone"
+и "metric" для создания и обновления метрик.
+</para>
+<para lang="en">
+support for custom numeric metrics displayed in the real-time statistics
+API; added "metric_zone", "metric_complex_zone" and "metric" directives
+for creating and updating metrics.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 директива "proxy_method" игнорировалась при срабатывании директивы

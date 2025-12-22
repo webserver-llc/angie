@@ -82,6 +82,7 @@ HTTP_SLICE=NO
 HTTP_AUTOINDEX=YES
 HTTP_RANDOM_INDEX=NO
 HTTP_API=YES
+HTTP_METRIC=YES
 HTTP_PROMETHEUS=YES
 HTTP_GEO=YES
 HTTP_GEOIP=NO
@@ -297,6 +298,7 @@ $0: warning: the \"--with-ipv6\" option is deprecated"
         --without-http_mirror_module)    HTTP_MIRROR=NO             ;;
         --without-http_autoindex_module) HTTP_AUTOINDEX=NO          ;;
         --without-http_api_module)       HTTP_API=NO                ;;
+        --without-http_metric_module)    HTTP_METRIC=NO             ;;
         --without-http_prometheus_module) HTTP_PROMETHEUS=NO        ;;
         --without-http_geo_module)       HTTP_GEO=NO                ;;
         --without-http_map_module)       HTTP_MAP=NO                ;;

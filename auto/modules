@@ -174,7 +174,8 @@ if [ $HTTP = YES ]; then
                       ngx_http_copy_filter_module \
                       ngx_http_range_body_filter_module \
                       ngx_http_not_modified_filter_module \
-                      ngx_http_slice_filter_module"
+                      ngx_http_slice_filter_module \
+                      ngx_http_metric_module"
 
     if :; then
         ngx_module_name=ngx_http_write_filter_module
@@ -415,6 +416,20 @@ if [ $HTTP = YES ]; then
         ngx_module_srcs=src/http/modules/ngx_http_slice_filter_module.c
         ngx_module_libs=
         ngx_module_link=$HTTP_SLICE
+
+        . auto/module
+    fi
+
+    if [ $HTTP_METRIC = YES ]; then
+        USE_API=YES
+        USE_JSON=YES
+
+        ngx_module_name=ngx_http_metric_module
+        ngx_module_incs=
+        ngx_module_deps=
+        ngx_module_srcs=src/http/modules/ngx_http_metric_module.c
+        ngx_module_libs=
+        ngx_module_link=$HTTP_METRIC
 
         . auto/module
     fi

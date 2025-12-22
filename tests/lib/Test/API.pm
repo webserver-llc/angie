@@ -13,7 +13,7 @@ BEGIN {
 }
 
 use Test::More;
-use Test::Deep qw/any re hash_each subhashof cmp_details deep_diag/;
+use Test::Deep qw/any re hash_each subhashof cmp_details deep_diag ignore/;
 
 use Test::Utils qw/:json :re/;
 
@@ -22,6 +22,7 @@ sub api_status {
 	my $t = shift;
 
 	my $with_debug = $t->has_module('debug');
+	my $with_http_metric = $t->has_module('http_metric');
 
 	my $build;
 	if ($t->{_configure_args} =~ /--build=(?|'([^']+)'|(\S+))/) {
@@ -108,6 +109,7 @@ sub api_status {
 					updating => $cache_read,
 				})
 			),
+			($with_http_metric ? (metric_zones => hash_each(ignore())) : ()),
 			limit_conns => $limit_conns,
 			limit_reqs => hash_each({
 				delayed   => $NUM_RE,
@@ -329,6 +331,9 @@ sub traverse_api_status {
 			$expected_val = $expected->{val};
 		} elsif (ref $expected eq 'HASH') {
 			$expected_val = $expected->{$key};
+		} elsif (ref $expected eq 'Test::Deep::Ignore') {
+			debug("SKIP uri $uri$key");
+			next;
 		}
 
 		my ($res, $details)

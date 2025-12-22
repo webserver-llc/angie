@@ -160,6 +160,8 @@ sub has_module($) {
 		perl	=> '--with-http_perl_module',
 		http_api
 			=> '(?s)^(?!.*--without-http_api_module)',
+		http_metric
+			=> '(?s)^(?!.*--without-http_metric_module)',
 		prometheus
 			=> '(?s)^(?!.*--without-http_prometheus_module)',
 		auth_request

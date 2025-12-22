@@ -851,13 +851,8 @@ ngx_json_parse_number(ngx_data_item_t **item_p, u_char *start, u_char *end,
         return NULL;
     }
 
-    if (num != trunc(num)) {
-        return ngx_json_parse_error_const(error, start,
-            "Fractional numbers aren't supported."
-        );
-    }
-
-    item = ngx_data_new_integer(num, pool);
+    item = (num != trunc(num)) ? ngx_data_new_fractional(num, pool)
+                               : ngx_data_new_integer(num, pool);
     if (item == NULL) {
         return NULL;
     }
@@ -955,6 +950,9 @@ ngx_json_length(ngx_data_item_t *item, ngx_json_pretty_t *pretty)
     case NGX_DATA_STRING_TYPE:
         return ngx_json_string_length(item->data.string.start,
                                       item->data.string.length);
+    case NGX_DATA_FRACTIONAL_TYPE:
+        return NGX_DTOA_MAX_LEN;
+
     case NGX_DATA_INTEGER_TYPE:
         return NGX_INT64_LEN;
 
@@ -986,6 +984,9 @@ ngx_json_encode(u_char *p, ngx_data_item_t *item, ngx_json_pretty_t *pretty)
     case NGX_DATA_STRING_TYPE:
         return ngx_json_string_encode(p, item->data.string.start,
                                       item->data.string.length);
+    case NGX_DATA_FRACTIONAL_TYPE:
+        return p + ngx_dtoa(p, item->data.fractional);
+
     case NGX_DATA_INTEGER_TYPE:
         return ngx_sprintf(p, "%L", item->data.integer);
 

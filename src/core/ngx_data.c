@@ -199,6 +199,22 @@ ngx_data_new_integer(int64_t value, ngx_pool_t *pool)
 
 
 ngx_data_item_t *
+ngx_data_new_fractional(double value, ngx_pool_t *pool)
+{
+    ngx_data_item_t  *item;
+
+    item = ngx_data_new_item(pool, NGX_DATA_FRACTIONAL_TYPE);
+    if (item == NULL) {
+        return NULL;
+    }
+
+    item->data.fractional = value;
+
+    return item;
+}
+
+
+ngx_data_item_t *
 ngx_data_new_string(ngx_str_t *value, ngx_pool_t *pool)
 {
     ngx_uint_t        is_long;

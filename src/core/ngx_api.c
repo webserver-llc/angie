@@ -358,6 +358,16 @@ ngx_api_number_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
 
 
 ngx_int_t
+ngx_api_fractional_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    actx->out = ngx_data_new_fractional(data.frac, actx->pool);
+
+    return actx->out ? NGX_OK : NGX_ERROR;
+}
+
+
+ngx_int_t
 ngx_api_atomic_pp_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     void *ctx)
 {

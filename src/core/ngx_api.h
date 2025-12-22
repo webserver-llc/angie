@@ -40,6 +40,7 @@ typedef union {
     ngx_str_t                  *str;
     ngx_uint_t                  flag;
     int64_t                     num;
+    double                      frac;
     ngx_atomic_t              **atpp;
     ngx_time_t                 *tp;
     size_t                      off;
@@ -79,6 +80,8 @@ ngx_int_t ngx_api_string_handler(ngx_api_entry_data_t data,
 ngx_int_t ngx_api_flag_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_number_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_fractional_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_time_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);

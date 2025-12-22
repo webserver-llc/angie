@@ -574,6 +574,16 @@ ngx_http_prometheus_variable(ngx_http_request_t *r,
         v->len = p - v->data;
         break;
 
+    case NGX_DATA_FRACTIONAL_TYPE:
+        p = ngx_pnalloc(r->pool, NGX_DTOA_MAX_LEN);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        v->data = p;
+        v->len = ngx_dtoa(p, item->data.fractional);
+        break;
+
     case NGX_DATA_BOOLEAN_TYPE:
         v->len = 1;
         v->data = (u_char *) (item->data.boolean ? "1" : "0");

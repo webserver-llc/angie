@@ -9,8 +9,6 @@
 #include <ngx_event.h>
 
 
-static ngx_int_t ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name);
-
 static ngx_int_t ngx_api_generic_iter(ngx_api_iter_ctx_t *ictx,
     ngx_api_ctx_t *actx);
 
@@ -262,7 +260,7 @@ ngx_api_object_iterate(ngx_api_iter_pt iter, ngx_api_iter_ctx_t *ictx,
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name)
 {
     u_char  *p, *end;

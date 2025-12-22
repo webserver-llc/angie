@@ -72,6 +72,8 @@ typedef ngx_int_t (*ngx_api_iter_pt)(ngx_api_iter_ctx_t *ictx,
 ngx_int_t ngx_api_object_iterate(ngx_api_iter_pt iter, ngx_api_iter_ctx_t *ictx,
                                  ngx_api_ctx_t *actx);
 
+ngx_int_t ngx_api_next_segment(ngx_str_t *path, ngx_str_t *name);
+
 
 ngx_int_t ngx_api_object_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);

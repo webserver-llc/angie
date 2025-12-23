@@ -7,6 +7,25 @@
 
 <changes ver="1.11.0" date="">
 
+<change type="change">
+<para lang="ru">
+значение по умолчанию директивы "variables_hash_max_size" в HTTP-модуле
+увеличено до 2048, чтобы снизить вероятность появления предупреждений о
+неоптимальном построении хэша из-за добавления множества новых переменных
+за последние годы: "[warn] could not build optimal variables_hash, you should
+increase either variables_hash_max_size: 1024 or variables_hash_bucket_size: 64;
+ignoring variables_hash_bucket_size".
+</para>
+<para lang="en">
+the default value of the "variables_hash_max_size" directive in the HTTP module
+was increased to 2048 in order to reduce possibility of a warning about
+suboptimal hash build due to new variables added during the recent years:
+"[warn] could not build optimal variables_hash, you should increase either
+variables_hash_max_size: 1024 or variables_hash_bucket_size: 64; ignoring
+variables_hash_bucket_size".
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 переменная $upstream_cache_key, содержащая используемый ключ кэширования.<br/>

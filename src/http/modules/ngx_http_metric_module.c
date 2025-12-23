@@ -4180,6 +4180,8 @@ ngx_http_metric_hist_api(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
     hist_imctx.pos = imctx->pos;
     hist_imctx.end = imctx->end;
 
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
     ictx.entry.handler = ngx_api_number_handler;
     ictx.ctx = &hist_imctx;
     ictx.elts = (ngx_http_metric_hist_args_t *) buckets->elts + buckets->nelts;

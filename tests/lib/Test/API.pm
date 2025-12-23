@@ -332,8 +332,7 @@ sub traverse_api_status {
 		} elsif (ref $expected eq 'HASH') {
 			$expected_val = $expected->{$key};
 		} elsif (ref $expected eq 'Test::Deep::Ignore') {
-			debug("SKIP uri $uri$key");
-			next;
+			$expected_val = ignore();
 		}
 
 		my ($res, $details)

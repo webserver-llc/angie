@@ -1,4 +1,161 @@
 
+Changes with Angie 1.11.0                                        25 Dec 2025
+
+    *) Change: the "$http_host" variable in HTTP/3 requests is now
+       initialized from the value of the ":authority" pseudo-header if the
+       "Host" header was not passed, which is normal for clients;
+       previously, differences from earlier protocol versions might cause
+       issues in configurations with "$http_host".
+
+    *) Change: if all HTTP servers in an upstream group are unavailable or
+       returning an error, the own error page is now always returned instead
+       of the response from the last server when receiving a status
+       considered an error according to the "proxy_next_upstream" directive
+       (and similar); this ensures consistent behavior in all cases.
+
+    *) Change: the "REQUEST_METHOD" parameter in the "fastcgi.conf",
+       "fastcgi_params", "uwsgi_params", and "scgi_params" configuration
+       files now is set via the "$upstream_request_method" variable, which
+       takes the value GET for HEAD requests when caching is configured;
+       this prevents an issue where a HEAD request could previously result
+       in storing an empty response, which would then be served for GET
+       requests, since the request method is not a part of the cache key in
+       common configurations.
+
+    *) Change: the maximum response size from the ACME server is now limited
+       by the new "acme_max_response_size" directive instead of the
+       "max_cert_size=" parameter of the "acme_client" directive; the
+       default value is enough for most cases, but if a certificate update
+       ends up with the "[error] too big subrequest response while sending
+       to client" error message, its value should be increased.
+
+    *) Change: the default value of the "variables_hash_max_size" directive
+       in the HTTP module was increased to 2048 in order to reduce
+       possibility of a warning about suboptimal hash build due to new
+       variables added during the recent years: "[warn] could not build
+       optimal variables_hash, you should increase either
+       variables_hash_max_size: 1024 or variables_hash_bucket_size: 64;
+       ignoring variables_hash_bucket_size".
+
+    *) Feature: the new Metrics module enabling arbitrary, real‑time HTTP
+       metrics collection with fully configurable aggregation methods
+       (counters, histograms, moving averages, etc.); it allows tracking any
+       request‑processing data at any stage, grouped by custom keys, and
+       exposes the metrics via the "/status/http/metric_zones/" API section
+       (including Prometheus support), providing a powerful built‑in
+       analytics tool for the entire HTTP traffic.
+
+    *) Feature: support for ALPN validation for ACME, enabled by specifying
+       "alpn" in the "challenge" parameter of the "acme_client" directive;
+       allows to request multi-domain certificates while keeping only the
+       HTTPS port open.
+
+    *) Feature: information on ACME clients and certificate requesting
+       procedure in the "/status/http/acme_clients/" section of the
+       statistics API (with Prometheus support).
+
+    *) Feature: added support for Encrypted Client Hello (ECH) in HTTP and
+       stream SSL modules; the new "ssl_encrypted_hello_key" directive
+       specifies the file with the private key; the "$ssl_encrypted_hello"
+       variable contains information about ECH usage.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: conversion of the image format using the "convert" parameter
+       for the "image_filter" directive.
+
+    *) Feature: support for AVIF and HEIC formats in the Image Filter
+       module.
+
+    *) Feature: support for PROXY protocol V2 with upstream server
+       connections in the stream module and the ability to set arbitrary TLV
+       values using the "proxy_protocol_tlv" directive which allows a string
+       with variables.
+
+    *) Feature: the "$upstream_request_method" variable that contains the
+       upstream request method, which can be different from the client
+       request method when caching is enabled or the "proxy_method" is set;
+       this helps avoid the common configuration issue where a cached empty
+       HEAD response is served for GET requests, as well as avoid caching
+       HEAD and GET responses separately.
+
+    *) Feature: removed the need to define a separate "server" block with a
+       "listen 80" directive for ACME HTTP challenges; the listening port
+       can be customized using the new "acme_http_port" directive if
+       necessary.
+
+    *) Feature: ability to count the number of items in lists and objects
+       when exporting Prometheus metrics; paths ending with a trailing slash
+       now return the count of items in the corresponding API collection.
+
+    *) Feature: the "$sent_body" variable containing the response body of a
+       subrequest or external request by client module.
+
+    *) Feature: XOAUTH2 and OAUTHBEARER authentication mechanisms support in
+       the mail proxy module.
+       Thanks to Rob Mueller and Maxim Dounin (freenginx).
+
+    *) Feature: the "route" parameter of the "sticky" directive may now
+       include arbitrary strings with any number of variables.
+
+    *) Feature: in the ACME module, the approximate size of a renewed
+       certificate is now calculated automatically, eliminating the need to
+       increase the "max_cert_size" parameter of the "acme_client" directive
+       when issuing a certificate with a very large number of domains; the
+       parameter is retained for cases where manual configuration is still
+       required.
+
+    *) Feature: the "$upstream_cache_key" variable that contains the cache
+       key being used.
+       Thanks to Kirill A. Korinsky and Maxim Dounin (freenginx).
+
+    *) Feature: support for building with AWS-LC SSL library.
+       Thanks to Piotr Sikora (piotr at aviatrix.com).
+
+    *) Feature: the new Makefile target "test" executing the test suite.
+
+    *) Feature: all functionality of nginx 1.29.3 except the
+       "add_header_inherit" and "add_trailer_inherit" directives, which are
+       omitted due to their poor design.
+
+    *) Bugfix: reload and binary upgrade procedures are now working
+       correctly with HTTP/3 connections; connections are properly routed to
+       all existing processes using the BPF module.
+
+    *) Bugfix: if all servers in an upstream group were unavailable or
+       returning an error, then receiving an erroneous response from the
+       last one might be considered a success despite the
+       "proxy_next_upstream" directive settings.
+
+    *) Bugfix: if path in the "try_files" directive was shorter than a
+       prefix in the relevant "location" block, then using a "proxy_pass"
+       with a URI could crash a worker process; the fix was ported from
+       nginx 1.29.4.
+
+    *) Bugfix: if an ACME client was not referenced in a "stream" block via
+       any "acme" directive, using any of the corresponding "$acme_cert_*"
+       variables in that block would cause the configuration to be rejected
+       with an "unknown variable" error; the bug had appeared in 1.10.3.
+
+    *) Bugfix: if preserving of the cache index to a file was configured,
+       the configuration test during operation might end with errors
+       "[alert] mmap() failed (17: File exists)" and "[alert] munmap()
+       failed (22: Invalid argument)".
+
+    *) Bugfix: the "proxy_method" directive was ignored if
+       "proxy_cache_convert_head on" was triggered.
+
+    *) Bugfix: the duration of the time-out specified by the "fail_timeout"
+       option of the "server" directive within an "upstream" block was
+       actually one second longer.
+
+    *) Bugfix: Angie could not be built on NetBSD 10.0.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Bugfix: loading modules built for Angie PRO could cause issues and
+       crashes due to ABI incompatibility; now such incorrect configurations
+       are prohibited with a relevant error message.
+
+
 Changes with Angie 1.10.3                                        13 Nov 2025
 
     *) Security: processing of a specially crafted login/password when using

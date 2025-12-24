@@ -9,6 +9,77 @@
 
 <change type="change">
 <para lang="ru">
+переменная "$http_host" в запросах по протоколу HTTP/3 теперь инициализируется
+из значения псевдозаголовка ":authority", если заголовок "Host" не был передан,
+что является нормальным для клиентов; до этого отличия в поведении от протоколов
+младших версий могли создавать проблемы в конфигурациях с использованием
+переменной "$http_host".
+</para>
+<para lang="en">
+the "$http_host" variable in HTTP/3 requests is now initialized from the value
+of the ":authority" pseudo-header if the "Host" header was not passed, which
+is normal for clients; previously, differences from earlier protocol versions
+might cause issues in configurations with "$http_host".
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+если все HTTP-сервера в upstream-группе оказываются недоступны или возвращают
+ошибку, то теперь всегда возвращается собственная страница ошибки вместо
+принятой от последнего сервера, когда тот вернул ошибочный статус согласно
+настройкам директивы "proxy_next_upstream" (и ей подобных); это позволяет
+получить консистентное поведение во всех случаях.
+</para>
+<para lang="en">
+if all HTTP servers in an upstream group are unavailable or returning an error,
+the own error page is now always returned instead of the response from the last
+server when receiving a status considered an error according to the
+"proxy_next_upstream" directive (and similar); this ensures consistent behavior
+in all cases.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+параметр "REQUEST_METHOD" в файлах конфигурации "fastcgi.conf", "fastcgi_params",
+"uwsgi_params" и "scgi_params" теперь устанавливается через переменную
+"$upstream_request_method", которая принимает значение GET для HEAD-запросов
+при настройке кэширования; это предотвращает проблему, когда ранее в результате
+HEAD-запроса могло происходить сохранение пустых ответов, которые затем
+отдавались на GET-запросы, так как в типичной конфигурации метод запроса не
+является ключом кэширования.
+</para>
+<para lang="en">
+the "REQUEST_METHOD" parameter in the "fastcgi.conf", "fastcgi_params",
+"uwsgi_params", and "scgi_params" configuration files now is set via
+the "$upstream_request_method" variable, which takes the value GET for HEAD
+requests when caching is configured; this prevents an issue where a HEAD request
+could previously result in storing an empty response, which would then be served
+for GET requests, since the request method is not a part of the cache key in
+common configurations.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+максимальный размер ответа от ACME-сервера теперь ограничивается новой
+директивой "acme_max_response_size", а не параметром "max_cert_size=" директивы
+"acme_client"; заданного по умолчанию значения достаточно для большинства
+случаев, но в случае, если обновление завершается ошибкой "[error] too big
+subrequest response while sending to client", его следует увеличить.
+</para>
+<para lang="en">
+the maximum response size from the ACME server is now limited by the new
+"acme_max_response_size" directive instead of the "max_cert_size=" parameter of
+the "acme_client" directive; the default value is enough for most cases, but if
+a certificate update ends up with the "[error] too big subrequest response while
+sending to client" error message, its value should be increased.
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
 значение по умолчанию директивы "variables_hash_max_size" в HTTP-модуле
 увеличено до 2048, чтобы снизить вероятность появления предупреждений о
 неоптимальном построении хэша из-за добавления множества новых переменных
@@ -28,82 +99,128 @@ variables_hash_bucket_size".
 
 <change type="feature">
 <para lang="ru">
-переменная $upstream_cache_key, содержащая используемый ключ кэширования.<br/>
-Спасибо Кириллу Коринскому и Максиму Дунину (freenginx).
+произвольно конфигурируемый сбор статистики с помощью нового модуля Metrics в
+HTTP; позволяет, используя различные методы (счетчики, гистограммы, скользящие
+средние и др.), агрегировать любые данные на разных стадиях обработки запроса
+в реальном времени с помощью переменных по заданным ключам и отдавать их в
+секции "/status/http/metric_zones/" API статистики (с поддержкой Prometheus),
+тем самым добавляя встроенный мощный аналитический инструмент для всего
+HTTP-трафика.
 </para>
 <para lang="en">
-the $upstream_cache_key variable that contains the cache key being used.<br/>
-Thanks to Kirill A. Korinsky and Maxim Dounin (freenginx).
+the new Metrics module enabling arbitrary, real‑time HTTP metrics collection
+with fully configurable aggregation methods (counters, histograms, moving averages,
+etc.); it allows tracking any request‑processing data at any stage, grouped by
+custom keys, and exposes the metrics via the "/status/http/metric_zones/"
+API section (including Prometheus support), providing a powerful built‑in
+analytics tool for the entire HTTP traffic.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-в API статистики добавлена информация об ACME-клиентах.
+поддержка ALPN-верификации для ACME, задаваемая при помощи значения "alpn"
+в качестве параметра "challenge" директивы "acme_client"; позволяет запрашивать
+мультидоменные сертификаты, держа открытым только HTTPS-порт.
 </para>
 <para lang="en">
-the statistics API now includes information on ACME clients.
+support for ALPN validation for ACME, enabled by specifying "alpn" in the
+"challenge" parameter of the "acme_client" directive; allows to request
+multi-domain certificates while keeping only the HTTPS port open.
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-поддержка методов аутентификации XOAUTH2 и OAUTHBEARER
-в почтовом прокси-сервере.<br/>
-Спасибо Rob Mueller и Максиму Дунину (freenginx).
+информация об ACME-клиентах и процедуре получения сертификата в разделе
+"/status/http/acme_clients/" API статистики (с поддержкой Prometheus).
 </para>
 <para lang="en">
-XOAUTH2 and OAUTHBEARER authentication mechanisms support
-in the mail proxy module.<br/>
-Thanks to Rob Mueller and Maxim Dounin (freenginx).
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-если ACME-клиент не использовался в блоке "stream" в директивах "acme",
-попытка использовать в блоке "stream" соответствующие переменные
-$acme_cert_* завершалась ошибкой "unknown variable";
-проблема появилась в 1.10.3.
-</para>
-<para lang="en">
-if an ACME client was never referenced in the "stream" block using
-"acme" directives, using a corresponding $acme_cert_* variable there
-would result in an "unknown variable" error.
-the bug had appeared in 1.10.3.
+information on ACME clients and certificate requesting procedure in the
+"/status/http/acme_clients/" section of the statistics API (with Prometheus
+support).
 </para>
 </change>
 
 <change type="feature">
 <para lang="ru">
-В модуле ACME автоматически вычисляется приблизительный размер получаемого
-сертификата, что практически устраняет необходимость использования параметра
-"max_cert_size". Этот параметр, тем не менее, оставлен для использования на
-случай если ручная конфигурация размера сертификата всё же понадобится.
+добавлена поддержка Encrypted Client Hello (ECH) в HTTP и stream SSL-модулях;
+директива "ssl_encrypted_hello_key" позволяет задать файл с приватным
+ключом; переменная "$ssl_encrypted_hello" содержит информацию об использовании
+ECH.<br/>
+Спасибо Максиму Дунину (freenginx).
 </para>
 <para lang="en">
-In the ACME module, the approximate size of a renewed certificate is now
-calculated automatically, making the "max_cert_size" parameter largely
-unnecessary. The parameter is retained, however, for cases where manual
-configuration is still needed.
+added support for Encrypted Client Hello (ECH) in HTTP and stream SSL modules;
+the new "ssl_encrypted_hello_key" directive specifies the file with the private
+key; the "$ssl_encrypted_hello" variable contains information about ECH usage.
+<br/>
+Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 
-<change type="change">
+<change type="feature">
 <para lang="ru">
-В модуле ACME добавлена новая директива "acme_max_response_size", с помощью
-которой можно увеличить размер буфера ответа от ACME-сервера, если обновляется
-сертификат для большого количества доменов и обновление завершилось ошибкой
-"too big subrequest response while sending to client". В большинстве случаев
-в этом не будет необходимости, т.к. буфер ответа имеет достаточно большой
-размер.
+конвертация формата изображения с помощью параметра "convert" директивы
+"image_filter".
 </para>
 <para lang="en">
-In the ACME module, a new "acme_max_response_size" directive has been added
-to allow increasing the response buffer when renewing a certificate with many
-domain names, if the renewal fails with the error "too big subrequest response
-while sending to client". This should rarely be necessary, as the default value
-is sufficient for most cases.
+conversion of the image format using the "convert" parameter for the
+"image_filter" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка форматов AVIF и HEIC в модуле Image Filter.
+</para>
+<para lang="en">
+support for AVIF and HEIC formats in the Image Filter module.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка PROXY-протокола второй версии в stream-модуле в сторону проксируемых
+серверов с возможностью передачи произвольных значений через TLV-записи с
+помощью директив "proxy_protocol_tlv", в которых можно указывать строки
+с переменными.
+</para>
+<para lang="en">
+support for PROXY protocol V2 with upstream server connections in the stream
+module and the ability to set arbitrary TLV values using the
+"proxy_protocol_tlv" directive which allows a string with variables.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+переменная "$upstream_request_method", содержащая метод запроса к проксируемому
+серверу, который может отличаться от метода запроса клиента при использовании
+кэширования или директивы "proxy_method"; позволяет легко избежать
+распространенной проблемы в конфигурациях, когда на GET-запрос возвращается
+закэшированный пустой HEAD-ответ, а также избежать кэширования HEAD и GET
+отдельно.
+</para>
+<para lang="en">
+the "$upstream_request_method" variable that contains the upstream request
+method, which can be different from the client request method when caching is
+enabled or the "proxy_method" is set; this helps avoid the common configuration
+issue where a cached empty HEAD response is served for GET requests, as well as
+avoid caching HEAD and GET responses separately.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+теперь HTTP-верификация в ACME может работать без блоков "server" с директивой
+"listen 80" в конфигурации; при необходимости слушающий порт можно изменить
+с помощью новой директивы "acme_http_port".
+</para>
+<para lang="en">
+removed the need to define a separate "server" block with a "listen 80"
+directive for ACME HTTP challenges; the listening port can be customized
+using the new "acme_http_port" directive if necessary.
 </para>
 </change>
 
@@ -122,222 +239,75 @@ of items in the corresponding API collection.
 
 <change type="feature">
 <para lang="ru">
-параметр "convert" для директивы "image_filter", который позволяет задавать
-новый формат изображений.
-</para>
-<para lang="en">
-the "convert" parameter for the "image_filter" directive, used to set
-the new image format.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка форматов AVIF и HEIC в Image Filter.
-</para>
-<para lang="en">
-support for AVIF and HEIC formats in Image Filter.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-параметр "REQUEST_METHOD" в файлах конфигурации "fastcgi.conf", fastcgi_params",
-"uwsgi_params" и "scgi_params" теперь устанавливается через переменную
-"$upstream_request_method", которая принимает значение GET для HEAD-запросов
-при настройке кэширования; это предотвращает проблему, когда ранее в результате
-HEAD-запроса могло происходить сохранение пустых ответов, которые затем
-отдавались на GET запросы, так как в типичной конфигурации метод запроса не
-является ключом кэширования.
-</para>
-<para lang="en">
-the "REQUEST_METHOD" parameter in the "fastcgi.conf", fastcgi_params",
-"uwsgi_params", and "scgi_params" configuration files now is set via
-the "$upstream_request_method" variable, which takes the value GET for HEAD
-requests when caching is configured; this prevents an issue where a HEAD request
-could previously result in storing an empty response, which would then be served
-for GET requests, since the request method is not a part of the cache key in
-common configurations.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-переменная "$upstream_request_method", содержащая метод запроса к проксируемому
-серверу, который может отличаться от метода запроса клиента при использовании
-кэширования или директивы "proxy_method".
-</para>
-<para lang="en">
-the "$upstream_request_method" variable that contains the upstream request
-method, which can be different from client request method when caching is
-enabled or the "proxy_method" is set.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка произвольных числовых метрик, отображаемых в API статистике
-в реальном времени; добавлены директивы "metric_zone", "metric_complex_zone"
-и "metric" для создания и обновления метрик.
-</para>
-<para lang="en">
-support for custom numeric metrics displayed in the real-time statistics
-API; added "metric_zone", "metric_complex_zone" and "metric" directives
-for creating and updating metrics.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-директива "proxy_method" игнорировалась при срабатывании директивы
-"proxy_cache_convert_head on".
-</para>
-<para lang="en">
-the "proxy_method" directive was ignored if "proxy_cache_convert_head on" was
-triggered.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-переменная "$http_host" в запросах по протоколу HTTP/3 теперь инициализируется
-из значения псевдо-заголовка ":authority", если заголовок "Host" не был передан.
-</para>
-<para lang="en">
-the "$http_host" variable in HTTP/3 requests is now initialized from the value
-of the ":authority" pseudo-header if the "Host" header was not passed.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка сборки с SSL-библиотекой AWS-LC (https://github.com/aws/aws-lc).
-Спасибо Петру Сикоре (piotr at aviatrix.com).
-</para>
-<para lang="en">
-support for building with AWS-LC SSL library (https://github.com/aws/aws-lc).
-Thanks to Piotr Sikora (piotr at aviatrix.com).
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-длительность тайм-аута, задаваемого опцией "fail_timeout" директивы
-"server" блока "upstream", была на 1 секунду длинее, чем указано.
-</para>
-<para lang="en">
-the duration of the time-out specified by the "fail_timeout" option of the
-"server" directive within "upstream" block was actually one second longer.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-прокси-сервер возвращает стандартную страницу ошибки при получении от
-проксируемых серверов статуса, считающегося ошибкой, вместо страницы,
-принятой от последнего из проксируемых серверов.
-</para>
-<para lang="en">
-proxy answers with the standard error page in a case of receiving errorous
-status from the upstream servers instead of retransmitting answer from the last
-upstream.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-исправлен статус проксируемого сервера при получения ответа, считающегося
-ошибкой, и использовании директивы "proxy_next_upstream".
-</para>
-<para lang="en">
-fixed upstream server status while receiving errorous answer when the
-"proxy_next_upstream" directive is used.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка PROXY protocol V2 в сторону проксируемых серверов с возможностью
-задать значения для дополнительных структур TLV директивами
-"proxy_protocol_tlv".
-</para>
-<para lang="en">
-support for PROXY protocol V2 with upstream server connections, with the
-ability to set additional TLV structures using the "proxy_protocol_tlv"
-directive.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-вся функциональность nginx 1.29.3, за исключением директив "add_header_inherit"
-и "add_trailer_inherit".
-</para>
-<para lang="en">
-all functionality of nginx 1.29.3 except the "add_header_inherit"
-and "add_trailer_inherit" directives.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-в конфигурации ACME отменено требование задавать отдельный блок "server"
-с директивой "listen 80", если настроена HTTP-верификация; при необходимости
-слушающий порт можно изменить с помощью новой директивы "acme_http_port".
-</para>
-<para lang="en">
-removed the need to define a separate "server" block with a "listen 80"
-directive for ACME HTTP challenges; the listening port can be customized
-using the new "acme_http_port" directive if necessary.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-добавлена поддержка Encrypted Client Hello (ECH) в HTTP и Stream SSL-модулях.
-Новая директивой "ssl_encrypted_hello_key" позволяет задать файл с приватным
-ключом.  Переменная "$ssl_encrypted_hello" содержит информацию об использовании
-ECH.
-</para>
-<para lang="en">
-added support for Encrypted Client Hello (ECH) in HTTP and Stream SSL modules.
-The new "ssl_encrypted_hello_key" directive specifies the file with private
-key.  The "$ssl_encrypted_hello" variable contains information about ECH usage.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-Процедуры перезагрузки конфигурации и обновления исполняемого файла на лету
-теперь работают штатно с HTTP/3 соединениями. Реализован корректный роутинг
-соединений ко всем существующими процессами при помощи bpf модуля.
-</para>
-<para lang="en">
-Reload and binary upgrade procedures are now working correctly with HTTP/3
-connections. Connections are properly routed to all existing processes using
-the bpf module.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-Angie не собирался на NetBSD 10.0.
-Спасибо Максиму Дунину (freenginx).
-</para>
-<para lang="en">
-Angie could not be built on NetBSD 10.0.
-Thanks to Maxim Dounin (freenginx).
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-переменная "$sent_body" содержащая тело ответа подзапроса или запроса от
+переменная "$sent_body", содержащая тело ответа подзапроса или запроса от
 клиентского модуля.
 </para>
 <para lang="en">
-the "$sent_body" variable containing response body of a subrequest or
+the "$sent_body" variable containing the response body of a subrequest or
 external request by client module.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка методов аутентификации XOAUTH2 и OAUTHBEARER в почтовом
+прокси-сервере.<br/>
+Спасибо Rob Mueller и Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+XOAUTH2 and OAUTHBEARER authentication mechanisms support in the mail proxy
+module.<br/>
+Thanks to Rob Mueller and Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+параметр "route" директивы "sticky" теперь может содержать произвольные строки
+с любым количеством переменных.
+</para>
+<para lang="en">
+the "route" parameter of the "sticky" directive may now include arbitrary
+strings with any number of variables.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+в модуле ACME автоматически вычисляется приблизительный размер получаемого
+сертификата, что устраняет необходимость увеличивать параметр "max_cert_size"
+директивы "acme_client" в случаях выпуска сертификата с очень большим
+количеством доменов; параметр оставлен для случаев, когда ручная настройка
+всё же понадобится.
+</para>
+<para lang="en">
+in the ACME module, the approximate size of a renewed certificate is now
+calculated automatically, eliminating the need to increase the "max_cert_size"
+parameter of the "acme_client" directive when issuing a certificate with a very
+large number of domains; the parameter is retained for cases where manual
+configuration is still required.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+переменная "$upstream_cache_key", содержащая используемый ключ кэширования.<br/>
+Спасибо Кириллу Коринскому и Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+the "$upstream_cache_key" variable that contains the cache key being used.<br/>
+Thanks to Kirill A. Korinsky and Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка сборки с SSL-библиотекой AWS-LC.<br/>
+Спасибо Петру Сикоре (piotr at aviatrix.com).
+</para>
+<para lang="en">
+support for building with AWS-LC SSL library.<br/>
+Thanks to Piotr Sikora (piotr at aviatrix.com).
 </para>
 </change>
 
@@ -352,47 +322,114 @@ the new Makefile target "test" executing the test suite.
 
 <change type="feature">
 <para lang="ru">
-поддержка ALPN-верификации для ACME, задаётся при помощи значения "alpn"
-в качестве параметра "challenge" директивы "acme_client".
+вся функциональность nginx 1.29.3, за исключением директив "add_header_inherit"
+и "add_trailer_inherit", качество проработки которых крайне низкое.
 </para>
 <para lang="en">
-support for ALPN validation for ACME, enabled by specifying "alpn" in the
-"challenge" parameter of the "acme_client" directive.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-параметр "route" директивы "sticky" теперь может включать
-комплексные переменные.
-</para>
-<para lang="en">
-the "route" parameter of the "sticky" directive may now
-include complex values.
+all functionality of nginx 1.29.3 except the "add_header_inherit" and
+"add_trailer_inherit" directives, which are omitted due to their poor design.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-теперь Angie не пытается загрузить кэш из файла по прежнему адресу
-при тестировании конфигурации
+процедуры перезагрузки конфигурации и обновления исполняемого файла на лету
+теперь работают штатно с HTTP/3-соединениями; реализован корректный роутинг
+соединений ко всем существующим процессам при помощи модуля BPF.
 </para>
 <para lang="en">
-now Angie does not try to load cache from the file using previous address
-when testing configuration
+reload and binary upgrade procedures are now working correctly with HTTP/3
+connections; connections are properly routed to all existing processes using
+the BPF module.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-при совместном использовании директив try_files и proxy_pass с URI
-в рабочем процессе мог произойти segmentation fault.
+если все сервера в upstream-группе оказывались недоступны или возвращали ошибку,
+то ошибочный ответ последнего мог посчитаться успешным несмотря на настройки
+директивы "proxy_next_upstream".
+</para>
+<para lang="en">
+if all servers in an upstream group were unavailable or returning an error, then
+receiving an erroneous response from the last one might be considered a success
+despite the "proxy_next_upstream" directive settings.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+когда путь в "try_files" был короче, чем префикс в соответствующем блоке
+"location", использование "proxy_pass" с URI могло приводить к падению рабочего
+процесса;
 исправление портировано из nginx 1.29.4.
 </para>
 <para lang="en">
-a segmentation fault might occur in a worker process
-if the "try_files" directive and "proxy_pass" with a URI were used.
+if path in the "try_files" directive was shorter than a prefix in the relevant
+"location" block, then using a "proxy_pass" with a URI could crash a worker
+process;
 the fix was ported from nginx 1.29.4.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если в блоке "stream" не было ссылающихся на ACME-клиент директив "acme",
+то при указании в нём соответствующих переменных "$acme_cert_*" конфигурация
+не принималась с ошибкой "unknown variable";
+проблема появилась в 1.10.3.
+</para>
+<para lang="en">
+if an ACME client was not referenced in a "stream" block via any "acme"
+directive, using any of the corresponding "$acme_cert_*" variables in that block
+would cause the configuration to be rejected with an "unknown variable" error;
+the bug had appeared in 1.10.3.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если было настроено сохранение индекса кэша в файл, тестирование конфигурации
+во время работы могло завершаться ошибками типа "[alert] mmap() failed (17: File
+exists)" и "[alert] munmap() failed (22: Invalid argument)".
+</para>
+<para lang="en">
+if preserving of the cache index to a file was configured, the configuration
+test during operation might end with errors "[alert] mmap() failed (17: File
+exists)" and "[alert] munmap() failed (22: Invalid argument)".
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+директива "proxy_method" игнорировалась при срабатывании директивы
+"proxy_cache_convert_head on".
+</para>
+<para lang="en">
+the "proxy_method" directive was ignored if "proxy_cache_convert_head on" was
+triggered.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+длительность тайм-аута, задаваемого опцией "fail_timeout" директивы
+"server" блока "upstream", была на 1 секунду больше, чем указано.
+</para>
+<para lang="en">
+the duration of the time-out specified by the "fail_timeout" option of the
+"server" directive within an "upstream" block was actually one second longer.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+Angie не собирался на NetBSD 10.0.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+Angie could not be built on NetBSD 10.0.<br/>
+Thanks to Maxim Dounin (freenginx).
 </para>
 </change>
 

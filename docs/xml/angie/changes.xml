@@ -396,6 +396,19 @@ the fix was ported from nginx 1.29.4.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+загрузка модулей, собранных для Angie PRO, могла приводить к некорректной работе
+и падениям из-за несовместимости ABI; теперь подобные ошибочные конфигурации
+запрещены, и выдается соответствующее сообщение об ошибке.
+</para>
+<para lang="en">
+loading modules built for Angie PRO could cause issues and crashes due to ABI
+incompatibility; now such incorrect configurations are prohibited with a
+relevant error message.
+</para>
+</change>
+
 </changes>
 
 

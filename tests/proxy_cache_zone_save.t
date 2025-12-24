@@ -23,9 +23,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_zone/);
 
-# mmap/munmap may fail due to ASLR and test does some retries
-$t->skip_errors_check('alert', 'failed to restore zone at address', 'mmap',
-	'munmap');
+# mmap may fail due to ASLR and test does some retries
+$t->skip_errors_check('alert', 'failed to restore zone at address', 'mmap');
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

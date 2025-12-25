@@ -13,6 +13,7 @@ use warnings;
 use strict;
 
 use POSIX qw/ strftime /;
+use Test::Deep qw/ cmp_deeply re /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -20,13 +21,17 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT /;
 use Test::Nginx::ACME;
+use Test::Utils qw/ get_json /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
+eval { require Date::Parse; };
+plan(skip_all => 'Date::Parse not installed') if $@;
+
+my $t = Test::Nginx->new()->has(qw/acme http_api http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
 # XXX
@@ -58,6 +63,14 @@ http {
 
     acme_client test https://localhost:$pebble_port/dir
                 email=admin\@angie-test.com;
+    server {
+        listen          127.0.0.1:8080;
+        server_name     localhost;
+
+        location /status/ {
+            api /status/http/acme_clients/;
+        }
+    }
 
     server {
         listen               %%PORT_8443%% ssl;
@@ -93,6 +106,17 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 $t->plan(1);
 
 subtest 'obtaining and renewing a certificate' => sub {
+	my $expected_acme_clients = {
+		test => {
+			certificate => 'missing',
+			details     => re(qr(.+)),
+			state       => 'requesting'
+		},
+	};
+
+	my $acme_clients = get_json('/status/');
+	cmp_deeply($acme_clients, $expected_acme_clients, 'ACME clients API');
+
 	my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
 
 	# First, obtain the certificate.
@@ -131,6 +155,17 @@ subtest 'obtaining and renewing a certificate' => sub {
 	my $renewed = 0;
 	my $renewed_enddate = '';
 
+	my $cert_details = 'The certificate was obtained on \w+ \w+ \d{1,2} '
+		. '\d{1,2}\:\d{2}\:\d{2} 20\d{2}, the client is ready for renewal\.';
+
+	$expected_acme_clients = {
+		test => {
+			certificate => 'valid',
+			details     => re(qr/$cert_details/),
+			state       => 'ready'
+		}
+	};
+
 	for (1 .. 480) {
 		select undef, undef, undef, 0.5;
 
@@ -146,10 +181,17 @@ subtest 'obtaining and renewing a certificate' => sub {
 			note("$0: renewed certificate on $s; enddate: $renewed_enddate");
 
 			$renewed = 1;
+
+			$expected_acme_clients->{test}{next_run} =
+				strftime('%Y-%m-%dT%H:%M:%SZ',
+					gmtime(Date::Parse::str2time($renewed_enddate) - 5 // 0));
+
 			last;
 		}
 	}
 
 	ok($renewed, 'renewed certificate');
+
+	cmp_deeply(get_json('/status/'), $expected_acme_clients, "API ok");
 };
 

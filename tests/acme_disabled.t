@@ -18,12 +18,14 @@ use warnings;
 use strict;
 
 use File::Path qw/ make_path /;
+use Test::Deep qw/ cmp_deeply /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/ get_json /;
 
 ###############################################################################
 
@@ -31,7 +33,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl/)
+my $t = Test::Nginx->new()->has(qw/acme http_api http_ssl/)
 	->has_daemon('openssl');
 
 my $d = $t->testdir();
@@ -39,9 +41,8 @@ my $d = $t->testdir();
 my $client1 = 'test1';
 my $client2 = 'test2';
 my $client3 = 'test3';
-my $client_dir1 = "$d/acme_client/$client1";
-my $client_dir2 = "$d/acme_client/$client2";
-my $client_dir3 = "$d/acme_client/$client3";
+
+my @client_dirs = map {"$d/acme_client/$_"} ($client1, $client2, $client3);
 
 $t->write_file_expand('nginx.conf', <<"EOF");
 
@@ -99,6 +100,15 @@ http {
             return 200 "SECURED 3";
         }
     }
+
+    server {
+        listen          127.0.0.1:8080;
+        server_name     localhost;
+
+        location /status/ {
+            api /status/http/acme_clients/;
+        }
+    }
 }
 
 EOF
@@ -118,7 +128,7 @@ commonName=no.match.example.com
 subjectAltName = DNS:example.com,DNS:*.example.com
 EOF
 
-foreach my $dir ($client_dir1, $client_dir2, $client_dir3) {
+foreach my $dir (@client_dirs) {
 	my $cert = "$dir/certificate.pem";
 	my $cert_key = "$dir/private.key";
 
@@ -134,7 +144,7 @@ foreach my $dir ($client_dir1, $client_dir2, $client_dir3) {
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform');
 
-$t->plan(3);
+$t->plan(4);
 
 like(http_get('/a', SSL => 1, PeerAddr => '127.0.0.1:' . port(8443)),
 	qr/SECURED 1/, 'client disabled but certificate accessible');
@@ -142,3 +152,24 @@ like(http_get('/b', SSL => 1, PeerAddr => '127.0.0.1:' . port(8543)),
 	qr/SECURED 2/, 'client unused but certificate accessible');
 like(http_get('/c', SSL => 1, PeerAddr => '127.0.0.1:' . port(8643)),
 	qr/SECURED 3/, 'invalid domain but certificate accessible');
+
+my $expected_acme_clients = {
+	$client1 => {
+		certificate => 'mismatch',
+		details     => 'The client is disabled in the configuration.',
+		state       => 'disabled'
+	},
+	$client2 => {
+		certificate => 'valid',
+		details     => 'The client is disabled in the configuration.',
+		state       => 'disabled'
+	},
+	$client3=> {
+		certificate => 'valid',
+		details     => 'The client is disabled in the configuration.',
+		state       => 'disabled'
+	}
+};
+
+my $acme_clients = get_json('/status/');
+cmp_deeply($acme_clients, $expected_acme_clients, 'ACME API');

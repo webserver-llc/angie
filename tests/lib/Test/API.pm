@@ -33,6 +33,32 @@ sub api_status {
 
 	my $string_re = re(qr/^.+$/);
 
+	my @acme_clients_conf = $config =~ /acme_client\s+([^;]+);/g;
+
+	my $acme_client_default = {
+		state       => any(qw/disabled ready requesting failed/),
+		details     => $string_re,
+		certificate => any(qw/valid expired missing mismatch error/),
+	};
+
+	my %acme_clients;
+	foreach my $acme_client_conf (@acme_clients_conf) {
+		my %acme_client = %{ $acme_client_default };
+
+		my ($name) = $acme_client_conf =~ /^([^\s]+)/;
+
+		if ($acme_client_conf =~ /\s+enabled=off/) {
+			$acme_client{state}   = 'disabled';
+			$acme_client{details} =
+				'The client is disabled in the configuration.';
+			$acme_clients{$name} = \%acme_client;
+
+		} else {
+			$acme_client{next_run} = $TIME_RE;
+			$acme_clients{$name} = subhashof(\%acme_client);
+		}
+	}
+
 	my $ssl = {
 		failed     => $NUM_RE,
 		handshaked => $NUM_RE,
@@ -158,6 +184,7 @@ sub api_status {
 					($with_debug ? (zone    => $string_re) : ()),
 				}),
 			),
+			acme_clients => \%acme_clients,
 		}),
 		resolvers => hash_each({
 			queries => {

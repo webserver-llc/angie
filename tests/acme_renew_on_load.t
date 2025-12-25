@@ -15,6 +15,7 @@ use strict;
 use File::Copy;
 use File::Path qw/ make_path /;
 use POSIX qw/ strftime /;
+use Test::Deep qw/ cmp_deeply re /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -22,6 +23,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT /;
 use Test::Nginx::ACME;
+use Test::Utils qw/ get_json /;
 
 ###############################################################################
 
@@ -31,7 +33,7 @@ select STDOUT; $| = 1;
 eval { require Date::Parse; };
 plan(skip_all => 'Date::Parse not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
+my $t = Test::Nginx->new()->has(qw/acme http_api http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
 # XXX
@@ -84,6 +86,15 @@ http {
                          renew_before_expiry=0;
 
     error_log acme.log notice;
+
+    server {
+        listen          127.0.0.1:8080;
+        server_name     localhost;
+
+        location /status/ {
+            api /status/http/acme_clients/;
+        }
+    }
 
     server {
         listen               $ssl_port ssl;
@@ -146,7 +157,29 @@ $acme_helper->start_pebble({
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform');
 
-$t->plan(4);
+$t->plan(4 + 2);
+
+my $client2_enddate = `openssl x509 -in $cert2 -enddate -noout | cut -d= -f 2`;
+
+chomp $client2_enddate;
+
+my $client2_next_run = strftime('%Y-%m-%dT%H:%M:%SZ',
+	gmtime(Date::Parse::str2time($client2_enddate) // 0));
+
+my $expected_acme_clients = {
+	$client1 => {
+		certificate => 'valid',
+		details     => re(qr/\.+/),
+		state       => 'requesting'
+	},
+	$client2 => {
+		certificate => 'valid',
+		details     => 'The client is ready to request a certificate.',
+		next_run    => $client2_next_run,
+		state       => 'ready'
+	}
+};
+cmp_deeply(get_json('/status/'), $expected_acme_clients, 'ACME API - initial');
 
 # Before we start renewal, just check that the original
 # certificate works fine.
@@ -171,32 +204,38 @@ for (1 .. 20) {
 
 ok($renewed, "client1: certificate renewed");
 
+my $acme_clients = get_json('/status/');
+
 $t->stop();
 
-my $s = $t->read_file('acme.log');
+my $acme_log = $t->read_file('acme.log');
 
 my $renewed_on_load = 0;
 if ($renewed) {
-	$renewed_on_load = $s =~ /
+	$renewed_on_load = $acme_log =~ /
 		\svalid\scertificate,\s
-		forced\srenewal\sscheduled\snow,\sACME\sclient:\stest1
+		forced\srenewal\sscheduled\snow,\sACME\sclient:\s$client1
 	/x;
 }
+
+my $client1_enddate = `openssl x509 -in $cert1 -noout -enddate | cut -d= -f 2`;
+
+my $client1_next_run = strftime('%Y-%m-%dT%H:%M:%SZ',
+	gmtime(Date::Parse::str2time($client1_enddate) // 0));
 
 ok($renewed_on_load, "client1: certificate renewed on load");
 
 my $scheduled_for_renewal = 0;
 my $ts = $1
-	if $s =~ /
+	if $acme_log =~ /
 		\svalid\scertificate,\srenewal\sscheduled\s
 		([[:alpha:]]+\s+[[:alpha:]]+\s+\d+\s+\d+\:\d+\:\d+\s+\d+),\s
-		ACME\sclient:\stest2
+		ACME\sclient:\s$client2
 	/x;
 
 my $t1 = Date::Parse::str2time($ts) // 0;
 
-$ts = `openssl x509 -in $orig_cert -noout -enddate`;
-$ts =~ s/notAfter=//;
+$ts = `openssl x509 -in $orig_cert -noout -enddate | cut -d= -f 2`;
 
 chomp $ts;
 
@@ -205,6 +244,28 @@ my $t2 = Date::Parse::str2time($ts) // 0;
 $scheduled_for_renewal = ($t1 != 0) && ($t1 == $t2);
 
 ok($scheduled_for_renewal, "client2: certificate renews on " . $ts);
+
+$client2_next_run = strftime('%Y-%m-%dT%H:%M:%SZ', gmtime($t2));
+
+my $details = 'The certificate was obtained on \w+ \w+ \d{1,2} '
+	. '\d{1,2}\:\d{2}\:\d{2} 20\d{2}, the client is ready for renewal\.';
+
+$expected_acme_clients = {
+	$client1 => {
+		certificate => 'valid',
+		details     => re(qr/$details/),
+		next_run    => $client1_next_run,
+		state       => 'ready'
+	},
+	$client2 => {
+		certificate => 'valid',
+		details     => 'The client is ready to request a certificate.',
+		next_run    => $client2_next_run,
+		state       => 'ready'
+	}
+};
+
+cmp_deeply($acme_clients, $expected_acme_clients, 'ACME API - renewal');
 
 ###############################################################################
 

@@ -12,6 +12,8 @@
 use warnings;
 use strict;
 
+use POSIX qw/ strftime /;
+use Test::Deep qw/ cmp_deeply re /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -20,13 +22,17 @@ use lib 'lib';
 use Test::Nginx qw/ :DEFAULT http_content /;
 use Test::Nginx::Stream qw/ stream /;
 use Test::Nginx::ACME;
+use Test::Utils qw/ get_json /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http_acme http_ssl socket_ssl/)
+eval { require Date::Parse; };
+plan(skip_all => 'Date::Parse not installed') if $@;
+
+my $t = Test::Nginx->new()->has(qw/http_acme http_api http_ssl socket_ssl/)
 	->has(qw/stream stream_acme stream_ssl stream_return/);
 
 # XXX
@@ -58,6 +64,15 @@ http {
     resolver localhost:$dns_port ipv6=off;
 
     acme_client test https://localhost:$pebble_port/dir;
+
+    server {
+        listen          127.0.0.1:8080;
+        server_name     localhost;
+
+        location /status/ {
+            api /status/http/acme_clients/;
+        }
+    }
 
     server {
         listen               %%PORT_8443%% ssl;
@@ -114,40 +129,65 @@ $acme_helper->start_pebble({
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform');
 
-my $d = $t->testdir();
+$t->plan(4 + 2);
 
-$t->plan(4);
-
-my $obtained = 0;
-my $http_server = 0;
-my $stream_server1 = 0;
-my $stream_server2 = 0;
+my $expected_acme_clients = {
+	test => {
+		certificate => 'missing',
+		details     => re(qr/\.+/),
+		state       => 'requesting'
+	},
+};
+cmp_deeply(get_json('/status/'), $expected_acme_clients, 'ACME API - initial');
 
 my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
 
 # Wait for the certificate to arrive.
 
+my $obtained = 0;
+my $next_run;
 for (1 .. 20) {
 	if (-s $cert_file) {
 		$obtained = 1;
+
+		my $obtained_enddate
+			= `openssl x509 -in $cert_file -enddate -noout | cut -d= -f 2`;
+
+		chomp $obtained_enddate;
+
+		# renew_before_expiry = 30d by default
+		# 30d = 30 * 24 * 60 * 60 = 2592000s
+		$next_run = strftime('%Y-%m-%dT%H:%M:%SZ',
+			gmtime(Date::Parse::str2time($obtained_enddate) - 2592000 // 0));
+
 		last;
 	}
 
 	sleep 1;
 }
 
+ok($obtained, "certificate obtained");
+
+my $cert_details = 'The certificate was obtained on \w+ \w+ \d{1,2} '
+	. '\d{1,2}\:\d{2}\:\d{2} 20\d{2}, the client is ready for renewal\.';
+
+$expected_acme_clients = {
+	test => {
+		certificate => 'valid',
+		details     => re(qr/$cert_details/),
+		next_run    => $next_run,
+		state       => 'ready'
+	}
+};
+
+cmp_deeply(get_json('/status/'), $expected_acme_clients,
+	'ACME API - obtained');
+
 # Try using it.
 
-if ($obtained) {
-	$http_server = http_content(http_get('/', SSL => 1)) eq "angie-test1.com";
-	$stream_server1 = get_server("angie-test2.com") eq "angie-test2.com";
-	$stream_server2 = get_server("angie-test3.com") eq "angie-test3.com";
-}
-
-ok($obtained, "certificate obtained");
-ok($http_server, "http server");
-ok($stream_server1, "stream server 1");
-ok($stream_server2, "stream server 2");
+is(http_content(http_get('/', SSL => 1)), 'angie-test1.com', 'http server');
+is(get_server('angie-test2.com'), 'angie-test2.com', 'stream server 1');
+is(get_server('angie-test3.com'), 'angie-test3.com', 'stream server 2');
 
 ###############################################################################
 

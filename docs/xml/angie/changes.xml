@@ -7,6 +7,29 @@
 
 <changes ver="1.11.1" date="">
 
+<change type="change">
+<para lang="ru">
+теперь, если в директиве "acme_http_port" указан только порт без IP (значение
+по умолчанию) и есть слушающие на этом порту блоки "server", то обработка
+HTTP-подверждений для заданного порта в ACME работает только на указанных
+IP-адресах в директивах "listen" данных блоков; попытки слушать на всех
+остальных IP, как было раньше, не производится; это делает настройку более
+гибкой и предотвращает возможную проблему при обновлении с предыдущих версий
+на конфигурациях, где были только блоки "server", слушающие на 80 порту и
+конкретных IP-адресах.
+</para>
+<para lang="en">
+now, if only port without IP is specified (default value) in the
+"acme_http_port" directive and there are "server" blocks listening on that port,
+HTTP challenge handling for the port in ACME is working only on the IP addresses
+configured in the "listen" directives of these blocks; there will be no attempt
+to listen on all IP addresses, like it was before; this makes configuration more
+flexible and prevents the issue with updating from previous versions with
+configurations where there were only "server" blocks listening on port 80
+and particular IP addresses.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 HTTP/2-запросы не учитывались в серверных зонах статистики;

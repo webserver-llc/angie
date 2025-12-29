@@ -13,12 +13,12 @@ use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
 		getconn hash_like stream_daemon trim log2i log2o log2c
-		$TIME_RE $NUM_RE /;
+		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
 		log  => [ qw/ log2i log2o log2c / ],
-		re   => [ qw/ $TIME_RE $NUM_RE / ],
+		re   => [ qw/ $TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num / ],
 	);
 }
 
@@ -26,7 +26,7 @@ use IO::Select;
 use IO::Socket qw/ SHUT_WR TCP_MAXSEG TCP_NODELAY IPPROTO_TCP /;
 use List::Util qw/ sum0 /;
 use Test::More;
-use Test::Deep qw/ re /;
+use Test::Deep qw/ re code /;
 
 use Test::Nginx qw/ http http_get log_in log_out port /;
 
@@ -35,6 +35,17 @@ plan(skip_all => "JSON is not installed") if $@;
 
 our $TIME_RE = re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
 our $NUM_RE  = re(qr/^\d+$/);
+our $POSITIVE_NUM = code(\&is_positive_num);
+
+sub is_positive_num {
+	my ($a) = shift;
+
+	return (0, "'$a' is not a number")
+		unless ($a !~ $NUM_RE);
+	return (0, "'$a' is not a positive number")
+		unless $a > 0;
+	return 1;
+}
 
 sub _parse_response {
 	my $response = shift;

@@ -1,5 +1,29 @@
 
-Changes with Angie 1.11.0                                        25 Dec 2025
+Changes with Angie 1.11.1                                        30 Dec 2025
+
+    *) Change: now, if only port without IP is specified (default value) in
+       the "acme_http_port" directive and there are "server" blocks
+       listening on that port, HTTP challenge handling for the port in ACME
+       is working only on the IP addresses configured in the "listen"
+       directives of these blocks; there will be no attempt to listen on all
+       IP addresses, like it was before; this makes configuration more
+       flexible and prevents the issue with updating from previous versions
+       with configurations where there were only "server" blocks listening
+       on port 80 and particular IP addresses.
+
+    *) Bugfix: HTTP/2 requests were not counted in server zone statistics;
+       the bug had appeared in 1.11.0.
+
+    *) Bugfix: when an ACME client was disabled in the configuration and had
+       no previously obtained certificate, a statistics API request for that
+       client could crash a worker process.
+
+    *) Bugfix: if the "$http_host" or "$cookie_*" variables were used as
+       keys in the "status_zone" directive within the "server" block, HTTP/3
+       requests might not be counted in this status zone.
+
+
+Changes with Angie 1.11.0                                        24 Dec 2025
 
     *) Change: the "$http_host" variable in HTTP/3 requests is now
        initialized from the value of the ":authority" pseudo-header if the

@@ -679,17 +679,10 @@ ngx_int_t ngx_http_get_forwarded_addr(ngx_http_request_t *r, ngx_addr_t *addr,
 
 ngx_int_t ngx_http_link_multi_headers(ngx_http_request_t *r);
 
-#if (NGX_API)
-
-#if (NGX_HTTP_SSL)
+#if (NGX_API && NGX_HTTP_SSL)
 void ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
     ngx_http_status_zone_t *status_zone);
 #endif
-
-void ngx_http_calculate_request_statistic(ngx_http_request_t *r,
-    ngx_http_status_zone_t *status_zone);
-
-#endif /* NGX_API */
 
 
 extern ngx_module_t  ngx_http_core_module;

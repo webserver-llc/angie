@@ -1088,18 +1088,6 @@ ngx_http_v3_process_request_header(ngx_http_request_t *r)
     h3c = ngx_http_v3_get_session(c);
     h3scf = ngx_http_get_module_srv_conf(r, ngx_http_v3_module);
 
-#if (NGX_API)
-    {
-    ngx_http_core_srv_conf_t  *cscf;
-
-    cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
-
-    if (cscf->status_zone != NULL) {
-        ngx_http_calculate_request_statistic(r, cscf->status_zone);
-    }
-    }
-#endif
-
     if ((h3c->hq && !h3scf->enable_hq) || (!h3c->hq && !h3scf->enable)) {
         ngx_log_error(NGX_LOG_INFO, c->log, 0,
                       "client attempted to request the server name "

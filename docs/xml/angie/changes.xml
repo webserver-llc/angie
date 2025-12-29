@@ -7,6 +7,30 @@
 
 <changes ver="1.11.1" date="">
 
+<change type="bugfix">
+<para lang="ru">
+HTTP/2-запросы не учитывались в серверных зонах статистики;
+проблема появилась в 1.11.0.
+</para>
+<para lang="en">
+HTTP/2 requests were not counted in server zone statistics;
+the bug had appeared in 1.11.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если в качестве ключа директивы "status_zone", заданной на уровне блоков
+"server", использовались переменные "$http_host" или "$cookie_*", то
+HTTP/3-запросы могли не учитываться в указанной зоне статистики.
+</para>
+<para lang="en">
+if the "$http_host" or "$cookie_*" variables were used as keys in the
+"status_zone" directive within the "server" block, HTTP/3 requests might
+not be counted in this status zone.
+</para>
+</change>
+
 </changes>
 
 

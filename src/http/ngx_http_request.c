@@ -68,6 +68,8 @@ static void ngx_http_ssl_handshake_handler(ngx_connection_t *c);
 #endif
 
 #if (NGX_API)
+static void ngx_http_calculate_request_statistic(ngx_http_request_t *r,
+    ngx_http_status_zone_t *status_zone);
 static void ngx_http_calculate_post_request_statistic(ngx_http_request_t *r);
 static ngx_int_t ngx_api_http_zones_iter(ngx_api_iter_ctx_t *ictx,
     ngx_api_ctx_t *actx);
@@ -2254,18 +2256,6 @@ ngx_http_process_request_header(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-#if (NGX_API)
-    {
-        ngx_http_core_srv_conf_t  *cscf;
-
-        cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
-
-        if (cscf->status_zone != NULL) {
-            ngx_http_calculate_request_statistic(r, cscf->status_zone);
-        }
-    }
-#endif
-
     if (r->headers_in.host == NULL && r->http_version > NGX_HTTP_VERSION_10) {
         ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
                    "client sent HTTP/1.1 request without \"Host\" header");
@@ -2431,6 +2421,18 @@ ngx_http_process_request(ngx_http_request_t *r)
     r->stat_reading = 0;
     (void) ngx_atomic_fetch_add(ngx_stat_writing, 1);
     r->stat_writing = 1;
+#endif
+
+#if (NGX_API)
+    {
+        ngx_http_core_srv_conf_t  *cscf;
+
+        cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+
+        if (cscf->status_zone != NULL) {
+            ngx_http_calculate_request_statistic(r, cscf->status_zone);
+        }
+    }
 #endif
 
     c->read->handler = ngx_http_request_handler;
@@ -2853,6 +2855,18 @@ ngx_http_finalize_request(ngx_http_request_t *r, ngx_int_t rc)
         }
 
         if (r == r->main) {
+#if (NGX_API)
+            if (r->stat_reading) {
+                ngx_http_core_srv_conf_t  *cscf;
+
+                cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+
+                if (cscf->status_zone != NULL) {
+                    ngx_http_calculate_request_statistic(r, cscf->status_zone);
+                }
+            }
+#endif
+
             if (c->read->timer_set) {
                 ngx_del_timer(c->read);
             }
@@ -4297,7 +4311,7 @@ ngx_http_log_error_handler(ngx_http_request_t *r, ngx_http_request_t *sr,
 
 #if (NGX_API)
 
-void
+static void
 ngx_http_calculate_request_statistic(ngx_http_request_t *r,
     ngx_http_status_zone_t *status_zone)
 {

@@ -7458,14 +7458,22 @@ ngx_api_acme_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
 
     sh = ictx->ctx;
 
-    ngx_rwlock_rlock(&(*cli_p)->sh_cert->lock);
+    if ((*cli_p)->sh_cert == NULL) {
+        ngx_api_set_cli_status_unlocked(sh, NGX_API_CLI_DISABLED,
+                                        "The client is disabled in "
+                                        "the configuration.");
+        sh->expiry_time = 0;
+        sh->cert_status = NGX_ACME_CERT_MISSING;
 
-    ngx_memcpy(sh, &(*cli_p)->sh_cert->cli, sizeof(ngx_api_acme_sh_client_t));
+    } else {
+        ngx_rwlock_rlock(&(*cli_p)->sh_cert->lock);
 
-    ngx_rwlock_unlock(&(*cli_p)->sh_cert->lock);
+        ngx_memcpy(sh, &(*cli_p)->sh_cert->cli, sizeof(ngx_api_acme_sh_client_t));
 
-    ictx->entry.name.data = (*cli_p)->name.data;
-    ictx->entry.name.len = (*cli_p)->name.len;
+        ngx_rwlock_unlock(&(*cli_p)->sh_cert->lock);
+    }
+
+    ictx->entry.name = (*cli_p)->name;
 
     ictx->elts = cli_p + 1;
 

@@ -41,6 +41,7 @@ my $d = $t->testdir();
 my $client1 = 'test1';
 my $client2 = 'test2';
 my $client3 = 'test3';
+my $client4 = 'test4';
 
 my @client_dirs = map {"$d/acme_client/$_"} ($client1, $client2, $client3);
 
@@ -62,6 +63,8 @@ http {
     acme_client $client2 https://localhost/dir enabled=on;
     # invalid domain
     acme_client $client3 https://localhost/dir enabled=on;
+    # no cert
+    acme_client $client4 https://localhost/dir enabled=on;
 
     server {
         listen          127.0.0.1:8443 ssl;
@@ -98,6 +101,18 @@ http {
 
         location /c {
             return 200 "SECURED 3";
+        }
+    }
+
+    server {
+        listen          127.0.0.1:8743 ssl;
+        server_name     4.example.com;
+
+        ssl_certificate         \$acme_cert_test4;
+        ssl_certificate_key     \$acme_cert_key_test4;
+
+        location /d {
+            return 200 "SECURED 4";
         }
     }
 
@@ -164,10 +179,15 @@ my $expected_acme_clients = {
 		details     => 'The client is disabled in the configuration.',
 		state       => 'disabled'
 	},
-	$client3=> {
+	$client3 => {
 		certificate => 'valid',
 		details     => 'The client is disabled in the configuration.',
 		state       => 'disabled'
+	},
+	$client4 => {
+		certificate => 'missing',
+		details     => 'The client is disabled in the configuration.',
+		state       => 'disabled',
 	}
 };
 

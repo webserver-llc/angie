@@ -43,6 +43,19 @@ the bug had appeared in 1.11.0.
 
 <change type="bugfix">
 <para lang="ru">
+если ACME-клиент был отключен в конфигурации и не имел ранее полученного
+сертификата, запрос к API статистики для данного клиента мог привести к
+падению рабочего процесса.
+</para>
+<para lang="en">
+when an ACME client was disabled in the configuration and had no previously
+obtained certificate, a statistics API request for that client could crash
+a worker process.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 если в качестве ключа директивы "status_zone", заданной на уровне блоков
 "server", использовались переменные "$http_host" или "$cookie_*", то
 HTTP/3-запросы могли не учитываться в указанной зоне статистики.

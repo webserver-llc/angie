@@ -6559,7 +6559,12 @@ ngx_http_acme_add_dns_listen(ngx_http_acme_main_conf_t *amcf)
 
     } else {
         addr = &tmp;
-        ngx_parse_addr_port(cycle->pool, addr, (u_char *) "0.0.0.0:53", 10);
+
+        if (ngx_parse_addr_port(cycle->pool, addr, (u_char *) "0.0.0.0:53", 10)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
 
         if (geteuid() != 0) {
             ngx_log_error(NGX_LOG_WARN, amcf->cf->log, 0,
@@ -6632,7 +6637,11 @@ ngx_http_acme_add_http_listen(ngx_http_core_main_conf_t *cmcf,
             return NGX_ERROR;
         }
 
-        ngx_parse_addr_port(cf->pool, addr, (u_char *) "0.0.0.0:80", 10);
+        if (ngx_parse_addr_port(cf->pool, addr, (u_char *) "0.0.0.0:80", 10)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
 
         if (geteuid() != 0) {
             ngx_log_error(NGX_LOG_WARN, amcf->cf->log, 0,

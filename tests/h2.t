@@ -1095,7 +1095,7 @@ $s->read(all => [{ sid => $sid, length => 2**16 - 1 }]);
 
 SKIP: {
 skip 'reload is not working (perl >= 5.32 required)', 6
-	unless !$t->has_feature('reload');
+	unless $t->has_feature('reload');
 
 ok($t->reload(), 'reloaded');
 

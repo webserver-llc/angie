@@ -168,7 +168,7 @@ for (1 .. 20) {
 
 ok($obtained, "certificate obtained");
 
-my $cert_details = 'The certificate was obtained on \w+ \w+ \d{1,2} '
+my $cert_details = 'The certificate was obtained on \w+ \w+\s+\d{1,2} '
 	. '\d{1,2}\:\d{2}\:\d{2} 20\d{2}, the client is ready for renewal\.';
 
 $expected_acme_clients = {

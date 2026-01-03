@@ -155,7 +155,7 @@ subtest 'obtaining and renewing a certificate' => sub {
 	my $renewed = 0;
 	my $renewed_enddate = '';
 
-	my $cert_details = 'The certificate was obtained on \w+ \w+ \d{1,2} '
+	my $cert_details = 'The certificate was obtained on \w+ \w+\s+\d{1,2} '
 		. '\d{1,2}\:\d{2}\:\d{2} 20\d{2}, the client is ready for renewal\.';
 
 	$expected_acme_clients = {

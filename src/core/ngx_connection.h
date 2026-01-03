@@ -225,8 +225,8 @@ ngx_int_t ngx_set_inherited_sockets(ngx_cycle_t *cycle);
 ngx_int_t ngx_open_listening_sockets(ngx_cycle_t *cycle);
 void ngx_configure_listening_sockets(ngx_cycle_t *cycle);
 #if (NGX_QUIC)
-void ngx_configure_quic_socket(ngx_cycle_t *cycle, ngx_listening_t *ls,
-    ngx_socket_t fd);
+void ngx_configure_quic_socket(ngx_socket_t s, ngx_addr_t *addr,
+    ngx_log_t *log);
 #endif
 void ngx_close_listening_sockets(ngx_cycle_t *cycle);
 void ngx_close_connection(ngx_connection_t *c);

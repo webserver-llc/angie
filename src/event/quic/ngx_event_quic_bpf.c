@@ -946,6 +946,7 @@ ngx_quic_bpf_add_worker_socket(ngx_cycle_t *cycle, ngx_quic_bpf_group_t *grp,
 {
     int                        value;
     ngx_uint_t                 i, n;
+    ngx_addr_t                 addr;
     ngx_socket_t               s;
     ngx_quic_bpf_listening_t  *bls;
 
@@ -1009,7 +1010,11 @@ ngx_quic_bpf_add_worker_socket(ngx_cycle_t *cycle, ngx_quic_bpf_group_t *grp,
     }
 #endif
 
-    ngx_configure_quic_socket(cycle, ls, s);
+    addr.sockaddr = ls->sockaddr;
+    addr.socklen = ls->socklen;
+    addr.name = ls->addr_text;
+
+    ngx_configure_quic_socket(s, &addr, cycle->log);
 
     if (bind(s, ls->sockaddr, ls->socklen) == -1) {
         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_socket_errno,

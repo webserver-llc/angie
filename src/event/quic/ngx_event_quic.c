@@ -250,77 +250,19 @@ ngx_quic_dummy_handler(ngx_event_t *ev)
 ngx_int_t
 ngx_quic_create_client(ngx_quic_conf_t *conf, ngx_connection_t *c)
 {
-    int                     value;
     ngx_log_t              *log;
+    ngx_addr_t              addr;
     ngx_quic_connection_t  *qc;
+    u_char                  text[NGX_SOCKADDR_STRLEN];
 
-#if (NGX_HAVE_IP_MTU_DISCOVER)
+    addr.sockaddr = c->sockaddr;
+    addr.socklen = c->socklen;
 
-    if (c->sockaddr->sa_family == AF_INET) {
-        value = IP_PMTUDISC_DO;
+    addr.name.data = text;
+    addr.name.len = ngx_sock_ntop(c->sockaddr, c->socklen, text,
+                                  NGX_SOCKADDR_STRLEN, 1);
 
-        if (setsockopt(c->fd, IPPROTO_IP, IP_MTU_DISCOVER,
-                       (const void *) &value, sizeof(int))
-            == -1)
-        {
-            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
-                          "setsockopt(IP_MTU_DISCOVER) "
-                          "for quic conn failed, ignored");
-        }
-    }
-
-#elif (NGX_HAVE_IP_DONTFRAG)
-
-    if (c->sockaddr->sa_family == AF_INET) {
-        value = 1;
-
-        if (setsockopt(c->fd, IPPROTO_IP, IP_DONTFRAG,
-                       (const void *) &value, sizeof(int))
-            == -1)
-        {
-            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
-                          "setsockopt(IP_DONTFRAG) "
-                          "for quic conn failed, ignored");
-        }
-    }
-
-#endif
-
-#if (NGX_HAVE_INET6)
-
-#if (NGX_HAVE_IPV6_MTU_DISCOVER)
-
-    if (c->sockaddr->sa_family == AF_INET6) {
-        value = IPV6_PMTUDISC_DO;
-
-        if (setsockopt(c->fd, IPPROTO_IPV6, IPV6_MTU_DISCOVER,
-                       (const void *) &value, sizeof(int))
-            == -1)
-        {
-            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
-                          "setsockopt(IPV6_MTU_DISCOVER) "
-                          "for quic conn failed, ignored");
-        }
-    }
-
-#elif (NGX_HAVE_IP_DONTFRAG)
-
-    if (c->sockaddr->sa_family == AF_INET6) {
-
-        value = 1;
-
-        if (setsockopt(c->fd, IPPROTO_IPV6, IPV6_DONTFRAG,
-                       (const void *) &value, sizeof(int))
-            == -1)
-        {
-            ngx_log_error(NGX_LOG_ALERT, c->log, ngx_socket_errno,
-                          "setsockopt(IPV6_DONTFRAG) "
-                          "for quic conn failed, ignored");
-        }
-    }
-#endif
-
-#endif
+    ngx_configure_quic_socket(c->fd, &addr, c->log);
 
     c->read->handler = ngx_quic_client_input_handler;
     c->write->handler = ngx_quic_dummy_handler;

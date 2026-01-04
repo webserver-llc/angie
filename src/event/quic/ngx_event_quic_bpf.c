@@ -1010,6 +1010,25 @@ ngx_quic_bpf_add_worker_socket(ngx_cycle_t *cycle, ngx_quic_bpf_group_t *grp,
     }
 #endif
 
+#if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
+
+    if (ls->sockaddr->sa_family == AF_INET6) {
+        int  ipv6only;
+
+        ipv6only = ls->ipv6only;
+
+        if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
+                       (const void *) &ipv6only, sizeof(int))
+            == -1)
+        {
+            ngx_log_error(NGX_LOG_EMERG, cycle->log, ngx_socket_errno,
+                          "setsockopt(IPV6_V6ONLY) %V failed, ignored",
+                          &ls->addr_text);
+        }
+    }
+
+#endif
+
     addr.sockaddr = ls->sockaddr;
     addr.socklen = ls->socklen;
     addr.name = ls->addr_text;

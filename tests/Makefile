@@ -26,7 +26,8 @@ else
     # tests that require root privileges
     TESTS=proxy_bind_transparent.t \
           proxy_bind_transparent_capability.t \
-          h3_bpf.t
+          h3_bpf.t \
+          http_resolver_conf.t
 endif
 
 

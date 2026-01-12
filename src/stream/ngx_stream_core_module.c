@@ -812,6 +812,8 @@ ngx_stream_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_str_t                  name;
     ngx_stream_server_name_t  *sn;
 
+    static ngx_str_t resolv_conf = ngx_string("conf");
+
     ngx_conf_merge_msec_value(conf->resolver_timeout,
                               prev->resolver_timeout, 30000);
 
@@ -824,7 +826,7 @@ ngx_stream_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
              * to inherit it in all servers
              */
 
-            prev->resolver = ngx_resolver_create(cf, NULL, 0);
+            prev->resolver = ngx_resolver_create(cf, &resolv_conf, 1);
             if (prev->resolver == NULL) {
                 return NGX_CONF_ERROR;
             }

@@ -19,6 +19,37 @@ the bug had appeared in 1.11.0.
 </para>
 </change>
 
+<change type="change">
+<para lang="ru">
+В модулях http и stream директива "resolver" всегда задана по умолчанию.
+Параметр "off" позволяет явно отключить разрешение DNS-имён,
+что соответсвтует старому поведению, когда директива не указана.
+</para>
+<para lang="en">
+In the http and stream modules, the "resolver" directive is always set
+by default. The "off" parameter explicitly disables DNS name resolution,
+which corresponds to the old behavior when the directive was not specified.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+Параметр по умолчанию "conf" для директивы "resolver" позволяет
+автоматически считывать адреса DNS-серверов из заданного файла
+(по умолчанию "/etc/resolv.conf"). Для указания собственного файла
+используется синтаксис "conf=/path/to/file". Если ни один DNS-сервер
+не найден в указанном файле и не заданы сервера в конфигурации Angie,
+то используется сервер по умолчанию "127.0.0.1:53".
+</para>
+<para lang="en">
+The default "conf" parameter for the "resolver" directive automatically
+reads DNS server addresses from a specified file
+(default: "/etc/resolv.conf"). To use a custom file, the "conf=/path/to/file"
+syntax is used. If no DNS servers are found in the specified file and
+none are configured in Angie, the default server "127.0.0.1:53" is used.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 HTTP/3 запросы не принимались при использовании ipv6 wildcard-адреса и

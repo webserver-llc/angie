@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2025 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -41,6 +42,8 @@ stream {
     log_format  status  $status;
 
     limit_conn_zone  $binary_remote_addr  zone=zone:1m;
+
+    resolver off;
 
     server {
         listen      127.0.0.1:8080;

@@ -4971,7 +4971,7 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
 
         if (cli->enabled) {
             if (cli->server_url.addrs == NULL
-                && clcf->resolver->connections.nelts == 0)
+                && clcf->resolver->connections == NULL)
             {
                 ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                               "no resolver configured for resolving %V "

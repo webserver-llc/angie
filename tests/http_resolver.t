@@ -69,6 +69,7 @@ http {
             proxy_pass  http://$http_x_name:%%PORT_8080%%/backend;
         }
         location /invalid {
+            resolver    off;
             proxy_pass  http://$host:%%PORT_8080%%/backend;
         }
         location /long {

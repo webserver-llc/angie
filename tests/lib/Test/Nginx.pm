@@ -1199,9 +1199,14 @@ sub log_in {
 
 sub http_get($;%) {
 	my ($url, %extra) = @_;
+
+	my $host = (%extra && exists $extra{host})
+		? $extra{host}
+		: 'localhost';
+
 	return http(<<EOF, %extra);
 GET $url HTTP/1.0
-Host: localhost
+Host: $host
 
 EOF
 }

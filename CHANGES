@@ -1,4 +1,18 @@
 
+Changes with Angie 1.11.2                                        15 Jan 2026
+
+    *) Bugfix: if BPF was disabled, HTTP/3 requests might fail with an error
+       "[alert] sendmsg() failed (90: Message too large) while sending
+       frames"; the bug had appeared in 1.11.0.
+
+    *) Bugfix: HTTP/3 requests were not accepted when listening on an IPv6
+       wildcard address with BPF enabled; the bug had appeared in 1.11.0.
+
+    *) Bugfix: when a domain name was specified in the "docker_endpoint"
+       directive, connections to the Docker API and updates of the upstream
+       server groups didn't occur.
+
+
 Changes with Angie 1.11.1                                        30 Dec 2025
 
     *) Change: now, if only port without IP is specified (default value) in

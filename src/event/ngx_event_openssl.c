@@ -701,6 +701,18 @@ retry:
 
     EVP_PKEY_free(pkey);
 
+    /*
+     * loading certificates may trigger various internal SSL errors
+     * that should not be reported as runtime errors;
+     * thus check here for stale errors and report them as warning
+     * (since we managed to load certificates successfully)
+     */
+    n = ERR_peek_last_error();
+    if (n) {
+        ngx_ssl_error(NGX_LOG_WARN, ssl->log, 0,
+                      "ignoring stale global SSL error");
+    }
+
     return NGX_OK;
 }
 

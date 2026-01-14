@@ -9,24 +9,26 @@
 
 <change type="bugfix">
 <para lang="ru">
-HTTP/3 запросы могли завершаться с ошибкой из-за ошибки с максимальным
-размером пакета;
+если BPF был отключен, то HTTP/3-запросы могли завершаться с ошибкой
+"[alert] sendmsg() failed (90: Message too large) while sending frames";
 проблема появилась в 1.11.0.
 </para>
 <para lang="en">
-HTTP/3 requests might fail due to a maximum packet size error;
+if BPF was disabled, HTTP/3 requests might fail with an error
+"[alert] sendmsg() failed (90: Message too large) while sending frames";
 the bug had appeared in 1.11.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-HTTP/3 запросы не принимались при использовании ipv6 wildcard-адреса и
-включённом модуле bpf;
+HTTP/3-запросы не принимались при прослушивании wildcard IPv6-адреса и
+включённом BPF;
 проблема появилась в 1.11.0.
 </para>
 <para lang="en">
-HTTP/3 requests were not accepted if using ipv6 wildcard address and bpf module;
+HTTP/3 requests were not accepted when listening on an IPv6 wildcard address
+with BPF enabled;
 the bug had appeared in 1.11.0.
 </para>
 </change>

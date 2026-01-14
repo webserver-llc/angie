@@ -26,8 +26,6 @@ typedef void (*ngx_http_docker_response_pt)(ngx_http_docker_session_t *ds,
 
 
 typedef struct {
-    ngx_url_t                          url;
-
     ngx_log_t                          log;
     ngx_http_log_ctx_t                 log_ctx;
 
@@ -612,7 +610,7 @@ ngx_http_docker_init_worker(ngx_cycle_t *cycle)
 
     dmcf = ngx_http_docker_get_main_conf();
 
-    if (dmcf == NULL || dmcf->url.addrs == NULL) {
+    if (dmcf == NULL || dmcf->events_ctx == NULL) {
         return NGX_OK;
     }
 
@@ -994,7 +992,7 @@ ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_url_t   u;
     ngx_str_t  *value, *url, name, eproxy, cproxy;
 
-    if (dmcf->url.addrs != NULL) {
+    if (dmcf->events_ctx != NULL) {
         return "is duplicate";
     }
 
@@ -1046,8 +1044,6 @@ ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
         return NGX_CONF_ERROR;
     }
-
-    dmcf->url = u;
 
     if (ngx_http_docker_format_endpoint(cf->pool, url, &eproxy,
                                         "proxy_pass %V;"

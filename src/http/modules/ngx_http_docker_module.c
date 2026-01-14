@@ -1003,7 +1003,6 @@ ngx_http_docker_endpoint(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     u.url = *url;
     u.uri_part = 1;
-    u.no_resolve = 1;
 
     if (ngx_strncasecmp(url->data, (u_char *) "unix:/", 6) == 0) {
         len = url->len + 7;

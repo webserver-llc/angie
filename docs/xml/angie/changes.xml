@@ -7,6 +7,18 @@
 
 <changes ver="1.12.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+при указании доменного имени в директиве "docker_endpoint" подключения
+к Docker API и обновления групп проксируемых серверов не происходили.
+</para>
+<para lang="en">
+when a domain name was specified in the "docker_endpoint" directive,
+connections to the Docker API and updates of the upstream server
+groups didn't occur.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 В модулях http и stream директива "resolver" всегда задана по умолчанию.

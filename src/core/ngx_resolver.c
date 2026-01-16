@@ -656,6 +656,8 @@ ngx_resolver_parse_resolv_conf(ngx_resolver_t *r)
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, r->log, 0,
                    "\"%V\" was changed", &r->resolv_conf);
 
+    ngx_memzero(&file, sizeof(ngx_file_t));
+
     file.name = r->resolv_conf;
     file.log = r->log;
 

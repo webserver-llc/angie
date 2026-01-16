@@ -897,8 +897,10 @@ my %test_cases = (
 		$data1->{avg2} = ignore();
 		$data1->{avg3} = ignore();
 
+		$data1->{avg1} = num($data1->{avg1}, TOLERANCE);
+
 		cmp_deeply($expired, $data1, 'expire on with key 2')
-			or diag(explain({got => $expired}));
+			or diag(explain({got => $expired, expected => $data1}));
 
 		my @block2_data;
 

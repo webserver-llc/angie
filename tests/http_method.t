@@ -59,6 +59,12 @@ Connection: close
 
 EOF
 
+like(http(<<EOF), qr/ 405 /s, 'connect');
+CONNECT localhost:8080 HTTP/1.1
+Host: localhost
+
+EOF
+
 like(http(<<EOF), qr/ 400 Bad (?!.*200 OK)/s, 'connect uri');
 CONNECT / HTTP/1.1
 Host: localhost
@@ -66,13 +72,6 @@ Host: localhost
 GET / HTTP/1.1
 Host: localhost
 Connection: close
-
-EOF
-
-
-like(http(<<EOF), qr/ 405 /s, 'connect');
-CONNECT localhost:8080 HTTP/1.1
-Host: localhost
 
 EOF
 

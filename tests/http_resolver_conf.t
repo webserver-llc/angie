@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 plan(skip_all => 'must be root') if $> != 0;
 plan(skip_all => '127.0.1.* local addresses required') if $^O eq 'freebsd';
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite/);
+my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy rewrite/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

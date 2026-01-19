@@ -27,7 +27,7 @@ plan(skip_all => 'must be root') if $> != 0;
 plan(skip_all => '127.0.0.2 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)
+my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

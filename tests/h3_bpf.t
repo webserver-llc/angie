@@ -53,7 +53,7 @@ my ($major, $minor) = $uname[2] =~ /([0-9])\.([0-9]+)/;
 plan(skip_all => "linux 5.19+, has: $major.$minor")
 	if $major < 5 or ($major == 5 && $minor < 19);
 
-my $t = Test::Nginx->new()
+my $t = Test::Nginx->new({can_root => 1})
 	->has(qw/http http_ssl http_v3 quic_bpf rewrite socket_ssl_alpn cryptx/)
 	->has_daemon('openssl')->prepare_ssl();
 

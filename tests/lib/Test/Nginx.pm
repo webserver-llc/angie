@@ -47,11 +47,14 @@ our $NGINX = defined $ENV{TEST_ANGIE_BINARY} ? $ENV{TEST_ANGIE_BINARY}
 our %ports = ();
 
 sub new {
-	my $self = {};
-	bless $self;
+	my $class  = shift;
+	my $params = shift // {};
 
-	$self->{_pid} = $$;
-	$self->{_errors_to_skip} = {};
+	my $self = {
+		_can_root => $params->{can_root} // 0,
+		_pid => $$,
+		_errors_to_skip => {},
+	};
 
 	my $tname = (caller(0))[1];
 	my $basename = basename($tname, '.t');
@@ -66,7 +69,7 @@ sub new {
 	Test::More::BAIL_OUT("no $NGINX binary found")
 		unless -x $NGINX;
 
-	return $self;
+	return bless $self, $class;
 }
 
 sub DESTROY {
@@ -139,6 +142,11 @@ sub DESTROY {
 
 sub has($;) {
 	my ($self, @features) = @_;
+
+	if ($< == 0 && $self->{_can_root} == 0) {
+		Test::More::plan(skip_all => 'cannot be run as root');
+		return $self;
+	}
 
 	foreach my $feature (@features) {
 		Test::More::plan(skip_all => "no $feature available")

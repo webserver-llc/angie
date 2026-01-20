@@ -22,35 +22,51 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http upstream_zone docker proxy/);
+plan(skip_all => 'unsafe, may interfere with running containers.')
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $docker_helper = Test::Docker->new();
+unless (caller) {
+	my $t = Test::Nginx->new()->has(qw/http upstream_zone docker proxy/);
 
-$t->plan(4);
+	my $docker_helper = eval {
+		Test::Docker->new({container_engine => 'docker'});
+	};
+	if ($@) {
+		plan(skip_all => $@);
+	}
+
+	$t->plan(4);
+
+	test($t, $docker_helper);
+}
 
 ###############################################################################
 
-my $labels = ' -l "angie.http.upstreams.u.port=80"'
-	. ' -l "angie.http.upstreams.u.weight=2"'
-	. ' -l "angie.http.upstreams.u.max_conns=20"'
-	. ' -l "angie.http.upstreams.u.max_fails=5"'
-	. ' -l "angie.http.upstreams.u.slow_start=10s"'
-	. ' -l "angie.http.upstreams.u.fail_timeout=10s"'
-	. ' -l "angie.http.upstreams.u.backup=false"'
-	. ' -l "angie.http.upstreams.u.sid=sid1"';
+sub test {
+	my ($t, $docker_helper) = @_;
 
-$docker_helper->start_containers(5, $labels);
+	my $labels = ' -l "angie.http.upstreams.u.port=80"'
+		. ' -l "angie.http.upstreams.u.weight=2"'
+		. ' -l "angie.http.upstreams.u.max_conns=20"'
+		. ' -l "angie.http.upstreams.u.max_fails=5"'
+		. ' -l "angie.http.upstreams.u.slow_start=10s"'
+		. ' -l "angie.http.upstreams.u.fail_timeout=10s"'
+		. ' -l "angie.http.upstreams.u.backup=false"'
+		. ' -l "angie.http.upstreams.u.sid=sid1"';
 
-restart_with_size($t, $docker_helper->{endpoint}, '4k');
-check_log_error($t, $docker_helper->{container_engine});
+	$docker_helper->start_containers(5, $labels);
 
-restart_with_size($t, $docker_helper->{endpoint}, '7k');
-check_log_error($t, $docker_helper->{container_engine});
+	restart_with_size($t, $docker_helper->{endpoint}, '4k');
+	check_log_error($t, $docker_helper->{container_engine});
 
-restart_with_size($t, $docker_helper->{endpoint}, '16k');
-check_log_ok($t, $docker_helper->{container_engine});
+	restart_with_size($t, $docker_helper->{endpoint}, '7k');
+	check_log_error($t, $docker_helper->{container_engine});
 
-$docker_helper->stop_containers();
+	restart_with_size($t, $docker_helper->{endpoint}, '16k');
+	check_log_ok($t, $docker_helper->{container_engine});
+
+	$docker_helper->stop_containers();
+}
 
 ###############################################################################
 

@@ -24,14 +24,38 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()
-	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
-	->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
+plan(skip_all => 'unsafe, may interfere with running containers.')
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $docker_helper = Test::Docker->new();
+unless (caller) {
+	my $t = Test::Nginx->new()
+		->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
+		->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
 
-$t->write_file_expand('nginx.conf', <<"EOF");
+	my $docker_helper = eval {
+		Test::Docker->new({container_engine => 'docker'});
+	};
+	if ($@) {
+		plan(skip_all => $@);
+	}
 
+	$t->write_file_expand('nginx.conf', prepare_config($docker_helper));
+
+	my %test_cases = prepare_test_cases($docker_helper);
+
+	$t->plan(scalar keys %test_cases);
+
+	$t->run();
+
+	$t->run_tests(\%test_cases);
+}
+
+###############################################################################
+
+sub prepare_config {
+	my $docker_helper = shift;
+
+	return <<"EOF"
 %%TEST_GLOBALS%%
 
 daemon off;
@@ -99,41 +123,40 @@ stream {
 
 EOF
 
-my $container_engine = $docker_helper->{container_engine};
-my %test_cases = (
-	"3 $container_engine containers" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 3},
-	},
-	"10 $container_engine containers" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 10},
-	},
-	"1 $container_engine container" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 1},
-	},
-	"15 $container_engine containers" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 15},
-	},
-	"4 $container_engine containers" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 4},
-	},
-	"30 $container_engine containers" => {
-		test_sub    => \&test_containers,
-		test_params => {docker_helper => $docker_helper, count => 30},
-	},
-);
+}
 
-$t->plan(scalar keys %test_cases);
+sub prepare_test_cases {
+	my $docker_helper = shift;
 
-$t->run();
+	my $container_engine = $docker_helper->{container_engine};
 
-$t->run_tests(\%test_cases);
-
-###############################################################################
+	return (
+		"3 $container_engine containers" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 3},
+		},
+		"10 $container_engine containers" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 10},
+		},
+		"1 $container_engine container" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 1},
+		},
+		"15 $container_engine containers" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 15},
+		},
+		"4 $container_engine containers" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 4},
+		},
+		"30 $container_engine containers" => {
+			test_sub    => \&test_containers,
+			test_params => {docker_helper => $docker_helper, count => 30},
+		},
+	);
+}
 
 sub test_containers {
 	my ($t, $test_params) = @_;
@@ -183,15 +206,17 @@ sub test_containers {
 		}
 	}
 
-	if (check_peers_created($expected)) {
+	my $container_engine = $docker_helper->{container_engine};
+
+	if (check_peers_created($container_engine, $expected)) {
 
 		$docker_helper->pause_containers('pause');
 
-		check_peers($expected, 'down');
+		check_peers($container_engine, $expected, 'down');
 
 		$docker_helper->pause_containers('unpause');
 
-		check_peers($expected, 'up');
+		check_peers($container_engine, $expected, 'up');
 	}
 
 	$docker_helper->stop_containers();
@@ -238,7 +263,7 @@ sub prepare_labels {
 }
 
 sub check_peers_created {
-	my ($expected) = @_;
+	my ($container_engine, $expected) = @_;
 
 	my ($ok, $stack, $got);
 
@@ -270,7 +295,7 @@ sub check_peers_created {
 }
 
 sub check_peers {
-	my ($expected, $state_expected) = @_;
+	my ($container_engine, $expected, $state_expected) = @_;
 
 	my ($ok, $stack, $got);
 

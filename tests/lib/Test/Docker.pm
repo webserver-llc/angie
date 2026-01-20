@@ -12,40 +12,75 @@ use strict;
 use File::Basename;
 use Test::More;
 
-plan(skip_all => 'unsafe, may interfere with running containers.')
-	unless $ENV{TEST_ANGIE_UNSAFE};
-
 sub new {
-	my $class = shift;
+	my $class  = shift;
+	my $params = shift // {};
+
+	my $container_engine = $params->{container_engine} // 'docker';
+
+	die 'Incorrect container engine'
+		unless $container_engine =~ /^(?:docker|podman)$/;
+
+	unless (`which $container_engine 2>/dev/null`) {
+		die "no $container_engine";
+	}
 
 	my $self = bless {
 		network  => 'angie_test_net_' . basename($0, qw(.t)),
 		registry => $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io',
 	}, $class;
 
-	if (system('docker version 1>/dev/null 2>&1') == 0) {
-		$self->{endpoint} = '/var/run/docker.sock';
-		$self->{container_engine} = 'docker';
+	$self->_init_endpoint($container_engine)
+		or return;
 
-	} elsif (system('podman version 1>/dev/null 2>&1') == 0) {
-		$self->{endpoint} = '/tmp/podman.sock';
-		unless (-e $self->{endpoint}) {
-			die 'incorrect podman setup: ' . $self->{endpoint} . ' is missing';
-		}
-		unless (-w $self->{endpoint}) {
-			die 'incorrect podman setup: ' . $self->{endpoint}
-				. ' is not writable';
-		}
+	$self->{container_engine} = $container_engine;
 
-		$self->{container_engine} = 'podman';
-
-	} else {
-		plan(skip_all => 'no Docker or Podman');
-	}
-
-	$self->_test_network();
+	$self->_test_network()
+		or return;
 
 	return $self;
+}
+
+sub _init_endpoint {
+	my ($self, $container_engine) = @_;
+
+	my $error = `$container_engine version 2>&1 1>/dev/null`;
+	my $exit_code = $?;
+	unless (($exit_code >> 8) == 0) {
+		die "incorrect $container_engine setup: $error";
+	}
+
+	if ($container_engine eq 'docker') {
+		$self->{endpoint} = '/var/run/docker.sock';
+
+		unless (-e $self->{endpoint}) {
+			die 'incorrect endpoint setup: ' . $self->{endpoint}
+				. ' is missing';
+		}
+
+	} else {
+		# this is the preferrable endpoint
+		$self->{endpoint} = '/tmp/podman.sock';
+
+		if (-e $self->{endpoint}) {
+			# all is good, do nothing
+
+		} elsif (defined $ENV{XDG_RUNTIME_DIR}
+			&& -e $ENV{XDG_RUNTIME_DIR} . '/podman/podman.sock') {
+
+			# this is the default endpoint on most systems
+			$self->{endpoint} = $ENV{XDG_RUNTIME_DIR} . '/podman/podman.sock';
+		} else {
+			die 'incorrect podman setup: none of the known endpoints exists';
+		}
+	}
+
+	unless (-w $self->{endpoint}) {
+		die 'incorrect endpoint setup: ' . $self->{endpoint}
+			. ' is not writable';
+	}
+
+	return 1;
 }
 
 sub _test_network {

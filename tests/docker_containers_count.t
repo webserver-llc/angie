@@ -23,12 +23,59 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_api upstream_zone docker proxy/);
+plan(skip_all => 'unsafe, may interfere with running containers.')
+	unless $ENV{TEST_ANGIE_UNSAFE};
 
-my $docker_helper = Test::Docker->new();
+unless (caller) {
+	my $t = Test::Nginx->new()
+		->has(qw/http http_api upstream_zone docker proxy/);
 
-$t->plan(27)->write_file_expand('nginx.conf', <<"EOF");
+	my $docker_helper = eval {
+		Test::Docker->new({container_engine => 'docker'});
+	};
+	if ($@) {
+		plan(skip_all => $@);
+	}
 
+	$t->plan(27)
+		->write_file_expand('nginx.conf', prepare_config($docker_helper));
+
+	test($t, $docker_helper);
+}
+
+###############################################################################
+
+sub test {
+	my ($t, $docker_helper) = @_;
+
+	my $labels = ' -l "angie.http.upstreams.u.port=80"'
+		. ' -l "angie.http.upstreams.u.weight=2"'
+		. ' -l "angie.http.upstreams.u.max_conns=20"'
+		. ' -l "angie.http.upstreams.u.max_fails=5"'
+		. ' -l "angie.http.upstreams.u.slow_start=10s"'
+		. ' -l "angie.http.upstreams.u.fail_timeout=10s"'
+		. ' -l "angie.http.upstreams.u.backup=false"'
+		. ' -l "angie.http.upstreams.u.sid=sid1"';
+
+	$docker_helper->start_containers(25, $labels);
+
+	$t->run();
+
+	check_peers($docker_helper);
+
+	$t->stop();
+
+	check_log($t, $docker_helper->{container_engine});
+
+	$docker_helper->stop_containers();
+}
+
+###############################################################################
+
+sub prepare_config {
+	my ($docker_helper) = @_;
+
+	return <<"EOF"
 %%TEST_GLOBALS%%
 
 daemon off;
@@ -63,30 +110,7 @@ http {
 
 EOF
 
-###############################################################################
-
-my $labels = ' -l "angie.http.upstreams.u.port=80"'
-	. ' -l "angie.http.upstreams.u.weight=2"'
-	. ' -l "angie.http.upstreams.u.max_conns=20"'
-	. ' -l "angie.http.upstreams.u.max_fails=5"'
-	. ' -l "angie.http.upstreams.u.slow_start=10s"'
-	. ' -l "angie.http.upstreams.u.fail_timeout=10s"'
-	. ' -l "angie.http.upstreams.u.backup=false"'
-	. ' -l "angie.http.upstreams.u.sid=sid1"';
-
-$docker_helper->start_containers(25, $labels);
-
-$t->run();
-
-check_peers($docker_helper);
-
-$t->stop();
-
-check_log($t, $docker_helper->{container_engine});
-
-$docker_helper->stop_containers();
-
-###############################################################################
+}
 
 sub check_peers {
 	my ($docker_helper) = @_;

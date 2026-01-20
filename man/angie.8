@@ -26,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd July 10, 2024
+.Dd January 21, 2026
 .Dt ANGIE 8
 .Os
 .Sh NAME
@@ -104,7 +104,8 @@ but additionally dump configuration files to standard output.
 Do not run, just test the configuration file.
 .Nm
 checks the configuration file syntax and then tries to open files
-referenced in the configuration file.
+referenced in the configuration file, including binding to configured
+listen addresses.
 .It Fl V
 Print the
 .Nm

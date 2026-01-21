@@ -201,7 +201,7 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
                    peer_tp->sr_token, NGX_QUIC_SR_TOKEN_LEN);
     }
 
-    ngx_memcpy(&qc->peer_tp, peer_tp, sizeof(ngx_quic_tp_t));
+    qc->peer_tp = *peer_tp;
 
     /* apply transport parameters to early created streams */
     ngx_quic_streams_init_state(c);

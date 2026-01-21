@@ -289,7 +289,7 @@ ngx_quic_cbs_got_transport_params(ngx_ssl_conn_t *ssl_conn,
     qc = ngx_quic_get_connection(c);
 
     /* defaults for parameters not sent by client */
-    ngx_memcpy(&ctp, &qc->peer_tp, sizeof(ngx_quic_tp_t));
+    ctp = qc->peer_tp;
 
     p = (u_char *) params;
     end = p + params_len;
@@ -539,7 +539,7 @@ ngx_quic_add_handshake_data(ngx_ssl_conn_t *ssl_conn,
             end = p + client_params_len;
 
             /* defaults for parameters not sent by client */
-            ngx_memcpy(&peer_tp, &qc->peer_tp, sizeof(ngx_quic_tp_t));
+            peer_tp = qc->peer_tp;
 
             if (ngx_quic_parse_transport_params(p, end, &peer_tp, c->log,
                                                 qc->client)

@@ -12,6 +12,13 @@ PROVE_OPTS=--shuffle \
           '--rules=seq=./docker*.t' \
           '--rules=par=**'
 
+REPORT=
+
+ifeq ($(REPORT),yes)
+TENV+=PERL5LIB=lib
+PROVE_OPTS+= --formatter Test::Formatter::JSON
+endif
+
 TENV_ADD=
 PROVE_ADD_OPTS=
 

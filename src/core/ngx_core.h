@@ -120,6 +120,9 @@ typedef void (*ngx_connection_handler_pt)(ngx_connection_t *c);
 #define ngx_max(val1, val2)  ((val1 < val2) ? (val2) : (val1))
 #define ngx_min(val1, val2)  ((val1 > val2) ? (val2) : (val1))
 
+#define ngx_items_num(a)     (sizeof(a) / sizeof((a)[0]))
+#define ngx_items_end(a)     ((a) + ngx_items_num(a))
+
 void ngx_cpuinfo(void);
 
 #if (NGX_HAVE_OPENAT)

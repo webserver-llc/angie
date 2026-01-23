@@ -9,7 +9,7 @@
 use warnings;
 use strict;
 
-use Test::Deep qw/ eq_deeply /;
+use Test::Deep qw/ eq_deeply num /;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -35,6 +35,8 @@ use constant {
 
 our @MODE_NAMES = ('count', 'min', 'max', 'last', 'gauge', 'average mean',
 	'average exp', 'histogram');
+
+use constant 'TOLERANCE' => 1e-6;
 
 ###############################################################################
 
@@ -356,7 +358,6 @@ sub metric_compare {
 			@expected{ @{ $node->{args} } } = @{ $value_expected };
 
 			my $ok = eq_deeply($value_got, \%expected);
-
 			unless ($ok) {
 				diag("failed to compare metrics:");
 				diag(explain({got => $value_got, expected => \%expected}));
@@ -366,13 +367,12 @@ sub metric_compare {
 		}
 
 		my $expected = ($mode == MODE_AVG_MEAN)
-			? sprintf('%.6f', $value_expected->{value})
-			: sprintf('%.6f', $value_expected);
+			? $value_expected->{value}
+			: $value_expected;
 
-		my $got = sprintf('%.6f', $value_got);
-
-		if ($got != $expected) {
-			diag("failed to compare metrics ($got != $expected)");
+		my $ok = eq_deeply($value_got, num($expected, TOLERANCE));
+		unless ($ok) {
+			diag("failed to compare metrics ($value_got != $expected)");
 			return 0;
 		}
 		return 1;

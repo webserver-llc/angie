@@ -179,7 +179,7 @@ static ngx_int_t ngx_http_metric_stage_handler(ngx_http_request_t *r,
 
 
 typedef struct {
-    ngx_str_t                    name;
+    const char                  *name;
     ngx_uint_t                   id;
     off_t                        conf_off;
     ngx_int_t                  (*handler)(ngx_http_request_t *r);
@@ -189,22 +189,22 @@ typedef struct {
 #define NGX_HTTP_METRIC_RESPONSE_PHASE  0xff
 
 #define ngx_http_metric_phase_null_entry                                      \
-    { ngx_null_string, 0, 0, NULL }
+    { "", 0, 0, NULL }
 
 
 static ngx_http_metric_phase_t  ngx_http_metric_phases[] = {
 
-    { ngx_string("end"),
+    { "end",
       NGX_HTTP_LOG_PHASE,
       offsetof(ngx_http_metric_loc_conf_t, end),
       ngx_http_metric_end_handler },
 
-    { ngx_string("response"),
+    { "response",
       NGX_HTTP_METRIC_RESPONSE_PHASE,
       offsetof(ngx_http_metric_loc_conf_t, response),
       ngx_http_metric_response_handler },
 
-    { ngx_string("request"),
+    { "request",
       NGX_HTTP_PRECONTENT_PHASE,
       offsetof(ngx_http_metric_loc_conf_t, request),
       ngx_http_metric_request_handler },
@@ -2564,10 +2564,10 @@ ngx_http_metric(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         value[3].len -= 3;
         value[3].data += 3;
 
-        while (ngx_strcmp(&value[3], &phase->name) != 0) {
+        while (ngx_strcmp(value[3].data, phase->name) != 0) {
             phase++;
 
-            if (phase->name.len == 0) {
+            if (*phase->name == '\0') {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "unknown stage \"%V\"", &value[3]);
                 return NGX_CONF_ERROR;
@@ -2721,7 +2721,7 @@ ngx_http_metric_init(ngx_conf_t *cf)
 
     phase = ngx_http_metric_phases;
 
-    for ( /* void */ ; phase->name.len != 0; phase++) {
+    for ( /* void */ ; *phase->name != '\0'; phase++) {
 
         if (phase->id == NGX_HTTP_METRIC_RESPONSE_PHASE) {
             ngx_http_next_header_filter = ngx_http_top_header_filter;

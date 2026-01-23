@@ -188,9 +188,6 @@ typedef struct {
 
 #define NGX_HTTP_METRIC_RESPONSE_PHASE  0xff
 
-#define ngx_http_metric_phase_null_entry                                      \
-    { "", 0, 0, NULL }
-
 
 static ngx_http_metric_phase_t  ngx_http_metric_phases[] = {
 
@@ -207,9 +204,7 @@ static ngx_http_metric_phase_t  ngx_http_metric_phases[] = {
     { "request",
       NGX_HTTP_PRECONTENT_PHASE,
       offsetof(ngx_http_metric_loc_conf_t, request),
-      ngx_http_metric_request_handler },
-
-      ngx_http_metric_phase_null_entry
+      ngx_http_metric_request_handler }
 };
 
 
@@ -247,10 +242,6 @@ static ngx_http_metric_request_ctx_t *ngx_http_metric_get_request_ctx(
 static void ngx_http_metric_request_cleanup(void *data);
 
 
-#define ngx_http_metric_var_null_entry                                        \
-    { NULL, 0, NULL, NULL }
-
-
 static ngx_http_metric_var_t  ngx_http_metric_vars[] = {
 
     { "metric_%V",                         /* variable format */
@@ -266,9 +257,7 @@ static ngx_http_metric_var_t  ngx_http_metric_vars[] = {
     { "metric_%V_value",
       sizeof("metric__value"),
       ngx_http_metric_var_set_value_handler,
-      ngx_http_metric_var_get_value_handler },
-
-      ngx_http_metric_var_null_entry
+      ngx_http_metric_var_get_value_handler }
 };
 
 
@@ -277,9 +266,7 @@ static ngx_http_metric_var_t ngx_http_metric_complex_vars[] = {
     { "metric_%V_value_%V",
       sizeof("metric__value_"),
       NULL,
-      ngx_http_metric_complex_var_get_value_handler },
-
-      ngx_http_metric_var_null_entry
+      ngx_http_metric_complex_var_get_value_handler }
 };
 
 
@@ -524,9 +511,6 @@ static ngx_int_t ngx_http_metric_api_hist_iter(ngx_api_iter_ctx_t *ictx,
 #define NGX_HTTP_METRIC_AVG_MEAN  2
 #define NGX_HTTP_METRIC_HIST      3
 
-#define ngx_http_metric_mode_null_entry                                       \
-    { ngx_null_string, 0, NULL, NULL, NULL, NULL, NULL, NULL }
-
 
 static ngx_http_metric_mode_t  ngx_http_metric_modes[] = {
 
@@ -600,9 +584,7 @@ static ngx_http_metric_mode_t  ngx_http_metric_modes[] = {
       ngx_http_metric_hist_expire,
       ngx_http_metric_hist_set,
       ngx_http_metric_hist_get,
-      ngx_http_metric_hist_api },
-
-      ngx_http_metric_mode_null_entry
+      ngx_http_metric_hist_api }
 };
 
 
@@ -1992,8 +1974,7 @@ ngx_http_metric_zone(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
     mode = ngx_http_metric_modes;
     start = 1;
 
-    for ( /* void */ ; mode->name.len != 0; mode++) {
-
+    do {
         if (value[start].len > mode->name.len) {
             continue;
         }
@@ -2023,7 +2004,8 @@ ngx_http_metric_zone(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
             start += 2;
             goto found;
         }
-    }
+
+    } while (++mode != ngx_items_end(ngx_http_metric_modes));
 
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                        "unknown mode \"%V\"", &value[start]);
@@ -2313,8 +2295,7 @@ ngx_http_metric_zone_inline(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     mode = ngx_http_metric_modes;
 
-    for ( /* void */ ; mode->name.len != 0; mode++) {
-
+    do {
         if (value[start].len > mode->name.len) {
             continue;
         }
@@ -2344,7 +2325,8 @@ ngx_http_metric_zone_inline(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             start += 2;
             goto found;
         }
-    }
+
+    } while (++mode != ngx_items_end(ngx_http_metric_modes));
 
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                        "unknown mode \"%V\"", &value[start]);
@@ -2450,8 +2432,9 @@ ngx_http_metric_create_complex_vars(ngx_conf_t *cf,
 
     metric_ptr = mctx->metrics->elts;
 
-    for (v = ngx_http_metric_complex_vars; v->size; v++) {
+    v = ngx_http_metric_complex_vars;
 
+    do {
         for (i = 0; i < mctx->metrics->nelts; i++) {
             name = metric_ptr[i]->name;
 
@@ -2476,7 +2459,8 @@ ngx_http_metric_create_complex_vars(ngx_conf_t *cf,
             var->set_handler = v->set;
             var->data = (uintptr_t) metric_ptr[i];
         }
-    }
+
+    } while (++v != ngx_items_end(ngx_http_metric_complex_vars));
 
     return NGX_CONF_OK;
 }
@@ -2496,7 +2480,9 @@ ngx_http_metric_create_vars(ngx_conf_t *cf, ngx_http_metric_ctx_t *mctx)
 
     flags = NGX_HTTP_VAR_CHANGEABLE | NGX_HTTP_VAR_NOCACHEABLE;
 
-    for (v = ngx_http_metric_vars; v->size; v++) {
+    v = ngx_http_metric_vars;
+
+    do {
         size = v->size - 1 + shm_name.len;
 
         p = ngx_pnalloc(cf->temp_pool, size);
@@ -2517,7 +2503,8 @@ ngx_http_metric_create_vars(ngx_conf_t *cf, ngx_http_metric_ctx_t *mctx)
         var->get_handler = v->get;
         var->set_handler = v->set;
         var->data = (uintptr_t) mctx;
-    }
+
+    } while (++v != ngx_items_end(ngx_http_metric_vars));
 
     return NGX_CONF_OK;
 }
@@ -2565,9 +2552,7 @@ ngx_http_metric(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         value[3].data += 3;
 
         while (ngx_strcmp(value[3].data, phase->name) != 0) {
-            phase++;
-
-            if (*phase->name == '\0') {
+            if (++phase == ngx_items_end(ngx_http_metric_phases)) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "unknown stage \"%V\"", &value[3]);
                 return NGX_CONF_ERROR;
@@ -2721,8 +2706,7 @@ ngx_http_metric_init(ngx_conf_t *cf)
 
     phase = ngx_http_metric_phases;
 
-    for ( /* void */ ; *phase->name != '\0'; phase++) {
-
+    do {
         if (phase->id == NGX_HTTP_METRIC_RESPONSE_PHASE) {
             ngx_http_next_header_filter = ngx_http_top_header_filter;
             ngx_http_top_header_filter = phase->handler;
@@ -2735,7 +2719,8 @@ ngx_http_metric_init(ngx_conf_t *cf)
         }
 
         *h = phase->handler;
-    }
+
+    } while (++phase != ngx_items_end(ngx_http_metric_phases));
 
     if (ngx_api_add(cf->cycle, "/status/http", &ngx_http_metric_api_zone_entry)
         != NGX_OK)

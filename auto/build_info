@@ -25,7 +25,7 @@ EOF
 
 $CC -include $NGX_AUTO_CONFIG_H -E -dM - < /dev/null                          \
     | grep NGX                                                                \
-    | sed 's/#define //g;s/"/\\"/g;s/NGX_HAVE_//g;s/NGX_//g'                  \
+    | sed 's/#define //g;s/"/\\"/g;s/^NGX_HAVE_//g;s/^NGX_//g'                \
     | sort                                                                    \
     | awk '
     {

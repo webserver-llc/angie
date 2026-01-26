@@ -5,7 +5,8 @@ TENV=TEST_ANGIE_UNSAFE=1 \
      TEST_NGINX_UNSAFE=1 \
      TEST_ANGIE_LEAVE=onfail \
      ASAN_OPTIONS=detect_leaks=0 \
-     TEST_ANGIE_GLOBALS="env ASAN_OPTIONS;"
+     TEST_ANGIE_GLOBALS="env ASAN_OPTIONS;" \
+     TEST_ANGIE_JOBS=$(JOBS)
 
 PROVE_OPTS=--shuffle \
           '--rules=seq=./acme_*.t' \

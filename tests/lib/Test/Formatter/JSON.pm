@@ -12,6 +12,7 @@ package Test::Formatter::JSON;
 use strict;
 use warnings;
 
+use Cwd;
 use IO::File;
 use File::Temp qw(tempdir);
 use File::Spec::Functions qw(catdir);
@@ -154,6 +155,10 @@ sub create_report {
 
 	my %res = ();
 
+	my $env = collect_run_env();
+
+	$res{'run_env'} = $env;
+
 	# status
 
 	if ($r->{has_errors}) {
@@ -289,6 +294,71 @@ sub create_report {
 	$res{tests} = \%tests;
 
 	return \%res;
+}
+
+
+sub collect_run_env {
+
+	my %info = ();
+
+	my %env = ();
+
+	# environment variables affecting us
+	my @vars = (qw /TEST_ANGIE_BINARY TEST_ANGIE_VALGRIND TEST_ANGIE_CATLOG
+	            TEST_ANGIE_VERBOSE TEST_ANGIE_UNSAFE TEST_ANGIE_TC
+	            TEST_ANGIE_GLOBALS TEST_ANGIE_GLOBALS_HTTP
+	            TEST_ANGIE_GLOBALS_STREAM TEST_ANGIE_DOCKER_REGISTRY
+	            TEST_ANGIE_JOBS \
+	            ASAN_OPTIONS CFLAGS CXXFLAGS LDFLAGS SHELL USER PATH/);
+
+	foreach my $var (@vars) {
+		$env{$var} = $ENV{$var};
+	}
+
+	$info{env} = \%env;
+
+	# selected binary to run
+	my $NGINX = defined $ENV{TEST_ANGIE_BINARY} ? $ENV{TEST_ANGIE_BINARY}
+	: '../objs/angie';
+	$info{binary} = $NGINX;
+
+	# where we are?
+	$info{cwd} = getcwd;
+
+	# who we are?
+	$info{uid} = $<;
+
+	# our limits
+	my @limits = split /\n/, `sh -c "ulimit -a" 2>&1`;
+	$info{ulimit} = \@limits;
+
+	# free memory
+	# TODO: add something that works on BSD
+	my @mem = split /\n/, `free -m 2>&1`;
+	$info{freemem} = \@mem;
+
+	# all the information the binary can give us
+	my $vversion = `$NGINX -V 2>&1`;
+	my @lines =  split /\n/,  $vversion;
+	$info{verbose_version} = \@lines;
+
+	# compiled in modules
+	my $am = `$NGINX -m 2>&1`;
+	my @modules = split /\n/,  $am;
+	$info{modules} = \@modules;
+
+	# final binary configuration
+	my %be = ();
+	my $lines = `$NGINX --build-env 2>&1`;
+	my @build_env =  split /\n/,  $lines;
+	for my $line (@build_env) {
+		my ($item, $value) = $line =~  /^(\w+)\s*:\s+(.*)$/;
+		$be{$item} = $value;
+	}
+
+	$info{build_env} = \%be;
+
+	return \%info;
 }
 
 1;

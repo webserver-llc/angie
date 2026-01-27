@@ -10,6 +10,7 @@ TENV=TEST_ANGIE_UNSAFE=1 \
 PROVE_OPTS=--shuffle \
           '--rules=seq=./acme_*.t' \
           '--rules=seq=./docker*.t' \
+          '--rules=seq=./podman*.t' \
           '--rules=par=**'
 
 REPORT=

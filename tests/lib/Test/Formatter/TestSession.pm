@@ -53,6 +53,7 @@ sub _initialize {
 
 	$self->results([]);
 	$self->xresults([]);
+	$self->err_lines([]);
 	$self->tc_errors({});
 	$self->tc_misc({});
 	$self->meta({});
@@ -216,15 +217,15 @@ sub restore_stderr {
 			# do not push empty out (most of it)
 			# object index is testcase number
 			if ($result->is_test) {
-				$self->tc_errors->{$self->curr_tc_num} = $lines;
+				push @{$self->tc_errors->{$self->curr_tc_num}}, @$lines;
 			} else {
-				$self->tc_misc->{$self->curr_tc_num} = $lines;
+				push @{$self->tc_misc->{$self->curr_tc_num}}, @$lines;
 			}
 		}
 
 	} else {
 		# global, per-test-file stderr, if any
-		$self->err_lines($lines);
+		push @{$self->err_lines}, @$lines;
 	}
 
 	unlink $self->tmp_fn or warn "Cannot remove temporary file: $!";

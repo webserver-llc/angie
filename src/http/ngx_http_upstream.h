@@ -453,6 +453,7 @@ struct ngx_http_upstream_s {
     unsigned                         request_body_sent:1;
     unsigned                         request_body_blocked:1;
     unsigned                         header_sent:1;
+    unsigned                         response_received:1;
 #if (NGX_HTTP_V3)
     unsigned                         h3:1;
     unsigned                         h3_started:1;

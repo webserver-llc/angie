@@ -85,6 +85,13 @@ typedef struct {
     ngx_str_t                      ssl_crl;
     ngx_array_t                   *ssl_conf_commands;
 #endif
+
+#if (NGX_HTTP_V3)
+    ngx_str_t                      host;
+    ngx_flag_t                     enable_hq;
+    ngx_uint_t                     max_table_capacity_set;
+#endif
+
 } ngx_http_proxy_loc_conf_t;
 
 
@@ -98,6 +105,12 @@ typedef struct {
     ngx_chain_t                   *busy;
 
     ngx_buf_t                     *trailers;
+
+#if (NGX_HTTP_V3)
+    ngx_str_t                      host;
+    ngx_http_v3_parse_t           *v3_parse;
+    size_t                         data_recvd;
+#endif
 
     unsigned                       head:1;
     unsigned                       internal_chunked:1;

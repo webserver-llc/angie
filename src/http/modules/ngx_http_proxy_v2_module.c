@@ -346,17 +346,15 @@ ngx_http_proxy_v2_create_request(ngx_http_request_t *r)
     headers = &plcf->headers;
 #endif
 
-    if (u->method.len) {
-        /* HEAD was changed to GET to cache response */
-        method = u->method;
-
-    } else if (plcf->method) {
+    if (plcf->method) {
         if (ngx_http_complex_value(r, plcf->method, &method) != NGX_OK) {
             return NGX_ERROR;
         }
 
+        u->method = method;
+
     } else {
-        method = r->method_name;
+        method = u->method;
     }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_proxy_v2_module);

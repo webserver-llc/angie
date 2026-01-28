@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -69,8 +70,13 @@ my @uwsgiopts = ();
 
 if ($uwsgihelp !~ /--wsgi-file/) {
 	# uwsgi has no python support, maybe plugin load is necessary
+
+	my ($mj, $mi, $pa) = `python3 -V` =~ /Python (\w+)\.(\w+)\.(\w+)/;
+
 	push @uwsgiopts, '--plugin', 'python';
-	push @uwsgiopts, '--plugin', 'python3';
+	push @uwsgiopts, '--plugin', "python$mj";
+	push @uwsgiopts, '--plugin', "python$mj$mi";
+	push @uwsgiopts, '--plugin', "python$mj$mi$pa";
 }
 
 open OLDERR, ">&", \*STDERR; close STDERR;

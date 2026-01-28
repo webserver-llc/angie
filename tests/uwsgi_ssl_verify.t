@@ -144,8 +144,13 @@ my @uwsgiopts = ();
 
 if ($uwsgihelp !~ /--wsgi-file/) {
 	# uwsgi has no python support, maybe plugin load is necessary
+
+	my ($mj, $mi, $pa) = `python3 -V` =~ /Python (\w+)\.(\w+)\.(\w+)/;
+
 	push @uwsgiopts, '--plugin', 'python';
-	push @uwsgiopts, '--plugin', 'python3';
+	push @uwsgiopts, '--plugin', "python$mj";
+	push @uwsgiopts, '--plugin', "python$mj$mi";
+	push @uwsgiopts, '--plugin', "python$mj$mi$pa";
 }
 
 if ($uwsgihelp =~ /--ssl-enable-tlsv1/) {

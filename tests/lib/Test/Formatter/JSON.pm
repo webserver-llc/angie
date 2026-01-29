@@ -221,6 +221,7 @@ sub create_report {
 		$tres{todo} = $test->{todo};
 		$tres{skipped} = $test->{skipped};
 		$tres{elapsed} = $test->{elapsed_time};
+		$tres{started_at} = $test->{started_at};
 		$tres{time_wall} = $test->{time_wall};
 		$tres{time_user} = $test->{time_user};
 		$tres{time_user_child} = $test->{time_user_child};
@@ -282,6 +283,17 @@ sub create_report {
 			if (scalar keys %misc) {
 				$tres{tc_misc} = \%misc;
 			}
+
+			my @tc_elapsed = ();
+
+			my $prev = $test->{started_at};
+
+			for my $end (@{$test->{tc_end_time}}) {
+				push @tc_elapsed, $end - $prev;
+				$prev = $end;
+			}
+
+			$tres{tc_elapsed} = \@tc_elapsed;
 		}
 
 		$tests{$tname} = \%tres;

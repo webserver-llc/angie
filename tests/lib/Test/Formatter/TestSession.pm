@@ -35,6 +35,7 @@ BEGIN {
 		err_lines       => sub { shift; shift; },
 		curr_tc_num     => sub { shift; shift; },
 		console_session => sub { shift; shift; },
+		verbosity       => sub { shift; shift; },
 		start_wall      => sub { shift; shift; },
 		start_user      => sub { shift; shift; },
 		start_cuser     => sub { shift; shift; },
@@ -60,7 +61,7 @@ sub _initialize {
 	$self->closed(0);
 	$self->curr_tc_num(0);
 
-	foreach my $arg (qw(test parser formatter console_session)) {
+	foreach my $arg (qw(test parser formatter console_session verbosity)) {
 		$self->$arg($args->{$arg}) if defined $args->{$arg};
 	}
 
@@ -115,6 +116,10 @@ sub result {
 
 	push @{ $self->results }, $result;
 	push @{ $self->xresults }, \%$result;
+
+	if ($self->verbosity >= 2) {
+		print($result->{raw}."\n");
+	}
 }
 
 

@@ -95,7 +95,8 @@ sub open_test {
 	my $session = $self->session_class->new({ test => $test,
 	                                          parser => $parser,
 	                                          formatter => $self,
-	                           console_session => $console_session});
+	                           console_session => $console_session,
+	                           verbosity => $self->verbosity});
 
 	push @{ $self->sessions }, $session;
 

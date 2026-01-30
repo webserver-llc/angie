@@ -40,20 +40,27 @@ sub new {
 	require Crypt::Digest;
 	require Crypt::Mac::HMAC;
 
-	my $lport;
 
-	if (defined($extra{local_port})) {
-		$lport = port($extra{local_port}, udp => 1);
+	if (defined ($extra{socket})) {
+		$self->{socket} = $extra{socket};
+
 	} else {
-		$lport = undef;
-	}
 
-	$self->{socket} = IO::Socket::INET->new(
-		Proto => "udp",
-		PeerAddr => '127.0.0.1:' . port($port || 8980, udp => 1),
-		LocalPort => $lport,
-		LocalAddr => $extra{local_addr} || '127.0.0.1',
-	);
+		my $lport;
+
+		if (defined($extra{local_port})) {
+			$lport = port($extra{local_port}, udp => 1);
+		} else {
+			$lport = undef;
+		}
+
+		$self->{socket} = IO::Socket::INET->new(
+			Proto => "udp",
+			PeerAddr => '127.0.0.1:' . port($port || 8980, udp => 1),
+			LocalPort => $lport,
+			LocalAddr => $extra{local_addr} || '127.0.0.1',
+		);
+	}
 
 	$self->{repeat} = 0;
 	$self->{token} = $extra{token} || '';
@@ -2539,13 +2546,14 @@ sub tls_named_group {
 ###############################################################################
 
 sub http3_start {
-	my ($host, $dport, $laddr, $lport) = @_;
+	my ($host, $dport, $laddr, $lport, %extra) = @_;
 
 	my $s = Test::Nginx::HTTP3->new(
 		$dport,
 		sni => $host,
 		local_addr => $laddr,
-		local_port => $lport
+		local_port => $lport,
+		%extra
 	);
 	if (!defined $s) {
 		Test::More::diag("failed to create new H3 socket on lport:$lport");
@@ -2584,9 +2592,9 @@ sub http3_close {
 }
 
 sub http3_get {
-	my ($host, $dport, $laddr, $lport) = @_;
+	my ($host, $dport, $laddr, $lport, %extra) = @_;
 
-	my ($s, $sid) = http3_start($host, $dport, $laddr, $lport);
+	my ($s, $sid) = http3_start($host, $dport, $laddr, $lport, %extra);
 	if (!defined($s) || !defined($sid)) {
 		Test::More::diag("failed to perform HTTP/3 request to $host:$dport"
 			. " from $laddr:$lport");

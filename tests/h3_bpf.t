@@ -285,7 +285,7 @@ sub get_worker_port_matches {
 	my ($nworkers) = @_;
 
 	# number of local port increments in attempt to reach specific worker
-	my $ntries = 256;
+	my $ntries = 2048;
 
 	# mapping of uniq workers to local ports
 	# res[worker_pid] = local_port
@@ -295,8 +295,19 @@ sub get_worker_port_matches {
 
 	for my $k (1 .. $ntries) {
 		my $curr_port = $last_port + $k;
+
+		my $sock = IO::Socket::INET->new(
+				Proto => 'udp',
+				PeerAddr => '127.0.0.1:'.port(DPORT, udp => 1),
+				LocalAddr => '127.0.0.1',
+				LocalPort => $curr_port,
+		);
+		if (!defined $sock) {
+			next;
+		}
+
 		my $pid = http3_get('test.example.com', DPORT, '127.0.0.1',
-			$curr_port);
+			$curr_port, 'socket' => $sock);
 
 		if (!defined $pid) {
 			note("failed to get h3 response using $curr_port "

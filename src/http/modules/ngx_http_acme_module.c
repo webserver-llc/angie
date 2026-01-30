@@ -2307,6 +2307,8 @@ ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
         }
     }
 
+    GENERAL_NAMES_free(sans);
+
 failed:
 
     X509_free(x509);

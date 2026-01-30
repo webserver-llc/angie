@@ -84,6 +84,8 @@ $t->write_file('resolv.conf', "nameserver 127.0.1.4\nnameserver 127.0.1.5\n");
 $t->write_file('default_resolv.conf',
 	"nameserver 127.0.0.1\nnameserver 127.0.0.2\n");
 
+$t->write_file('late_resolv.conf', "\n");
+
 $t->run()->plan(16);
 
 $t->waitforfile($t->testdir . '/127.0.0.1');

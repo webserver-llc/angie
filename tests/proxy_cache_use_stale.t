@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -94,6 +95,12 @@ http {
                 proxy_cache_use_stale  updating;
             }
 
+            location /next/ {
+                proxy_pass    http://127.0.0.1:8081/;
+
+                proxy_next_upstream  http_500;
+            }
+
             location /t7.html {
                 proxy_pass    http://127.0.0.1:8081;
 
@@ -150,7 +157,7 @@ $t->write_file('ssi.html', 'xxx <!--#include virtual="/t9.html" --> xxx');
 $t->write_file('escape.html', 'SEE-THIS');
 $t->write_file('regexp.html', 'SEE-THIS');
 
-$t->run()->plan(34);
+$t->run()->plan(35);
 
 ###############################################################################
 
@@ -171,19 +178,24 @@ http_get('/ssi.html');
 get('/updating/t.html', 'max-age=1');
 get('/updating/t2.html', 'max-age=1, stale-while-revalidate=2');
 get('/updating/tt.html', 'max-age=1, stale-if-error=5');
+get('/next/tt.html', 'max-age=1, stale-if-error=5');
 get('/t8.html', 'stale-while-revalidate=20');
 get('/escape.htm%6C', 'max-age=1, stale-while-revalidate=20');
 get('/regexp.html', 'max-age=1, stale-while-revalidate=20');
 
 sleep 2;
 
-# stale 5xx response is ignored since 1.19.3,
-# "proxy_cache_use_stale updating;" allows to get it still
+# if an upstream returns a valid HTTP response, stale cached response
+# with "stale-if-error=..." is only used if the status code is listed
+# in proxy_next_upstream (1.29.5) or using stale responses is enabled
+# with proxy_cache_use_stale
 
 like(http_get('/t.html?e=1'), qr/ 500 /, 's-i-e - stale 5xx ignore');
 like(http_get('/tt.html?e=1'), qr/ 500 /, 's-i-e - stale 5xx ignore 2');
 like(http_get('/updating/tt.html'), qr/STALE/, 's-i-e - stale 5xx updating');
 like(http_get('/t.html'), qr/REVALIDATED/, 's-i-e - revalidated');
+
+like(http_get('/next/tt.html?e=1'), qr/STALE/, 's-i-e - stale 5xx next');
 
 like(http_get('/t2.html?e=1'), qr/STALE/, 's-w-r - revalidate error');
 like(http_get('/t2.html'), qr/STALE/, 's-w-r - stale while revalidate');

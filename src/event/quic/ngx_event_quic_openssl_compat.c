@@ -112,6 +112,8 @@ ngx_quic_compat_keylog_callback(const SSL *ssl, const char *line)
     enum ssl_encryption_level_t   level;
     u_char                        secret[EVP_MAX_MD_SIZE];
 
+    ngx_ssl_keylogger(ssl, line);
+
     c = ngx_ssl_get_connection(ssl);
     if (c->type != SOCK_DGRAM) {
         return;

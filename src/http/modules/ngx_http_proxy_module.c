@@ -145,6 +145,8 @@ static char *ngx_http_proxy_ssl_certificate_cache(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 static char *ngx_http_proxy_ssl_password_file(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
+static char *ngx_http_proxy_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 #endif
 
 static char *ngx_http_proxy_lowat_check(ngx_conf_t *cf, void *post, void *data);
@@ -813,6 +815,13 @@ static ngx_command_t  ngx_http_proxy_commands[] = {
     { ngx_string("proxy_ssl_password_file"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
       ngx_http_proxy_ssl_password_file,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("proxy_ssl_keylog_file"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_proxy_ssl_keylog_file,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
       NULL },
@@ -3945,6 +3954,7 @@ ngx_http_proxy_create_loc_conf(ngx_conf_t *cf)
 #endif
     conf->upstream.ssl_certificate_cache = NGX_CONF_UNSET_PTR;
     conf->upstream.ssl_passwords = NGX_CONF_UNSET_PTR;
+    conf->upstream.ssl_keylog_file = NGX_CONF_UNSET_PTR;
     conf->ssl_verify_depth = NGX_CONF_UNSET_UINT;
     conf->ssl_conf_commands = NGX_CONF_UNSET_PTR;
 #if (NGX_HAVE_NTLS)
@@ -4359,6 +4369,9 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     {
         return NGX_CONF_ERROR;
     }
+
+    ngx_conf_merge_ptr_value(conf->upstream.ssl_keylog_file,
+                              prev->upstream.ssl_keylog_file, NULL);
 
     ngx_conf_merge_ptr_value(conf->ssl_conf_commands,
                               prev->ssl_conf_commands, NULL);
@@ -5754,6 +5767,28 @@ ngx_http_proxy_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
+static char *
+ngx_http_proxy_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_proxy_loc_conf_t *plcf = conf;
+
+    ngx_str_t  *value;
+
+    if (plcf->upstream.ssl_keylog_file != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    plcf->upstream.ssl_keylog_file = ngx_conf_open_file(cf->cycle, &value[1]);
+    if (plcf->upstream.ssl_keylog_file == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
 #endif
 
 
@@ -5859,6 +5894,7 @@ ngx_http_proxy_merge_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *conf,
 static ngx_int_t
 ngx_http_proxy_set_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *plcf)
 {
+    ngx_ssl_t           *ssl;
     ngx_pool_cleanup_t  *cln;
 
     if (plcf->upstream.ssl->ctx) {
@@ -5967,6 +6003,13 @@ ngx_http_proxy_set_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *plcf)
         != NGX_OK)
     {
         return NGX_ERROR;
+    }
+
+    if (plcf->upstream.ssl_keylog_file) {
+        ssl = plcf->upstream.ssl;
+
+        ssl->keylog_file = plcf->upstream.ssl_keylog_file;
+        SSL_CTX_set_keylog_callback(ssl->ctx, ngx_ssl_keylogger);
     }
 
     return NGX_OK;

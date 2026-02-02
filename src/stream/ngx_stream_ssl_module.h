@@ -70,6 +70,8 @@ typedef struct {
     ngx_str_t         stapling_file;
     ngx_str_t         stapling_responder;
 
+    ngx_open_file_t  *keylog_file;
+
 #if (NGX_HAVE_NTLS)
     ngx_flag_t        ntls;
 #endif

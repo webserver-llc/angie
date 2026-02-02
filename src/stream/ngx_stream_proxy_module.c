@@ -66,6 +66,7 @@ typedef struct {
     ngx_ssl_cache_t                 *ssl_certificate_cache;
     ngx_array_t                     *ssl_passwords;
     ngx_array_t                     *ssl_conf_commands;
+    ngx_open_file_t                 *ssl_keylog_file;
 
     ngx_ssl_t                       *ssl;
 
@@ -128,6 +129,8 @@ static char *ngx_stream_proxy_ssl_certificate_cache(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 static char *ngx_stream_proxy_ssl_password_file(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
+static char *ngx_stream_proxy_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 static char *ngx_stream_proxy_ssl_conf_command_check(ngx_conf_t *cf, void *post,
     void *data);
 static void ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s);
@@ -451,6 +454,13 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_proxy_srv_conf_t, ssl_conf_commands),
       &ngx_stream_proxy_ssl_conf_command_post },
+
+    { ngx_string("proxy_ssl_keylog_file"),
+      NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_stream_proxy_ssl_keylog_file,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      0,
+      NULL },
 
 #if (NGX_HAVE_NTLS)
     { ngx_string("proxy_ssl_ntls"),
@@ -1237,6 +1247,28 @@ ngx_stream_proxy_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd,
     pscf->ssl_passwords = ngx_ssl_read_password_file(cf, &value[1]);
 
     if (pscf->ssl_passwords == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+static char *
+ngx_stream_proxy_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    ngx_stream_proxy_srv_conf_t *pscf = conf;
+
+    ngx_str_t  *value;
+
+    if (pscf->ssl_keylog_file != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    pscf->ssl_keylog_file = ngx_conf_open_file(cf->cycle, &value[1]);
+    if (pscf->ssl_keylog_file == NULL) {
         return NGX_CONF_ERROR;
     }
 
@@ -2497,6 +2529,7 @@ ngx_stream_proxy_create_srv_conf(ngx_conf_t *cf)
 #endif
     conf->ssl_certificate_cache = NGX_CONF_UNSET_PTR;
     conf->ssl_passwords = NGX_CONF_UNSET_PTR;
+    conf->ssl_keylog_file = NGX_CONF_UNSET_PTR;
     conf->ssl_conf_commands = NGX_CONF_UNSET_PTR;
 #if (NGX_HAVE_NTLS)
     conf->ssl_ntls = NGX_CONF_UNSET;
@@ -2625,6 +2658,9 @@ ngx_stream_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     if (ngx_stream_proxy_preserve_ssl_passwords(cf, conf, prev) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
+
+    ngx_conf_merge_ptr_value(conf->ssl_keylog_file,
+                              prev->ssl_keylog_file, NULL);
 
     ngx_conf_merge_ptr_value(conf->ssl_certificate_cache,
                               prev->ssl_certificate_cache, NULL);
@@ -2766,6 +2802,7 @@ ngx_stream_proxy_preserve_ssl_passwords(ngx_conf_t *cf,
 static ngx_int_t
 ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
 {
+    ngx_ssl_t           *ssl;
     ngx_pool_cleanup_t  *cln;
 
     if (pscf->ssl->ctx) {
@@ -2861,6 +2898,13 @@ ngx_stream_proxy_set_ssl(ngx_conf_t *cf, ngx_stream_proxy_srv_conf_t *pscf)
         != NGX_OK)
     {
         return NGX_ERROR;
+    }
+
+    if (pscf->ssl_keylog_file) {
+        ssl = pscf->ssl;
+
+        ssl->keylog_file = pscf->ssl_keylog_file;
+        SSL_CTX_set_keylog_callback(ssl->ctx, ngx_ssl_keylogger);
     }
 
     return NGX_OK;

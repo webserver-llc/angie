@@ -54,6 +54,8 @@ static char *ngx_http_ssl_certificate_cache(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_http_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static char *ngx_http_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 static char *ngx_http_ssl_session_cache(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_http_ssl_ocsp_cache(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -156,6 +158,13 @@ static ngx_command_t  ngx_http_ssl_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_SRV_CONF_OFFSET,
       offsetof(ngx_http_ssl_srv_conf_t, certificate_compression),
+      NULL },
+
+    { ngx_string("ssl_keylog_file"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_http_ssl_keylog_file,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      0,
       NULL },
 
     { ngx_string("ssl_dhparam"),
@@ -697,6 +706,7 @@ ngx_http_ssl_create_srv_conf(ngx_conf_t *cf)
     sscf->certificate_keys = NGX_CONF_UNSET_PTR;
     sscf->certificate_cache = NGX_CONF_UNSET_PTR;
     sscf->passwords = NGX_CONF_UNSET_PTR;
+    sscf->keylog_file = NGX_CONF_UNSET_PTR;
     sscf->conf_commands = NGX_CONF_UNSET_PTR;
     sscf->builtin_session_cache = NGX_CONF_UNSET;
     sscf->session_timeout = NGX_CONF_UNSET;
@@ -752,6 +762,8 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
                          NULL);
 
     ngx_conf_merge_ptr_value(conf->passwords, prev->passwords, NULL);
+
+    ngx_conf_merge_ptr_value(conf->keylog_file, prev->keylog_file, NULL);
 
     ngx_conf_merge_str_value(conf->dhparam, prev->dhparam, "");
 
@@ -1012,6 +1024,11 @@ ngx_http_ssl_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
         return NGX_CONF_ERROR;
     }
 
+    if (conf->keylog_file) {
+        conf->ssl.keylog_file = conf->keylog_file;
+        SSL_CTX_set_keylog_callback(conf->ssl.ctx, ngx_ssl_keylogger);
+    }
+
     return NGX_CONF_OK;
 }
 
@@ -1217,6 +1234,29 @@ ngx_http_ssl_password_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     sscf->passwords = ngx_ssl_read_password_file(cf, &value[1]);
 
     if (sscf->passwords == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_ssl_srv_conf_t *sscf = conf;
+
+    ngx_str_t  *value;
+
+    if (sscf->keylog_file != NGX_CONF_UNSET_PTR) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    sscf->keylog_file = ngx_conf_open_file(cf->cycle, &value[1]);
+
+    if (sscf->keylog_file == NULL) {
         return NGX_CONF_ERROR;
     }
 

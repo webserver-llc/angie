@@ -120,6 +120,8 @@ struct ngx_ssl_s {
 
     ngx_rbtree_t                staple_rbtree;
     ngx_rbtree_node_t           staple_sentinel;
+
+    ngx_open_file_t            *keylog_file;
 };
 
 
@@ -410,6 +412,7 @@ void ngx_ssl_connection_error(ngx_connection_t *c, int sslerr, ngx_err_t err,
 void ngx_cdecl ngx_ssl_error(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     char *fmt, ...);
 void ngx_ssl_cleanup_ctx(void *data);
+void ngx_ssl_keylogger(const ngx_ssl_conn_t *ssl, const char *line);
 
 #if (NGX_HTTP_PROXY_MULTICERT || NGX_STREAM_PROXY_MULTICERT)
 char *ngx_ssl_certificate_slot(ngx_conf_t *cf, ngx_command_t *cmd,

@@ -316,6 +316,72 @@ ngx_ssl_init(ngx_log_t *log)
 }
 
 
+void
+ngx_ssl_keylogger(const ngx_ssl_conn_t *ssl_conn, const char *line)
+{
+    u_char            *p;
+    size_t             len, size;
+    ssize_t            n;
+    SSL_CTX           *ssl_ctx;
+    ngx_err_t          err;
+    ngx_ssl_t         *ssl;
+
+    static ngx_str_t   keylog_buf;
+
+    if (line == NULL) {
+        return;
+    }
+
+    len = ngx_strlen(line);
+
+    if (len == 0) {
+        return;
+    }
+
+    ssl_ctx = SSL_get_SSL_CTX(ssl_conn);
+    ssl = SSL_CTX_get_ex_data(ssl_ctx, ngx_ssl_index);
+
+    /* called from compat without directives present */
+    if (ssl->keylog_file == NULL) {
+        return;
+    }
+
+    size = len + 1;
+
+    if (keylog_buf.len < size) {
+        p = ngx_realloc(keylog_buf.data, size, ssl->log);
+        if (p == NULL) {
+            return;
+        }
+
+        keylog_buf.data = p;
+        keylog_buf.len = size;
+    }
+
+    ngx_memcpy(keylog_buf.data, line, len);
+    keylog_buf.data[len] = '\n';
+
+    n = ngx_write_fd(ssl->keylog_file->fd, (char *) keylog_buf.data, size);
+
+    err = ngx_errno;
+
+    ngx_explicit_memzero(keylog_buf.data, size);
+
+    if ((size_t) n != size) {
+        if (n == -1) {
+            ngx_log_error(NGX_LOG_ALERT, ssl->log, err,
+                          ngx_write_fd_n " to \"%V\" failed",
+                          &ssl->keylog_file->name);
+        } else {
+
+            ngx_log_error(NGX_LOG_ALERT, ssl->log, 0,
+                          ngx_write_fd_n " returned only %z bytes of %uz",
+                          n, size);
+        }
+    }
+}
+
+
 ngx_int_t
 ngx_ssl_create(ngx_ssl_t *ssl, ngx_uint_t protocols, void *data)
 {

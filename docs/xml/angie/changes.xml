@@ -66,6 +66,17 @@ might be sent without the "Host" header.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+директивы "ssl_keylog_file" и "proxy_ssl_keylog_file" позволяют задать файл
+для логгирования SSL-ключей.
+</para>
+<para lang="en">
+the "ssl_keylog_file" and "proxy_ssl_keylog_file" directives specify the file
+to log SSL keys.
+</para>
+</change>
+
 </changes>
 
 

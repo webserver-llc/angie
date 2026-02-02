@@ -270,6 +270,7 @@ typedef struct {
     ngx_http_complex_value_t        *ssl_certificate_key;
     ngx_ssl_cache_t                 *ssl_certificate_cache;
     ngx_array_t                     *ssl_passwords;
+    ngx_open_file_t                 *ssl_keylog_file;
 
 #if (NGX_HTTP_PROXY_MULTICERT)
     ngx_array_t                     *ssl_certificates;

@@ -7,6 +7,19 @@
 
 <changes ver="1.11.4" date="">
 
+<change type="bugfix">
+<para lang="ru">
+исходящие HTTP/3-запросы в конфигурациях, где директивы "proxy_set_header Host"
+и "proxy_http_version 3" наследовались из блока "http",
+могли отправляться без заголовка "Host".
+</para>
+<para lang="en">
+outgoing HTTP/3 requests in configurations with the "proxy_set_header Host"
+and "proxy_http_version 3" directives were inherited from the "http" block
+might be sent without the "Host" header.
+</para>
+</change>
+
 </changes>
 
 

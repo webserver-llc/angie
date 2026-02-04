@@ -4703,7 +4703,7 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 #endif
 
 #if (NGX_HTTP_V3)
-        conf->host_set = prev->host_set;
+        prev->host_set = conf->host_set;
 #endif
     }
 

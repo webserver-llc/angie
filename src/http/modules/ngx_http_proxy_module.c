@@ -4638,7 +4638,7 @@ ngx_http_proxy_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 #if (NGX_HTTP_CACHE)
         prev->headers_cache = conf->headers_cache;
 #endif
-        conf->host_set = prev->host_set;
+        prev->host_set = conf->host_set;
     }
 
     return NGX_CONF_OK;

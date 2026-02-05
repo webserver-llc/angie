@@ -1,4 +1,13 @@
 
+Changes with Angie 1.11.3                                        06 Feb 2026
+
+    *) Security: an attacker in a man-in-the-middle (MITM) position before a
+       proxied server using TLS, given conditions beyond the attacker's
+       control, could inject plaintext data into the response before the TLS
+       handshake begins (CVE-2026-1642); the fix was ported from nginx
+       1.29.5.
+
+
 Changes with Angie 1.11.2                                        15 Jan 2026
 
     *) Bugfix: if BPF was disabled, HTTP/3 requests might fail with an error

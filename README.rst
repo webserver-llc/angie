@@ -54,7 +54,7 @@ Features
 --------
 
 On top of all the capabilities of
-`nginx 1.27 <https://nginx.org/en/CHANGES>`_,
+`nginx 1.29 <https://nginx.org/en/CHANGES>`_,
 **Angie** adds a number of its own advantages, including these:
 
 - Supporting `HTTP/3
@@ -65,7 +65,8 @@ On top of all the capabilities of
   (HTTP/1.x, HTTP/2, HTTP/3) on opposite sides.
 
 - Automatic HTTPS provisions TLS certificates using built-in `ACME
-  <https://en.angie.software/angie/docs/configuration/acme/>`_ support.
+  <https://en.angie.software/angie/docs/configuration/acme/>`_ with HTTP, DNS,
+  and ALPN challenge support.
 
 - Simplifying configuration: the `location` directive can define several
   matching expressions at once, which enables `combining
@@ -110,9 +111,15 @@ On top of all the capabilities of
   <https://en.angie.software/angie/docs/configuration/modules/http/http_upstream/#u-server>`_
   directive.
 
+- PROXY Protocol V2 with the ability to pass arbitrary `TLV values
+  <https://en.angie.software/angie/docs/configuration/modules/stream/stream_proxy/#s-proxy-protocol-tlv>`_.
+
 - Limiting the `MP4 file transfer rate
   <https://en.angie.software/angie/docs/configuration/modules/http/http_mp4/#mp4-limit-rate>`_
   proportionally to its bitrate, thus reducing the bandwidth load.
+
+- Processing HEIC and AVIF formats and `image conversion
+  <https://en.angie.software/angie/docs/configuration/modules/http/http_image_filter/#id1>`_.
 
 - Extending authorization and balancing capabilities for the MQTT protocol with
   the `mqtt_preread

@@ -40,13 +40,13 @@ none are configured in Angie, the default server "127.0.0.1:53" is used.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.29.4, за исключением директивы "ssl_ech_file"
+вся функциональность nginx 1.29.5, за исключением директивы "ssl_ech_file"
 и связанных с ней переменных ("$ssl_ech_status" и "$ssl_ech_outer_server_name").
 Поддержка Encrypted Client Hello уже реализована при помощи директивы
 "ssl_encrypted_hello_key".
 </para>
 <para lang="en">
-all functionality of nginx 1.29.4 except the "ssl_ech_file" directive and
+all functionality of nginx 1.29.5 except the "ssl_ech_file" directive and
 related variables ("ssl_ech_status" and "ssl_ech_outer_server_name").
 The Encrypted Client Hello is already supported using the
 "ssl_encrypted_hello_key" variable.

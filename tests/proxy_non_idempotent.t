@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
 
@@ -23,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_keepalive/)
-	->plan(8);
+	->plan(9);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -48,6 +49,11 @@ http {
         keepalive 10;
     }
 
+    upstream uc {
+        server 127.0.0.1:8082 max_fails=0;  # nobody should listen on it
+        server 127.0.0.1:8081 max_fails=0;
+    }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -70,6 +76,10 @@ http {
             proxy_http_version 1.1;
             proxy_set_header Connection "";
         }
+
+        location /conn {
+            proxy_pass http://uc;
+        }
     }
 
     server {
@@ -80,7 +90,9 @@ http {
             return 444;
         }
 
-        location /404 {
+        location /404
+                 /conn
+        {
             return 404 SEE-THIS;
         }
 
@@ -120,6 +132,8 @@ like(http_post('/non'), qr/X-IP: (\S+), \1\x0d?$/m, 'post non_idempotent');
 
 like(http_get('/keepalive/establish'), qr/204 No Content/m, 'keepalive');
 like(http_post('/keepalive/drop'), qr/X-IP: (\S+)\x0d?$/m, 'keepalive post');
+
+like(http_post('/conn'), qr/X-IP: \S+, \S+.*SEE-THIS/s, 'post conn failed');
 
 ###############################################################################
 

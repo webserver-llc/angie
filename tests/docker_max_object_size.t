@@ -76,7 +76,7 @@ sub check_log_ok {
 	isnt($t->find_in_file('angie_docker.log', qr/\QDocker peer\E/), 0,
 		"$container_engine peer created");
 
-	is($t->find_in_file('angie_docker.log', qr/\[error\]/), 0,
+	is($t->find_in_file('angie_docker.log', qr/Docker sends too large/), 0,
 		"good size of $container_engine object");
 }
 

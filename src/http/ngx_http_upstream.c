@@ -2420,11 +2420,16 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u,
 
     if (u->state->connect_time == (ngx_msec_t) -1) {
         u->state->connect_time = ngx_current_msec - u->start_time;
-    }
 
-    if (!u->request_sent && ngx_http_upstream_test_connect(c) != NGX_OK) {
-        ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
-        return;
+        if (!u->peer.cached
+#if (NGX_HTTP_SSL)
+            && !u->ssl
+#endif
+            && ngx_http_upstream_test_connect(c) != NGX_OK)
+        {
+            ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_ERROR);
+            return;
+        }
     }
 
     if (ngx_http_upstream_need_connection_drop(u)) {
@@ -3349,6 +3354,8 @@ ngx_http_upstream_test_connect(ngx_connection_t *c)
 {
     int        err;
     socklen_t  len;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "upstream test connect");
 
 #if (NGX_HAVE_KQUEUE)
 

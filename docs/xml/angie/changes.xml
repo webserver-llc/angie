@@ -7,6 +7,21 @@
 
 <changes ver="1.12.0" date="">
 
+<change type="feature">
+<para lang="ru">
+Директива "acme_dns_ttl" позволяет изменить значение TTL
+в ответах на DNS-запросы при DNS-верификации для ACME;
+допустимый диапазон значений от 0 до 2147483647 (в соответствии
+с RFC 2181), значение по умолчанию 1.
+</para>
+<para lang="en">
+The "acme_dns_ttl" directive allows configuration
+of the TTL value in responses to ACME DNS challenges;
+the allowed range of values is from 0 through 2147483647 as per
+RFC 2181, the default value is 1.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 В модулях http и stream директива "resolver" всегда задана по умолчанию.

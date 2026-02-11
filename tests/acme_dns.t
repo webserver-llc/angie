@@ -4,6 +4,16 @@
 
 # ACME DNS-01 challenge tests
 
+# "acme_dns_ttl" directive check
+#
+# The "acme_dns_ttl" directive specifies the TTL value used in DNS responses
+# sent by the ACME client during DNS-01 challenges. To verify its correct
+# behaviour, we set up a DNS relay that receives DNS messages from the ACME
+# server and forwards them to the ACME client, and vice versa. When a DNS
+# message is received from the ACME client, the TTL value is extracted and
+# compared with the value specified by the "acme_dns_ttl" directive. The test
+# passes if the values match.
+
 # This script requires pebble
 # (see Test::Nginx::ACME for details)
 
@@ -29,9 +39,13 @@ my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
 # XXX
-my $dns_port = 12053;
+my $angie_dns_port = 12053;
+my $relay_dns_port = port(12054, udp => 1);
+my $dns_ttl = 600;
 
-my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
+my $acme_helper = Test::Nginx::ACME->new({
+	t => $t, dns_port => $relay_dns_port
+});
 
 my $d = $t->testdir();
 
@@ -132,18 +146,22 @@ http {
 
     # We don't need a resolver directive because we specify IPs
     # as ACME server addresses.
-    #resolver localhost:$dns_port ipv6=off;
+    #resolver localhost:$angie_dns_port ipv6=off;
 
-    acme_dns_port $dns_port;
+    acme_dns_port $angie_dns_port;
+    acme_dns_ttl  $dns_ttl;
 
 $conf_servers
 $conf_clients
 }
 EOF
 
+$t->run_daemon(\&dns_relay, $angie_dns_port, $relay_dns_port, $dns_ttl, $t);
+$t->waitforfile("$d/$angie_dns_port");
+
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
-$t->run()->plan(scalar @clients);
+$t->run()->plan(scalar @clients + 1);
 
 my $renewed_count = 0;
 my $loop_start = time();
@@ -188,3 +206,155 @@ for my $cli (@clients) {
 		"(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
 }
 
+my $ttl_ok = -e "$d/ttl_match" && ! -e "$d/ttl_mismatch";
+
+ok($ttl_ok, 'acme_dns_ttl');
+
+###############################################################################
+
+sub dns_relay {
+	my ($angie_dns_port, $relay_dns_port, $expected_ttl, $t) = @_;
+
+	my $angie_socket = IO::Socket::INET->new(
+		PeerAddr => '127.0.0.1',
+		PeerPort => $angie_dns_port,
+		Proto    => 'udp',
+	)
+		or die "Can't create angie_socket: $!\n";
+
+	my $pebble_socket = IO::Socket::INET->new(
+		LocalAddr => '127.0.0.1',
+		LocalPort => $relay_dns_port,
+		Proto     => 'udp',
+		ReusePort => 1,
+	)
+		or die "Can't create pebble_socket: $!\n";
+
+	my $sel = IO::Select->new($angie_socket, $pebble_socket);
+
+	local $SIG{PIPE} = 'IGNORE';
+
+	# signal we are ready
+	open my $fh, '>', $t->testdir() . '/' . $angie_dns_port;
+	close $fh;
+
+	my @pebble_addrs;
+	my $recv_data;
+
+	while (my @ready = $sel->can_read) {
+		foreach my $fh (@ready) {
+
+			# $peer_addr is a binary representation of the sender's address
+			my $peer_addr = $fh->recv($recv_data, 65536);
+
+			if ($pebble_socket == $fh) {
+				push @pebble_addrs, $peer_addr;
+
+				$angie_socket->send($recv_data)
+					or note("$0: error sending dns query to Angie: $!\n");
+
+			} else {
+				my $addr = shift @pebble_addrs;
+
+				if (defined $addr) {
+					$pebble_socket->send($recv_data, 0, $addr)
+						or note("$0: error sending dns query to pebble: $!");
+
+				} else {
+					note("$0: unmatched dns query");
+				}
+
+				my $fname;
+				my $ttl = extract_ttl($recv_data);
+
+				if ($ttl == $expected_ttl) {
+					$fname = $t->testdir() . '/ttl_match';
+
+				} elsif ($ttl >= 0) {
+					$fname = $t->testdir() . '/ttl_mismatch';
+
+				} else {
+					note("$0: couldn't extract ttl");
+				}
+
+				if (defined $fname && !-e $fname) {
+					open my $fh, '>', $fname;
+					close $fh;
+				}
+			}
+		}
+	}
+}
+
+###############################################################################
+
+# recv_data is a raw binary DNS packet
+sub extract_ttl {
+	my ($recv_data) = @_;
+
+	use constant TXT => 16;
+	use constant IN  => 1;
+
+	# 1. Start after the 12-byte header
+	my $offset = 12;
+
+	# 2. Walk through the QNAME
+	while ($offset < length $recv_data) {
+		my $length_byte = unpack("\@$offset C", $recv_data);
+
+		if ($length_byte == 0) {
+			# End of QNAME reached
+			$offset++;
+			last;
+		}
+
+		# Check for DNS pointers (0xc0) in Question section
+		# (Rare in Questions, but standard for safety)
+		if (($length_byte & 0xc0) == 0xc0) {
+			$offset += 2;
+			last;
+		}
+
+		# Move offset: length byte + the label characters
+		$offset += 1 + $length_byte;
+	}
+
+	# 3. Extract QTYPE (2 bytes) and QCLASS (2 bytes)
+	my ($type, $class) = unpack("x$offset n2", $recv_data);
+	if ($type != TXT || $class != IN) {
+		return -1;
+	}
+	$offset += 4;
+
+	# 4. $offset is currently at the start of the Answer Section
+	while ($offset < length $recv_data) {
+		# Skip the Name Field
+		# We don't care what the name is, we just need to find where it ends
+		my $byte = unpack("\@$offset C", $recv_data);
+
+		# It's a pointer (0xc0XX), which is always 2 bytes
+		if (($byte & 0xc0) == 0xc0) {
+			$offset += 2;
+			last;
+		} elsif ($byte == 0x00) {
+			# It's the null terminator for a label sequence
+			$offset++;
+			last;
+		} else {
+			# It's a length byte for a label (e.g., '6' for 'google')
+			# Skip the length byte + the label itself
+			$offset += 1 + $byte;
+		}
+	}
+
+	# Extract TTL
+	# Now offset is at Type(2) + Class(2) + TTL(4)
+	# We skip the 4 bytes of Type/Class to hit the TT
+	($type, $class, my $ttl) = unpack("\@$offset n2 N", $recv_data);
+
+	if ($type != TXT || $class != IN) {
+		return -1;
+	}
+
+	return $ttl;
+}

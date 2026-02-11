@@ -4428,8 +4428,10 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c, char **err)
 
     rc = NGX_ERROR;
 
-    if (end - p <= 12 || ntohs(*(u_short*)&p[4]) != 1
-        || ntohs(*(u_short*)&p[6]) != 0 || ntohs(*(u_short*)&p[8]) != 0)
+    if (end - p <= 12
+        || p[4] != 0 || p[5] != 1 /* QDCOUNT */
+        || p[6] != 0 || p[7] != 0 /* ANCOUNT */
+        || p[8] != 0 || p[9] != 0 /* NSCOUNT */)
     {
         *err = "malformed query";
         goto failed;
@@ -4461,14 +4463,14 @@ ngx_http_acme_parse_dns_request(ngx_connection_t *c, char **err)
 
     rc = NGX_DECLINED;
 
-    if (ntohs(*(u_short*)p) != 16) {
+    if (p[0] != 0 || p[1] != 16) {
         *err = "not a TXT record";
         goto failed;
     }
 
     p += 2;
 
-    if (ntohs(*(u_short*)p) != 1) {
+    if (p[0] != 0 || p[1] != 1) {
         *err = "not an IN class";
         goto failed;
     }
@@ -4490,6 +4492,7 @@ ngx_http_acme_create_dns_response(ngx_connection_t *c, size_t quest_size)
 {
     size_t      size;
     u_char     *p;
+    uint16_t    sv;
     ngx_buf_t  *b;
     ngx_str_t   key_auth;
 
@@ -4513,7 +4516,8 @@ ngx_http_acme_create_dns_response(ngx_connection_t *c, size_t quest_size)
     /* RCODE = No error */
     p[3] = 0;
     /* ANCOUNT */
-    *(u_short*)&p[6] = htons(1);
+    p[6] = 0;
+    p[7] = 1;
 
     p += quest_size;
 
@@ -4522,24 +4526,23 @@ ngx_http_acme_create_dns_response(ngx_connection_t *c, size_t quest_size)
     *p++ = 0x0c;
 
     /* TXT */
-    *(u_short*)p = htons(16);
-
-    p += 2;
+    *p++ = 0;
+    *p++ = 16;
 
     /* IN */
-    *(u_short*)p = htons(1);
-
-    p += 2;
+    *p++ = 0;
+    *p++ = 1;
 
     /* TTL */
-    *(uint32_t*)p = htonl(1);
-
-    p += 4;
+    *p++ = 0;
+    *p++ = 0;
+    *p++ = 0;
+    *p++ = 1;
 
     /* RDLENGTH */
-    *(u_short*)p = htons(key_auth.len + 1);
-
-    p += 2;
+    sv = key_auth.len + 1;
+    *p++ = (u_char) (sv >> 8);
+    *p++ = (u_char) sv;
 
     /* character-string length */
     *p++ = key_auth.len;

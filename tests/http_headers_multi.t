@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
 
@@ -23,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(42);
+my $t = Test::Nginx->new()->has(qw/http rewrite proxy/)->plan(47);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -49,6 +50,7 @@ http {
             add_header X-Cookie-Foo $cookie_foo;
             add_header X-Cookie-Bar $cookie_bar;
             add_header X-Cookie-Bazz $cookie_bazz;
+            add_header X-Cookie-Qux $cookie_qux;
 
             return 204;
         }
@@ -154,6 +156,16 @@ my $r = get('/', 'Cookie: foo=1', 'Cookie: bar=2', 'Cookie: bazz=3');
 like($r, qr/X-Cookie-Foo: 1/, '$cookie_foo');
 like($r, qr/X-Cookie-Bar: 2/, '$cookie_bar');
 like($r, qr/X-Cookie-Bazz: 3/, '$cookie_bazz');
+
+# request cookies, multiple values
+
+$r = get('/', 'Cookie: foo=1, qux=0; bar=2', 'Cookie: bazz=3');
+
+like($r, qr/X-Cookie: foo=1, qux=0; bar=2; bazz=3/, 'multi comma $http_cookie');
+like($r, qr/X-Cookie-Foo: 1, qux=0/, '$cookie_foo');
+like($r, qr/X-Cookie-Bar: 2/, '$cookie_bar');
+like($r, qr/X-Cookie-Bazz: 3/, '$cookie_bazz');
+unlike($r, qr/X-Cookie-Qux:/, '$cookie_qux');
 
 # response headers, $http_*
 

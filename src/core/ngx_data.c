@@ -83,6 +83,36 @@ ngx_data_object_add(ngx_data_item_t *obj, ngx_data_item_t *name,
 
 
 ngx_data_item_t *
+ngx_data_object_find(ngx_data_item_t *obj, ngx_str_t *name)
+{
+    ngx_str_t         str;
+    ngx_data_item_t  *item;
+
+    if (obj->type != NGX_DATA_OBJECT_TYPE) {
+        return NULL;
+    }
+
+    item = obj->data.child;
+
+    while (item) {
+        (void) ngx_data_get_string(&str, item);
+
+        item = item->next;
+
+        if (str.len == name->len
+            && ngx_strncmp(str.data, name->data, str.len) == 0)
+        {
+            return item;
+        }
+
+        item = item->next;
+    }
+
+    return NULL;
+}
+
+
+ngx_data_item_t *
 ngx_data_object_take(ngx_data_item_t *obj, ngx_str_t *name)
 {
     ngx_str_t               str;

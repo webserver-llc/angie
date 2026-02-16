@@ -31,7 +31,10 @@ my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker proxy/);
 
 my $docker_helper = eval {
-	Test::Docker->new({container_engine => 'podman'});
+	Test::Docker->new({
+		container_engine => 'podman',
+		networks => ['angie_test_network']
+	});
 };
 if ($@) {
 	plan(skip_all => $@);

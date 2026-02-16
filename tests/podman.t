@@ -32,7 +32,10 @@ my $t = Test::Nginx->new()
 	->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
 
 my $docker_helper = eval {
-	Test::Docker->new({container_engine => 'podman'});
+	Test::Docker->new({
+		container_engine => 'podman',
+		networks => ['angie_test_network']
+	});
 };
 if ($@) {
 	plan(skip_all => $@);

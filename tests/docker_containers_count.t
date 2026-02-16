@@ -31,7 +31,10 @@ unless (caller) {
 		->has(qw/http http_api upstream_zone docker proxy/);
 
 	my $docker_helper = eval {
-		Test::Docker->new({container_engine => 'docker'});
+		Test::Docker->new({
+			container_engine => 'docker',
+			networks => ['angie_test_network']
+		});
 	};
 	if ($@) {
 		plan(skip_all => $@);
@@ -55,7 +58,8 @@ sub test {
 		. ' -l "angie.http.upstreams.u.slow_start=10s"'
 		. ' -l "angie.http.upstreams.u.fail_timeout=10s"'
 		. ' -l "angie.http.upstreams.u.backup=false"'
-		. ' -l "angie.http.upstreams.u.sid=sid1"';
+		. ' -l "angie.http.upstreams.u.sid=sid1"'
+		. ' -l "angie.network=angie_test_network"';
 
 	$docker_helper->start_containers(25, $labels);
 
@@ -115,7 +119,8 @@ EOF
 sub check_peers {
 	my ($docker_helper) = @_;
 
-	my @ips = $docker_helper->get_container_ips();
+	my @ips = $docker_helper->get_container_ips_per_network(
+		'angie_test_network');
 
 	my $url = '/api/status/http/upstreams/u/peers';
 	my $peers = get_json($url);

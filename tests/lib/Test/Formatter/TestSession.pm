@@ -200,10 +200,11 @@ sub session_report {
 sub grab_stderr {
 	my ($self) = @_;
 
-	# TODO: pass $t->testdir() here and use per-test directory
-
 	# capture stderr since now into this file
 	my ($fh, $fn) = tempfile('angie-test-stderr-XXXXXXXX', TMPDIR => 1);
+
+	$fh->autoflush(1);
+
 	$self->tmp_fh($fh);
 	$self->tmp_fn($fn);
 
@@ -217,6 +218,11 @@ sub grab_stderr {
 
 sub restore_stderr {
 	my ($self, $result) = @_;
+
+	STDERR->flush();
+
+	# restore stderr
+	open STDERR, '>&', $self->orig_stderr or die "Cannot restore STDERR: $!";
 
 	# save stderr of this test
 	close($self->tmp_fh);
@@ -243,9 +249,6 @@ sub restore_stderr {
 	}
 
 	unlink $self->tmp_fn or warn "Cannot remove temporary file: $!";
-
-	# restore stderr
-	open STDERR, '>&', $self->orig_stderr or die "Cannot restore STDERR: $!";
 
 	# dump captured stderr for this test file
 	for my $line (@$lines) {

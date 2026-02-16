@@ -48,7 +48,7 @@ ngx_docker_get_object_value(ngx_data_item_t *json, ngx_str_t *target,
 {
     ngx_data_item_t  *item;
 
-    item = ngx_data_object_take(json, target);
+    item = ngx_data_object_find(json, target);
     if (item == NULL) {
         return NGX_ERROR;
     }
@@ -342,6 +342,15 @@ ngx_docker_process_label(ngx_data_item_t *item, ngx_docker_container_t *dc,
             goto value_error;
         }
 
+    } else if (part.len == 7 && ngx_strncmp(part.data, "network", 7) == 0) {
+
+        u->network.data = ngx_pstrdup(dc->pool, &value);
+        if (u->network.data == NULL) {
+            return NGX_ERROR;
+        }
+
+        u->network.len = value.len;
+
     } else {
         goto part_error;
     }
@@ -465,13 +474,13 @@ ngx_docker_process_network(ngx_docker_container_t *dc,
 {
     size_t                  url_len;
     u_char                 *p, *url;
-    ngx_str_t               str;
-    ngx_data_item_t        *item;
+    ngx_str_t               str, ip;
+    ngx_data_item_t        *item, *net_item;
     ngx_docker_upstream_t  *u;
 
     ngx_str_set(&str, "NetworkSettings");
-    item = ngx_data_object_take(json, &str);
-    if (item == NULL) {
+    net_item = ngx_data_object_take(json, &str);
+    if (net_item == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
                       "processing Docker network failed: "
                       "Docker API response does not contain JSON object \"%V\"",
@@ -480,8 +489,8 @@ ngx_docker_process_network(ngx_docker_container_t *dc,
     }
 
     ngx_str_set(&str, "Networks");
-    item = ngx_data_object_take(item, &str);
-    if (item == NULL) {
+    net_item = ngx_data_object_take(net_item, &str);
+    if (net_item == NULL) {
         ngx_log_error(NGX_LOG_ERR, log, 0,
                       "processing Docker network failed: "
                       "Docker API response does not contain JSON object \"%V\"",
@@ -489,42 +498,45 @@ ngx_docker_process_network(ngx_docker_container_t *dc,
         return NGX_ERROR;
     }
 
-    item = dc->network.len == 0 ? ngx_docker_get_data_child(item)
-                                : ngx_data_object_take(item, &dc->network);
-
-    if (item == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-                      "processing Docker network failed: "
-                      "cannot find container network");
-        return NGX_ERROR;
-    }
-
-    ngx_str_set(&str, "IPAddress");
-    if (ngx_docker_get_object_value(item, &str, &dc->ip) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, log, 0,
-                      "processing Docker network failed: "
-                      "cannot process JSON object \"%V\" from Docker API",
-                      &str);
-        return NGX_ERROR;
-    }
-
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, log, 0,
-                   "Docker container IP: \"%V\"", &dc->ip);
-
-    url_len = dc->ip.len + sizeof("65535");
-
     for (u = dc->upstream; u; u = u->next) {
 
         if (u->port == (ngx_uint_t) -1) {
             continue;
         }
 
+        str = u->network.len == 0 ? dc->network : u->network;
+
+        item = str.len == 0 ? ngx_docker_get_data_child(net_item)
+                            : ngx_data_object_find(net_item, &str);
+
+        if (item == NULL) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                          "processing Docker network failed: "
+                          "cannot find container network");
+            return NGX_ERROR;
+        }
+
+        ngx_str_set(&str, "IPAddress");
+        if (ngx_docker_get_object_value(item, &str, &ip) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                          "processing Docker network failed: "
+                          "cannot process JSON object \"%V\" from Docker API",
+                          &str);
+            return NGX_ERROR;
+        }
+
+        ngx_log_debug3(NGX_LOG_DEBUG_EVENT, log, 0,
+                       "Docker container IP for %s upstream \"%V\": \"%V\"",
+                       ngx_docker_upstream_type(u), &u->name, &ip);
+
+        url_len = ip.len + sizeof("65535");
+
         url = ngx_pnalloc(dc->pool, url_len);
         if (url == NULL) {
             return NGX_ERROR;
         }
 
-        p = ngx_snprintf(url, url_len, "%V:%i", &dc->ip, u->port);
+        p = ngx_snprintf(url, url_len, "%V:%i", &ip, u->port);
 
         u->url.url.data = url;
         u->url.url.len = p - url;

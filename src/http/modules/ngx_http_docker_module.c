@@ -196,7 +196,7 @@ ngx_http_docker_container_response_handler(ngx_http_docker_session_t *ds,
     ctx = ds->ctx;
 
     dc = ngx_docker_lookup_container(&ctx->rbtree, id);
-    if (dc == NULL || dc->ip.len != 0) {
+    if (dc == NULL) {
         return;
     }
 

@@ -22,6 +22,18 @@ RFC 2181, the default value is 1.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+добавлена возможность через Docker-метки указывать Docker-сеть,
+в которой будет происходить поиск IP-адресов контейнеров,
+для конкретных upstream-групп.
+</para>
+<para lang="en">
+added support for specifying Docker network via labels to search
+for container IPs for specific upstream groups.
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 В модулях http и stream директива "resolver" всегда задана по умолчанию.

@@ -47,7 +47,6 @@ typedef struct {
     ngx_rbtree_node_t                  node;
 
     ngx_str_t                          id;
-    ngx_str_t                          ip;
     ngx_str_t                          network;
 
     ngx_pool_t                        *pool;
@@ -73,6 +72,8 @@ struct ngx_docker_upstream_s {
     ngx_uint_t                         weight;
     ngx_uint_t                         max_conns;
     ngx_uint_t                         max_fails;
+
+    ngx_str_t                          network;
 
     time_t                             fail_timeout;
     ngx_msec_t                         slow_start;

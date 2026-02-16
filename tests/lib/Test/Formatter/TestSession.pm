@@ -88,11 +88,17 @@ sub result {
 	my ($self, $result) = @_;
 
 	# dump and grab up-to-date stderr
-	$self->restore_stderr($result);
-	# start the next test if any
-	$self->grab_stderr();
+	my $stderr_lines = $self->restore_stderr($result);
 
 	$self->console_session->result($result);
+
+	# dump captured stderr for this test file
+	for my $line (@$stderr_lines) {
+		print STDERR "$line\n";
+	}
+
+	# start the next test if any
+	$self->grab_stderr();
 
 	if ($result->is_test) {
 
@@ -122,10 +128,6 @@ sub result {
 
 	push @{ $self->results }, $result;
 	push @{ $self->xresults }, \%$result;
-
-	if ($self->verbosity >= 2) {
-		print($result->{raw}."\n");
-	}
 }
 
 
@@ -146,9 +148,15 @@ sub close_test {
 	$self->{time_system_total} = $self->{time_system} + $self->{time_system_child};
 	$self->{time_process} = $self->{time_system_total} + $self->{time_user_total};
 
-	$self->restore_stderr();
+	my $stderr_lines = $self->restore_stderr();
 
+	# final results
 	$self->console_session->close_test(@args);
+
+	# final stderr
+	for my $line (@$stderr_lines) {
+		print STDERR "$line\n";
+	}
 
 	$self->closed(1);
 }
@@ -250,10 +258,7 @@ sub restore_stderr {
 
 	unlink $self->tmp_fn or warn "Cannot remove temporary file: $!";
 
-	# dump captured stderr for this test file
-	for my $line (@$lines) {
-		print STDERR "$line\n";
-	}
+	return $lines;
 }
 
 

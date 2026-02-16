@@ -17,6 +17,7 @@ use IO::File;
 use File::Temp qw(tempdir);
 use File::Spec::Functions qw(catdir);
 use Test::Formatter::TestSession;
+use TAP::Formatter::Console;
 use TAP::Formatter::File;
 use POSIX 'strftime';
 use JSON;
@@ -53,21 +54,25 @@ sub _initialize {
 
 	$self->output_file($report_fn);
 
-	# create a default formatter for display of text results
-	# TODO: use Tap::Formatter::Console when run in real console
-	# and Tap::Formatter::File when running redirected to file
-	$self->console(TAP::Formatter::File->new($args));
+	# quiet:  -1 // prove -q
+	# normal:  0 // prove
+	# verbose: 1 // prove - v
+	my $fmt_verb = $ENV{TAP_FORMATTER_VERBOSITY} // 1;
+	$args->{verbosity} = $fmt_verb;
+	$self->{verbosity} = $fmt_verb;
+
+	if (-t STDOUT) {
+		$self->console(TAP::Formatter::Console->new($args));
+
+	} else {
+		$self->console(TAP::Formatter::File->new($args));
+	}
 
 	# consider args correct and pass them directly to base class
 	foreach my $key (keys %$args) {
 		$self->$key($args->{$key}) if ($self->can($key));
 	}
 
-	# quiet:  -1 // prove -q
-	# normal:  0 // prove
-	# verbose: 1 // prove - v
-	my $fmt_verb = $ENV{TAP_FORMATTER_VERBOSITY} // 1;
-	$self->verbosity($fmt_verb);
 
 	return $self;
 }

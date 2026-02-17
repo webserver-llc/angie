@@ -23,7 +23,8 @@ use Test::Nginx qw/ :DEFAULT :gzip /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy cache gzip/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_v2 proxy cache gzip upstream_keepalive/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -38,6 +39,11 @@ http {
 
     proxy_cache_path   %%TESTDIR%%/cache  levels=1:2
                        keys_zone=NAME:1m;
+
+    upstream u {
+        server 127.0.0.1:8081;
+        keepalive 1;
+    }
 
     server {
         listen       127.0.0.1:8080;
@@ -65,6 +71,10 @@ http {
             proxy_no_cache  $arg_e;
 
             add_header X-Cache-Status $upstream_cache_status;
+
+            location /keepalive/ {
+                proxy_pass http://u/;
+            }
         }
     }
     server {
@@ -86,7 +96,7 @@ $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('empty.html', '');
 $t->write_file('big.html', 'x' x 1024);
 
-$t->try_run('no proxy_http_version 2')->plan(15);
+$t->try_run('no proxy_http_version 2')->plan(19);
 
 ###############################################################################
 
@@ -133,6 +143,22 @@ my $r = http_get('/t.html', socket => $s);
 
 like($r, qr/Connection: keep-alive/, 'non-cacheable head - keepalive');
 like($r, qr/SEE-THIS/, 'non-cacheable head - second');
+
+# check for HTTP/2 stream ID from a cached response needs to be skipped
+
+like(http_get('/keepalive/t2.html?0'), qr/200 OK/, 'keepalive - first request');
+like(http_get('/keepalive/t2.html?1'), qr/MISS/, 'keepalive - request');
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.6');
+
+like(http_get('/keepalive/t2.html?1'), qr/HIT/, 'keepalive - request cached');
+
+$t->stop();
+
+like(`grep -F '[crit]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no crits');
+
+}
 
 ###############################################################################
 

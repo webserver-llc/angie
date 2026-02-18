@@ -92,6 +92,10 @@ ngx_data_object_find(ngx_data_item_t *obj, ngx_str_t *name)
         return NULL;
     }
 
+#if (NGX_SUPPRESS_WARN)
+    ngx_str_null(&str);
+#endif
+
     item = obj->data.child;
 
     while (item) {

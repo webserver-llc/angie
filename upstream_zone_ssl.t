@@ -54,6 +54,8 @@ http {
         ssl_certificate localhost.crt;
         ssl_session_cache builtin;
 
+        keepalive_requests 1;
+
         location / {
             add_header X-Session $ssl_session_reused;
             add_header X-Protocol $ssl_protocol;

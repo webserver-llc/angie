@@ -832,7 +832,7 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
             peer->effective_weight = 0;
         }
 
-    } else {
+    } else if (pc->connection) {
 
         /*
          * Mark peer live if check passed.  This code is for UDP only.  In a

@@ -27,6 +27,9 @@ select STDOUT; $| = 1;
 plan(skip_all => 'unsafe, may interfere with running containers.')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
+TODO: {
+local $TODO = 'Podman may not send some events to the podman.sock';
+
 my $t = Test::Nginx->new()
 	->has(qw/http http_api upstream_zone docker upstream_sticky proxy/)
 	->has(qw/stream stream_upstream_zone stream_upstream_sticky/);
@@ -50,5 +53,6 @@ $t->plan(scalar keys %test_cases);
 $t->run();
 
 $t->run_tests(\%test_cases);
+}
 
 ###############################################################################

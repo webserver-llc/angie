@@ -9,6 +9,21 @@
 
 <change type="bugfix">
 <para lang="ru">
+редкие системные ошибки перед подключением к проксируемому серверу могли
+повлиять на корректность статуса проксируемых серверов в модулях http и stream;
+в модуле stream они также могли привести к падению рабочего процесса.
+Ошибка появилась в версии 1.9.1.
+</para>
+<para lang="en">
+rare system errors before the connection to the proxied serveri might
+affect the peer status correctness in http and stream modules;
+they might also lead to the crash of a worker process in a stream module.
+the bug in had appeared in 1.9.1.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 исходящие HTTP/3-запросы в конфигурациях, где директивы "proxy_set_header Host"
 и "proxy_http_version 3" наследовались из блока "http",
 могли отправляться без заголовка "Host".

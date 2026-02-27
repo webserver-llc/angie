@@ -17,7 +17,7 @@ use lib 'lib';
 use Test::Docker;
 use Test::Nginx;
 
-require '../tests/docker.t';
+require "$FindBin::Bin/docker.t";
 
 ###############################################################################
 

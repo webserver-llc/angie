@@ -17,7 +17,7 @@ use lib 'lib';
 use Test::Docker;
 use Test::Nginx;
 
-require '../tests/docker_networks.t';
+require "$FindBin::Bin/docker_networks.t";
 
 ###############################################################################
 

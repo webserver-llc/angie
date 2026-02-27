@@ -37,6 +37,14 @@ typedef struct {
 
 
 typedef struct {
+    ngx_str_t                 timefmt;
+    ngx_str_t                 errmsg;
+    unsigned                  in_use:1;
+    unsigned                  exact_size:1;
+} ngx_http_ssi_ctx_conf_t;
+
+
+typedef struct {
     ngx_buf_t                *buf;
 
     u_char                   *pos;
@@ -80,8 +88,8 @@ typedef struct {
 
     ngx_http_request_t       *wait;
     void                     *value_buf;
-    ngx_str_t                 timefmt;
-    ngx_str_t                 errmsg;
+    ngx_http_ssi_ctx_conf_t  *conf;
+    ngx_http_ssi_ctx_conf_t   conf_snapshot;
 } ngx_http_ssi_ctx_t;
 
 

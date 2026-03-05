@@ -21,7 +21,7 @@
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
 
 typedef struct {
-    ngx_atomic_uint_t  keepalive;
+    ngx_atomic_t                    keepalive;
 } ngx_http_upstream_stats_t;
 
 

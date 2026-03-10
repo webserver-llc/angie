@@ -359,11 +359,12 @@ sub metric_compare {
 
 			my $ok = eq_deeply($value_got, \%expected);
 			unless ($ok) {
-				diag("failed to compare metrics:");
+				diag("failed to compare metrics $name:");
 				diag(explain({got => $value_got, expected => \%expected}));
+				return 0;
 			}
 
-			return $ok;
+			next;
 		}
 
 		my $expected = ($mode == MODE_AVG_MEAN)
@@ -372,11 +373,10 @@ sub metric_compare {
 
 		my $ok = eq_deeply($value_got, num($expected, TOLERANCE));
 		unless ($ok) {
-			diag("failed to compare metrics ($value_got != $expected)");
+			diag("failed to compare metrics $name: ($value_got != $expected)");
 			return 0;
 		}
-		return 1;
 	}
 
-	return 0;
+	return 1;
 }

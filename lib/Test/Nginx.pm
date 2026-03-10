@@ -161,6 +161,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-http_upstream_keepalive_modu)',
 		upstream_zone
 			=> '(?s)^(?!.*--without-http_upstream_zone_module)',
+		upstream_sticky
+			=> '(?s)^(?!.*--without-http_upstream_sticky)',
 		http	=> '(?s)^(?!.*--without-http(?!\S))',
 		cache	=> '(?s)^(?!.*--without-http-cache)',
 		pop3	=> '(?s)^(?!.*--without-mail_pop3_module)',

@@ -170,7 +170,8 @@ http {
 
     upstream u_rr_sticky_cookie_fields {
         server 127.0.0.1:8081;
-        sticky cookie sticky domain=example.com path=/ "expires=1h 3m";
+        sticky cookie sticky domain=example.com path=/ "expires=1h 3m"
+                             secure httponly;
     }
 
     upstream u_rr_sticky_path_only {
@@ -191,6 +192,16 @@ http {
     upstream u_rr_sticky_expires_value {
         server 127.0.0.1:8081;
         sticky cookie sticky expires=60m;
+    }
+
+    upstream u_rr_sticky_secure_only {
+        server 127.0.0.1:8081;
+        sticky cookie sticky secure;
+    }
+
+    upstream u_rr_sticky_httponly_only {
+        server 127.0.0.1:8081;
+        sticky cookie sticky httponly;
     }
 
     upstream u_sticky_with_down {
@@ -320,6 +331,14 @@ http {
             proxy_pass http://u_rr_sticky_expires_value;
         }
 
+        location /rr_sticky_secure_only {
+            proxy_pass http://u_rr_sticky_secure_only;
+        }
+
+        location /rr_sticky_httponly_only {
+            proxy_pass http://u_rr_sticky_httponly_only;
+        }
+
         location /rr_sticky_with_down {
             proxy_pass http://u_sticky_with_down;
         }
@@ -367,7 +386,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run()->plan(118);
+$t->run()->plan(138);
 
 ###############################################################################
 
@@ -421,6 +440,8 @@ skip 'cannot parse cookie', 11 unless $cookie_hash;
 ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 ok(defined($cookie_hash->{'path'}), "cookie has 'path' field");
 ok(defined($cookie_hash->{'expires'}), "cookie has 'expires' field");
+ok(exists($cookie_hash->{'secure'}), "cookie has 'secure' field");
+ok(exists($cookie_hash->{'httponly'}), "cookie has 'httponly' field");
 is($cookie_hash->{'domain'}, 'example.com', 'domain is correct');
 is($cookie_hash->{'path'}, '/', 'path is correct');
 
@@ -445,6 +466,8 @@ ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 is($cookie_hash->{'domain'}, 'localhost', "cookie 'domain' field is ok");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
 }
 
@@ -459,6 +482,8 @@ ok(defined($cookie_hash->{'path'}), "cookie has 'path' field");
 is($cookie_hash->{'path'}, '/test/path', "cookie 'path' field is ok");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
 }
 
@@ -474,6 +499,38 @@ is($cookie_hash->{'expires'}, 'Thu, 31-Dec-37 23:55:55 GMT',
 	"cookie 'expires' is set properly to maximum date");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+
+}
+
+# only secure
+$cookie_hash = get_cookie_hash('/rr_sticky_secure_only');
+ok($cookie_hash, 'only secure');
+
+SKIP: {
+skip 'cannot parse cookie', 5 unless $cookie_hash;
+
+ok(exists($cookie_hash->{'secure'}), "cookie has 'secure' field");
+is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+
+}
+
+# only httponly
+$cookie_hash = get_cookie_hash('/rr_sticky_httponly_only');
+ok($cookie_hash, 'only httponly');
+
+SKIP: {
+skip 'cannot parse cookie', 5 unless $cookie_hash;
+
+ok(exists($cookie_hash->{'httponly'}), "cookie has 'httponly' field");
+is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 
 }
 

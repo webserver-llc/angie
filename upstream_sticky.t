@@ -183,6 +183,11 @@ http {
         sticky cookie sticky domain=localhost;
     }
 
+    upstream u_rr_sticky_domain_cv {
+        server 127.0.0.1:8081;
+        sticky cookie sticky domain=$arg_v$arg_v2;
+    }
+
     upstream u_rr_sticky_expires_max {
         server 127.0.0.1:8081;
         sticky cookie sticky expires=max;
@@ -322,6 +327,10 @@ http {
             proxy_pass http://u_rr_sticky_domain_only;
         }
 
+        location /rr_sticky_domain_cv {
+            proxy_pass http://u_rr_sticky_domain_cv;
+        }
+
         location /rr_sticky_expires_max {
             proxy_pass http://u_rr_sticky_expires_max;
         }
@@ -385,7 +394,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no sticky upstream')->plan(138);
+$t->try_run('no sticky upstream')->plan(146);
 
 ###############################################################################
 
@@ -467,6 +476,39 @@ ok(!defined($cookie_hash->{'path'}), "cookie has no 'path' field");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+
+}
+
+# domain with complex value
+$cookie_hash = get_cookie_hash('/rr_sticky_domain_cv?v=foo');
+ok($cookie_hash, 'domain with complex value');
+
+SKIP: {
+skip 'cannot parse cookie', 2 unless $cookie_hash;
+
+ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' cv");
+is($cookie_hash->{'domain'}, 'foo', "cookie 'domain' cv is ok");
+
+}
+
+$cookie_hash = get_cookie_hash('/rr_sticky_domain_cv?v=bar&v2=baz');
+ok($cookie_hash, 'domain with complex value 2');
+
+SKIP: {
+skip 'cannot parse cookie', 2 unless $cookie_hash;
+
+ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' cv2");
+is($cookie_hash->{'domain'}, 'barbaz', "cookie 'domain' cv2 is ok");
+
+}
+
+$cookie_hash = get_cookie_hash('/rr_sticky_domain_cv');
+ok($cookie_hash, 'domain with complex value 3');
+
+SKIP: {
+skip 'cannot parse cookie', 1 unless $cookie_hash;
+
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' cv");
 
 }
 

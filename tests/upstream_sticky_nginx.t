@@ -395,7 +395,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run()->plan(146);
+$t->run()->plan(151);
 
 ###############################################################################
 
@@ -449,10 +449,12 @@ skip 'cannot parse cookie', 11 unless $cookie_hash;
 ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 ok(defined($cookie_hash->{'path'}), "cookie has 'path' field");
 ok(defined($cookie_hash->{'expires'}), "cookie has 'expires' field");
+ok(defined($cookie_hash->{'max-age'}), "cookie has 'max-age' field");
 ok(exists($cookie_hash->{'secure'}), "cookie has 'secure' field");
 ok(exists($cookie_hash->{'httponly'}), "cookie has 'httponly' field");
 is($cookie_hash->{'domain'}, 'example.com', 'domain is correct');
 is($cookie_hash->{'path'}, '/', 'path is correct');
+is($cookie_hash->{'max-age'}, 3780, 'max-age is correct');
 
 my $cookie_expires_act = parse_cookie_time($cookie_hash->{'expires'});
 ok(defined($cookie_expires_act), 'expire time has correct format');
@@ -475,6 +477,7 @@ ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 is($cookie_hash->{'domain'}, 'localhost', "cookie 'domain' field is ok");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!defined($cookie_hash->{'max-age'}), "cookie has no 'max-age' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
@@ -537,8 +540,10 @@ SKIP: {
 skip 'cannot parse cookie', 8 unless $cookie_hash;
 
 ok(defined($cookie_hash->{'expires'}), "cookie has 'expires' field set");
+ok(defined($cookie_hash->{'max-age'}), "cookie has 'max-age' field set");
 is($cookie_hash->{'expires'}, 'Thu, 31-Dec-37 23:55:55 GMT',
 	"cookie 'expires' is set properly to maximum date");
+is($cookie_hash->{'max-age'}, 315360000, "cookie 'max-age' is 10 years");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");

@@ -171,7 +171,7 @@ http {
     upstream u_rr_sticky_cookie_fields {
         server 127.0.0.1:8081;
         sticky cookie sticky domain=example.com path=/ "expires=1h 3m"
-                             secure httponly;
+                             secure httponly samesite=lax;
     }
 
     upstream u_rr_sticky_path_only {
@@ -207,6 +207,26 @@ http {
     upstream u_rr_sticky_httponly_only {
         server 127.0.0.1:8081;
         sticky cookie sticky httponly;
+    }
+
+    upstream u_rr_sticky_samesite_lax_only {
+        server 127.0.0.1:8081;
+        sticky cookie sticky samesite=lax;
+    }
+
+    upstream u_rr_sticky_samesite_strict_only {
+        server 127.0.0.1:8081;
+        sticky cookie sticky samesite=strict;
+    }
+
+    upstream u_rr_sticky_samesite_none_only {
+        server 127.0.0.1:8081;
+        sticky cookie sticky samesite=none;
+    }
+
+    upstream u_rr_sticky_samesite_var {
+        server 127.0.0.1:8081;
+        sticky cookie sticky samesite=$samesite;
     }
 
     upstream u_sticky_with_down {
@@ -256,6 +276,11 @@ http {
     map $args $conn {
         default  close;
         keep     keep-alive;
+    }
+
+    map $arg_a $samesite {
+        default  $arg_a;
+        empty    "";
     }
 
     server {
@@ -348,6 +373,22 @@ http {
             proxy_pass http://u_rr_sticky_httponly_only;
         }
 
+        location /rr_sticky_samesite_lax_only {
+            proxy_pass http://u_rr_sticky_samesite_lax_only;
+        }
+
+        location /rr_sticky_samesite_strict_only {
+            proxy_pass http://u_rr_sticky_samesite_strict_only;
+        }
+
+        location /rr_sticky_samesite_none_only {
+            proxy_pass http://u_rr_sticky_samesite_none_only;
+        }
+
+        location /rr_sticky_samesite_var {
+            proxy_pass http://u_rr_sticky_samesite_var;
+        }
+
         location /rr_sticky_with_down {
             proxy_pass http://u_sticky_with_down;
         }
@@ -395,7 +436,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->run()->plan(151);
+$t->run()->plan(183);
 
 ###############################################################################
 
@@ -444,7 +485,7 @@ my $cookie_hash = get_cookie_hash('/rr_sticky_cookie_fields');
 ok($cookie_hash, 'cookie');
 
 SKIP: {
-skip 'cannot parse cookie', 11 unless $cookie_hash;
+skip 'cannot parse cookie', 12 unless $cookie_hash;
 
 ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 ok(defined($cookie_hash->{'path'}), "cookie has 'path' field");
@@ -452,6 +493,7 @@ ok(defined($cookie_hash->{'expires'}), "cookie has 'expires' field");
 ok(defined($cookie_hash->{'max-age'}), "cookie has 'max-age' field");
 ok(exists($cookie_hash->{'secure'}), "cookie has 'secure' field");
 ok(exists($cookie_hash->{'httponly'}), "cookie has 'httponly' field");
+is($cookie_hash->{'samesite'}, 'lax', "cookie has 'samesite=lax' field");
 is($cookie_hash->{'domain'}, 'example.com', 'domain is correct');
 is($cookie_hash->{'path'}, '/', 'path is correct');
 is($cookie_hash->{'max-age'}, 3780, 'max-age is correct');
@@ -471,13 +513,14 @@ $cookie_hash = get_cookie_hash('/rr_sticky_domain_only');
 ok($cookie_hash, 'only domain');
 
 SKIP: {
-skip 'cannot parse cookie', 7 unless $cookie_hash;
+skip 'cannot parse cookie', 8 unless $cookie_hash;
 
 ok(defined($cookie_hash->{'domain'}), "cookie has 'domain' field");
 is($cookie_hash->{'domain'}, 'localhost', "cookie 'domain' field is ok");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
 ok(!defined($cookie_hash->{'max-age'}), "cookie has no 'max-age' field");
+ok(!defined($cookie_hash->{'samesite'}), "cookie has no 'samesite' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
@@ -521,12 +564,13 @@ $cookie_hash = get_cookie_hash('/rr_sticky_path_only');
 ok($cookie_hash, 'only path');
 
 SKIP: {
-skip 'cannot parse cookie', 6 unless $cookie_hash;
+skip 'cannot parse cookie', 7 unless $cookie_hash;
 
 ok(defined($cookie_hash->{'path'}), "cookie has 'path' field");
 is($cookie_hash->{'path'}, '/test/path', "cookie 'path' field is ok");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!defined($cookie_hash->{'samesite'}), "cookie has no 'samesite' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
@@ -537,7 +581,7 @@ $cookie_hash = get_cookie_hash('/rr_sticky_expires_max');
 ok($cookie_hash, 'only expires');
 
 SKIP: {
-skip 'cannot parse cookie', 8 unless $cookie_hash;
+skip 'cannot parse cookie', 9 unless $cookie_hash;
 
 ok(defined($cookie_hash->{'expires'}), "cookie has 'expires' field set");
 ok(defined($cookie_hash->{'max-age'}), "cookie has 'max-age' field set");
@@ -546,6 +590,7 @@ is($cookie_hash->{'expires'}, 'Thu, 31-Dec-37 23:55:55 GMT',
 is($cookie_hash->{'max-age'}, 315360000, "cookie 'max-age' is 10 years");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'samesite'}), "cookie has no 'samesite' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
@@ -556,12 +601,13 @@ $cookie_hash = get_cookie_hash('/rr_sticky_secure_only');
 ok($cookie_hash, 'only secure');
 
 SKIP: {
-skip 'cannot parse cookie', 5 unless $cookie_hash;
+skip 'cannot parse cookie', 6 unless $cookie_hash;
 
 ok(exists($cookie_hash->{'secure'}), "cookie has 'secure' field");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!defined($cookie_hash->{'samesite'}), "cookie has no 'samesite' field");
 ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
 
 }
@@ -571,15 +617,76 @@ $cookie_hash = get_cookie_hash('/rr_sticky_httponly_only');
 ok($cookie_hash, 'only httponly');
 
 SKIP: {
-skip 'cannot parse cookie', 5 unless $cookie_hash;
+skip 'cannot parse cookie', 6 unless $cookie_hash;
 
 ok(exists($cookie_hash->{'httponly'}), "cookie has 'httponly' field");
 is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
 ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
 ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!defined($cookie_hash->{'samesite'}), "cookie has no 'samesite' field");
 ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
 
 }
+
+# only samesite=lax
+$cookie_hash = get_cookie_hash('/rr_sticky_samesite_lax_only');
+ok($cookie_hash, 'only samesite=lax');
+
+SKIP: {
+skip 'cannot parse cookie', 6 unless $cookie_hash;
+
+is($cookie_hash->{'samesite'}, 'lax', "cookie has 'samesite=lax' field");
+is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+
+}
+
+# only samesite=strict
+$cookie_hash = get_cookie_hash('/rr_sticky_samesite_strict_only');
+ok($cookie_hash, 'only samesite=strict');
+
+SKIP: {
+skip 'cannot parse cookie', 6 unless $cookie_hash;
+
+is($cookie_hash->{'samesite'}, 'strict', "cookie has 'samesite=strict' field");
+is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+
+}
+
+# only samesite=none
+$cookie_hash = get_cookie_hash('/rr_sticky_samesite_none_only');
+ok($cookie_hash, 'only samesite=none');
+
+SKIP: {
+skip 'cannot parse cookie', 6 unless $cookie_hash;
+
+is($cookie_hash->{'samesite'}, 'none', "cookie has 'samesite=none' field");
+is($cookie_hash->{'path'}, '/', "cookie 'path' field set to '/' by default");
+ok(!defined($cookie_hash->{'domain'}), "cookie has no 'domain' field");
+ok(!defined($cookie_hash->{'expires'}), "cookie has no 'expires' field");
+ok(!exists($cookie_hash->{'httponly'}), "cookie has no 'httponly' field");
+ok(!exists($cookie_hash->{'secure'}), "cookie has no 'secure' field");
+
+}
+
+# samesite=$variable
+is(get_cookie_hash('/rr_sticky_samesite_var?a=strict')->{'samesite'},
+	'strict', 'variable samesite=strict');
+is(get_cookie_hash('/rr_sticky_samesite_var?a=none')->{'samesite'},
+	'none', 'variable samesite=none');
+is(get_cookie_hash('/rr_sticky_samesite_var?a=lax')->{'samesite'},
+	'lax', 'variable samesite=lax');
+is(get_cookie_hash('/rr_sticky_samesite_var?a=wrong')->{'samesite'},
+	'wrong', 'we keep the passed value for samesite variable (no default)');
+ok(!defined(get_cookie_hash('/rr_sticky_samesite_var?a=empty')->{'samesite'}),
+	'variable samesite empty, ignored');
 
 # verify that balancers work properly after adding sticky
 regression_tests(\%backend_cookies);

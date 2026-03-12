@@ -38,7 +38,7 @@ use Test::More qw//;
 use Test::Nginx::Config;
 use Test::API qw/ api_status traverse_api_status /;
 use Test::Control qw/ wait_for_reload stop_pid worker_generations /;
-use Test::Utils qw/ trim /;
+use Test::Utils qw/ trim get_caller /;
 
 ###############################################################################
 
@@ -637,18 +637,20 @@ sub waitforfile($;$) {
 	my ($self, $file, $pid) = @_;
 	my $exited;
 
+	my $sec = 20;
+
 	# wait for file to appear
 	# or specified process to exit
 
-	for (1 .. 200) {
+	for (1 .. ($sec * 10)) {
 		return 1 if -e $file;
 		return 0 if $exited;
 		$exited = waitpid($pid, WNOHANG) != 0 if $pid;
 		select undef, undef, undef, 0.1;
 	}
 
-	my $tname = (caller(1))[1];
-	Test::More::diag("$tname:\t$file was not created after 20 seconds");
+	my $c = get_caller();
+	Test::More::diag("$file was not created after $sec seconds ($c)");
 
 	return undef;
 }
@@ -656,9 +658,11 @@ sub waitforfile($;$) {
 sub waitforsocket($) {
 	my ($self, $peer) = @_;
 
+	my $sec = 5;
+
 	# wait for socket to accept connections
 
-	for (1 .. 50) {
+	for (1 .. ($sec * 10)) {
 		my $s = IO::Socket::INET->new(
 			Proto => 'tcp',
 			PeerAddr => $peer,
@@ -669,15 +673,20 @@ sub waitforsocket($) {
 		select undef, undef, undef, 0.1;
 	}
 
+	my $c = get_caller();
+	Test::More::diag("socket was not created after $sec seconds ($c)");
+
 	return undef;
 }
 
 sub waitforsslsocket($) {
 	my ($self, $peer) = @_;
 
+	my $sec = 5;
+
 	# wait for socket to accept connections
 
-	for (1 .. 50) {
+	for (1 .. ($sec * 10)) {
 		my $s = IO::Socket::SSL->new(
 			Proto => 'tcp',
 			PeerAddr => $peer,
@@ -688,6 +697,9 @@ sub waitforsslsocket($) {
 
 		select undef, undef, undef, 0.1;
 	}
+
+	my $c = get_caller();
+	Test::More::diag("SSL socket was not created after $sec seconds ($c)");
 
 	return undef;
 }

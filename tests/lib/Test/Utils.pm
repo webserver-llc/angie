@@ -13,7 +13,7 @@ use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
 		getconn hash_like stream_daemon trim log2i log2o log2c
-		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num /;
+		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
@@ -302,6 +302,33 @@ sub trim {
 	my $string = shift;
 	$string =~ s/^\s+|\s+$//g;
 	return $string;
+}
+
+sub get_caller {
+	my $stack = '';
+
+	for my $i (0 .. 2) {
+		# package (unused), filename, line number
+		my (undef, $caller, $line) = caller($i);
+		if (!defined($caller)) {
+			next;
+		}
+
+		my ($base) = $caller =~ /([^\/]+)$/;
+
+		if ($stack eq '') {
+			$stack = "$base:$line";
+
+		} else {
+			$stack = "$base:$line > $stack";
+		}
+	}
+
+	if ($stack eq '') {
+		return 'unknown';
+	}
+
+	return $stack;
 }
 
 1;

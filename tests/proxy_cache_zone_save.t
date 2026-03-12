@@ -151,7 +151,9 @@ http {
 
 EOF
 
-$t->retry_run(200);
+if (!$t->retry_run(200)) {
+	die("failed to restart angie with saved zones after 200 attempts");
+}
 
 # the cache zone content is loaded from state file - check this
 
@@ -218,7 +220,9 @@ http {
 
 EOF
 
-$t->retry_run(200);
+if (!$t->retry_run(200)) {
+	die("failed to restart angie with saved zones after 200 attempts");
+}
 
 # we still can add entries
 #

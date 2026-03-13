@@ -15,7 +15,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/ :DEFAULT http_end /;
-use Test::Utils qw/ get_json annotate /;
+use Test::Utils qw/ get_json annotate wait_for /;
 
 ###############################################################################
 
@@ -77,7 +77,7 @@ http {
         server b4.example.com:%%PORT_8084%% resolve sid=aaaa;
         server b5.example.com:%%PORT_8085%% resolve sid=bbbbb;
 
-        resolver 127.0.0.1:5252 valid=1s ipv6=off;
+        resolver 127.0.0.1:5252 valid=1s ipv6=off status_zone=dns;
 
         sticky cookie sticky;
     }
@@ -194,6 +194,14 @@ $t->waitforsocket('127.0.0.5:' . port(8085));
 
 my %bmap = collect_cookies("/backend_");
 
+# angie must have all peers resolved
+my $condition = sub {
+	get_json("/api/status/resolvers/dns/responses/success") >= 5;
+};
+
+wait_for($condition, "wait for angie to resolve tc1 peers");
+
+
 ###############################################################################
 
 tc1("sticky with zone and resolve");
@@ -208,8 +216,13 @@ tc1("sticky with zone and resolve");
 my @nxaddrs = ('b3.example.com', 'b4.example.com', 'b5.example.com');
 $t->restart_resolver(5252, \%addrs, {nxaddrs => \@nxaddrs});
 
-# let angie resolve
-select undef, undef, undef, 2;
+# angie must ask dns about removed peers
+$condition = sub {
+	get_json("/api/status/resolvers/dns/responses/not_found") >= 3;
+};
+
+wait_for($condition, "wait for angie to resolve removed peers");
+
 
 tc2("sticky after peers removed");
 

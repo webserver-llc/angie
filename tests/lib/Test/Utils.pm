@@ -13,7 +13,7 @@ use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
 		getconn hash_like stream_daemon trim log2i log2o log2c
-		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller /;
+		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller wait_for /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
@@ -329,6 +329,28 @@ sub get_caller {
 	}
 
 	return $stack;
+}
+
+sub wait_for {
+	my ($condition, $info, $delay) = @_;
+
+	my $sec = $delay // 20;
+	my $ms = 0;
+
+	for (1 .. ($sec * 10)) {
+		if ($condition->()) {
+			note("Condition '$info' met in $ms ms\n");
+			return 1;
+		}
+
+		$ms += 0.1;
+		select undef, undef, undef, 0.1;
+	}
+
+	my $c = get_caller();
+	diag("Timeout waiting for '$info' after $sec seconds ($c)");
+
+	return;
 }
 
 1;

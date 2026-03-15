@@ -187,7 +187,7 @@ SKIP: {
 skip 'no openssl client ech', 4
 	if `openssl s_client -help 2>&1` !~ /-ech_config_list/;
 
-# Tests with OpenSSL s_client from ECH feature branch
+# Tests with OpenSSL s_client with ECH support
 
 # Note that OpenSSL s_client prints confusing "ECH: BAD NAME: -102" status
 # when it is not able to verify server certificate.  To make sure proper
@@ -220,7 +220,7 @@ log_in($out);
 TODO: {
 local $TODO = 'OpenSSL too old'
 	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& !$t->has_feature('openssl:3.6.0');
+	&& !$t->has_feature('openssl:4.0.0');
 local $TODO = 'LibreSSL has no support yet'
 	if $t->has_module('LibreSSL');
 
@@ -251,23 +251,11 @@ like($out, qr/^ECH: NOT CONFIGURED.*secret:$/ms, 'openssl client no ech');
 # Tests with client certificate verification,
 # mostly to check if the $ssl_encrypted_hello variable is correct, notably
 # with failed client certificate verification.
-#
-# Currently fails with OpenSSL ECH feature branch on the server,
-# the error is as follows:
-#
-# ... [crit] ... SSL_do_handshake() failed (SSL: error:0A000100:SSL routines::
-# missing fatal)...
-#
-# This is expected to be fixed by
-# https://github.com/openssl/openssl/pull/28555.
 
 TODO: {
-local $TODO = 'OpenSSL broken verify'
-	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& $t->has_feature('openssl:3.6.0');
 local $TODO = 'OpenSSL too old'
 	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& !$t->has_feature('openssl:3.6.0');
+	&& !$t->has_feature('openssl:4.0.0');
 local $TODO = 'LibreSSL has no support yet'
 	if $t->has_module('LibreSSL');
 
@@ -335,7 +323,7 @@ log_in($out);
 TODO: {
 local $TODO = 'OpenSSL too old'
 	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& !$t->has_feature('openssl:3.6.0');
+	&& !$t->has_feature('openssl:4.0.0');
 local $TODO = 'LibreSSL has no support yet'
 	if $t->has_module('LibreSSL');
 
@@ -368,12 +356,9 @@ like($out, qr/Encrypted ClientHello: no.*secret:$/ms, 'bssl client no ech');
 # with failed client certificate verification.
 
 TODO: {
-local $TODO = 'OpenSSL broken verify'
-	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& $t->has_feature('openssl:3.6.0');
 local $TODO = 'OpenSSL too old'
 	if $t->has_module('OpenSSL') && !$t->has_module('BoringSSL')
-	&& !$t->has_feature('openssl:3.6.0');
+	&& !$t->has_feature('openssl:4.0.0');
 local $TODO = 'LibreSSL has no support yet'
 	if $t->has_module('LibreSSL');
 

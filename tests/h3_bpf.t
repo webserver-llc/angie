@@ -296,6 +296,11 @@ sub get_worker_port_matches {
 	for my $k (1 .. $ntries) {
 		my $curr_port = $last_port + $k;
 
+		# ignore port used by systemd's service
+		if ($curr_port == 9090) {
+			$curr_port++;
+		}
+
 		my $sock = IO::Socket::INET->new(
 				Proto => 'udp',
 				PeerAddr => '127.0.0.1:'.port(DPORT, udp => 1),

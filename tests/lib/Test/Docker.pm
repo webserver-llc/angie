@@ -40,13 +40,19 @@ sub new {
 	$self->_test_network()
 		or return;
 
+	# basic container check
+	note("basic $container_engine container check ...");
+	$self->start_containers(1, '');
+	$self->stop_containers();
+	note("basic $container_engine container check: passed");
+
 	return $self;
 }
 
 sub _init_endpoint {
 	my ($self, $container_engine) = @_;
 
-	my $error = `$container_engine version 2>&1 1>/dev/null`;
+	my $error = `$container_engine -v 2>&1 1>/dev/null`;
 	my $exit_code = $?;
 	unless (($exit_code >> 8) == 0) {
 		die "incorrect $container_engine setup: $error";
@@ -161,11 +167,13 @@ sub stop_containers {
 		note("stop $container_engine containers:\n$cmd");
 
 		if (system($cmd . ' 1>/dev/null') != 0) {
+			note("cannot stop containers, will try to force stop them");
 			$cmd = "$container_engine kill \$($list_containers_cmd)";
 			note("force stop $container_engine containers:\n$cmd");
 
 			system($cmd . ' 1>/dev/null') == 0
-				or die "cannot stop $container_engine containers";
+				or diag("cannot stop $container_engine containers,"
+					. 'will try to remove them');
 		}
 
 		$cmd = "$container_engine rm -f \$($list_containers_cmd)";
@@ -237,7 +245,8 @@ sub DESTROY {
 		my $cmd = "$container_engine network rm $network";
 		note("remove $container_engine network:\n$cmd");
 
-		`$cmd 1>/dev/null`;
+		system("$cmd 1>/dev/null") == 0
+			or diag("cannot remove $container_engine network $network!");
 	}
 }
 

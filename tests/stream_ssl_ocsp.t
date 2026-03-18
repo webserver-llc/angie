@@ -45,6 +45,10 @@ events {
 stream {
     %%TEST_GLOBALS_STREAM%%
 
+    log_format test
+        $ssl_server_name:$status:$ssl_client_verify:$ssl_session_reused;
+    access_log %%TESTDIR%%/test.log test;
+
     ssl_ocsp leaf;
     ssl_verify_client on;
     ssl_verify_depth 2;
@@ -274,7 +278,7 @@ foreach my $name ('rsa') {
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
 $t->run_daemon(\&http_daemon, $t, port(8083));
-$t->try_run('no ssl_ocsp')->plan(14);
+$t->try_run('no ssl_ocsp')->plan(19);
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));
@@ -282,19 +286,17 @@ $t->waitforsocket("127.0.0.1:" . port(8083));
 
 ###############################################################################
 
+my $tls13 = test_tls13();
+
 like(get('end'), qr/SUCCESS/, 'ocsp leaf');
 
 # demonstrate that ocsp int request is failed due to missing resolver
 
-like(get('end', sni => 'resolver'),
-	qr/FAILED:certificate status request failed/,
-	'ocsp many failed request');
+ok(!get('end', sni => 'resolver'), 'ocsp many failed request');
 
 # demonstrate that ocsp int request is actually made by failing ocsp response
 
-like(get('end', port => 8444),
-	qr/FAILED:certificate status request failed/,
-	'ocsp many failed');
+ok(!get('end', port => 8444, sni => 'failed'), 'ocsp many failed');
 
 # now prepare valid ocsp int response
 
@@ -331,7 +333,7 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 	. ">>$d/openssl.out 2>&1") == 0
 	or die "Can't create OCSP response: $!\n";
 
-like(get('end'), qr/FAILED:certificate revoked/, 'revoked');
+ok(!get('end', sni => 'revoked'), 'revoked');
 
 # with different responder where it's still valid
 
@@ -347,9 +349,7 @@ like(get('end', port => 8446), qr/SUCCESS/, 'cache lookup');
 
 # ocsp end response signed with invalid (root) cert, expect HTTP 400
 
-like(get('ec-end'),
-	qr/FAILED:certificate status request failed/,
-	'root ca not trusted');
+ok(!get('ec-end', sni => 'untrusted'), 'root ca not trusted');
 
 # now sign ocsp end response with valid int cert
 
@@ -365,11 +365,11 @@ my $s = session('ec-end');
 
 TODO: {
 local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
-	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
+	if $Net::SSLeay::VERSION < 1.88 && $tls13;
 local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
-	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
+	if $IO::Socket::SSL::VERSION < 2.061 && $tls13;
 local $TODO = 'no TLSv1.3 sessions in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
+	if $t->has_module('LibreSSL') && $tls13;
 
 like(get('ec-end', ses => $s),
 	qr/SUCCESS:r/, 'session reused');
@@ -395,22 +395,36 @@ system("openssl ocsp -index $d/certindex -CA $d/int.crt "
 
 # reusing session with revoked certificate
 
-TODO: {
-local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
-	if $Net::SSLeay::VERSION < 1.88 && test_tls13();
-local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
-	if $IO::Socket::SSL::VERSION < 2.061 && test_tls13();
-local $TODO = 'no TLSv1.3 sessions in LibreSSL'
-	if $t->has_module('LibreSSL') && test_tls13();
-
-like(get('ec-end', ses => $s),
-	qr/FAILED:certificate revoked:r/, 'session reused - revoked');
-
-}
+ok(!get('ec-end', ses => $s), 'session reused - revoked');
 
 # regression test for self-signed
 
 like(get('root', port => 8447), qr/SUCCESS/, 'ocsp one');
+
+$t->stop();
+
+my $log = $t->read_file('test.log');
+
+like($log, qr/resolver:500:FAILED:certificate status request failed/,
+	'log - ocsp many failed request');
+like($log, qr/failed:500:FAILED:certificate status request failed/,
+	'log - ocsp many failed');
+like($log, qr/revoked:500:FAILED:certificate revoked:\./, 'log - revoked');
+like($log, qr/untrusted:500:FAILED:certificate status request failed/,
+	'log - root ca not trusted');
+
+TODO: {
+local $TODO = 'no TLSv1.3 sessions, old Net::SSLeay'
+	if $Net::SSLeay::VERSION < 1.88 && $tls13;
+local $TODO = 'no TLSv1.3 sessions, old IO::Socket::SSL'
+	if $IO::Socket::SSL::VERSION < 2.061 && $tls13;
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL') && $tls13;
+
+like($log, qr/localhost:500:FAILED:certificate revoked:r/,
+	'log - session reused - revoked');
+
+}
 
 ###############################################################################
 

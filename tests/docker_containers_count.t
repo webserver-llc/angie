@@ -92,7 +92,7 @@ error_log %%TESTDIR%%/angie_docker.log notice;
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:$docker_helper->{endpoint};
+    docker_endpoint $docker_helper->{endpoint};
 
     upstream u {
         zone z 1m;

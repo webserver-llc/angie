@@ -10,6 +10,7 @@ use warnings;
 use strict;
 
 use File::Basename;
+use IO::Socket::INET;
 use Test::More;
 
 sub new {
@@ -17,9 +18,6 @@ sub new {
 	my $params = shift // {};
 
 	my $container_engine = $params->{container_engine} // 'docker';
-	my $networks = $params->{networks} ||
-		['angie_test_net_' . basename($0, qw(.t))];
-
 	die 'Incorrect container engine'
 		unless $container_engine =~ /^(?:docker|podman)$/;
 
@@ -27,18 +25,29 @@ sub new {
 		die "no $container_engine";
 	}
 
+	my $error = `$container_engine -v 2>&1 1>/dev/null`;
+	my $exit_code = $?;
+	unless (($exit_code >> 8) == 0) {
+		die "incorrect $container_engine setup: $error";
+	}
+
+	my $networks = $params->{networks}
+		// ['angie_test_net_' . basename($0, qw(.t))];
+
 	my $self = bless {
-		networks => $networks,
-		registry => $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io',
+		_initialized     => 0,
+		container_engine => $container_engine,
+		networks         => $networks,
+		registry         => $ENV{TEST_ANGIE_DOCKER_REGISTRY} // 'docker.io',
 	}, $class;
 
-	$self->_init_endpoint($container_engine)
-		or return;
+	$self->_init_endpoint($params);
+	$self->_test_endpoint();
 
-	$self->{container_engine} = $container_engine;
+	# enable cleanup in DESTROY before _test_network
+	$self->{_initialized} = 1;
 
-	$self->_test_network()
-		or return;
+	$self->_test_network();
 
 	# basic container check
 	note("basic $container_engine container check ...");
@@ -50,42 +59,93 @@ sub new {
 }
 
 sub _init_endpoint {
-	my ($self, $container_engine) = @_;
+	my ($self, $params) = @_;
 
-	my $error = `$container_engine -v 2>&1 1>/dev/null`;
-	my $exit_code = $?;
-	unless (($exit_code >> 8) == 0) {
-		die "incorrect $container_engine setup: $error";
+	if (defined $params->{endpoint}) {
+		$self->{endpoint} = $params->{endpoint};
+		return 1;
 	}
 
-	if ($container_engine eq 'docker') {
-		$self->{endpoint} = '/var/run/docker.sock';
+	if ($self->{container_engine} eq 'docker') {
+		$self->{endpoint} = 'unix:/var/run/docker.sock';
+		return 1;
+	}
 
-		unless (-e $self->{endpoint}) {
-			die 'incorrect endpoint setup: ' . $self->{endpoint}
-				. ' is missing';
-		}
+	my @socket_locations = (
+		'/tmp/podman.sock', # this is the preferrable endpoint for podman
+		'/run/podman/podman.sock' # rootful podman socket location
+	);
+	# this is the default endpoint on most systems
+	push @socket_locations, $ENV{XDG_RUNTIME_DIR} . '/podman/podman.sock'
+		if defined $ENV{XDG_RUNTIME_DIR};
 
-	} else {
-		# this is the preferrable endpoint
-		$self->{endpoint} = '/tmp/podman.sock';
+	foreach my $socket (@socket_locations) {
+		note("checking podman socket $socket...");
 
-		if (-e $self->{endpoint}) {
-			# all is good, do nothing
-
-		} elsif (defined $ENV{XDG_RUNTIME_DIR}
-			&& -e $ENV{XDG_RUNTIME_DIR} . '/podman/podman.sock') {
-
-			# this is the default endpoint on most systems
-			$self->{endpoint} = $ENV{XDG_RUNTIME_DIR} . '/podman/podman.sock';
+		if (-e $socket) {
+			if (-w $socket) {
+				$self->{endpoint} = "unix:$socket";
+				note("socket $socket: exists and writable");
+				last;
+			} else {
+				note("socket $socket: exists but not writable, skipping");
+			}
 		} else {
-			die 'incorrect podman setup: none of the known endpoints exists';
+			note("socket $socket: not found");
 		}
 	}
 
-	unless (-w $self->{endpoint}) {
-		die 'incorrect endpoint setup: ' . $self->{endpoint}
-			. ' is not writable';
+	die 'incorrect podman setup: none of the known endpoints exists'
+		unless defined $self->{endpoint};
+
+	return 1;
+}
+
+sub _test_endpoint {
+	my ($self) = @_;
+
+	my $container_engine = $self->{container_engine};
+
+	if ($self->{endpoint} =~ /^unix:(.+)$/) {
+		my $socket = $1;
+		unless (-e $socket) {
+			die "incorrect $container_engine setup: $socket is missing";
+		}
+		unless (-w $socket) {
+			die "incorrect $container_engine setup: $socket"
+				. ' is not writable';
+		}
+	} elsif ($self->{endpoint} =~ /^http:\/\/(.+)$/) {
+		my $host = $1;
+
+		# try to connect to socket
+		my $s = IO::Socket::INET->new(
+			Proto    => 'tcp',
+			PeerAddr => $host,
+			Timeout  => 5,
+		)
+			or die "http endpoint for $container_engine API is not configured";
+
+		my $request = <<"EOF";
+GET /version HTTP/1.0
+Host: $host
+
+EOF
+
+		$s->send($request) or die "send failed: $!\n";
+
+		my $buffer;
+		$s->recv($buffer, 1024) or die "recv failed: $!\n"
+
+		$s->close();
+
+		die "http endpoint for $container_engine API is not configured"
+			unless $buffer && $buffer =~ /$container_engine/i;
+
+	} elsif ($self->{endpoint} =~ /^https:/) {
+		die 'https endpoints are not yet working';
+	} else {
+		die 'incorrect endpoint';
 	}
 
 	return 1;
@@ -122,7 +182,7 @@ sub start_containers {
 	my $id = join('-', @networks);
 
 	for my $idx (1 .. $count) {
-		my $container= "whoami-$id-$idx";
+		my $container = "whoami-$id-$idx";
 
 		# With Podman, containers need to be in bridge mode in order to be
 		# subsequently connected to various networks.
@@ -235,12 +295,11 @@ sub get_container_networks {
 sub DESTROY {
 	my ($self) = @_;
 
-	my $container_engine = $self->{container_engine};
-
-	return unless defined $container_engine;
+	return unless $self->{_initialized};
 
 	$self->stop_containers();
 
+	my $container_engine = $self->{container_engine};
 	foreach my $network (@{ $self->{networks} }) {
 		my $cmd = "$container_engine network rm $network";
 		note("remove $container_engine network:\n$cmd");

@@ -69,7 +69,7 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:$docker_helper->{endpoint};
+    docker_endpoint $docker_helper->{endpoint};
 
     upstream u1 {
         zone http_z 1m;
@@ -136,6 +136,7 @@ sub prepare_test_cases {
 	eval {
 		$docker_helper->start_containers(1, '');
 		$docker_helper->pause_containers('pause');
+		$docker_helper->pause_containers('unpause');
 		$docker_helper->stop_containers();
 	};
 	if ($@) {

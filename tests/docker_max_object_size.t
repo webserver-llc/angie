@@ -108,7 +108,7 @@ error_log %%TESTDIR%%/angie_docker.log notice;
 http {
     %%TEST_GLOBALS_HTTP%%
 
-    docker_endpoint unix:$endpoint;
+    docker_endpoint $endpoint;
     docker_max_object_size $size;
 
     upstream u {

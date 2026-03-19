@@ -133,6 +133,15 @@ sub prepare_test_cases {
 
 	my $container_engine = $docker_helper->{container_engine};
 
+	eval {
+		$docker_helper->start_containers(1, '');
+		$docker_helper->pause_containers('pause');
+		$docker_helper->stop_containers();
+	};
+	if ($@) {
+		plan(skip_all => "$container_engine pause is not supported: $@");
+	}
+
 	return (
 		"3 $container_engine containers" => {
 			test_sub    => \&test_containers,

@@ -135,7 +135,7 @@ EOF
 		$s->send($request) or die "send failed: $!\n";
 
 		my $buffer;
-		$s->recv($buffer, 1024) or die "recv failed: $!\n"
+		$s->recv($buffer, 1024) or die "recv failed: $!\n";
 
 		$s->close();
 

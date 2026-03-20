@@ -280,6 +280,9 @@ for (1 .. 5) {
 	many('/server_mismatch_timeout/swap', 4, cookie => 'sid=value2');
 }
 
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.29.6');
+
 # after timeout, requests are not initially sticky until balanced to 2nd peer
 
 isnt(many('/server', 4, cookie => 'sid=value2'), "$p2: 4",
@@ -304,7 +307,7 @@ like(many('/server_mismatch/swap', 4, cookie => 'sid=value2'), qr/($p3|$p4): 4/,
 many('/server_mismatch_timeout/long', 1, cookie => 'sid=value2');
 unlike(many('/server_mismatch_timeout/swap', 4, cookie => 'sid=value2'),
 	qr/($p1|$p2): /, 'sticky timeout sticky mismatch timeout');
-
+}
 
 # case sensitive tests
 

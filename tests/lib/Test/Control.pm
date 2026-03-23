@@ -190,7 +190,7 @@ sub angie_ps {
 
 		# sort out process types and extract additional information
 		if ($cmd =~ /worker process is shutting down/) {
-			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?$/;
+			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?\s*$/;
 
 			my %worker = (
 				%proc,
@@ -201,7 +201,7 @@ sub angie_ps {
 			push @workers, \%worker;
 
 		} elsif ($cmd =~ /worker process/) {
-			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?$/;
+			my ($generation) = $cmd =~ /#(\d+)(?:\s+\($binary\))?\s*$/;
 
 			my %worker = (
 				%proc,

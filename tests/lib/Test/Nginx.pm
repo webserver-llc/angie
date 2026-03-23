@@ -777,7 +777,7 @@ sub stop_resolver {
 
 	stop_pid($pid, 1);
 
-	my $is_running = `ps -h $pid | grep -v defunct | wc -l`;
+	my $is_running = `ps $pid | tail +2 | grep -v defunct | wc -l`;
 	$is_running =~ s/^\s+|\s+$//g;
 
 	if ($is_running) {

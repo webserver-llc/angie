@@ -74,7 +74,7 @@ http {
     }
 
     upstream test {
-        zone test 32k;
+        zone test 128k;
     }
 
     server {

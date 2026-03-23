@@ -23,7 +23,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 # the test depends on availability of 127.0.0.0/8 subnet on targets
-plan(skip_all => 'OS is not linux') if $^O ne 'linux';
+plan(skip_all => '127.0.0.6 local address required')
+       unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.6' );
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api proxy upstream_zone debug reload/);
@@ -49,14 +50,14 @@ http {
         server backup.example.com:%%PORT_8081%% resolve backup;
         server nonexist.example.com:%%PORT_8081%% resolve backup;
 
-        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver 127.0.0.1:15353 valid=1s ipv6=off;
     }
 
     upstream u2 {
         zone z 1m;
         server baz.example.com:%%PORT_8081%% resolve;
 
-        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver 127.0.0.1:15353 valid=1s ipv6=off;
         resolver_timeout 1s;
     }
 
@@ -67,7 +68,7 @@ http {
 
         server multi.example.com:%%PORT_8081%% resolve;
 
-        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver 127.0.0.1:15353 valid=1s ipv6=off;
         resolver_timeout 1s;
     }
 
@@ -78,7 +79,7 @@ http {
         server bar.example.com:%%PORT_8081%% resolve;
         server qux.example.com:%%PORT_8081%% resolve;
 
-        resolver 127.0.0.1:5353 valid=1s ipv6=off;
+        resolver 127.0.0.1:15353 valid=1s ipv6=off;
         resolver_timeout 1s;
     }
 
@@ -157,7 +158,7 @@ my %addrs = (
     'multi.example.com'  => ['127.0.0.2', '127.0.0.6']
 );
 
-$t->start_resolver(5353, \%addrs);
+$t->start_resolver(15353, \%addrs);
 
 $t->run()->plan(19);
 
@@ -248,7 +249,7 @@ is($j->{"127.0.0.2:$port2"}{server}, "bar.example.com:$port2",
 );
 my @nxaddrs = ('backup.example.com');
 
-$t->start_resolver(5353, \%addrs, {nxaddrs => \@nxaddrs});
+$t->start_resolver(15353, \%addrs, {nxaddrs => \@nxaddrs});
 
 # reload nginx to force resolve
 ok($t->reload(), 'reloaded');
@@ -317,7 +318,7 @@ $t->stop_resolver();
 );
 my @nxservers = ('example.com');
 
-$t->start_resolver(5353, \%addrs, {nxaddrs => \@nxaddrs,
+$t->start_resolver(15353, \%addrs, {nxaddrs => \@nxaddrs,
 	nxservers => \@nxservers});
 
 # 4) wait for resolve timer to occure (resolver_timeout is 1s for u2)

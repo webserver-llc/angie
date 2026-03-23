@@ -22,8 +22,8 @@ use Test::Utils qw/ get_json annotate wait_for /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => '127.0.0.3 local address required')
-	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.3' );
+plan(skip_all => '127.0.0.6 local address required')
+	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.6' );
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api proxy rewrite upstream_sticky upstream_zone/)

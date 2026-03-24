@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for proxy X-Accel-Redirect functionality.
@@ -65,7 +66,7 @@ http {
             # others won't be
             add_header  Something            other;
 
-            return 204;
+            return 200;
         }
         location @named {
             return 200 "named xar: $upstream_http_x_accel_redirect uri: $uri";

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
@@ -23,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(28)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(32)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -99,6 +100,15 @@ http {
                 expires modified $arg_e;
             }
         }
+
+        location /ct {
+            default_type  text/plain;
+            add_header Content-Type  application/json;
+        }
+
+        location /ct_var {
+            add_header Content-Type  $arg_t;
+        }
     }
 
     server {
@@ -123,6 +133,8 @@ $t->write_file('modified', '');
 $t->write_file('var', '');
 $t->write_file('var_inner', '');
 $t->write_file('var_modified', '');
+$t->write_file('ct', '');
+$t->write_file('ct_var', '');
 
 $t->run();
 
@@ -178,5 +190,16 @@ unlike(http_get('/var'), qr/Expires/, 'expires var empty');
 unlike(http_get('/var?e=bad'), qr/Expires/, 'expires var bad');
 unlike(http_get('/var_modified?e=epoch'), qr/Expires/,
 	'expires var modified epoch');
+
+# content type override
+
+$r = http_get('/ct');
+unlike($r, qr/Content-Type: text\/plain/, 'no default type');
+like($r, qr/Content-Type: application\/json/, 'new type');
+
+unlike(http_get('/ct_var?t='), qr/Content-Type/, 'content-type var empty ');
+like(http_get('/ct_var?t=text/plain;charset=koi8-r'),
+	qr/Content-Type: text\/plain;charset=koi8-r/,
+	'content-type var with charset');
 
 ###############################################################################

@@ -1827,6 +1827,64 @@ ngx_http_set_content_type(ngx_http_request_t *r)
 
 
 void
+ngx_http_override_content_type(ngx_http_request_t *r, ngx_str_t *value)
+{
+    u_char  *p, *last, *end, *end_check;
+
+    r->headers_out.content_type_len = value->len;
+    r->headers_out.content_type = *value;
+    r->headers_out.content_type_lowcase = NULL;
+
+    if (value->len <= 9 /* ;charset= */ ) {
+        return;
+    }
+
+    end = value->data + value->len;
+    end_check = end - 9;
+
+    for (p = value->data; p < end_check; p++) {
+
+        if (*p != ';') {
+            continue;
+        }
+
+        last = p++;
+
+        while (*p == ' ') {
+            p++;
+
+            if (end - p <= 8) {
+                return;
+            }
+        }
+
+        if (ngx_strncasecmp(p, (u_char *) "charset=", 8) != 0) {
+            continue;
+        }
+
+        p += 8;
+
+        r->headers_out.content_type_len = last - value->data;
+
+        if (*p == '"') {
+            p++;
+        }
+
+        last = end;
+
+        if (last > p && *(last - 1) == '"') {
+            last--;
+        }
+
+        r->headers_out.charset.len = last - p;
+        r->headers_out.charset.data = p;
+
+        return;
+    }
+}
+
+
+void
 ngx_http_set_exten(ngx_http_request_t *r)
 {
     ngx_int_t  i;

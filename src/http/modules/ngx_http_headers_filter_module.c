@@ -64,6 +64,8 @@ static ngx_int_t ngx_http_set_last_modified(ngx_http_request_t *r,
     ngx_http_header_val_t *hv, ngx_str_t *value);
 static ngx_int_t ngx_http_set_response_header(ngx_http_request_t *r,
     ngx_http_header_val_t *hv, ngx_str_t *value);
+static ngx_int_t ngx_http_set_content_type_header(ngx_http_request_t *r,
+    ngx_http_header_val_t *hv, ngx_str_t *value);
 
 static void *ngx_http_headers_create_conf(ngx_conf_t *cf);
 static char *ngx_http_headers_merge_conf(ngx_conf_t *cf,
@@ -92,6 +94,10 @@ static ngx_http_set_header_t  ngx_http_set_headers[] = {
     { ngx_string("ETag"),
                  offsetof(ngx_http_headers_out_t, etag),
                  ngx_http_set_response_header },
+
+    { ngx_string("Content-Type"),
+                 0,
+                 ngx_http_set_content_type_header },
 
     { ngx_null_string, 0, NULL }
 };
@@ -632,6 +638,16 @@ ngx_http_set_response_header(ngx_http_request_t *r, ngx_http_header_val_t *hv,
     h->hash = 1;
     h->key = hv->key;
     h->value = *value;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_set_content_type_header(ngx_http_request_t *r,
+    ngx_http_header_val_t *hv, ngx_str_t *value)
+{
+    ngx_http_override_content_type(r, value);
 
     return NGX_OK;
 }

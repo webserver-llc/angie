@@ -6081,49 +6081,7 @@ static ngx_int_t
 ngx_http_upstream_copy_content_type(ngx_http_request_t *r, ngx_table_elt_t *h,
     ngx_uint_t offset)
 {
-    u_char  *p, *last;
-
-    r->headers_out.content_type_len = h->value.len;
-    r->headers_out.content_type = h->value;
-    r->headers_out.content_type_lowcase = NULL;
-
-    for (p = h->value.data; *p; p++) {
-
-        if (*p != ';') {
-            continue;
-        }
-
-        last = p;
-
-        while (*++p == ' ') { /* void */ }
-
-        if (*p == '\0') {
-            return NGX_OK;
-        }
-
-        if (ngx_strncasecmp(p, (u_char *) "charset=", 8) != 0) {
-            continue;
-        }
-
-        p += 8;
-
-        r->headers_out.content_type_len = last - h->value.data;
-
-        if (*p == '"') {
-            p++;
-        }
-
-        last = h->value.data + h->value.len;
-
-        if (last > p && *(last - 1) == '"') {
-            last--;
-        }
-
-        r->headers_out.charset.len = last - p;
-        r->headers_out.charset.data = p;
-
-        return NGX_OK;
-    }
+    ngx_http_override_content_type(r, &h->value);
 
     return NGX_OK;
 }

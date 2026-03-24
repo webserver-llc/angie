@@ -7,6 +7,17 @@
 
 <changes ver="1.12.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+директива "add_header Content-Type" могла приводить к добавлению ещё одного
+поля "Content-Type" в заголовке ответа.
+</para>
+<para lang="en">
+the "add_header Content-Type" directive might result in the addition of another
+"Content-Type" field in the response header.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 Директива "acme_dns_ttl" позволяет изменить значение TTL

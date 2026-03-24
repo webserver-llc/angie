@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Nginx, Inc.
 
@@ -22,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http charset proxy/)->plan(7)
+my $t = Test::Nginx->new()->has(qw/http charset proxy/)->plan(8)
 	->write_file_expand('nginx.conf', <<'EOF')->run();
 
 %%TEST_GLOBALS%%
@@ -66,6 +67,12 @@ http {
             charset $arg_c;
         }
 
+        location /t6 {
+            charset $arg_d;
+            override_charset on;
+            add_header Content-Type "text/html; charset=$arg_s";
+        }
+
         location /t.html {
             charset A;
             source_charset B;
@@ -86,6 +93,7 @@ $t->write_file('t2.foo', '');
 $t->write_file('t3.foo', '');
 $t->write_file('t4.any', '');
 $t->write_file('t5.html', '');
+$t->write_file('t6', '');
 $t->write_file('t.html', 'X' x 99);
 
 ###############################################################################
@@ -95,6 +103,7 @@ like(http_get('/t2.foo'), qr!text/foo\x0d!, 'wrong type');
 like(http_get('/t3.foo'), qr!text/foo; charset=utf-8!, 'charset_types');
 like(http_get('/t4.any'), qr!text/plain; charset=utf-8!, 'charset_types any');
 like(http_get('/t5.html?c=utf-8'), qr!text/html; charset=utf-8!, 'variables');
+like(http_get('/t6?s=B&d=A'), qr!text/html; charset=A!, 'add_header');
 
 like(http_get('/t.html'), qr!Y{99}!, 'recode');
 like(http_get('/proxy/t.html'), qr!X{99}!, 'override charset');

@@ -7,6 +7,95 @@
 
 <changes ver="1.11.4" date="">
 
+<change type="security">
+<para lang="ru">
+TLS-согласование с клиентом в stream-модуле могло завершиться успешно при
+том, что OCSP отклонил клиентский сертификат (CVE-2026-28755);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+TLS handshake with a client in the stream module might succeed despite OCSP
+rejecting the client certificate (CVE-2026-28755);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+в DAV-модуле при обработке COPY- или MOVE-запроса в "location" с директивой
+"alias" могло произойти переполнение буфера, что позволяло атакующему
+модифицировать исходный или целевой путь за пределы корневой директории
+(CVE-2026-27654);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+a buffer overflow might occur in the DAV module while handling a COPY or MOVE
+request in a "location" with the "alias" directive, allowing an attacker to
+modify the source or destination path outside of the document root directory
+(CVE-2026-27654);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+обработка специально созданного файла MP4-модулем могла приводить к падению
+рабочего процесса, а также потенциально могла иметь другие последствия
+(CVE-2026-32647);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+processing of a specially crafted file by the MP4 module might cause a worker
+process crash, or might have potential other impact (CVE-2026-32647);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+обработка специально созданного файла в MP4-модуле на 32-битных платформах
+могла приводить к падению рабочего процесса, а также потенциально могла иметь
+другие последствия (CVE-2026-27784);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+processing of a specially crafted file by the MP4 module on 32-bit platforms
+might cause a worker process crash, or might have potential other impact
+(CVE-2026-27784);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+когда использовался почтовый прокси-сервер, атакующий с помощью PTR DNS-записи
+мог вставить данные в HTTP-запросы аутентификации, а также в команду XCLIENT в
+SMTP-соединении к проксируемому серверу (CVE-2026-28753);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+when the Mail proxy module was used, an attacker using PTR DNS records could
+inject data in authentication HTTP requests, as well as in the XCLIENT command
+in the SMTP connection to the proxied server (CVE-2026-28753);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+если в почтовом прокси-сервере использовался метод аутентификации CRAM-MD5
+или APOP и были разрешены повторные попытки аутентификации, то могло произойти
+падение рабочего процесса (CVE-2026-27651);
+исправление портировано из nginx 1.29.7.
+</para>
+<para lang="en">
+if the CRAM-MD5 or APOP authentication methods were used in the Mail proxy
+module and authentication retry was enabled, then a worker process could crash
+(CVE-2026-27651);
+the fix was ported from nginx 1.29.7.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 редкие системные ошибки перед подключением к проксируемому серверу могли

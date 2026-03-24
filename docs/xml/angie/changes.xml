@@ -99,28 +99,28 @@ the fix was ported from nginx 1.29.7.
 <change type="bugfix">
 <para lang="ru">
 редкие системные ошибки перед подключением к проксируемому серверу могли
-повлиять на корректность статуса проксируемых серверов в модулях http и stream;
-в модуле stream они также могли привести к падению рабочего процесса.
-Ошибка появилась в версии 1.9.1.
+повлиять на корректность статуса проксируемых серверов в модулях HTTP и stream;
+в stream-модуле они также могли привести к падению рабочего процесса;
+проблема появилась в 1.9.1.
 </para>
 <para lang="en">
-rare system errors before the connection to the proxied serveri might
-affect the peer status correctness in http and stream modules;
-they might also lead to the crash of a worker process in a stream module.
-the bug in had appeared in 1.9.1.
+rare system errors before the connection to the proxied server might affect the
+peer status correctness in HTTP and stream modules; they might also lead to the
+crash of a worker process in a stream module;
+the bug had appeared in 1.9.1.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-исходящие HTTP/3-запросы в конфигурациях, где директивы "proxy_set_header Host"
-и "proxy_http_version 3" наследовались из блока "http",
-могли отправляться без заголовка "Host".
+в конфигурациях, где директивы "proxy_http_version 3" и
+"proxy_set_header Host .." наследовались из блока "http",
+исходящие HTTP/3-запросы могли отправляться без заголовка "Host".
 </para>
 <para lang="en">
-outgoing HTTP/3 requests in configurations with the "proxy_set_header Host"
-and "proxy_http_version 3" directives were inherited from the "http" block
-might be sent without the "Host" header.
+in configurations where the "proxy_http_version 3" and
+"proxy_set_header Host .." directives were inherited from the "http" block,
+outgoing HTTP/3 requests might be sent without the "Host" header.
 </para>
 </change>
 
@@ -1792,13 +1792,13 @@ Thanks to Maxim Dounin (freenginx).
 
 <change type="security">
 <para lang="ru">
-обработка специально созданного mp4-файла модулем ngx_http_mp4_module
-могла приводить к падению рабочего процесса (CVE-2024-7347);
+обработка специально созданного файла MP4-модулем могла приводить к падению
+рабочего процесса (CVE-2024-7347);
 исправление портировано из nginx 1.27.1.
 </para>
 <para lang="en">
-processing a specially crafted mp4 file with the ngx_http_mp4_module could
-cause a worker process crash (CVE-2024-7347);
+processing a specially crafted file with the MP4 module could cause a worker
+process crash (CVE-2024-7347);
 the fix was ported from nginx 1.27.1.
 </para>
 </change>

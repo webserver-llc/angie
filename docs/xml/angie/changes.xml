@@ -78,16 +78,26 @@ none are configured in Angie, the default server "127.0.0.1:53" is used.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.29.5, за исключением директивы "ssl_ech_file"
-и связанных с ней переменных ("$ssl_ech_status" и "$ssl_ech_outer_server_name").
-Поддержка Encrypted Client Hello уже реализована при помощи директивы
-"ssl_encrypted_hello_key".
+вся функциональность nginx 1.29.7, за исключением HTTP-модуля "sticky",
+директивы "ssl_ech_file" и связанных с ней переменных ("$ssl_ech_status"
+и "$ssl_ech_outer_server_name"), а также изменений в поведении директивы
+"keepalive" HTTP модуля "upstream". Поддержка Encrypted Client Hello уже
+реализована при помощи директивы "ssl_encrypted_hello_key".
+Функциональность HTTP-модуля "sticky" была ранее независимо реализована
+в angie; специфичная для nginx конфигурация не поддерживается.
+Включение keepalive по-умолчанию может привести к непредвиденным последствиям,
+которые не устраняются поддержкой предложенной опции "local".
 </para>
 <para lang="en">
-all functionality of nginx 1.29.5 except the "ssl_ech_file" directive and
-related variables ("ssl_ech_status" and "ssl_ech_outer_server_name").
-The Encrypted Client Hello is already supported using the
-"ssl_encrypted_hello_key" variable.
+all functionality of nginx 1.29.7 except the HTTP "sticky" module,
+the "ssl_ech_file" directive, and related variables ("ssl_ech_status" and
+"ssl_ech_outer_server_name"), and changes of the "keepalive" directive
+in the "upstream" HTTP module. The Encrypted Client Hello is already supported
+using the "ssl_encrypted_hello_key" variable. The HTTP "sticky" module
+functionality was independently implemented in angie earlier; nginx-specific
+configuration is not supported. Enabling keepalive by default may lead to
+unexpected consequences that may not be mitigated by the suggested "local"
+option.
 </para>
 </change>
 

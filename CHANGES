@@ -1,8 +1,50 @@
 
+Changes with Angie 1.11.4                                        25 Mar 2026
+
+    *) Security: TLS handshake with a client in the stream module might
+       succeed despite OCSP rejecting the client certificate
+       (CVE-2026-28755); the fix was ported from nginx 1.29.7.
+
+    *) Security: a buffer overflow might occur in the DAV module while
+       handling a COPY or MOVE request in a "location" with the "alias"
+       directive, allowing an attacker to modify the source or destination
+       path outside of the document root directory (CVE-2026-27654); the fix
+       was ported from nginx 1.29.7.
+
+    *) Security: processing of a specially crafted file by the MP4 module
+       might cause a worker process crash, or might have potential other
+       impact (CVE-2026-32647); the fix was ported from nginx 1.29.7.
+
+    *) Security: processing of a specially crafted file by the MP4 module on
+       32-bit platforms might cause a worker process crash, or might have
+       potential other impact (CVE-2026-27784); the fix was ported from
+       nginx 1.29.7.
+
+    *) Security: when the Mail proxy module was used, an attacker using PTR
+       DNS records could inject data in authentication HTTP requests, as
+       well as in the XCLIENT command in the SMTP connection to the proxied
+       server (CVE-2026-28753); the fix was ported from nginx 1.29.7.
+
+    *) Security: if the CRAM-MD5 or APOP authentication methods were used in
+       the Mail proxy module and authentication retry was enabled, then a
+       worker process could crash (CVE-2026-27651); the fix was ported from
+       nginx 1.29.7.
+
+    *) Bugfix: rare system errors before the connection to the proxied
+       server might affect the peer status correctness in HTTP and stream
+       modules; they might also lead to the crash of a worker process in a
+       stream module; the bug had appeared in 1.9.1.
+
+    *) Bugfix: in configurations where the "proxy_http_version 3" and
+       "proxy_set_header Host .." directives were inherited from the "http"
+       block, outgoing HTTP/3 requests might be sent without the "Host"
+       header.
+
+
 Changes with Angie 1.11.3                                        06 Feb 2026
 
     *) Security: an attacker in a man-in-the-middle (MITM) position before a
-       proxied server using TLS, given conditions beyond the attacker's
+       proxied server using HTTPS, given conditions beyond the attacker's
        control, could inject plaintext data into the response before the TLS
        handshake begins (CVE-2026-1642); the fix was ported from nginx
        1.29.5.
@@ -585,9 +627,9 @@ Changes with Angie 1.7.0                                         19 Sep 2024
 
 Changes with Angie 1.6.2                                         16 Aug 2024
 
-    *) Security: processing a specially crafted mp4 file with the
-       ngx_http_mp4_module could cause a worker process crash
-       (CVE-2024-7347); the fix was ported from nginx 1.27.1.
+    *) Security: processing a specially crafted file with the MP4 module
+       could cause a worker process crash (CVE-2024-7347); the fix was
+       ported from nginx 1.27.1.
 
 
 Changes with Angie 1.6.1                                         08 Aug 2024

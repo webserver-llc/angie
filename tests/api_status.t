@@ -71,6 +71,7 @@ http {
             status_zone location_zone;
             limit_conn limit_conn_zone 1;
             limit_req zone=limit_req_zone burst=5;
+            proxy_set_header Connection close;
             proxy_pass http://u1;
         }
 

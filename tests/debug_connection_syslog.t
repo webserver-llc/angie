@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Nginx, Inc.
 
 # Tests for debug_connection with syslog.
@@ -66,10 +67,15 @@ my ($s1, $s2) = map {
 		or die "Can't open syslog socket $_: $!";
 } port(8981), port(8982);
 
-is(get_syslog('/', $s1), '', 'no debug_connection syslog 1');
-is(get_syslog('/', $s2), '', 'no debug_connection syslog 2');
+http_get('/');
+is(get_syslog($s1), '', 'no debug_connection syslog 1');
+http_get('/');
+is(get_syslog($s2), '', 'no debug_connection syslog 2');
 
-my @msgs = get_syslog('/debug', $s1, $s2);
+http_get('/debug');
+$t->stop();
+
+my @msgs = get_syslog($s1, $s2);
 like($msgs[0], qr/\[debug\]/, 'debug_connection syslog 1');
 like($msgs[1], qr/\[debug\]/, 'debug_connection syslog 2');
 is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');
@@ -77,10 +83,8 @@ is($msgs[0], $msgs[1], 'debug_connection syslog1 syslog2 match');
 ###############################################################################
 
 sub get_syslog {
-	my ($uri, @s) = @_;
+	my (@s) = @_;
 	my @data;
-
-	http_get($uri);
 
 	map {
 		my $data = '';

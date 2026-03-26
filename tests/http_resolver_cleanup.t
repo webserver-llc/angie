@@ -25,8 +25,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy/);
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 $t->write_file_expand('nginx.conf', <<'EOF')->plan(1);
 
 %%TEST_GLOBALS%%

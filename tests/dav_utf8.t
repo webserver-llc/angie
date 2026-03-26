@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -12,8 +13,6 @@ use strict;
 
 use Test::More;
 
-use Encode qw/ encode /;
-
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
@@ -23,9 +22,6 @@ use Test::Nginx;
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
-
-eval { require Win32API::File if $^O eq 'MSWin32'; };
-plan(skip_all => 'Win32API::File not installed') if $@;
 
 my $t = Test::Nginx->new()->has(qw/http dav/)->plan(16);
 
@@ -157,12 +153,7 @@ ok(!fileexists("$d/$dir_path-moved"), 'dir deleted');
 sub fileexists {
 	my ($path) = @_;
 
-	return -e $path if $^O ne 'MSWin32';
-
-	$path = encode("UTF-16LE", $path . "\0");
-	my $attr = Win32API::File::GetFileAttributesW($path);
-	return 0 if $attr == Win32API::File::INVALID_HANDLE_VALUE();
-	return $attr;
+	return -e $path;
 }
 
 ###############################################################################

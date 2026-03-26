@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -182,14 +183,9 @@ unlike(http_get('/not_exist?c=file'), qr/ 204 /, 'not exist file');
 unlike(http_get('/not_exist?c=dir'), qr/ 204 /, 'not exist dir');
 like(http_get('/not_exist?c=nx'), qr/ 204 /, 'not exist non-existent');
 
-SKIP: {
-skip 'no exec on win32', 4 if $^O eq 'MSWin32';
-
 unlike(http_get('/exec?c=file'), qr/ 204 /, 'executable file');
 like(http_get('/exec?c=dir'), qr/ 204 /, 'executable dir');
 like(http_get('/not_exec?c=file'), qr/ 204 /, 'not executable file');
 unlike(http_get('/not_exec?c=dir'), qr/ 204 /, 'not executable dir');
-
-}
 
 ###############################################################################

@@ -127,7 +127,7 @@ like(http_get('/foo/bar'), qr!X-Location: /foo/ prefix!, '/foo/ prefix');
 
 SKIP: {
 	skip 'caseless os', 1
-		if $^O eq 'MSWin32' or $^O eq 'darwin';
+		if $^O eq 'darwin';
 
 	like(http_get('/CASEFULL/'), qr/X-Location: root/,
 		'casefull regex do not match wrong case');
@@ -156,7 +156,7 @@ like(http_get('/caseaware/'), qr/X-Location: combined/,
 
 SKIP: {
 	skip 'caseless os', 1
-		if $^O eq 'MSWin32' or $^O eq 'darwin';
+		if $^O eq 'darwin';
 
 	like(http_get('/CASEAWARE/'), qr/X-Location: root/,
 		'combined casefull regex do not match wrong case');

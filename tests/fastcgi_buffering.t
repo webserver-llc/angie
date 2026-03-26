@@ -26,7 +26,6 @@ select STDOUT; $| = 1;
 
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/http fastcgi ssi/)
 	->write_file_expand('nginx.conf', <<'EOF');

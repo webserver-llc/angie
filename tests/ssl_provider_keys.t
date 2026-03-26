@@ -24,8 +24,6 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 plan(skip_all => 'may not work, incompatible with sanitizers')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 

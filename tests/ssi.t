@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for nginx ssi module.
@@ -110,7 +111,7 @@ $t->write_file('test-empty-postpone.html',
 	'X<!--#include virtual="/proxy/empty.html" -->X');
 $t->write_file('empty.html', '');
 
-$t->write_file('unescape.html?', 'SEE-THIS') unless $^O eq 'MSWin32';
+$t->write_file('unescape.html?', 'SEE-THIS');
 $t->write_file('unescape1.html',
 	'X<!--#include virtual="/tes%741.html?test=test" -->X');
 $t->write_file('unescape2.html',
@@ -183,15 +184,10 @@ like(http_get('/test-empty-postpone.html'), qr/HTTP.*XX/ms,
 
 like(http_get('/unescape1.html'), qr/^XXtestXX$/m, 'escaped in path');
 
-SKIP: {
-skip 'incorrect filename on win32', 2 if $^O eq 'MSWin32';
-
 like(http_get('/unescape2.html'), qr/^XSEE-THISX$/m,
 	'escaped question in path');
 like(http_get('/unescape3.html'), qr/404 Not Found/,
 	'escaped query separator');
-
-}
 
 # handling of embedded date variables
 

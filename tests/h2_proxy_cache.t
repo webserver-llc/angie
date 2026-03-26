@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -139,9 +140,6 @@ push @$frames, $_ for @{$s->read(all => [{ sid => $sid }], wait => 0.2)};
 ok(!grep ({ $_->{type} eq "DATA" } @$frames),
 	'proxy cache HEAD buffering off - no body');
 
-SKIP: {
-skip 'win32', 1 if $^O eq 'MSWin32';
-
 # client cancels stream with a cacheable request that was sent to upstream
 # HEADERS should not be produced for the canceled stream
 
@@ -152,8 +150,6 @@ $s->h2_rst($sid, 8);
 
 $frames = $s->read(all => [{ sid => $sid, fin => 0x4 }], wait => 1.2);
 ok(!(grep { $_->{type} eq "HEADERS" } @$frames), 'no headers');
-
-}
 
 # client closes connection after sending a cacheable request producing alert
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -116,15 +117,9 @@ $t->run();
 ###############################################################################
 
 # passing either to HTTP or HTTPS backend, depending on server_name
-
-TODO: {
-todo_skip 'no socket peek', 2 if $^O eq 'MSWin32' or $^O eq 'solaris';
-
 like(http_get('/'), qr/200 OK/, 'pass');
 like(http_get('/', SSL => 1, SSL_hostname => 'sni',
 	PeerAddr => '127.0.0.1:' . port(8080)), qr/200 OK/, 'pass ssl');
-
-}
 
 like(http_get('/', SSL => 1, SSL_hostname => 'sni'), qr/200 OK/,
 	'pass ssl handshaked');

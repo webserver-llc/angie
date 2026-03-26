@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -27,8 +28,6 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
-
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/);
 

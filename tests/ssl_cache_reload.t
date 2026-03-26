@@ -85,13 +85,12 @@ $t->try_run('no ssl_object_cache_inheritable')->plan(5);
 #
 # - updating backing storage
 # - keeping inode and mtime metadata
-#   (on win32, File ID appears to be modified by in-place rewrite)
 
 like(get_cert_cn(8443), qr!/CN=1.example.com!, 'certificate 1');
 like(get_cert_cn(8444), qr!/CN=2.example.com!, 'certificate 2');
 
 update($t, "1.example.com", "3.example.com", update_metadata => 1);
-update($t, "2.example.com", "3.example.com") unless $^O eq 'MSWin32';
+update($t, "2.example.com", "3.example.com");
 
 ok($t->reload(), 'reload');
 

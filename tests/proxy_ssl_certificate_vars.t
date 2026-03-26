@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -147,8 +148,6 @@ foreach my $name ('3.example.com') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
-
-sleep 1 if $^O eq 'MSWin32';
 
 $t->write_file('password', '3.example.com');
 $t->write_file('index.html', '');

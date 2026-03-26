@@ -27,8 +27,6 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
-
 my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone reload/);
 
 $t->skip_errors_check('crit', "Can't assign requested address")

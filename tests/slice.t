@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -308,7 +309,6 @@ like($r, qr/MISS/, 'if-range skip bytes - skipped - cache status');
 SKIP: {
 	eval { require FCGI; };
 	skip 'FCGI not installed', 5 if $@;
-	skip 'win32', 5 if $^O eq 'MSWin32';
 
 	$t->run_daemon(\&fastcgi_daemon);
 	$t->waitforsocket('127.0.0.1:' . port(8082));

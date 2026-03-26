@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -142,8 +143,6 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 }
 
 $t->write_file('dup.2.example.com.crt', $t->read_file('2.example.com.crt') x 2);
-
-sleep 1 if $^O eq 'MSWin32';
 
 $t->write_file('t', 'SEE-THIS');
 

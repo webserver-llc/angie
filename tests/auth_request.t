@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for auth request module.
@@ -209,7 +210,6 @@ like(http_get('/proxy-multi-auth'), qr/WWW-Authenticate: foo.*bar/s,
 SKIP: {
 	eval { require FCGI; };
 	skip 'FCGI not installed', 2 if $@;
-	skip 'win32', 2 if $^O eq 'MSWin32';
 
 	$t->run_daemon(\&fastcgi_daemon);
 	$t->waitforsocket('127.0.0.1:' . port(8081));

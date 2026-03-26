@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
@@ -25,7 +26,6 @@ select STDOUT; $| = 1;
 
 eval { require FCGI; };
 plan(skip_all => 'FCGI not installed') if $@;
-plan(skip_all => 'win32') if $^O eq 'MSWin32';
 
 eval { require IO::Socket::UNIX; };
 plan(skip_all => 'IO::Socket::UNIX not installed') if $@;

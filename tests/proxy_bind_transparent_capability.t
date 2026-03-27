@@ -25,7 +25,6 @@ use Test::Utils qw/get_primary_user_group/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => 'no linux capability') if $^O ne 'linux';
 plan(skip_all => 'must be root') if $> != 0;
 plan(skip_all => '127.0.0.2 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
@@ -34,7 +33,8 @@ my $primary_root_group = get_primary_user_group('root');
 plan(skip_all => 'cannot determine primary group of root')
 	unless defined $primary_root_group;
 
-my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy/)
+my $t = Test::Nginx->new({can_root => 1})
+	->has(qw/http proxy transparent_proxy/)
 	->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%

@@ -32,7 +32,8 @@ my $primary_root_group = get_primary_user_group('root');
 plan(skip_all => 'cannot determine primary group of root')
 	unless defined $primary_root_group;
 
-my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy/)
+my $t = Test::Nginx->new({can_root => 1})
+	->has(qw/http proxy transparent_proxy/)
 	->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -17,6 +18,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/get_primary_user_group/;
 
 ###############################################################################
 
@@ -28,12 +30,17 @@ plan(skip_all => 'must be root') if $> != 0;
 plan(skip_all => '127.0.0.2 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
 
+my $primary_root_group = get_primary_user_group('root');
+plan(skip_all => 'cannot determine primary group of root')
+	unless defined $primary_root_group;
+
 my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy/)
-	->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%
 
 daemon off;
+user root $primary_root_group;
 
 events {
 }
@@ -56,7 +63,7 @@ http {
         server_name     localhost;
 
         location / {
-            add_header   X-IP $remote_addr always;
+            add_header   X-IP \$remote_addr always;
         }
     }
 }

@@ -13,7 +13,8 @@ use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
 		getconn hash_like stream_daemon trim log2i log2o log2c
-		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller wait_for /;
+		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller wait_for
+		get_primary_user_group /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
@@ -351,6 +352,26 @@ sub wait_for {
 	diag("Timeout waiting for '$info' after $sec seconds ($c)");
 
 	return;
+}
+
+sub get_primary_user_group {
+	my $username = shift // 'root';
+
+	my $gid = (getpwnam($username))[3];
+
+	unless (defined $gid) {
+		diag("User $username not found");
+		return;
+	}
+
+	my $group_name = getgrgid($gid);
+
+	unless (defined $group_name) {
+		diag("Group with GID $gid (primary group of $username) not found");
+		return $group_name;
+	}
+
+	return $group_name;
 }
 
 1;

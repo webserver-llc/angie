@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 ###############################################################################
@@ -24,7 +25,7 @@ select STDOUT; $| = 1;
 
 local $SIG{PIPE} = 'IGNORE';
 
-my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(6)
+my $t = Test::Nginx->new()->has(qw/mail smtp http rewrite/)->plan(7)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -138,5 +139,14 @@ $s->send('MAIL FROM:<test@example.com>');
 $s->read();
 $s->send('RCPT TO:<test@example.com>');
 $s->ok('xclient, ehlo, from');
+
+# xclient argument escaping
+
+$s = Test::Nginx::SMTP->new();
+$s->read();
+$s->send('AUTH PLAIN ' . encode_base64("\0test\nfoo\@example.com\0secret", ''));
+$s->read();
+$s->send('QUIT');
+$s->ok("xclient xtext");
 
 ###############################################################################

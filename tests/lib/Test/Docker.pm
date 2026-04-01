@@ -132,10 +132,14 @@ Host: $host
 
 EOF
 
-		$s->send($request) or die "send failed: $!\n";
+		my $res = $s->send($request);
+		die "send failed: $!\n"
+			unless defined $res;
 
 		my $buffer;
-		$s->recv($buffer, 1024) or die "recv failed: $!\n";
+		$res = $s->recv($buffer, 1024);
+		die "recv failed: $!\n"
+			unless defined $res;
 
 		$s->close();
 

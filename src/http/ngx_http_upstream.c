@@ -2896,6 +2896,8 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
         u->response_received = 1;
 
+again:
+
         rc = u->process_header(r);
 
         if (rc == NGX_AGAIN) {
@@ -2916,11 +2918,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
             rc = ngx_http_upstream_process_early_hints(r, u);
 
             if (rc == NGX_OK) {
-                rc = u->process_header(r);
-
-                if (rc == NGX_AGAIN) {
-                    continue;
-                }
+                goto again;
             }
         }
 

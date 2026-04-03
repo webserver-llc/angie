@@ -81,7 +81,9 @@ sub new {
 
 sub DESTROY {
 	my $self = shift;
-	$self->{_socket}->close();
+	if ($self->{_socket}) {
+		$self->{_socket}->close();
+	}
 }
 
 sub write {

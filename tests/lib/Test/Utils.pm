@@ -306,30 +306,19 @@ sub trim {
 }
 
 sub get_caller {
-	my $stack = '';
+	my @stack;
+	my $i = 0;
 
-	for my $i (0 .. 2) {
+	while (my @frame = caller($i++)) {
 		# package (unused), filename, line number
-		my (undef, $caller, $line) = caller($i);
-		if (!defined($caller)) {
-			next;
-		}
+		my (undef, $fname, $line) = @frame;
 
-		my ($base) = $caller =~ /([^\/]+)$/;
+		my ($base) = $fname =~ /([^\/]+)$/;
 
-		if ($stack eq '') {
-			$stack = "$base:$line";
-
-		} else {
-			$stack = "$base:$line > $stack";
-		}
+		push @stack, "$base:$line";
 	}
 
-	if ($stack eq '') {
-		return 'unknown';
-	}
-
-	return $stack;
+	return @stack ? join(" > ", reverse @stack) : 'unknown';
 }
 
 sub wait_for {

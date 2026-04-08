@@ -1087,7 +1087,7 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
         }
 #endif
 
-#if (NGX_HTTP_ACME                                                              \
+#if (NGX_HTTP_ACME                                                            \
      && defined TLSEXT_TYPE_application_layer_protocol_negotiation)
         {
         unsigned int          len;

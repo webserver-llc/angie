@@ -1849,7 +1849,8 @@ ngx_http_acme_csr_gen(ngx_http_acme_session_t *ses, ngx_acme_privkey_t *key,
     }
 
     if (!X509_REQ_set_pubkey(crq, key->key)) {
-        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "X509_REQ_set_pubkey() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
+                      "X509_REQ_set_pubkey() failed");
         goto failed;
     }
 
@@ -2063,7 +2064,8 @@ ngx_http_acme_sha256(ngx_http_acme_session_t *ses,
     }
 
     if (!EVP_DigestFinal_ex(emc, hash, &size)) {
-        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0, "EVP_DigestFinal_ex() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, ses->log, 0,
+                      "EVP_DigestFinal_ex() failed");
         goto failed;
     }
 
@@ -7475,7 +7477,8 @@ ngx_api_acme_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
     } else {
         ngx_rwlock_rlock(&(*cli_p)->sh_cert->lock);
 
-        ngx_memcpy(sh, &(*cli_p)->sh_cert->cli, sizeof(ngx_api_acme_sh_client_t));
+        ngx_memcpy(sh, &(*cli_p)->sh_cert->cli,
+                   sizeof(ngx_api_acme_sh_client_t));
 
         ngx_rwlock_unlock(&(*cli_p)->sh_cert->lock);
     }

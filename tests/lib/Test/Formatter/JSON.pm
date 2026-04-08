@@ -350,10 +350,16 @@ sub collect_run_env {
 	my @limits = split /\n/, `sh -c "ulimit -a" 2>&1`;
 	$info{ulimit} = \@limits;
 
-	# free memory
-	# TODO: add something that works on BSD
-	my @mem = split /\n/, `free -m 2>&1`;
-	$info{freemem} = \@mem;
+	# free memory, if possible
+	if ($^O eq 'linux') {
+		my @mem = split /\n/, `free -m 2>&1`;
+		$info{freemem} = \@mem;
+
+	} else {
+		# no good way to get freemem on BSD without installing extra tools
+		# other system are too rare to care
+		$info{freemem} = [];
+	}
 
 	# all the information the binary can give us
 	my $vversion = `$NGINX -V 2>&1`;

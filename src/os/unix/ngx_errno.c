@@ -20,6 +20,24 @@ static ngx_str_t   ngx_unknown_error = ngx_string("Unknown error");
  * without copying error messages.
  */
 
+u_char *
+ngx_strerror_get(ngx_err_t err, size_t *len)
+{
+    u_char  *msg;
+
+    msg = (u_char *) strerrordesc_np(err);
+
+    if (msg == NULL) {
+        msg = ngx_unknown_error.data;
+        *len = ngx_unknown_error.len;
+
+    } else {
+        *len = ngx_strlen(msg);
+    }
+
+    return msg;
+}
+
 
 u_char *
 ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
@@ -71,6 +89,24 @@ ngx_strerror_init(void)
 static ngx_str_t  *ngx_sys_errlist;
 static ngx_err_t   ngx_first_error;
 static ngx_err_t   ngx_last_error;
+
+
+u_char *
+ngx_strerror_get(ngx_err_t err, size_t *len)
+{
+    ngx_str_t  *msg;
+
+    if (err >= ngx_first_error && err < ngx_last_error) {
+        msg = &ngx_sys_errlist[err - ngx_first_error];
+
+    } else {
+        msg = &ngx_unknown_error;
+    }
+
+    *len = msg->len;
+
+    return msg->data;
+}
 
 
 u_char *

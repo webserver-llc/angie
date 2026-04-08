@@ -23,6 +23,10 @@ TENV+=PERL5LIB=lib
 PROVE_OPTS+= --formatter Test::Formatter::JSON
 endif
 
+ifneq ($(REPORT_PREFIX),)
+TENV+=REPORT_PREFIX=$(REPORT_PREFIX)
+endif
+
 TENV_ADD=
 PROVE_ADD_OPTS=
 

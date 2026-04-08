@@ -50,7 +50,13 @@ sub _initialize {
 	$self->session_class('Test::Formatter::TestSession');
 	$self->sessions([]);
 
-	my $report_fn = strftime 'testreport-%Y%m%d_%H%M%S.json', localtime;
+	my $prefix = "";
+
+	if (defined $ENV{REPORT_PREFIX} && $ENV{REPORT_PREFIX} ne '') {
+		$prefix = '-' . $ENV{REPORT_PREFIX};
+	}
+
+	my $report_fn = strftime "testreport$prefix-%Y%m%d_%H%M%S.json", localtime;
 
 	$self->output_file($report_fn);
 

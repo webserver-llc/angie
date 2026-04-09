@@ -9,6 +9,19 @@
 
 <change type="bugfix">
 <para lang="ru">
+изменено поведение ACME DNS-проверок для wildcard-доменов: ответы
+теперь всегда отправляются с того же IP-адреса/интерфейса, на который
+был получен запрос, что позволяет избежать возможных сбоев валидации.
+</para>
+<para lang="en">
+changed ACME DNS challenge behavior for wildcard domains to ensure
+responses are always sent from the same IP/interface that received the
+request, avoiding potential validation failures.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 директива "add_header Content-Type" могла приводить к добавлению ещё одного
 поля "Content-Type" в заголовке ответа.
 </para>

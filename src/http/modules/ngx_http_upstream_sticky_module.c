@@ -10,9 +10,12 @@
 #include <ngx_sticky.h>
 
 
+#define NGX_HTTP_STICKY_COOKIE_MAX_EXPIRES  2145916555
+
 typedef struct {
     ngx_str_t                                  cookie;
     ngx_array_t                                cookie_attrs;
+    time_t                                     cookie_expires;
     ngx_array_t                                lookup_vars;
     ngx_http_complex_value_t                  *secret;
     ngx_flag_t                                 strict;
@@ -58,6 +61,9 @@ static ngx_int_t ngx_http_upstream_sticky_add_cv(ngx_conf_t *cf,
     ngx_array_t *values, ngx_str_t *value);
 static char *ngx_http_upstream_sticky_route(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+
+static u_char ngx_http_upstream_sticky_cookie_expires[] =
+    "; expires=Thu, 31-Dec-37 23:55:55 GMT; max-age=315360000";
 
 static ngx_command_t  ngx_http_upstream_sticky_commands[] = {
 
@@ -413,6 +419,11 @@ ngx_http_upstream_sticky_set_cookie(ngx_http_request_t *r,
     len = scf->cookie.len;
     len += sizeof("=") - 1 + sid->len;
 
+    if (scf->cookie_expires != (time_t) NGX_CONF_UNSET) {
+        len += sizeof(ngx_http_upstream_sticky_cookie_expires) - 1
+               + NGX_TIME_T_LEN;
+    }
+
     attr = scf->cookie_attrs.elts;
 
     for (i = 0; i < scf->cookie_attrs.nelts; i++) {
@@ -444,6 +455,19 @@ ngx_http_upstream_sticky_set_cookie(ngx_http_request_t *r,
     *p++ = '=';
 
     p = ngx_cpymem(p, sid->data, sid->len);
+
+    if (scf->cookie_expires != (time_t) NGX_CONF_UNSET) {
+
+        if (scf->cookie_expires == NGX_HTTP_STICKY_COOKIE_MAX_EXPIRES) {
+            p = ngx_cpymem(p, ngx_http_upstream_sticky_cookie_expires,
+                          sizeof(ngx_http_upstream_sticky_cookie_expires) - 1);
+
+        } else {
+            p = ngx_cpymem(p, "; expires=", 10);
+            p = ngx_http_cookie_time(p, ngx_time() + scf->cookie_expires);
+            p = ngx_sprintf(p, "; max-age=%T", scf->cookie_expires);
+        }
+    }
 
     for (i = 0; i < scf->cookie_attrs.nelts; i++) {
         if (ngx_http_complex_value(r, &attr[i], &value) != NGX_OK) {
@@ -514,6 +538,7 @@ ngx_http_upstream_sticky_create_conf(ngx_conf_t *cf)
 
     conf->strict = NGX_CONF_UNSET;
     conf->secret = NGX_CONF_UNSET_PTR;
+    conf->cookie_expires = NGX_CONF_UNSET;
 
     /*
      * set by ngx_pcalloc():
@@ -606,6 +631,36 @@ ngx_http_upstream_sticky_cookie(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         {
             has_path = 1;
         }
+
+        /* nginx compatibility  */
+        if (ngx_strncmp(value[i].data, "expires=", 8) == 0) {
+
+            if (scf->cookie_expires != (time_t) NGX_CONF_UNSET) {
+                return "parameter \"expires\" is duplicate";
+            }
+
+            value[i].data += 8;
+            value[i].len -= 8;
+
+            if (ngx_strcmp(value[i].data, "max") == 0) {
+                scf->cookie_expires = NGX_HTTP_STICKY_COOKIE_MAX_EXPIRES;
+
+            } else {
+                scf->cookie_expires = ngx_parse_time(&value[i], 1);
+
+                if (scf->cookie_expires == (time_t) NGX_ERROR) {
+
+                    ngx_conf_log_error(NGX_LOG_INFO, cf, 0,
+                                       "expires= does not look like valid "
+                                       "time, falling back to verbatim value");
+                    goto fallback;
+                }
+            }
+
+            continue;
+        }
+
+    fallback:
 
         if (ngx_http_upstream_sticky_add_cv(cf, &scf->cookie_attrs, &value[i])
             != NGX_OK)

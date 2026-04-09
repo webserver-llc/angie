@@ -682,10 +682,17 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
 #if (NGX_STREAM_UPSTREAM_SID)
 
-        if (ngx_strncmp(value[i].data, "sid=", 4) == 0) {
+        if (ngx_strncmp(value[i].data, "sid=", 4) == 0
+            || ngx_strncmp(value[i].data, "route=", 6) == 0)
+        {
+            if (value[i].data[0] == 's') {
+                value[i].len -= 4;
+                value[i].data += 4;
 
-            value[i].len -= 4;
-            value[i].data += 4;
+            } else {
+                value[i].len -= 6;
+                value[i].data += 6;
+            }
 
             if (value[i].len == 0) {
                 goto invalid;

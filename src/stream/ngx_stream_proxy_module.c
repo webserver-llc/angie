@@ -129,8 +129,8 @@ static char *ngx_stream_proxy_ssl_certificate_cache(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 static char *ngx_stream_proxy_ssl_password_file(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
-static char *ngx_stream_proxy_ssl_keylog_file(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
+static char *ngx_stream_proxy_ssl_keylog_file(ngx_conf_t *cf,
+    ngx_command_t *cmd, void *conf);
 static char *ngx_stream_proxy_ssl_conf_command_check(ngx_conf_t *cf, void *post,
     void *data);
 static void ngx_stream_proxy_ssl_init_connection(ngx_stream_session_t *s);

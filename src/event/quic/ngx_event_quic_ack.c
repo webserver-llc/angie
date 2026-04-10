@@ -1217,7 +1217,8 @@ ngx_quic_pto_handler(ngx_event_t *ev)
 
     if (qc->client && !c->ssl->handshaked && !sent) {
 
-        if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_HANDSHAKE, 1)) {
+        if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_HANDSHAKE, 1))
+        {
             ctx = ngx_quic_get_send_ctx(qc, NGX_QUIC_ENCRYPTION_HANDSHAKE);
 
         } else {

@@ -893,7 +893,8 @@ ngx_quic_bpf_get_group(ngx_cycle_t *cycle, ngx_listening_t *ls)
 
     return ngx_quic_bpf_create_group(cycle, NGX_QUIC_BPF_GROUP_RELOAD,
                                      ls->sockaddr, ls->socklen,
-                                     ogrp->connection_map, ogrp->listen_map_array);
+                                     ogrp->connection_map,
+                                     ogrp->listen_map_array);
 
 init:
 

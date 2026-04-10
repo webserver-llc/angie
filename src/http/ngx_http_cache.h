@@ -44,7 +44,7 @@
 #endif
 
 #define NGX_HTTP_CACHE_SH_SIGNATURE                                           \
-    "http-proxy-cache:"                                                                        \
+    "http-proxy-cache:"                                                       \
     ngx_value(NGX_PTR_SIZE) ":"                                               \
     ngx_value(NGX_SIG_ATOMIC_T_SIZE) ":"                                      \
     ngx_value(NGX_TIME_T_SIZE) ":"                                            \

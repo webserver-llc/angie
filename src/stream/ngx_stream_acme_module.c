@@ -142,7 +142,7 @@ ngx_stream_acme_add_vars(ngx_conf_t *cf)
     ngx_acme_client_t      *cli;
     ngx_stream_variable_t  *v;
 
-    clients = ngx_acme_clients(cf);
+    clients = ngx_acme_clients(cf->cycle);
 
     if (clients == NULL) {
         return NGX_OK;

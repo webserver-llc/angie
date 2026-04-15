@@ -526,6 +526,14 @@ static ngx_int_t ngx_api_http_ssl_time_info(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, ASN1_TIME  *asn1_time);
 static void ngx_api_cert_key_info(EVP_PKEY *key, u_char *buf, size_t *size);
 
+#if (NGX_HTTP_ACME)
+static ngx_int_t ngx_api_http_ssl_acme_clients_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_acme_get_cert(ngx_pool_t *pool, ngx_acme_client_t * cli,
+    STACK_OF(X509) **cert, EVP_PKEY **key);
+static void ngx_http_acme_certs_free(void *data);
+#endif
+
 
 static ngx_api_entry_t  ngx_api_http_ssl_certificates_entries[] = {
 
@@ -533,6 +541,13 @@ static ngx_api_entry_t  ngx_api_http_ssl_certificates_entries[] = {
         .name      = ngx_string("static"),
         .handler   = ngx_api_http_ssl_static_handler,
     },
+
+#if (NGX_HTTP_ACME)
+    {
+        .name      = ngx_string("acme_clients"),
+        .handler   = ngx_api_http_ssl_acme_clients_handler,
+    },
+#endif
 
     ngx_api_null_entry
 };
@@ -2276,5 +2291,226 @@ ngx_api_cert_key_info(EVP_PKEY *key, u_char *buf, size_t *size)
 
     *size = s - buf;
 }
+
+
+#if (NGX_HTTP_ACME)
+
+static ngx_int_t
+ngx_api_http_ssl_acme_clients_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    EVP_PKEY            *pkey;
+    ngx_uint_t           i;
+    ngx_array_t         *certs;
+    ngx_array_t         *clients;
+    STACK_OF(X509)      *chain;
+    ngx_acme_client_t   *cli;
+    ngx_ssl_api_cert_t  *pitem;
+    ngx_api_iter_ctx_t   ictx;
+    ngx_pool_cleanup_t  *cln;
+
+    chain = NULL;
+    pkey = NULL;
+
+    clients = ngx_acme_clients((ngx_cycle_t *) ngx_cycle);
+    if (clients == NULL || clients->nelts == 0) {
+        return NGX_DECLINED;
+    }
+
+    certs = ngx_array_create(actx->pool, clients->nelts,
+                             sizeof(ngx_ssl_api_cert_t));
+    if (certs == NULL) {
+        return NGX_ERROR;
+    }
+
+    /*
+     * Certificate/key pairs provided by ACME clients will be converted
+     * to OpenSSL objects, which must be freed after use.
+     */
+    cln = ngx_pool_cleanup_add(actx->pool, 0);
+    if (cln == NULL) {
+        return NGX_ERROR;
+    }
+
+    cln->handler = ngx_http_acme_certs_free;
+    cln->data = certs;
+
+    for (i = 0; i < clients->nelts; i++) {
+
+        cli = ((ngx_acme_client_t **) clients->elts)[i];
+
+        switch (ngx_acme_get_cert(actx->pool, cli, &chain, &pkey)) {
+
+        case NGX_OK:
+            pitem = ngx_array_push(certs);
+            if (pitem == NULL) {
+                sk_X509_pop_free(chain, X509_free);
+                EVP_PKEY_free(pkey);
+                return NGX_ERROR;
+            }
+
+            pitem->filename = *ngx_acme_client_name(cli);
+            pitem->chain = chain;
+            pitem->pkey = pkey;
+
+            break;
+
+        case NGX_ERROR:
+            return NGX_ERROR;
+
+        default: /* NGX_DECLINED */
+            continue;
+        }
+    }
+
+    if (certs->nelts == 0) {
+        return NGX_DECLINED;
+    }
+
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_http_ssl_cert_entries;
+    ictx.ctx = NULL;
+    ictx.elts = certs;
+    ictx.read_only = 1;
+
+    return ngx_api_object_iterate(ngx_api_http_ssl_cert_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_acme_get_cert(ngx_pool_t *pool, ngx_acme_client_t *cli,
+    STACK_OF(X509) **chain, EVP_PKEY **pkey)
+{
+    BIO                   *bio;
+    X509                  *x509;
+    u_long                 err;
+    ngx_int_t              rc, count;
+    ngx_log_t             *log;
+    ngx_str_t              cert, key;
+    ngx_variable_value_t   v;
+
+    log = pool->log;
+
+    if (ngx_acme_handle_cert_variable(pool, &v, cli, NULL) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (v.not_found) {
+        return NGX_DECLINED;
+    }
+
+    /* skip "data:" */
+    cert.data = v.data + 5;
+    cert.len = v.len - 5;
+
+    if (ngx_acme_handle_cert_key_variable(pool, &v, cli, NULL) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    if (v.not_found) {
+        return NGX_DECLINED;
+    }
+
+    key.data = v.data + 5;
+    key.len = v.len - 5;
+
+    *chain = sk_X509_new_null();
+    if (*chain == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "sk_X509_new_null() failed");
+        return NGX_ERROR;
+    }
+
+    rc = NGX_ERROR;
+    x509 = NULL;
+
+    bio = BIO_new_mem_buf(cert.data, (int) cert.len);
+
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "BIO_new_mem_buf() failed");
+        goto failed;
+    }
+
+    for (count = 0; /* void */; count++) {
+        x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+        if (x509 == NULL) {
+            err = ERR_peek_last_error();
+
+            if (count > 0
+                && ERR_GET_LIB(err) == ERR_LIB_PEM
+                && ERR_GET_REASON(err) == PEM_R_NO_START_LINE)
+            {
+                ERR_clear_error();
+                break;
+
+            } else {
+                ngx_ssl_error(NGX_LOG_ALERT, log, 0,
+                              "PEM_read_bio_X509() failed");
+            }
+
+            goto failed;
+        }
+
+        if (sk_X509_push(*chain, x509) == 0) {
+            ngx_ssl_error(NGX_LOG_ALERT, log, 0, "sk_X509_push() failed");
+            goto failed;
+        }
+    }
+
+    BIO_free(bio);
+
+    bio = BIO_new_mem_buf(key.data, (int) key.len);
+
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "BIO_new_mem_buf() failed");
+        goto failed;
+    }
+
+    *pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+
+    if (*pkey == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0,
+                      "PEM_read_bio_PrivateKey() failed");
+        goto failed;
+    }
+
+    rc = NGX_OK;
+
+failed:
+
+    if (rc != NGX_OK) {
+        sk_X509_pop_free(*chain, X509_free);
+    }
+
+    if (x509 != NULL) {
+        X509_free(x509);
+    }
+
+    if (bio != NULL) {
+        BIO_free(bio);
+    }
+
+    return rc;
+}
+
+
+static void
+ngx_http_acme_certs_free(void *data)
+{
+    ngx_array_t  *certs = data;
+
+    ngx_uint_t           i;
+    ngx_ssl_api_cert_t  *cert;
+
+    for (i = 0; i < certs->nelts; i++) {
+        cert = &((ngx_ssl_api_cert_t *) certs->elts)[i];
+
+        sk_X509_pop_free(cert->chain, X509_free);
+        EVP_PKEY_free(cert->pkey);
+    }
+}
+
+#endif
 
 #endif

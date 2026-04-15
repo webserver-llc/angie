@@ -33,12 +33,12 @@ the "add_header Content-Type" directive might result in the addition of another
 
 <change type="feature">
 <para lang="ru">
-информация о сертификатах, заданных в конфигурации, отображается в разделе
-"/certificates/" API статистики.
+информация о сертификатах, заданных в конфигурации и полученных ACME-клиентами,
+отображается в разделе "/certificates/" API статистики.
 </para>
 <para lang="en">
-information about certificates specified in the configuration is displayed
-in the "/certificates/" section of the statistics API.
+information about certificates specified in the configuration and obtained by
+ACME clients is displayed in the "/certificates/" section of the statistics API.
 </para>
 </change>
 

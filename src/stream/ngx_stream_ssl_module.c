@@ -1971,4 +1971,85 @@ ngx_stream_add_ssl_stats(ngx_connection_t *c, ngx_stream_server_stats_t *stats)
     }
 }
 
+
+ngx_int_t
+ngx_api_stream_add_certs(ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_str_t                      cert, key;
+    ngx_uint_t                     i, j, s;
+    ngx_array_t                   *certs;
+    ngx_ssl_api_cert_t             item, *pitem;
+    ngx_stream_ssl_srv_conf_t     *sscf;
+    ngx_stream_core_srv_conf_t   **cscfp;
+    ngx_stream_core_main_conf_t   *cmcf;
+
+    cmcf = ngx_stream_cycle_get_module_main_conf(ngx_cycle,
+                                                 ngx_stream_core_module);
+
+    if (cmcf == NULL) {
+        return NGX_OK;
+    }
+
+    cscfp = cmcf->servers.elts;
+    certs = ctx;
+
+    for (s = 0; s < cmcf->servers.nelts; s++) {
+
+        sscf = cscfp[s]->ctx->srv_conf[ngx_stream_ssl_module.ctx_index];
+
+        if (sscf->certificates == NULL) {
+            continue;
+        }
+
+        for (i = 0; i < sscf->certificates->nelts; i++) {
+
+            cert = ((ngx_str_t *) sscf->certificates->elts)[i];
+            key = ((ngx_str_t *) sscf->certificate_keys->elts)[i];
+
+            if (ngx_stream_script_variables_count(&cert) > 0
+                || ngx_stream_script_variables_count(&key) > 0)
+            {
+                continue;
+            }
+
+            item.chain = ngx_ssl_cache_static_peek(actx->pool,
+                                                   NGX_SSL_CACHE_CERT, &cert);
+
+            if (item.chain == NULL) {
+                continue;
+            }
+
+            for (j = 0; j < certs->nelts; j++) {
+                pitem = &((ngx_ssl_api_cert_t *) certs->elts)[j];
+
+                if (pitem->chain == item.chain) {
+                    /* skip duplicate certificates */
+                    goto next_cert;
+                }
+            }
+
+            item.pkey = ngx_ssl_cache_static_peek(actx->pool,
+                                                  NGX_SSL_CACHE_PKEY, &key);
+            if (item.pkey == NULL) {
+                continue;
+            }
+
+            item.filename = cert;
+
+            pitem = ngx_array_push(certs);
+            if (pitem == NULL) {
+                return NGX_ERROR;
+            }
+
+            *pitem = item;
+
+        next_cert:
+
+            continue;
+        }
+    }
+
+    return NGX_OK;
+}
+
 #endif

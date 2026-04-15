@@ -109,6 +109,13 @@ typedef struct {
     ngx_atomic_t                failed;
 } ngx_ssl_stats_t;
 
+
+typedef struct {
+    ngx_str_t                   filename;
+    STACK_OF(X509)             *chain;
+    EVP_PKEY                   *pkey;
+} ngx_ssl_api_cert_t;
+
 #endif
 
 struct ngx_ssl_s {
@@ -286,6 +293,13 @@ void *ngx_ssl_cache_fetch(ngx_conf_t *cf, ngx_uint_t index, char **err,
     ngx_str_t *path, void *data);
 void *ngx_ssl_cache_connection_fetch(ngx_ssl_cache_t *cache, ngx_pool_t *pool,
     ngx_uint_t index, char **err, ngx_str_t *path, void *data);
+#if (NGX_API)
+void *ngx_ssl_cache_static_peek(ngx_pool_t *pool, ngx_uint_t index,
+    ngx_str_t *path);
+#if (NGX_STREAM_SSL)
+ngx_int_t ngx_api_stream_add_certs(ngx_api_ctx_t *actx, void *ctx);
+#endif
+#endif
 
 ngx_array_t *ngx_ssl_read_password_file(ngx_conf_t *cf, ngx_str_t *file);
 ngx_array_t *ngx_ssl_preserve_passwords(ngx_conf_t *cf,

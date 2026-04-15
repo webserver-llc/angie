@@ -1281,3 +1281,32 @@ ngx_openssl_cache_init_worker(ngx_cycle_t *cycle)
 
     return NGX_OK;
 }
+
+
+#if (NGX_API)
+
+void *
+ngx_ssl_cache_static_peek(ngx_pool_t *pool, ngx_uint_t index, ngx_str_t *path)
+{
+    uint32_t               hash;
+    ngx_ssl_cache_t       *cache;
+    ngx_ssl_cache_key_t    id;
+    ngx_ssl_cache_type_t  *type;
+    ngx_ssl_cache_node_t  *cn;
+
+    if (ngx_ssl_cache_init_key(pool, index, path, &id) != NGX_OK) {
+        return NULL;
+    }
+
+    cache = (ngx_ssl_cache_t *) ngx_get_conf(ngx_cycle->conf_ctx,
+                                             ngx_openssl_cache_module);
+
+    type = &ngx_ssl_cache_types[index];
+    hash = ngx_murmur_hash2(id.data, id.len);
+
+    cn = ngx_ssl_cache_lookup(cache, type, &id, hash);
+
+    return (cn != NULL) ? cn->value : NULL;
+}
+
+#endif

@@ -486,6 +486,155 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
 static ngx_str_t ngx_http_ssl_sess_id_ctx = ngx_string("HTTP");
 
 
+#if (NGX_API)
+
+typedef struct {
+    X509_NAME               *name;
+    STACK_OF(GENERAL_NAME)  *alt_names;
+} ngx_api_http_ssl_dn_ctx_t;
+
+
+static ngx_int_t ngx_api_http_ssl_static_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_cert_iter(ngx_api_iter_ctx_t *ictx,
+    ngx_api_ctx_t *actx);
+static ngx_int_t ngx_api_http_ssl_key_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_chain_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_subject_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_issuer_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_common_name_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_alt_names_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_country_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_state_or_province_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_organization_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_dn_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, X509_NAME *name, int nid);
+static ngx_int_t ngx_api_http_ssl_since_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_until_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
+static ngx_int_t ngx_api_http_ssl_time_info(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, ASN1_TIME  *asn1_time);
+static void ngx_api_cert_key_info(EVP_PKEY *key, u_char *buf, size_t *size);
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_certificates_entries[] = {
+
+    {
+        .name      = ngx_string("static"),
+        .handler   = ngx_api_http_ssl_static_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_entry = {
+    .name      = ngx_string("certificates"),
+    .handler   = ngx_api_object_handler,
+    .data.ents = ngx_api_http_ssl_certificates_entries
+};
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_dn_entries[] = {
+
+    {
+        .name      = ngx_string("common_name"),
+        .handler   = ngx_api_http_ssl_common_name_handler,
+    },
+
+    {
+        .name      = ngx_string("alt_names"),
+        .handler   = ngx_api_http_ssl_alt_names_handler,
+    },
+
+    {
+        .name      = ngx_string("country"),
+        .handler   = ngx_api_http_ssl_country_handler,
+    },
+
+    {
+        .name      = ngx_string("state_or_province"),
+        .handler   = ngx_api_http_ssl_state_or_province_handler,
+    },
+
+    {
+        .name      = ngx_string("organization"),
+        .handler   = ngx_api_http_ssl_organization_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_validity_entries[] = {
+
+    {
+        .name      = ngx_string("since"),
+        .handler   = ngx_api_http_ssl_since_handler,
+    },
+
+    {
+        .name      = ngx_string("until"),
+        .handler   = ngx_api_http_ssl_until_handler,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_chain_entries[] = {
+
+    {
+        .name      = ngx_string("subject"),
+        .handler   = ngx_api_http_ssl_subject_handler,
+        .data.ents = ngx_api_http_ssl_dn_entries,
+    },
+
+    {
+        .name      = ngx_string("issuer"),
+        .handler   = ngx_api_http_ssl_issuer_handler,
+        .data.ents = ngx_api_http_ssl_dn_entries,
+    },
+
+    {
+        .name      = ngx_string("validity"),
+        .handler   = ngx_api_object_handler,
+        .data.ents = ngx_api_http_ssl_validity_entries,
+    },
+
+    ngx_api_null_entry
+};
+
+
+static ngx_api_entry_t  ngx_api_http_ssl_cert_entries[] = {
+
+    {
+        .name      = ngx_string("key"),
+        .handler   = ngx_api_http_ssl_key_handler,
+    },
+
+    {
+        .name      = ngx_string("chain"),
+        .handler   = ngx_api_http_ssl_chain_handler,
+        .data.ents = ngx_api_http_ssl_chain_entries,
+    },
+
+    ngx_api_null_entry
+};
+
+#endif
+
+
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
 
 static int
@@ -1510,6 +1659,14 @@ ngx_http_ssl_init(ngx_conf_t *cf)
         }
     }
 
+#if (NGX_API)
+    if (ngx_api_add(cf->cycle, "/", &ngx_api_http_ssl_entry)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+#endif
+
     if (cmcf->ports == NULL) {
         return NGX_OK;
     }
@@ -1612,6 +1769,512 @@ ngx_http_ssl_quic_compat_init(ngx_conf_t *cf, ngx_http_conf_addr_t *addr)
     }
 
     return NGX_OK;
+}
+
+#endif
+
+
+#if (NGX_API)
+
+static ngx_int_t
+ngx_api_http_ssl_static_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_str_t                    cert, key;
+    ngx_uint_t                   i, j, s;
+    ngx_array_t                  certs;
+    ngx_ssl_api_cert_t           item, *pitem;
+    ngx_api_iter_ctx_t           ictx;
+    ngx_http_ssl_srv_conf_t     *sscf;
+    ngx_http_core_srv_conf_t   **cscfp;
+    ngx_http_core_main_conf_t   *cmcf;
+
+    if (ngx_array_init(&certs, actx->pool, 8, sizeof(ngx_ssl_api_cert_t))
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    cmcf = ngx_http_cycle_get_module_main_conf(ngx_cycle, ngx_http_core_module);
+    cscfp = cmcf->servers.elts;
+
+    for (s = 0; s < cmcf->servers.nelts; s++) {
+
+        sscf = cscfp[s]->ctx->srv_conf[ngx_http_ssl_module.ctx_index];
+
+        if (sscf->certificates == NULL) {
+            continue;
+        }
+
+        for (i = 0; i < sscf->certificates->nelts; i++) {
+
+            cert = ((ngx_str_t *) sscf->certificates->elts)[i];
+            key = ((ngx_str_t *) sscf->certificate_keys->elts)[i];
+
+            if (ngx_http_script_variables_count(&cert) > 0
+                || ngx_http_script_variables_count(&key) > 0)
+            {
+                continue;
+            }
+
+            item.chain = ngx_ssl_cache_static_peek(actx->pool,
+                                                   NGX_SSL_CACHE_CERT, &cert);
+
+            if (item.chain == NULL) {
+                continue;
+            }
+
+            for (j = 0; j < certs.nelts; j++) {
+                pitem = &((ngx_ssl_api_cert_t *) certs.elts)[j];
+
+                if (pitem->chain == item.chain) {
+                    /* skip duplicate certificates */
+                    goto next_cert;
+                }
+            }
+
+            item.pkey = ngx_ssl_cache_static_peek(actx->pool,
+                                                  NGX_SSL_CACHE_PKEY, &key);
+            if (item.pkey == NULL) {
+                continue;
+            }
+
+            item.filename = cert;
+
+            pitem = ngx_array_push(&certs);
+            if (pitem == NULL) {
+                return NGX_ERROR;
+            }
+
+            *pitem = item;
+
+        next_cert:
+
+            continue;
+        }
+    }
+
+#if (NGX_STREAM_SSL)
+    if (ngx_api_stream_add_certs(actx, &certs) != NGX_OK) {
+        return NGX_ERROR;
+    }
+#endif
+
+    if (certs.nelts == 0) {
+        return NGX_DECLINED;
+    }
+
+    ngx_memzero(&ictx, sizeof(ngx_api_iter_ctx_t));
+
+    ictx.entry.handler = ngx_api_object_handler;
+    ictx.entry.data.ents = ngx_api_http_ssl_cert_entries;
+    ictx.ctx = NULL;
+    ictx.elts = &certs;
+    ictx.read_only = 1;
+
+    return ngx_api_object_iterate(ngx_api_http_ssl_cert_iter, &ictx, actx);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_cert_iter(ngx_api_iter_ctx_t *ictx, ngx_api_ctx_t *actx)
+{
+    ngx_array_t         *certs;
+    ngx_ssl_api_cert_t  *cert, *end;
+
+    cert = ictx->ctx;
+    certs = ictx->elts;
+
+    if (cert == NULL) {
+        cert = certs->elts;
+
+    } else {
+        cert++;
+        end = &((ngx_ssl_api_cert_t *) certs->elts)[certs->nelts];
+        if (cert == end) {
+            return NGX_DECLINED;
+        }
+    }
+
+    ictx->entry.name = cert->filename;
+    ictx->ctx = cert;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_key_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    ngx_str_t            s;
+    ngx_ssl_api_cert_t  *cert;
+    u_char               buf[32];
+
+    cert = ctx;
+    s.data = buf;
+    s.len = sizeof(buf);
+
+    ngx_api_cert_key_info(cert->pkey, s.data, &s.len);
+
+    data.str = &s;
+
+    return ngx_api_string_handler(data, actx, ctx);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_chain_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    void *ctx)
+{
+    int                  i, n;
+    X509                *x509;
+    ngx_str_t            name;
+    ngx_int_t            index, rc;
+    ngx_data_item_t     *list;
+    ngx_ssl_api_cert_t  *cert;
+
+    cert = ctx;
+    index = -1;
+
+    n = sk_X509_num(cert->chain);
+
+    if (ngx_api_next_segment(&actx->path, &name) == NGX_OK) {
+        /* .../chain/N */
+        index = ngx_atoi(name.data, name.len);
+        if (index == NGX_ERROR || index >= n) {
+            return NGX_DECLINED;
+        }
+
+        x509 = sk_X509_value(cert->chain, index);
+
+        return ngx_api_object_handler(data, actx, x509);
+    }
+
+    /* .../chain */
+
+    list = ngx_data_new_list(actx->pool);
+    if (list == NULL) {
+        return NGX_ERROR;
+    }
+
+    for (i = 0; i < n; i++) {
+        x509 = sk_X509_value(cert->chain, i);
+
+        rc = ngx_api_object_handler(data, actx, x509);
+
+        if (rc != NGX_OK) {
+            return rc;
+        }
+
+        if (ngx_data_list_add(list, actx->out) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        actx->out = NULL;
+    }
+
+    actx->out = list;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_subject_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    X509                       *x509;
+    ngx_int_t                   rc;
+    ngx_api_http_ssl_dn_ctx_t   nctx;
+
+    x509 = ctx;
+
+    nctx.name = X509_get_subject_name(x509);
+    nctx.alt_names = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
+
+    rc = ngx_api_object_handler(data, actx, &nctx);
+
+    if (nctx.alt_names != NULL) {
+        GENERAL_NAMES_free(nctx.alt_names);
+    }
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_issuer_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    X509                       *x509;
+    ngx_int_t                   rc;
+    ngx_api_http_ssl_dn_ctx_t   nctx;
+
+    x509 = ctx;
+
+    nctx.name = X509_get_issuer_name(x509);
+    nctx.alt_names = X509_get_ext_d2i(x509, NID_issuer_alt_name, NULL, NULL);
+
+    rc = ngx_api_object_handler(data, actx, &nctx);
+
+    if (nctx.alt_names != NULL) {
+        GENERAL_NAMES_free(nctx.alt_names);
+    }
+
+    return rc;
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_common_name_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
+
+    return ngx_api_http_ssl_dn_handler(data, actx, nctx->name, NID_commonName);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_alt_names_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
+
+    int               i, count;
+    ngx_str_t         s;
+    ngx_int_t         index, n;
+    GENERAL_NAME     *alt_name;
+    ngx_data_item_t  *list, *name;
+
+    if (nctx->alt_names == NULL) {
+        return NGX_DECLINED;
+    }
+
+    index = -1;
+
+    if (ngx_api_next_segment(&actx->path, &s) == NGX_OK) {
+        /* .../alt_names/N */
+        index = ngx_atoi(s.data, s.len);
+        if (index == NGX_ERROR) {
+            return NGX_DECLINED;
+        }
+
+        if (ngx_api_next_segment(&actx->path, &s) == NGX_OK) {
+            return NGX_DECLINED;
+        }
+    }
+
+    list = NULL;
+    n = 0;
+    count = sk_GENERAL_NAME_num(nctx->alt_names);
+
+    for (i = 0; i != count; i++) {
+        alt_name = sk_GENERAL_NAME_value(nctx->alt_names, i);
+
+        if (alt_name->type != GEN_DNS) {
+            continue;
+        }
+
+        s.len = ASN1_STRING_length(alt_name->d.dNSName);
+#if OPENSSL_VERSION_NUMBER > 0x10100000L
+        s.data = (u_char *) ASN1_STRING_get0_data(alt_name->d.dNSName);
+#else
+        s.data = ASN1_STRING_data(alt_name->d.dNSName);
+#endif
+
+        if (index < 0) {
+            /* .../alt_names */
+            name = ngx_data_new_string(&s, actx->pool);
+            if (name == NULL) {
+                return NGX_ERROR;
+            }
+
+            if (list == NULL) {
+                list = ngx_data_new_list(actx->pool);
+                if (list == NULL) {
+                    return NGX_ERROR;
+                }
+            }
+
+            if (ngx_data_list_add(list, name) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+        } else if (index == n) {
+            /* .../alt_names/N */
+            data.str = &s;
+
+            return ngx_api_string_handler(data, actx, ctx);
+        }
+
+        n++;
+    }
+
+    if (list == NULL) {
+        return NGX_DECLINED;
+    }
+
+    actx->out = list;
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_country_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
+
+    return ngx_api_http_ssl_dn_handler(data, actx, nctx->name, NID_countryName);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_state_or_province_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
+
+    return ngx_api_http_ssl_dn_handler(data, actx, nctx->name,
+                                       NID_stateOrProvinceName);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_organization_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
+
+    return ngx_api_http_ssl_dn_handler(data, actx, nctx->name,
+                                       NID_organizationName);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_dn_handler(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    X509_NAME *name, int nid)
+{
+    int        len;
+    ngx_str_t  s;
+    u_char     buf[256];
+
+    if (name == NULL) {
+        return NGX_DECLINED;
+    }
+
+    len = X509_NAME_get_text_by_NID(name, nid, (char *) buf, sizeof(buf));
+
+    if (len < 0) {
+        return NGX_DECLINED;
+    }
+
+    s.len = len;
+    s.data = buf;
+
+    data.str = &s;
+
+    return ngx_api_string_handler(data, actx, NULL);
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_since_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    return ngx_api_http_ssl_time_info(data, actx,
+                                      X509_get_notBefore((X509 *) ctx));
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_until_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    return ngx_api_http_ssl_time_info(data, actx,
+                                      X509_get_notAfter((X509 *) ctx));
+}
+
+
+static ngx_int_t
+ngx_api_http_ssl_time_info(ngx_api_entry_data_t data, ngx_api_ctx_t *actx,
+    ASN1_TIME *asn1_time)
+{
+    BIO        *bio;
+    ngx_log_t  *log;
+    ngx_int_t   rc;
+    ngx_str_t   s;
+
+    log = actx->pool->log;
+
+    bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "BIO_new() failed");
+        return NGX_ERROR;
+    }
+
+    if (ASN1_TIME_print(bio, asn1_time) == 1) {
+        s.len = BIO_get_mem_data(bio, &s.data);
+
+        data.str = &s;
+
+        rc = ngx_api_string_handler(data, actx, NULL);
+
+    } else {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "ASN1_TIME_print() failed");
+        rc = NGX_ERROR;
+    }
+
+    BIO_free(bio);
+
+    return rc;
+}
+
+
+static void
+ngx_api_cert_key_info(EVP_PKEY *key, u_char *buf, size_t *size)
+{
+    int            nid;
+    u_char        *s, *end;
+    const EC_KEY  *ec;
+
+    if (key == NULL) {
+        *size = 0;
+        return;
+    }
+
+    end = buf + *size;
+
+    switch (EVP_PKEY_base_id(key)) {
+    case EVP_PKEY_RSA:
+        s = ngx_slprintf(buf, end, "RSA (%d bits)", EVP_PKEY_bits(key));
+        break;
+
+    case EVP_PKEY_DH:
+        s = ngx_slprintf(buf, end, "DH (%d bits)", EVP_PKEY_bits(key));
+        break;
+
+    case EVP_PKEY_EC:
+        ec = EVP_PKEY_get0_EC_KEY(key);
+        if (ec != NULL) {
+            nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
+            s = (nid != NID_undef)
+                ? ngx_slprintf(buf, end, "EC (%s)", OBJ_nid2sn(nid))
+                : ngx_slprintf(buf, end, "EC");
+
+        } else {
+            s = ngx_slprintf(buf, end, "EC");
+        }
+        break;
+
+    default:
+        s = ngx_slprintf(buf, end, "unknown");
+        break;
+    }
+
+    *size = s - buf;
 }
 
 #endif

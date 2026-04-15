@@ -33,6 +33,17 @@ the "add_header Content-Type" directive might result in the addition of another
 
 <change type="feature">
 <para lang="ru">
+информация о сертификатах, заданных в конфигурации, отображается в разделе
+"/certificates/" API статистики.
+</para>
+<para lang="en">
+information about certificates specified in the configuration is displayed
+in the "/certificates/" section of the statistics API.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 Директива "acme_dns_ttl" позволяет изменить значение TTL
 в ответах на DNS-запросы при DNS-верификации для ACME;
 допустимый диапазон значений от 0 до 2147483647 (в соответствии

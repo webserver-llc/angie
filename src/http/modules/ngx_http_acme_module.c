@@ -142,6 +142,13 @@ typedef enum {
 } ngx_acme_hook_t;
 
 
+typedef enum {
+    NGX_AEA_HS256,
+    NGX_AEA_HS384,
+    NGX_AEA_HS512,
+} ngx_acme_eab_alg_t;
+
+
 typedef struct {
     ngx_keytype_t                type;
     EVP_PKEY                    *key;
@@ -202,6 +209,9 @@ struct ngx_acme_client_s {
     ngx_http_core_loc_conf_t    *hook_clcf;
     ngx_http_conf_ctx_t         *hook_ctx;
     ngx_http_complex_value_t    *hook_uri;
+    ngx_str_t                    eab_id;
+    ngx_str_t                    eab_key;
+    ngx_acme_eab_alg_t           eab_alg;
 
     unsigned                     enabled:1;
     unsigned                     renew_on_load:1;
@@ -348,6 +358,8 @@ static ngx_int_t ngx_http_acme_protected_jwk(ngx_http_acme_session_t *ses,
 static ngx_int_t ngx_http_acme_jws_encode(ngx_http_acme_session_t *ses,
     ngx_acme_privkey_t *key, ngx_str_t *protected, ngx_str_t *payload,
     ngx_str_t *jws);
+static ngx_int_t ngx_http_acme_encode_eab(ngx_http_acme_session_t *ses,
+    ngx_str_t *eab);
 static ngx_int_t ngx_http_acme_protected_header(ngx_http_acme_session_t *ses,
     ngx_acme_privkey_t *key, ngx_str_t *url, ngx_str_t *nonce,
     ngx_str_t *protected_header);
@@ -1491,6 +1503,110 @@ failed:
     }
 
     return rc;
+}
+
+
+static ngx_int_t
+ngx_http_acme_encode_eab(ngx_http_acme_session_t *ses, ngx_str_t *eab)
+{
+    char               *alg;
+    ngx_str_t           protected, payload, enc_payload, enc_protected,
+                        enc_combined, sig, enc_sig;
+    const EVP_MD       *type;
+    unsigned int        hash_len;
+    ngx_acme_client_t  *cli;
+    u_char              hash[EVP_MAX_MD_SIZE];
+
+    cli = ses->client;
+
+    switch (cli->eab_alg) {
+
+    case NGX_AEA_HS384:
+        alg = "HS384";
+        type = EVP_sha384();
+        break;
+
+    case NGX_AEA_HS512:
+        alg = "HS512";
+        type = EVP_sha512();
+        break;
+
+    default: /* NGX_AEA_HS256 */
+        alg = "HS256";
+        type = EVP_sha256();
+        break;
+    }
+
+    protected.len = sizeof("{\"alg\":\"\",\"kid\":\"\",\"url\":\"\"}") - 1
+                    + 5 /* strlen(alg) */ + cli->eab_id.len
+                    + ses->request_url.len;
+
+    protected.data = ngx_pnalloc(ses->pool, protected.len);
+    if (!protected.data) {
+        return NGX_ERROR;
+    }
+
+    ngx_snprintf(protected.data, protected.len,
+                 "{\"alg\":\"%s\",\"kid\":\"%V\",\"url\":\"%V\"}",
+                 alg, &cli->eab_id, &ses->request_url);
+
+    if (ngx_http_acme_jwk(ses, &cli->account_key, &payload) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    enc_combined.len = ngx_base64_encoded_length(protected.len)
+                       + ngx_base64_encoded_length(payload.len)
+                       + 1; /* '.' */
+
+    enc_combined.data = ngx_pnalloc(ses->pool, enc_combined.len);
+    if (enc_combined.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    enc_protected.data = enc_combined.data;
+
+    ngx_encode_base64url(&enc_protected, &protected);
+
+    enc_payload.data = enc_protected.data + enc_protected.len;
+    *enc_payload.data++ = '.';
+
+    ngx_encode_base64url(&enc_payload, &payload);
+
+    enc_combined.len = enc_protected.len + enc_payload.len + 1;
+
+    if (HMAC(type, cli->eab_key.data, (int) cli->eab_key.len, enc_combined.data,
+             enc_combined.len, hash, &hash_len)
+        == NULL)
+    {
+        ngx_ssl_error(NGX_LOG_ERR, ses->log, 0, "HMAC() failed");
+        return NGX_ERROR;
+    }
+
+    enc_sig.len = ngx_base64_encoded_length(hash_len);
+    enc_sig.data = ngx_pnalloc(ses->pool, enc_sig.len);
+    if (enc_sig.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    sig.data = hash;
+    sig.len = hash_len;
+
+    ngx_encode_base64url(&enc_sig, &sig);
+
+    eab->len = sizeof(",\"externalAccountBinding\":{\"protected\":\"\","
+               "\"payload\":\"\",\"signature\":\"\"}") - 1
+               + enc_protected.len + enc_payload.len + enc_sig.len;
+
+    eab->data = ngx_pnalloc(ses->pool, eab->len);
+    if (eab->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_snprintf(eab->data, eab->len, ",\"externalAccountBinding\":{"
+                 "\"protected\":\"%V\",\"payload\":\"%V\",\"signature\":"
+                 "\"%V\"}", &enc_protected, &enc_payload, &enc_sig);
+
+    return NGX_OK;
 }
 
 
@@ -2846,10 +2962,12 @@ ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
     item = ngx_data_object_get_value(ses->dir, "meta",
                                      "externalAccountRequired", 0);
 
-    if (item && item->type == NGX_DATA_BOOLEAN_TYPE && item->data.boolean) {
+    if (item && item->type == NGX_DATA_BOOLEAN_TYPE && item->data.boolean
+        && ses->client->eab_key.len == 0)
+    {
         ngx_log_error(NGX_LOG_ERR, ses->log, 0,
                       "ACME server requires external account binding "
-                      "(not supported)");
+                      "but EAB was not configured for the ACME client");
         NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
     }
 
@@ -2862,8 +2980,9 @@ ngx_http_acme_bootstrap(ngx_http_acme_session_t *ses)
 static ngx_int_t
 ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
 {
-    ngx_str_t  s;
-    ngx_int_t  rc;
+    u_char     *p, *end;
+    ngx_str_t   s, s2;
+    ngx_int_t   rc;
 
     NGX_ACME_BEGIN(account_ensure);
 
@@ -2904,24 +3023,39 @@ ngx_http_acme_account_ensure(ngx_http_acme_session_t *ses)
         if (ngx_http_acme_server_error_type(ses,
                               "urn:ietf:params:acme:error:accountDoesNotExist"))
         {
-            if (ses->client->email.len == 0) {
-                ngx_str_set(&s, "{\"termsOfServiceAgreed\":true}");
+            s.len = sizeof("{\"termsOfServiceAgreed\":true}") - 1;
 
-            } else {
-                s.len = ses->client->email.len +
-                        sizeof("{\"termsOfServiceAgreed\":true"
-                        ",\"contact\":[\"mailto:\"]}") - 1;
-
-                s.data = ngx_pnalloc(ses->pool, s.len);
-                if (!s.data) {
-                    NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
-                }
-
-                ngx_snprintf(s.data, s.len,
-                             "{\"termsOfServiceAgreed\":true"
-                             ",\"contact\":[\"mailto:%V\"]}",
-                             &ses->client->email);
+            if (ses->client->email.len != 0) {
+                s.len += sizeof(",\"contact\":[\"mailto:\"]") - 1
+                         + ses->client->email.len;
             }
+
+            ngx_str_set(&s2, "");
+
+            if (ses->client->eab_key.len != 0
+                && ngx_http_acme_encode_eab(ses, &s2) != NGX_OK)
+            {
+                NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
+            }
+
+            s.len += s2.len;
+
+            s.data = ngx_pnalloc(ses->pool, s.len);
+            if (!s.data) {
+                NGX_ACME_TERMINATE(account_ensure, NGX_ERROR);
+            }
+
+            p = s.data;
+            end = s.data + s.len;
+
+            p = ngx_slprintf(p, end, "{\"termsOfServiceAgreed\":true");
+
+            if (ses->client->email.len != 0) {
+                p = ngx_slprintf(p, end, ",\"contact\":[\"mailto:%V\"]",
+                                 &ses->client->email);
+            }
+
+            ngx_slprintf(p, end, "%V}", &s2);
 
             DBG_HTTP((ses->client, "new account payload %V", &s));
 
@@ -6076,8 +6210,9 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_http_acme_main_conf_t *amcf = conf;
 
+    u_char             *p;
     ngx_url_t           u;
-    ngx_str_t          *value, loc_name, loc_conf;
+    ngx_str_t          *value, loc_name, loc_conf, s;
     ngx_uint_t          i;
     ngx_acme_client_t  *cli;
 
@@ -6279,6 +6414,79 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_strncmp(value[i].data, "renew_on_load", 13) == 0) {
 
             cli->renew_on_load = 1;
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "eab=", 4) == 0) {
+
+            value[i].data += 4;
+            value[i].len -= 4;
+
+            s = value[i];
+
+            p = s.data + s.len;
+
+            cli->eab_key.data = ngx_strlchr(s.data, p, ':');
+            if (cli->eab_key.data == NULL || cli->eab_key.data == s.data) {
+                return "has an invalid \"eab\" value";
+            }
+
+            s.len = cli->eab_key.data - s.data;
+            cli->eab_id = s;
+
+            cli->eab_id.len += ngx_escape_json(NULL, s.data, s.len);
+
+            if (cli->eab_id.len != s.len) {
+                cli->eab_id.data = ngx_pnalloc(cf->pool, cli->eab_id.len);
+                if (cli->eab_id.data == NULL) {
+                    return NGX_CONF_ERROR;
+                }
+
+                ngx_escape_json(cli->eab_id.data, s.data, s.len);
+            }
+
+            s.data = cli->eab_key.data + 1;
+            s.len = p - s.data;
+
+            p = ngx_strlchr(s.data, p, ':');
+            if (p != NULL) {
+
+                if (ngx_strncasecmp(s.data, (u_char *) "HS256:", 6) == 0) {
+                    cli->eab_alg = NGX_AEA_HS256;
+
+                } else if (ngx_strncasecmp(s.data, (u_char *) "HS384:", 6)
+                           == 0)
+                {
+                    cli->eab_alg = NGX_AEA_HS384;
+
+                } else if (ngx_strncasecmp(s.data, (u_char *) "HS512:", 6)
+                           == 0)
+                {
+                    cli->eab_alg = NGX_AEA_HS512;
+
+                } else {
+                    return "has an invalid algorithm value in the \"eab\" "
+                           "parameter";
+                }
+
+                s.data += 6;
+                s.len -= 6;
+            }
+
+            if (s.len == 0) {
+                return "has an invalid key value in the \"eab\" parameter";
+            }
+
+            cli->eab_key.len = ngx_base64_decoded_length(s.len);
+            cli->eab_key.data = ngx_pnalloc(cf->pool, cli->eab_key.len);
+            if (cli->eab_key.data == NULL) {
+                return NGX_CONF_ERROR;
+            }
+
+            if (ngx_decode_base64url(&cli->eab_key, &s) != NGX_OK) {
+                return "has an invalid key value in the \"eab\" parameter";
+            }
 
             continue;
         }
@@ -6888,6 +7096,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     cli->private_key.type = NGX_KT_UNSUPPORTED;
     cli->private_key.bits = NGX_CONF_UNSET;
     cli->certificate_file.fd = NGX_INVALID_FILE;
+    cli->eab_alg = NGX_AEA_HS256;
 
     cli_p = ngx_array_push(&amcf->clients);
     if (cli_p == NULL) {

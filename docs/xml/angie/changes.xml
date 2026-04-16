@@ -7,6 +7,18 @@
 
 <changes ver="1.12.0" date="">
 
+<change type="feature">
+<para lang="ru">
+поддержка External Account Binding (EAB), позволяющая связывать
+ACME-аккаунт с внешним аккаунтом на стороне УЦ с использованием
+HMAC-аутентификации.
+</para>
+<para lang="en">
+support for External Account Binding (EAB), allowing an ACME account to be
+linked with an external account on the CA side via HMAC-based credentials.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 изменено поведение ACME DNS-проверок для wildcard-доменов: ответы

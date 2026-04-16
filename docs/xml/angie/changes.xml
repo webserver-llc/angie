@@ -102,7 +102,7 @@ none are configured in Angie, the default server "127.0.0.1:53" is used.
 
 <change type="feature">
 <para lang="ru">
-вся функциональность nginx 1.29.7, за исключением HTTP-модуля "sticky",
+вся функциональность nginx 1.29.8, за исключением HTTP-модуля "sticky",
 директивы "ssl_ech_file" и связанных с ней переменных ("$ssl_ech_status"
 и "$ssl_ech_outer_server_name"), а также изменений в поведении директивы
 "keepalive" HTTP модуля "upstream". Поддержка Encrypted Client Hello уже
@@ -113,7 +113,7 @@ none are configured in Angie, the default server "127.0.0.1:53" is used.
 которые не устраняются поддержкой предложенной опции "local".
 </para>
 <para lang="en">
-all functionality of nginx 1.29.7 except the HTTP "sticky" module,
+all functionality of nginx 1.29.8 except the HTTP "sticky" module,
 the "ssl_ech_file" directive, and related variables ("ssl_ech_status" and
 "ssl_ech_outer_server_name"), and changes of the "keepalive" directive
 in the "upstream" HTTP module. The Encrypted Client Hello is already supported

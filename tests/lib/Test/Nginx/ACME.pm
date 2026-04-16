@@ -127,6 +127,21 @@ sub start_pebble {
 
 	my $pebble_config = 'pebble-config.json';
 
+	my $eab = "    \"externalAccountBindingRequired\": false";
+
+	if ($params->{eab}) {
+		$eab = "    \"externalAccountBindingRequired\": true,\n";
+		$eab .= "    \"externalAccountMACKeys\": {\n";
+		my $sep = "      ";
+
+		for my $key (keys %{ $params->{eab} }) {
+			$eab .= "$sep\"$key\": \"$params->{eab}{$key}\"";
+			$sep = ",\n      ";
+		}
+
+		$eab .= "\n    }";
+	}
+
 	$self->{t}->write_file($pebble_config, <<"EOF");
 {
   "pebble": {
@@ -137,13 +152,13 @@ sub start_pebble {
     "httpPort": $http_port,
     "tlsPort": $tls_port,
     "ocspResponderURL": "",
-    "externalAccountBindingRequired": false,
     "domainBlocklist": ["blocked-domain.example"],
     "retryAfter": {
         "authz": 3,
         "order": 5
     },
-    "certificateValidityPeriod": $certificate_validity_period
+    "certificateValidityPeriod": $certificate_validity_period,
+$eab
   }
 }
 EOF

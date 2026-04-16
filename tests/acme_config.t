@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl/)->plan(10);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl/)->plan(16);
 
 # config 1
 
@@ -220,6 +220,109 @@ skip 'variables in ssl_certificate* directives not supported', 1
 
 is($code, 0, 'no config syntax errors');
 }
+
+# config 6
+
+$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    # invalid eab
+    acme_client test1 https://localhost/dir eab=xxx;
+
+    server {
+        listen %%PORT_8443%% ssl;
+        server_name example.com;
+
+        acme test1;
+    }
+}
+
+EOF
+
+($code, $log) = $t->test_config();
+
+isnt($code, 0, 'config syntax error as expected');
+
+like($log, qr/"acme_client" directive has an invalid "eab" value/,
+	'got "invalid eab value" as expected');
+
+# config 7
+
+$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    # invalid base64 as EAB key value
+    acme_client test1 https://localhost/dir eab=id:x;
+
+    server {
+        listen %%PORT_8443%% ssl;
+        server_name example.com;
+
+        acme test1;
+    }
+}
+
+EOF
+
+($code, $log) = $t->test_config();
+
+isnt($code, 0, 'config syntax error as expected');
+
+like($log, qr/"acme_client" directive has an invalid key value in the "eab" parameter/,
+	'got "invalid key value" as expected');
+
+# config 8
+
+$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    # unsupported HMAC algorithm
+    acme_client test1 https://localhost/dir eab=id:unsupported:x;
+
+    server {
+        listen %%PORT_8443%% ssl;
+        server_name example.com;
+
+        acme test1;
+    }
+}
+
+EOF
+
+($code, $log) = $t->test_config();
+
+isnt($code, 0, 'config syntax error as expected');
+
+like($log, qr/"acme_client" directive has an invalid algorithm value in the "eab" parameter/,
+	'got "invalid algorithm value" as expected');
+
 
 ###############################################################################
 

@@ -42,8 +42,16 @@ http {
             try_files $uri /fallback;
         }
 
+        location /fallback {
+            proxy_pass http://127.0.0.1:8081/fallback;
+        }
+
         location /nouri/ {
             try_files $uri /fallback-nouri;
+        }
+
+        location /fallback-nouri {
+            proxy_pass http://127.0.0.1:8081;
         }
 
         location /short/ {
@@ -76,13 +84,6 @@ http {
             location ~ html {
                 try_files $uri =404;
             }
-        }
-
-        location /fallback {
-            proxy_pass http://127.0.0.1:8081/fallback;
-        }
-        location /fallback-nouri {
-            proxy_pass http://127.0.0.1:8081;
         }
     }
 

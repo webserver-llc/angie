@@ -2147,24 +2147,28 @@ static ngx_uint_t
 ngx_http_acme_cert_validity(ngx_acme_client_t *cli, ngx_uint_t log_diagnosis,
     const u_char *cert_data, size_t cert_len, time_t *cert_expiry)
 {
-    int               type, i, found;
+    int                     type, i, found;
 #if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
-    size_t            j;
+    size_t                  j;
 #else
-    int               j;
+    int                     j;
 #endif
-    BIO              *bio;
-    X509             *x509;
-    u_char           *s;
-    time_t            expiry;
-    ngx_uint_t        rc, di;
-    ngx_str_t         domain;
-    X509_NAME        *subj_name;
-    ASN1_STRING      *value;
-    GENERAL_NAME     *name;
-    GENERAL_NAMES    *sans;
-    const ASN1_TIME  *t;
-    X509_NAME_ENTRY  *entry;
+    BIO                    *bio;
+    X509                   *x509;
+    u_char                 *s;
+    time_t                  expiry;
+    ngx_str_t               domain;
+#if (OPENSSL_VERSION_NUMBER < 0x40000000L)
+    X509_NAME              *subj_name;
+#else
+    const X509_NAME        *subj_name;
+#endif
+    ngx_uint_t              rc, di;
+    GENERAL_NAME           *name;
+    GENERAL_NAMES          *sans;
+    const ASN1_TIME        *t;
+    const ASN1_STRING      *value;
+    const X509_NAME_ENTRY  *entry;
 
     bio = BIO_new_mem_buf(cert_data, (int) cert_len);
 

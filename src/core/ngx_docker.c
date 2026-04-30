@@ -545,6 +545,10 @@ ngx_docker_destroy_container(ngx_docker_container_t *dc)
         ngx_del_timer(&dc->event);
     }
 
+    if (dc->event.posted) {
+        ngx_delete_posted_event(&dc->event);
+    }
+
     ngx_destroy_pool(dc->pool);
 }
 

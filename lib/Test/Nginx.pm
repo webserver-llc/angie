@@ -155,6 +155,8 @@ sub has_module($) {
 			=> '(?s)^(?!.*--without-http_upstream_ip_hash_module)',
 		upstream_least_conn
 			=> '(?s)^(?!.*--without-http_upstream_least_conn_mod)',
+		upstream_least_time
+			=> '(?s)^(?!.*--without-http_upstream_least_time_mod)',
 		upstream_random
 			=> '(?s)^(?!.*--without-http_upstream_random_module)',
 		upstream_keepalive

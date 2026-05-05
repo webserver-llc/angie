@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http stream stream_upstream_least_time/)
-	->has(qw/proxy rewrite map/)->plan(13);
+	->has(qw/proxy rewrite map/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -191,7 +191,7 @@ $t->write_file('index.html', '0123456789' x 204);
 
 $t->run_daemon(\&http_daemon, port(8083));
 $t->run_daemon(\&http_daemon, port(8084));
-$t->run();
+$t->try_run('no least_time')->plan(13);
 
 $t->waitforsocket('127.0.0.1:' . port(8083));
 $t->waitforsocket('127.0.0.1:' . port(8084));

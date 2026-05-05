@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http proxy upstream_least_time rewrite map/)
-	->write_file_expand('nginx.conf', <<'EOF')->plan(12);
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -162,7 +162,7 @@ EOF
 $t->write_file('index.html', '0123456789' x 204);
 
 $t->run_daemon(\&http_daemon, port(8083));
-$t->run();
+$t->try_run('no least_time')->plan(12);
 
 $t->waitforsocket('127.0.0.1:' . port(8083));
 

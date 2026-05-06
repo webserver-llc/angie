@@ -61,37 +61,16 @@ $t->run();
 
 my $r;
 
-$r = http(<<EOF . '0123456789');
-PUT /file HTTP/1.1
-Host: localhost
-Connection: close
-Content-Length: 10
-
-EOF
-
+$r = http_put('/file', '0123456789');
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'put file');
 is(-s $t->testdir() . '/file', 10, 'put file size');
 
-$r = http(<<EOF);
-PUT /file HTTP/1.1
-Host: localhost
-Connection: close
-Content-Length: 0
-
-EOF
-
+$r = http_put('/file', '');
 like($r, qr/204 No Content/, 'put file again');
 unlike($r, qr/Content-Length|Transfer-Encoding/, 'no length in 204');
 is(-s $t->testdir() . '/file', 0, 'put file again size');
 
-$r = http(<<EOF);
-DELETE /file HTTP/1.1
-Host: localhost
-Connection: close
-Content-Length: 0
-
-EOF
-
+$r = http_delete('/file', 'Content-Length: 0');
 like($r, qr/204 No Content/, 'delete file');
 unlike($r, qr/Content-Length|Transfer-Encoding/, 'no length in 204');
 ok(!-f $t->testdir() . '/file', 'file deleted');
@@ -109,25 +88,12 @@ like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms,
 is(-s $t->testdir() . '/file', 10,
 	'put file extra data size');
 
-$r = http(<<EOF . '0123456789');
-PUT /file%20sp HTTP/1.1
-Host: localhost
-Connection: close
-Content-Length: 10
-
-EOF
-
+$r = http_put('/file%20sp', '0123456789');
 like($r, qr!Location: /file%20sp\x0d?$!ms, 'put file escaped');
 
 # 201 replies contain body, response should indicate it's empty
 
-$r = http(<<EOF);
-MKCOL /test/ HTTP/1.1
-Host: localhost
-Connection: close
-
-EOF
-
+$r = http_mkcol('/test/');
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'mkcol');
 
 SKIP: {
@@ -137,58 +103,23 @@ like($r, qr!(?(?{ $r =~ /Location/ })Location: /test/)!, 'mkcol location');
 
 }
 
-$r = http(<<EOF);
-COPY /test/ HTTP/1.1
-Host: localhost
-Destination: /test-moved/
-Connection: close
-
-EOF
-
+$r = http_copy('/test/', '/test-moved/');
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'copy dir');
 
-$r = http(<<EOF);
-MOVE /test/ HTTP/1.1
-Host: localhost
-Destination: /test-moved/
-Connection: close
-
-EOF
-
+$r = http_move('/test/', '/test-moved/');
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'move dir');
 
-$r = http(<<EOF);
-COPY /file HTTP/1.1
-Host: localhost
-Destination: /file-moved%20escape
-Connection: close
-
-EOF
-
+$r = http_copy('/file', '/file-moved%20escape');
 like($r, qr/204 No Content/, 'copy file escaped');
 is(-s $t->testdir() . '/file-moved escape', 10, 'file copied unescaped');
 
 $t->write_file('file.exist', join '', (1 .. 42));
 
-$r = http(<<EOF);
-COPY /file HTTP/1.1
-Host: localhost
-Destination: /file.exist
-Connection: close
-
-EOF
-
+$r = http_copy('/file', '/file.exist');
 like($r, qr/204 No Content/, 'copy file overwrite');
 is(-s $t->testdir() . '/file.exist', 10, 'target file truncated');
 
-$r = http(<<EOF . '0123456789');
-PUT /i/alias HTTP/1.1
-Host: localhost
-Connection: close
-Content-Length: 10
-
-EOF
-
+$r = http_put('/i/alias', '0123456789');
 like($r, qr/201 Created.*(Content-Length|\x0d\0a0\x0d\x0a)/ms, 'put alias');
 like($r, qr!Location: /i/alias\x0d?$!ms, 'location alias');
 is(-s $t->testdir() . '/alias', 10, 'put alias size');
@@ -258,5 +189,72 @@ Transfer-Encoding: chunked
 EOF
 
 like($r, qr/415 Unsupported/, 'delete body chunked');
+
+###############################################################################
+
+sub http_put {
+	my ($uri, $body, $extra) = @_;
+	my $length = length($body);
+	my $headers = <<EOF;
+PUT $uri HTTP/1.1
+Host: localhost
+Connection: close
+Content-Length: $length
+EOF
+
+	if ($extra) {
+		$headers .= $extra . CRLF;
+	}
+
+	http($headers . CRLF . $body);
+}
+
+sub http_delete {
+	my ($uri, $extra) = @_;
+	$extra = '' if !defined $extra;
+	http(<<EOF);
+DELETE $uri HTTP/1.1
+Host: localhost
+Connection: close
+$extra
+
+EOF
+}
+
+sub http_mkcol {
+	my ($uri) = @_;
+	http(<<EOF);
+MKCOL $uri HTTP/1.1
+Host: localhost
+Connection: close
+
+EOF
+}
+
+sub http_copy {
+	my ($uri, $destination, $extra) = @_;
+	$extra = '' if !defined $extra;
+	http(<<EOF);
+COPY $uri HTTP/1.1
+Host: localhost
+Connection: close
+Destination: $destination
+$extra
+
+EOF
+}
+
+sub http_move {
+	my ($uri, $destination, $extra) = @_;
+	$extra = '' if !defined $extra;
+	http(<<EOF);
+MOVE $uri HTTP/1.1
+Host: localhost
+Connection: close
+Destination: $destination
+$extra
+
+EOF
+}
 
 ###############################################################################

@@ -22,6 +22,8 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'win32') if $^O eq 'MSWin32';
+
 my $t = Test::Nginx->new()->has(qw/http stream stream_upstream_least_time/)
 	->has(qw/proxy rewrite map/);
 

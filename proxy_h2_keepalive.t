@@ -65,6 +65,17 @@ http {
             ssi on;
             rewrite ^ /ssi.html break;
         }
+
+        location /body/ {
+            proxy_set_body body;
+            proxy_pass http://backend;
+        }
+
+        location /nobody/ {
+            proxy_pass_request_body off;
+            proxy_set_header Content-Length "";
+            proxy_pass http://backend;
+        }
     }
 }
 
@@ -77,7 +88,7 @@ $t->write_file('ssi.html',
 $t->run_daemon(\&http_daemon);
 $t->waitforsocket('127.0.0.1:' . port(8081));
 
-$t->try_run('no proxy_http_version 2')->plan(53);
+$t->try_run('no proxy_http_version 2')->plan(57);
 
 ###############################################################################
 
@@ -229,6 +240,30 @@ GET /flow2 HTTP/1.0
 Content-Length: 4
 
 EOF
+
+# proxy_set_body
+
+like($r = http_get('/body/length1'), qr/SEE-THIS/, 'set body');
+$r =~ m/X-Connection: (\d+)/i; $n = $1;
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.31.0');
+
+like(http_get('/body/length2'), qr/X-Connection: $n.*SEE/msi, 'set body 2');
+
+}
+
+# proxy_pass_request_body off
+
+like($r = http_get('/nobody/length1'), qr/SEE-THIS/, 'no body');
+$r =~ m/X-Connection: (\d+)/i; $n = $1;
+
+TODO: {
+local $TODO = 'not yet' unless $t->has_version('1.31.0');
+
+like(http_get('/nobody/length2'), qr/X-Connection: $n.*SEE/msi, 'no body 2');
+
+}
 
 # check for errors, shouldn't be any
 

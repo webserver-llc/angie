@@ -44,6 +44,15 @@ http {
 
     variables_hash_bucket_size 128;
 
+    metric_zone reload_inline:128k count;
+
+    metric_complex_zone reload_complex:128k {
+        1 count;
+        2 average mean count=5 window=off;
+        3 histogram 1 2 3;
+        # 4 gauge;
+    }
+
     metric_zone counter:128k discard_key=angie count;
 
     metric_zone min:128k min;
@@ -143,6 +152,11 @@ http {
 
     server {
         listen 127.0.0.1:8080;
+
+        location ~ /reload/(.+)/(.+)$ {
+            metric reload_inline  $1=$2;
+            metric reload_complex $1=$2;
+        }
 
         location ~ /var1/(.+)/(.+)$ {
             set $metric_var $1=$2;
@@ -374,6 +388,115 @@ my %test_cases = (
 			superhashof({}),
 			'api metric tree'
 		);
+	},
+
+	'reload' => sub {
+		plan(skip_all => 'reload is not working (perl >= 5.32 required)')
+			unless $t->has_feature('reload');
+
+		ok($t->reload(), 'reload 1');
+
+		http_get('/reload/angie/1');
+		http_get('/reload/angie/2');
+
+		ok($t->reload(), 'reload 2');
+
+		my $new_conf = $t->read_file('nginx.conf');
+
+		$new_conf =~ s/reload_inline:128k/reload_inline:256k/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload metric zone size 1');
+
+		http_get('/reload/angie/1');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 1,
+			'reload metric zone size 2');
+
+		$new_conf =~ s/reload_inline:256k count/reload_inline:256k gauge/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload metric mode 1');
+
+		my $res = get_json('/api/reload_inline/metrics');
+
+		ok(!exists $res->{angie}, 'reload metric mode 2');
+
+		is(get_json('/api/reload_complex/metrics/angie/1/'), 3,
+			'reload metric mode 3');
+
+		http_get('/reload/angie/10');
+		http_get('/reload/angie/10');
+
+		$new_conf =~ s/# 4 gauge/4 gauge/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload metrics count 1');
+
+		$res = get_json('/api/reload_complex/metrics');
+
+		ok(!exists $res->{angie}, 'reload metrics count 2');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 20,
+			'reload metrics count 3');
+
+		http_get('/reload/angie/10');
+		http_get('/reload/angie/10');
+
+		$new_conf =~ s/count=5/count=9/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload average mean count 1');
+
+		$res = get_json('/api/reload_complex/metrics');
+
+		ok(!exists $res->{angie}, 'reload average mean count 2');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 40,
+			'reload average mean count 3');
+
+		http_get('/reload/angie/10');
+		http_get('/reload/angie/10');
+
+		$new_conf =~ s/window=off/window=99s/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload average mean window 1');
+
+		$res = get_json('/api/reload_complex/metrics');
+
+		ok(!exists $res->{angie}, 'reload average mean window 2');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 60,
+			'reload average mean window 3');
+
+		http_get('/reload/angie/10');
+		http_get('/reload/angie/10');
+
+		$new_conf =~ s/3 histogram 1 2 3/3 histogram 1 2 3 4 5/;
+		$t->write_file('nginx.conf', $new_conf);
+		ok($t->reload(), 'reload histogram 1');
+
+		$res = get_json('/api/reload_complex/metrics');
+
+		ok(!exists $res->{angie}, 'reload histogram 2');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 80,
+			'reload histogram 3');
+
+		SKIP: {
+
+		skip "no --with-debug", 6 unless $t->has_module('debug');
+
+		$t->stop();
+
+		my $log = $t->read_file('error.log');
+
+		like($log, qr/zone "\w+" uses the "\d+" size/, 'reload debug 1');
+		like($log, qr/zone "\w+" uses the "\w+" mode/, 'reload debug 2');
+		like($log, qr/zone "\w+" uses the "\d+" metrics/, 'reload debug 3');
+		like($log, qr/zone "\w+" uses the "count=\d+"/, 'reload debug 4');
+		like($log, qr/the "window=" parameter of metric/, 'reload debug 5');
+		like($log, qr/uses the "\d+" buckets/, 'reload debug 6');
+
+		$t->run();
+
+		}
 	},
 
 	'variables' => sub {

@@ -9,6 +9,19 @@
 
 <change type="bugfix">
 <para lang="ru">
+изменения режимов метрик и их параметров в директивах "metric_zone"
+и "metric_complex_zone" могли привести к падению рабочего процесса
+при перезагрузке конфигурации.
+</para>
+<para lang="en">
+alterations to the metric modes and their parameters in the "metric_zone"
+and "metric_complex_zone" directives could crash a worker process
+if the configuration is reloaded.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 быстрое завершение Docker-контейнеров сразу после старта могло вызывать падение
 рабочего процесса в Docker-модуле.
 </para>

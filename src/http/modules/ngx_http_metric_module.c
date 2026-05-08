@@ -1795,18 +1795,105 @@ ngx_http_metric_init_zone(ngx_shm_zone_t *shm_zone, void *data)
 
     void                    **last;
     u_char                   *end, *pos;
-    ngx_str_t                 tmp;
+    ngx_str_t                *mode_name, tmp;
     ngx_int_t                 rc;
+    ngx_uint_t                i;
+    ngx_http_metric_t       **metric_ptr, **ometric_ptr;
     ngx_http_metric_ctx_t    *mctx;
+    ngx_http_metric_args_t   *args, *oargs;
     ngx_http_metric_node_t   *node;
 
     mctx = shm_zone->data;
 
     if (octx) {
+        if (shm_zone->shm.size != octx->shm_zone->shm.size) {
+            ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                          "metric zone \"%V\" uses the \"%uz\" size "
+                          "while previously it used the \"%uz\" size",
+                          &shm_zone->shm.name, shm_zone->shm.size,
+                          octx->shm_zone->shm.size);
+            goto done;
+        }
+
+        if (octx->metrics->nelts != mctx->metrics->nelts) {
+            ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                          "metric zone \"%V\" uses the \"%ui\" metrics "
+                          "while previously it used the \"%ui\" metrics",
+                          &shm_zone->shm.name, mctx->metrics->nelts,
+                          octx->metrics->nelts);
+            goto done;
+        }
+
+        metric_ptr = mctx->metrics->elts;
+        ometric_ptr = octx->metrics->elts;
+
+        for (i = 0; i < mctx->metrics->nelts; i++) {
+            if (metric_ptr[i]->mode != ometric_ptr[i]->mode) {
+                ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                              "metric zone \"%V\" uses the \"%V\" mode "
+                              "while previously it used the \"%V\" mode",
+                              &shm_zone->shm.name, &metric_ptr[i]->mode->name,
+                              &ometric_ptr[i]->mode->name);
+                goto done;
+            }
+
+            mode_name = &metric_ptr[i]->mode->name;
+
+            args = &metric_ptr[i]->args;
+            oargs = &ometric_ptr[i]->args;
+
+            if (ngx_strcmp(mode_name->data, "average mean") == 0) {
+                if (args->avg.count != oargs->avg.count) {
+                    ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                                  "metric \"%V\" in metric zone \"%V\" "
+                                  "uses the \"count=%ui\" while previously "
+                                  "it used the \"count=%ui\"",
+                                  &metric_ptr[i]->name, &shm_zone->shm.name,
+                                  args->avg.count, oargs->avg.count);
+                    goto done;
+                }
+
+                if ((args->avg.window == 0 || oargs->avg.window == 0)
+                    && args->avg.window != oargs->avg.window)
+                {
+                    ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                                  "the \"window=\" parameter of metric \"%V\" "
+                                  "in metric zone \"%V\" has been switched "
+                                  "from/to \"off\"",
+                                  &metric_ptr[i]->name, &shm_zone->shm.name);
+                    goto done;
+                }
+
+                continue;
+            }
+
+            if (ngx_strcmp(mode_name->data, "histogram") == 0) {
+                if (args->hist->nelts != oargs->hist->nelts) {
+                    ngx_log_error(NGX_LOG_INFO, shm_zone->shm.log, 0,
+                                  "metric \"%V\" in metric zone \"%V\" "
+                                  "uses the \"%ui\" buckets while previously "
+                                  "it used the \"%ui\" buckets",
+                                  &metric_ptr[i]->name, &shm_zone->shm.name,
+                                  args->hist->nelts, oargs->hist->nelts);
+                    goto done;
+                }
+            }
+        }
+
         mctx->sh = octx->sh;
         mctx->shpool = octx->shpool;
+
+        ngx_shm_free(&shm_zone->shm);
+        shm_zone->shm.addr = octx->shm_zone->shm.addr;
+        shm_zone->shm.exists = octx->shm_zone->shm.exists;
+
+        octx->shm_zone->noreuse = 0;
+        shm_zone->noreuse = 0;
+
         return NGX_OK;
     }
+
+done:
 
     mctx->shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
 
@@ -2147,6 +2234,7 @@ ngx_http_metric_zone_complex(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     shm_zone->data = mctx;
     shm_zone->init = ngx_http_metric_init_zone;
+    shm_zone->noreuse = 1;
 
     mctx->api = ngx_http_metric_api_complex_handler;
 
@@ -2264,6 +2352,7 @@ ngx_http_metric_zone_inline(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     shm_zone->data = mctx;
     shm_zone->init = ngx_http_metric_init_zone;
+    shm_zone->noreuse = 1;
 
     mctx->api = ngx_http_metric_api_inline_handler;
 

@@ -53,7 +53,7 @@ jobs:
             }' -f org=$ORGANIZATION -F number=$PROJECT_NUMBER >project_data.json
 
           echo 'PROJECT_ID='$(jq -r '.data.organization.projectV2.id' project_data.json) >>$GITHUB_ENV
-          echo 'DATE_FIELD_ID='$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name == "Created at") | .id' project_data.json) >>$GITHUB_ENV
+          echo 'DATE_FIELD_ID='$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name == "Created At") | .id' project_data.json) >>$GITHUB_ENV
 
       # Needed to get the item's Global ID
       - name: Add item to project

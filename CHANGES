@@ -1,4 +1,39 @@
 
+Changes with Angie 1.11.5                                        15 May 2026
+
+    *) Security: when the "rewrite" directive with an unnamed capture (e.g.,
+       $1, $2) and a replacement string containing "?" was followed by a
+       "rewrite", "if", or "set" directive, an attacker, given conditions
+       beyond the attacker's control, could cause a worker process crash
+       and, on systems without address space layout randomization, arbitrary
+       code execution (CVE-2026-42945); the fix was ported from nginx
+       1.31.0.
+
+    *) Security: when using the "ssl_ocsp" directive, a use of previously
+       freed memory could occur while processing DNS server responses,
+       allowing an attacker to corrupt the worker process memory or cause
+       its crash (CVE-2026-40701); the fix was ported from nginx 1.31.0.
+
+    *) Security: when using HTTP/3, an attacker could spoof the IP address
+       and thereby bypass restrictions or authorization in some
+       configurations (CVE-2026-40460); the fix was ported from nginx
+       1.31.0.
+
+    *) Security: when "scgi_pass" or "uwsgi_pass" was configured, an
+       attacker in a man-in-the-middle (MITM) position, controlling
+       responses from a proxied server, could cause excessive memory
+       allocation or an over-read of data, leading to the disclosure of
+       worker process memory to the client or a process crash
+       (CVE-2026-42946); the fix was ported from nginx 1.31.0.
+
+    *) Security: when processing a specially crafted response with UTF-8
+       decoding via the "charset_map" directive, an out-of-bounds read could
+       occur in the worker process, allowing an attacker, given conditions
+       beyond the attacker's control, to send limited worker process memory
+       contents to the client or cause process crash (CVE-2026-42934); the
+       fix was ported from nginx 1.31.0.
+
+
 Changes with Angie 1.11.4                                        25 Mar 2026
 
     *) Security: TLS handshake with a client in the stream module might

@@ -1911,7 +1911,7 @@ done:
 
     ngx_memzero(mctx->sh, sizeof(ngx_http_metric_shctx_t));
 
-    mctx->shpool->data = &mctx->sh;
+    mctx->shpool->data = mctx->sh;
 
     ngx_rbtree_init(&mctx->sh->rbtree, &mctx->sh->sentinel,
                     ngx_metric_rbtree_insert_value);

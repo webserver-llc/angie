@@ -3303,7 +3303,7 @@ ngx_http_metric_count_get(ngx_http_metric_state_ctx_t *sctx, void **pos,
 
     p = buf->data;
 
-    buf->data = ngx_sprintf(p, "%ui", *data);
+    buf->data = ngx_sprintf(p, "%uL", *data);
     buf->len += buf->data - p;
 
     *pos = ++data;
@@ -4221,7 +4221,7 @@ ngx_http_metric_hist_get(ngx_http_metric_state_ctx_t *sctx, void **pos,
     i = 0;
 
     for ( ;; ) {
-        size = ngx_sprintf(buf->data, "%ui", data[i]) - buf->data;
+        size = ngx_sprintf(buf->data, "%uL", data[i]) - buf->data;
 
         buf->len += size;
         buf->data += size;

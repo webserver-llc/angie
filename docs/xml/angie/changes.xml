@@ -8,6 +8,17 @@
 <changes ver="1.11.7" date="">
 
 <change type="bugfix">
+значения метрик count и histogram могли неправильно выводиться на 32-битных
+платформах при достижении 2^32-1.
+<para lang="ru">
+</para>
+<para lang="en">
+the values of count and histogram metrics could lead to incorrect output
+on 32-bit platforms when they reach 2^32-1.
+</para>
+</change>
+
+<change type="bugfix">
 <para lang="ru">
 изменения режимов метрик и их параметров в директивах "metric_zone"
 и "metric_complex_zone" могли привести к падению рабочего процесса

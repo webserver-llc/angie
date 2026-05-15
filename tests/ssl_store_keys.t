@@ -42,6 +42,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    server_names_hash_bucket_size 64;
+
     geo $localhost {
         default localhost;
     }

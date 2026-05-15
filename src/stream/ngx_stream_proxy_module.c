@@ -875,16 +875,18 @@ ngx_stream_proxy_connect(ngx_stream_session_t *s)
     if (u->upstream && u->upstream->shm_zone
         && (u->upstream->flags & NGX_STREAM_UPSTREAM_CONF)
     ) {
+        size_t  name_len = u->peer.name->len;
+
         u->state->peer = ngx_palloc(c->pool,
-                                    sizeof(ngx_str_t) + u->peer.name->len);
+                                    sizeof(ngx_str_t) + name_len);
         if (u->state->peer == NULL) {
             ngx_stream_proxy_finalize(s, NGX_STREAM_INTERNAL_SERVER_ERROR);
             return;
         }
 
-        u->state->peer->len = u->peer.name->len;
+        u->state->peer->len = name_len;
         u->state->peer->data = (u_char *) (u->state->peer + 1);
-        ngx_memcpy(u->state->peer->data, u->peer.name->data, u->peer.name->len);
+        ngx_memcpy(u->state->peer->data, u->peer.name->data, name_len);
 
         u->peer.name = u->state->peer;
     }

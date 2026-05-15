@@ -15,6 +15,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/get_primary_user_group/;
 
 ###############################################################################
 
@@ -22,17 +23,25 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 plan(skip_all => 'must be root') if $> != 0;
-plan(skip_all => '127.0.1.* local addresses required') if $^O eq 'freebsd';
+
+for my $i (1 .. 5) {
+	plan(skip_all => "127.0.1.$i local address required")
+		unless defined IO::Socket::INET->new( LocalAddr => "127.0.1.$i" );
+}
+
+my $primary_root_group = get_primary_user_group('root');
+plan(skip_all => 'cannot determine primary group of root')
+	unless defined $primary_root_group;
 
 my $t = Test::Nginx->new({can_root => 1})->has(qw/http proxy rewrite/);
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<"EOF");
 
 %%TEST_GLOBALS%%
 
 daemon off;
 
-user root;
+user root $primary_root_group;
 
 events {
 }
@@ -47,22 +56,22 @@ http {
         location /both {
             resolver    127.0.1.2:53 127.0.1.3:53
                             conf=%%TESTDIR%%/resolv.conf valid=1s;
-            proxy_pass  http://$host:%%PORT_8080%%/backend;
+            proxy_pass  http://\$host:%%PORT_8080%%/backend;
         }
 
         location /conf {
             resolver    conf=%%TESTDIR%%/resolv.conf valid=1s;
-            proxy_pass  http://$host:%%PORT_8080%%/backend;
+            proxy_pass  http://\$host:%%PORT_8080%%/backend;
         }
 
         location /conf_late {
             resolver    conf=%%TESTDIR%%/late_resolv.conf valid=1s;
-            proxy_pass  http://$host:%%PORT_8080%%/backend;
+            proxy_pass  http://\$host:%%PORT_8080%%/backend;
         }
 
         location /default {
             resolver    conf=%%TESTDIR%%/default_resolv.conf valid=1s;
-            proxy_pass  http://$host:%%PORT_8080%%/backend;
+            proxy_pass  http://\$host:%%PORT_8080%%/backend;
         }
 
         location /backend {

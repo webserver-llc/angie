@@ -176,13 +176,13 @@ sub gen_rsa_and_ec {
 
 	$t->write_file('openssl.conf', <<EOF);
 [ req ]
-default_bits = 1024
+default_bits = 2048
 encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
 EOF
 
-	system("$openssl genrsa -out $d/rsa.key 1024 "
+	system("$openssl genrsa -out $d/rsa.key 2048 "
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't generate RSA pem: $!\n";
 
@@ -247,7 +247,7 @@ basicConstraints = critical, CA:true, pathlen:0
 keyUsage = critical, digitalSignature, cRLSign, keyCertSign
 
 [ req ]
-default_bits = 1024
+default_bits = 2048
 encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]
@@ -314,7 +314,7 @@ basicConstraints = CA:FALSE
 keyUsage = keyAgreement, keyEncipherment, dataEncipherment
 
 [ req ]
-default_bits = 1024
+default_bits = 2048
 encrypt_key = no
 distinguished_name = req_distinguished_name
 [ req_distinguished_name ]

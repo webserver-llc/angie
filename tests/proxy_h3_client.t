@@ -579,11 +579,13 @@ $res = http_get("/sessions");
 like($res, "/x-session: reuse=\./", "ssl session reuse - request 1");
 
 TODO: {
-
 	local $TODO = 'not supported in OpenSSL compat layer'
-		unless $t->has_module('OpenSSL [.0-9]+\+quic')
-		or $t->has_module('BoringSSL')
-		or $t->{_configure_args} =~ /tongsuo/;
+		if $t->has_module('OpenSSL')
+		&& !$t->has_module('OpenSSL [.0-9]+\+quic')
+		&& !$t->has_module('BoringSSL|AWS-LC');
+
+	local $TODO = 'does not work with some versions of Tongsuo'
+		if $t->{_configure_args} =~ /tongsuo/;
 
 	local $TODO = 'does not work with LibreSSL'
 		if $t->has_module('LibreSSL');

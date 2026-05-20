@@ -36,6 +36,9 @@ plan(skip_all => 'unsupported OpenSSL version')
 	if $t->{_configure_args} =~ /^built with OpenSSL 3\.2\.1-dev\s*$/m
 		|| $t->{_configure_args} =~ /running with OpenSSL 3\.2\.1-dev\s*\)$/m;
 
+plan(skip_all => 'no engine support since OpenSSL 4.0.0')
+	if $t->has_feature('openssl:4.0.0');
+
 # pkcs11-tool is part of the opensc package
 # it has been removed from some newer systems
 # but we'll still try to use it if it's available

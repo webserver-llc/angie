@@ -2781,13 +2781,16 @@ static int
 ngx_http_acme_server_error(ngx_http_acme_session_t *ses,
     const char *default_msg)
 {
+    u_char           *p, *end;
     ngx_str_t         s;
     ngx_data_item_t  *json;
+    u_char            errstr[NGX_MAX_CONF_ERRSTR];
+
+    p = errstr;
+    end = p + NGX_MAX_CONF_ERRSTR;
 
     if (default_msg) {
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0,
-                      "ACME server error: %s (http status code = %d)",
-                      default_msg, ses->status_code);
+        p = ngx_slprintf(p, end, "ACME: %s", default_msg);
     }
 
     json = NULL;
@@ -2823,8 +2826,13 @@ ngx_http_acme_server_error(ngx_http_acme_session_t *ses,
             ngx_str_set(&s, "N/A");
         }
 
-        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "ACME server error message: %V",
-                      &s);
+        p = ngx_slprintf(p, end, "%s server returned: %V",
+                         (p != errstr) ? "," : "ACME", &s);
+    }
+
+    if (p != errstr) {
+        ngx_log_error(NGX_LOG_ERR, ses->log, 0, "%*s", (size_t) (p - errstr),
+                      errstr);
     }
 
     return !!json;

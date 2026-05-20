@@ -2332,7 +2332,7 @@ ngx_http_metric_zone_complex(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (shm_zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "%V \"%V\" is already exists",
+                           "%V \"%V\" already exists",
                            &cmd->name, &shm_zone->shm.name);
         return NGX_CONF_ERROR;
     }
@@ -2451,7 +2451,7 @@ ngx_http_metric_zone_inline(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     if (shm_zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "%V \"%V\" is already exists",
+                           "%V \"%V\" already exists",
                            &cmd->name, &shm_zone->shm.name);
         return NGX_CONF_ERROR;
     }

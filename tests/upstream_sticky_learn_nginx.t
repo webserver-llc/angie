@@ -263,6 +263,10 @@ is(many('/server_live', 4, cookie => 'sid=value2'), "$p2: 4",
 is(many('/server_mismatch', 4, cookie => 'sid=value2'), "$p2: 4",
 	'sticky timeout before mismatch');
 
+SKIP: {
+	skip 'reload is not working (perl >= 5.32 required)', 11
+		unless $t->has_feature('reload');
+
 my $conf = $t->read_file('nginx.conf');
 
 $conf =~ s/; # drain;/ drain;/g;
@@ -329,6 +333,7 @@ isnt(many('/server_case', 4, cookie => 'sid=VALUE2'), "$p2: 4",
 
 is(many('/route', 4, cookie => 'sid=value2'), "$p1: 4", 'route');
 
+}
 ###############################################################################
 
 sub http_get_cookie {

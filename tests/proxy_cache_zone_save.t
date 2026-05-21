@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_zone/);
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_zone reload/);
 
 # mmap may fail due to ASLR and test does some retries
 $t->skip_errors_check('alert', 'failed to restore zone at address', 'mmap');

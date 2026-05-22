@@ -352,6 +352,10 @@ sub staple {
 	);
 
 	return $s unless $s;
+
+	while (<$s>) {}
+	$s->close();
+
 	return join ' ', @resp;
 }
 

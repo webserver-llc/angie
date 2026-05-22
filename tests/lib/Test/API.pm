@@ -23,6 +23,7 @@ sub api_status {
 
 	my $with_debug = $t->has_module('debug');
 	my $with_http_metric = $t->has_module('http_metric');
+	my $with_stream_metric = $t->has_module('stream_metric');
 
 	my $build;
 	if ($t->{_configure_args} =~ /--build=(?|'([^']+)'|(\S+))/) {
@@ -226,6 +227,7 @@ sub api_status {
 	if ($config =~ /\s+stream\s+{/) {
 		$status->{stream} = subhashof({
 			limit_conns  => $limit_conns,
+			($with_stream_metric ? (metric_zones => hash_each(ignore())) : ()),
 			server_zones => hash_each(
 				subhashof({
 					data => $data,

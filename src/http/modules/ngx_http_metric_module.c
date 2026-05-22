@@ -3677,7 +3677,7 @@ ngx_http_metric_avg_mean_init(ngx_http_metric_state_ctx_t *sctx, void **pos,
 
         for (i = 0; i < count; i++) {
             cache[i].value = 0;
-            cache[i].timestamp = 0;
+            cache[i].timestamp = ngx_current_msec - sctx->args.avg.window;
         }
 
         *pos = &cache[i];
@@ -3838,7 +3838,7 @@ ngx_http_metric_avg_mean_calculate(ngx_http_metric_state_ctx_t *sctx,
     double                       *data;
     size_t                        rest;
     uint64_t                     *current;
-    ngx_msec_t                    window;
+    ngx_msec_t                    delta;
     ngx_uint_t                    count, i, n;
     ngx_http_metric_avg_cache_t  *cache;
 
@@ -3880,10 +3880,10 @@ ngx_http_metric_avg_mean_calculate(ngx_http_metric_state_ctx_t *sctx,
         count = ngx_min(n, rest);
         cache = *pos;
 
-        window = ngx_current_msec - sctx->args.avg.window;
-
         for (i = 0; i < count; i++) {
-            if ((uint64_t) window < cache[i].timestamp) {
+            delta = ngx_current_msec - (ngx_msec_t) cache[i].timestamp;
+
+            if (delta < sctx->args.avg.window) {
                 sctx->modes.avg.sum += cache[i].value;
                 sctx->modes.avg.count++;
             }

@@ -481,7 +481,7 @@ my %test_cases = (
 		http_get('/reload/angie/10');
 		http_get('/reload/angie/10');
 
-		$new_conf =~ s/window=off/window=99s/;
+		$new_conf =~ s/window=off/window=99h/;
 		$t->write_file('nginx.conf', $new_conf);
 		ok($t->reload(), 'reload average mean window 1');
 
@@ -503,8 +503,13 @@ my %test_cases = (
 
 		ok(!exists $res->{angie}, 'reload histogram 2');
 
-		is(get_json('/api/reload_inline/metrics/angie/'), 80,
+		http_get('/reload/angie/1');
+
+		is(get_json('/api/reload_inline/metrics/angie/'), 81,
 			'reload histogram 3');
+
+		is(get_json('/api/reload_complex/metrics/angie/2/'), 1,
+			'reload 3');
 
 		SKIP: {
 

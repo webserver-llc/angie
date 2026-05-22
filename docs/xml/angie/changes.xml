@@ -7,6 +7,24 @@
 
 <changes ver="1.12.0" date="">
 
+<change type="feature">
+<para lang="ru">
+произвольно конфигурируемый сбор статистики с помощью модуля Metric в
+STREAM; позволяет, используя различные методы (счетчики, гистограммы,
+скользящие средние и др.), агрегировать любые данные на разных стадиях
+обработки соединения в реальном времени с помощью переменных по заданным ключам
+и отдавать их в секции "/status/stream/metric_zones/" API статистики (с
+поддержкой Prometheus).
+</para>
+<para lang="en">
+the Metrics module enabling arbitrary, real‑time STREAM metrics collection
+with fully configurable aggregation methods (counters, histograms,
+moving averages, etc.); it allows tracking processing data at any stage,
+grouped by custom keys, and exposes the metrics via the
+"/status/stream/metric_zones/" API section (including Prometheus support).
+</para>
+</change>
+
 <change type="bugfix">
 при использовании параметра window метрики average mean результат
 мог посчитаться неправильно, в частности, вскоре после запуска системы

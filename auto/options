@@ -147,6 +147,7 @@ STREAM_UPSTREAM_RANDOM=YES
 STREAM_UPSTREAM_ZONE=YES
 STREAM_UPSTREAM_STICKY=YES
 STREAM_SSL_PREREAD=NO
+STREAM_METRIC=YES
 STREAM_MQTT_PREREAD=NO
 STREAM_RDP_PREREAD=NO
 
@@ -365,6 +366,8 @@ use the \"--with-mail_ssl_module\" option instead"
                                          STREAM_GEOIP=DYNAMIC       ;;
         --with-stream_ssl_preread_module)
                                          STREAM_SSL_PREREAD=YES     ;;
+        --without-stream_metric_module)
+                                         STREAM_METRIC=NO           ;;
         --with-stream_mqtt_preread_module)
                                          STREAM_MQTT_PREREAD=YES    ;;
         --with-stream_rdp_preread_module)
@@ -614,6 +617,7 @@ cat << END
   --without-stream_access_module     disable ngx_stream_access_module
   --without-stream_geo_module        disable ngx_stream_geo_module
   --without-stream_map_module        disable ngx_stream_map_module
+  --without-stream_metric_module     disable ngx_stream_metric_module
   --without-stream_split_clients_module
                                      disable ngx_stream_split_clients_module
   --without-stream_return_module     disable ngx_stream_return_module

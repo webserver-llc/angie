@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
+# (C) Maxim Dounin
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,8 +26,6 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
 	->has_daemon('openssl');
-
-plan(skip_all => 'LibreSSL') if $t->has_module('LibreSSL');
 
 $t->plan(9)->write_file_expand('nginx.conf', <<'EOF');
 
@@ -148,9 +148,27 @@ $t->run();
 # as a result, it is not possible to limit certificate checking
 # to self-signed certificates only when using OpenSSL 1.1.0+
 
+# LibreSSL 3.4.0+ interprets verify depth 0 as no limit
+
 like(get(8080, 'root'), qr/SUCCESS/, 'verify depth 0 - root');
-like(get(8080, 'int'),  qr/FAI|SUC/, 'verify depth 0 - no int');
+
+TODO: {
+local $TODO = 'off-by-one depth in OpenSSL 1.1.0+'
+	if $t->has_feature('openssl:1.1.0');
+local $TODO = 'no zero depth in LibreSSL 3.4.0+'
+	if $t->has_feature('libressl:3.4.0');
+
+like(get(8080, 'int'),  qr/FAILED/, 'verify depth 0 - no int');
+
+}
+
+TODO: {
+local $TODO = 'no zero depth in LibreSSL 3.4.0+'
+	if $t->has_feature('libressl:3.4.0');
+
 like(get(8080, 'end'),  qr/FAILED/,  'verify depth 0 - no end');
+
+}
 
 # with verify depth 1 (the default), one signature is
 # expected to be checked, so certificates directly signed
@@ -160,9 +178,26 @@ like(get(8080, 'end'),  qr/FAILED/,  'verify depth 0 - no end');
 # so with depth 1 it is possible to validate not only directly signed
 # certificates, but also chains with one intermediate certificate
 
+# LibreSSL 3.4.0+ ignores depth limit as long as verify callback returns 1;
+# fixed in LibreSSL 4.3.0, broken again in master after LibreSSL 4.3.1
+# (as seen on OpenBSD 7.9, with LibreSSL version reported as 4.3.0)
+
 like(get(8081, 'root'), qr/SUCCESS/, 'verify depth 1 - root');
 like(get(8081, 'int'),  qr/SUCCESS/, 'verify depth 1 - int');
-like(get(8081, 'end'),  qr/FAI|SUC/, 'verify depth 1 - no end');
+
+TODO: {
+local $TODO = 'off-by-one depth in OpenSSL 1.1.0+'
+	if $t->has_feature('openssl:1.1.0');
+local $TODO = 'ignored depth in LibreSSL 3.4.0+'
+	if $t->has_feature('libressl:3.4.0')
+	and not $t->has_feature('libressl:4.3.0')
+	or $t->has_feature('libressl:4.3.0')
+	and $^O eq 'openbsd'
+	or $t->has_feature('libressl:4.3.1');
+
+like(get(8081, 'end'),  qr/FAILED/, 'verify depth 1 - no end');
+
+}
 
 # with verify depth 2 it is also possible to validate up to two signatures,
 # so chains with one intermediate certificate are allowed

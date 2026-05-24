@@ -7,6 +7,25 @@
 
 <changes ver="1.11.6" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании директивы "rewrite" с регулярным  выражением, содержащим
+вложенные захваты PCRE, и строкой замены, ссылающейся на несколько таких
+захватов, атакующий при некоторых независящих от него обстоятельствах мог
+вызвать падение рабочего процесса, а на системах без рандомизации адресного
+пространства — выполнение произвольного кода (CVE-2026-9256);
+исправление портировано из nginx 1.31.1.
+</para>
+<para lang="en">
+when using the "rewrite" directive with a regex containing nested PCRE
+captures and a replacement string referencing multiple such captures,
+an attacker, given conditions beyond the attacker's control, could cause
+a worker process crash, or, on systems without address space layout
+randomization, arbitrary code execution (CVE-2026-9256);
+the fix was ported from nginx 1.31.1.
+</para>
+</change>
+
 </changes>
 
 

@@ -1,4 +1,14 @@
 
+Changes with Angie 1.11.6                                        25 May 2026
+
+    *) Security: when using the "rewrite" directive with a regex containing
+       nested PCRE captures and a replacement string referencing multiple
+       such captures, an attacker, given conditions beyond the attacker's
+       control, could cause a worker process crash, or, on systems without
+       address space layout randomization, arbitrary code execution
+       (CVE-2026-9256); the fix was ported from nginx 1.31.1.
+
+
 Changes with Angie 1.11.5                                        15 May 2026
 
     *) Security: when the "rewrite" directive with an unnamed capture (e.g.,

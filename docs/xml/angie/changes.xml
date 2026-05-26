@@ -294,6 +294,17 @@ specifies a variable that can be used in filter.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+ошибки при работе директивы "ssl_keylog_file" могли нарушать обработку
+произвольного соединения и приводить к другим ошибкам.
+</para>
+<para lang="en">
+errors encountered while processing the ssl_keylog_file directive
+might interrupt random connection or lead to other errors.
+</para>
+</change>
+
 </changes>
 
 

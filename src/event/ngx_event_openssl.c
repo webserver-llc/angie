@@ -325,6 +325,7 @@ ngx_ssl_keylogger(const ngx_ssl_conn_t *ssl_conn, const char *line)
     SSL_CTX           *ssl_ctx;
     ngx_err_t          err;
     ngx_ssl_t         *ssl;
+    ngx_connection_t  *c;
 
     static ngx_str_t   keylog_buf;
 
@@ -346,10 +347,12 @@ ngx_ssl_keylogger(const ngx_ssl_conn_t *ssl_conn, const char *line)
         return;
     }
 
+    c = ngx_ssl_get_connection(ssl_conn);
+
     size = len + 1;
 
     if (keylog_buf.len < size) {
-        p = ngx_realloc(keylog_buf.data, size, ssl->log);
+        p = ngx_realloc(keylog_buf.data, size, c->log);
         if (p == NULL) {
             return;
         }
@@ -369,12 +372,12 @@ ngx_ssl_keylogger(const ngx_ssl_conn_t *ssl_conn, const char *line)
 
     if ((size_t) n != size) {
         if (n == -1) {
-            ngx_log_error(NGX_LOG_ALERT, ssl->log, err,
+            ngx_log_error(NGX_LOG_ALERT, c->log, err,
                           ngx_write_fd_n " to \"%V\" failed",
                           &ssl->keylog_file->name);
         } else {
 
-            ngx_log_error(NGX_LOG_ALERT, ssl->log, 0,
+            ngx_log_error(NGX_LOG_ALERT, c->log, 0,
                           ngx_write_fd_n " returned only %z bytes of %uz",
                           n, size);
         }

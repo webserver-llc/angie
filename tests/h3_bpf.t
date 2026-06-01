@@ -298,7 +298,7 @@ sub get_worker_port_matches {
 
 		# ignore port used by systemd's service
 		if ($curr_port == 9090) {
-			$curr_port++;
+			next;
 		}
 
 		my $sock = IO::Socket::INET->new(

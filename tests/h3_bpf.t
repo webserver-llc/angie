@@ -320,6 +320,14 @@ sub get_worker_port_matches {
 			return;
 		}
 
+		# read out anything server might have sent to us before it received
+		# our CC. It is important, since we will reuse this exact local port.
+		if (IO::Select->new($sock)->can_read(1)) {
+			my $buf = '';
+			$sock->sysread($buf, 65535);
+			# typically, here is 38 bytes of MAX_STREAMS (bidi)
+		}
+
 		if (!defined $res{$pid}) {
 			$res{$pid} = $curr_port;
 			note("found match: local port $curr_port <==> worker pid $pid");
@@ -345,11 +353,6 @@ sub check_port_mapping {
 
 	# number of requests to perform to same worker
 	my $ntries = 1;
-
-	# attempt to run multiple requests using same source port may lead
-	# to situation when client will receive packet from incorrect connection
-	# (this looks like a client library issue: not checking for own DCID?)
-	# my $ntries = 10;
 
 	while(my ($xpid, $xport) = each %{ $tbl }) {
 		for my $k (1 .. $ntries) {

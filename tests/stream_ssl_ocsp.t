@@ -45,6 +45,8 @@ events {
 stream {
     %%TEST_GLOBALS_STREAM%%
 
+    resolver 127.0.0.1:5961;
+
     log_format test
         $ssl_server_name:$status:$ssl_client_verify:$ssl_session_reused;
     access_log %%TESTDIR%%/test.log test;
@@ -274,6 +276,13 @@ foreach my $name ('rsa') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
+
+# TODO: use substituted ports for parallel execution for DNS server
+my %addrs = (
+	'localhost' => ['127.0.0.1', '::1'],
+);
+
+$t->start_resolver(5961, \%addrs);
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));

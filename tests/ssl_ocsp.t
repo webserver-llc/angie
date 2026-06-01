@@ -43,6 +43,8 @@ events {
 http {
     %%TEST_GLOBALS_HTTP%%
 
+    resolver 127.0.0.1:5960;
+
     ssl_ocsp leaf;
     ssl_verify_client on;
     ssl_verify_depth 2;
@@ -264,6 +266,14 @@ foreach my $name ('rsa') {
 		. ">>$d/openssl.out 2>&1") == 0
 		or die "Can't create certificate for $name: $!\n";
 }
+
+
+# TODO: use substituted ports for parallel execution for DNS server
+my %addrs = (
+	'localhost' => ['127.0.0.1', '::1'],
+);
+
+$t->start_resolver(5960, \%addrs);
 
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));

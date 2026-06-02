@@ -59,11 +59,16 @@ sub new {
 	my $tname = (caller(0))[1];
 	my $basename = basename($tname, '.t');
 
-	$self->{_testdir} = tempdir(
-		"angie-test-$basename-XXXXXXXXXX",
-		TMPDIR => 1
-	)
-		or die "Can't create temp directory: $!\n";
+	if ($ENV{TEST_ANGIE_TMPDIR}) {
+		$self->{_testdir} = $ENV{TEST_ANGIE_TMPDIR};
+
+	} else {
+		$self->{_testdir} = tempdir(
+			"angie-test-$basename-XXXXXXXXXX",
+			TMPDIR => 1
+		)
+			or die "Can't create temp directory: $!\n";
+	}
 
 	Test::More::BAIL_OUT("no $NGINX binary found")
 		unless -x $NGINX;

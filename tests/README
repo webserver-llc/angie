@@ -27,6 +27,10 @@ TEST_ANGIE_VERBOSE
     Be a bit more verbose (in particular, print requests sent and responses
     got from Angie).  Note that this requires prove -v (or HARNESS_VERBOSE).
 
+TEST_ANGIE_TMPDIR
+
+    Use provided temporary directory for the test instead of creating one.
+
 TEST_ANGIE_LEAVE
 
     Specifies whether a temporary directory with configs and logs should be

@@ -26,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite charset gzip/)
-	->plan(142);
+	->plan(143);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -757,6 +757,29 @@ $frames = $s->read(all => [{ sid => $sid, length => 80 }]);
 @data = grep { $_->{type} eq "DATA" } @$frames;
 $sum = eval join '+', map { $_->{length} } @data;
 is($sum, 80, 'iws duplicate - updated stream window 2');
+
+# SETTINGS frame split after INITIAL_WINDOW_SIZE
+
+TODO: {
+local $TODO = 'not yet';
+
+$s = Test::Nginx::HTTP2->new();
+
+# $s->h2_settings(0, 0x4 => 2**17, 0x5 => 16384);
+syswrite($s->{socket}, pack("x2C2x5nN", 12, 0x4, 4, 2**17));
+select undef, undef, undef, 0.2;
+
+syswrite($s->{socket}, pack("nN", 5, 16384));
+$s->h2_window(2**17);
+
+$sid = $s->new_stream({ path => '/t1.html' });
+$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
+
+@data = grep { $_->{type} eq "DATA" } @$frames;
+$sum = eval join '+', map { $_->{length} } @data;
+is($sum, 2**16 + 80, 'iws - increased');
+
+}
 
 # probe for negative available space in a flow control window
 

@@ -92,6 +92,9 @@ $t->run();
 
 ###############################################################################
 
+TODO: {
+todo_skip 'broken QUIC SNI in OpenSSL', 10 if $t->has_feature('openssl:3.5.7');
+
 like(get_cert_cn(), qr!localhost!, 'default cert');
 like(get_cert_cn('example.com'), qr!example.com!, 'sni cert');
 
@@ -128,6 +131,8 @@ local $TODO = 'no TLSv1.3 sessions in LibreSSL'
 
 like(get('/name', 'localhost', $ctx), qr/^r:localhost$/m,
 	'ssl server name - reused');
+
+}
 
 }
 

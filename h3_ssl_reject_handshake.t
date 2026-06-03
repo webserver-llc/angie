@@ -101,6 +101,9 @@ $t->run();
 
 ###############################################################################
 
+TODO: {
+todo_skip 'broken QUIC SNI in OpenSSL', 7 if $t->has_feature('openssl:3.5.7');
+
 my $alert = 0x100 + 112; # "unrecognized_name"
 
 SKIP: {
@@ -139,6 +142,8 @@ local $TODO = 'broken send_alert in LibreSSL'
 	and not $t->has_feature('libressl:4.0.0');
 
 is(bad('virtual2', 8982), $alert, 'virtual 2 rejected');
+
+}
 
 }
 

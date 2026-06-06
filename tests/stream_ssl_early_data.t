@@ -24,11 +24,9 @@ use IPC::Open3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $openssl = $ENV{'TEST_ANGIE_OPENSSL_BINARY'} || 'openssl';
-
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl/)
 	->has(qw/http rewrite/)
-	->has_daemon($openssl);
+	->has_daemon('openssl');
 
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
 	if $t->has_module('LibreSSL');
@@ -158,8 +156,8 @@ sub early_get {
 
 	my $pid =
 		open3(my $ssl_in, my $ssl_out, my $ssl_err,
-			"$openssl s_client -connect localhost:$p -quiet -ign_eof $args")
-		or die "Can't run $openssl: $!";
+			"openssl s_client -connect localhost:$p -quiet -ign_eof $args")
+		or die "Can't run openssl: $!";
 
 	print $ssl_in $payload;
 

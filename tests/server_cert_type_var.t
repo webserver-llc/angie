@@ -22,11 +22,9 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $openssl = $ENV{'TEST_ANGIE_OPENSSL_BINARY'} || 'openssl';
-
 my $t = Test::Nginx->new()
 	->has(qw/http http_ssl/)
-	->has_daemon("$openssl")->plan(9);
+	->has_daemon("openssl")->plan(9);
 
 my $is_old_openssl = ($t->has_module('OpenSSL')
 	and not $t->has_feature('openssl:1.1.1'));
@@ -242,22 +240,22 @@ if (not ($is_old_openssl or $is_boringssl or $is_libressl or $is_aws_lc)) {
 }
 
 foreach my $type (@types) {
-	system("$openssl genpkey -algorithm $type -out $tdir/$type.key "
+	system("openssl genpkey -algorithm $type -out $tdir/$type.key "
 		. ">> $tdir/openssl.out 2>&1") == 0
 		or die "Can't create '$type' key$!\n";
 
-	system("$openssl req -new -config $tdir/openssl.conf "
+	system("openssl req -new -config $tdir/openssl.conf "
 		. "-subj /CN=$type/ -key $tdir/$type.key -x509 -nodes "
 		. "-days 365 -out $tdir/$type.crt "
 		. ">> $tdir/openssl.out 2>&1") == 0
 		or die "Can't create '$type' cecertificate: $!\n";
 }
 
-system("$openssl ecparam -name secp384r1 -genkey -out $tdir/ecdsa.key "
+system("openssl ecparam -name secp384r1 -genkey -out $tdir/ecdsa.key "
 		. ">> $tdir/openssl.out 2>&1") == 0
 	or die "Can't create 'ecdsa' key$!\n";
 
-system("$openssl req -new -config $tdir/openssl.conf "
+system("openssl req -new -config $tdir/openssl.conf "
 	. "-subj /CN=ecdsa/ -key $tdir/ecdsa.key -x509 -nodes "
 	. "-days 365 -out $tdir/ecdsa.crt "
 	. ">> $tdir/openssl.out 2>&1") == 0

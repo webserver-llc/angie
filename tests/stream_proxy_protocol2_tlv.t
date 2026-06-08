@@ -106,7 +106,7 @@ like($r, qr/ssl-sig-alg:SHA1\x0d?$/m, 'SSL_SIG_ALG');
 like($r, qr/ssl-key-alg:RSA512\x0d?$/m, 'SSL_KEY_ALG');
 
 SKIP: {
-skip 'no PCRE', 1 unless $t->has_module('rewrite');
+skip 'no PCRE', 1 unless $t->has_module('http') && $t->has_module('rewrite');
 
 like($r, qr/ssl-binary:true/, 'SSL_BINARY');
 

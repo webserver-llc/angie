@@ -67,7 +67,7 @@ http {
 
     map_hash_bucket_size 64;
 
-    map $http_auth_protocol $proxy_port {
+    map $http_auth_protocol $port {
 	imap %%PORT_8144%%;
 	pop3 %%PORT_8111%%;
 	smtp %%PORT_8026%%;
@@ -94,7 +94,7 @@ http {
         location = /mail/auth {
             add_header Auth-Status $reply;
             add_header Auth-Server 127.0.0.1;
-            add_header Auth-Port $proxy_port;
+            add_header Auth-Port $port;
             add_header Auth-Pass $passw;
             add_header Auth-Wait 1;
             add_header Auth-Error-SASL $sasl;

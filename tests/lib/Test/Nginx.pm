@@ -953,6 +953,18 @@ sub write_file_expand($$) {
 	my ($self, $name, $content) = @_;
 
 	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals()/gmse;
+
+	# evaluate possible value of the corresponding environment variable
+	my $events = $self->test_globals_events();
+
+	# try to replace it in file
+	my $count = ($content =~ s/%%TEST_GLOBALS_EVENTS%%/$events/gmse);
+
+	if (!$count && $events ne '') {
+		# there were no matches in file - auto-insert if variable is set
+		$content =~ s/events \{/events \{\n    $events/;
+	}
+
 	$content =~ s/%%TEST_GLOBALS_HTTP%%/$self->test_globals_http()/gmse;
 	$content =~ s/%%TEST_GLOBALS_STREAM%%/$self->test_globals_stream()/gmse;
 	$content =~ s/%%TESTDIR%%/$self->{_testdir}/gms;
@@ -1060,6 +1072,21 @@ sub test_globals() {
 	$s .= $self->test_globals_perl5lib() if $s !~ /env PERL5LIB/;
 
 	$self->{_test_globals} = $s;
+}
+
+
+sub test_globals_events() {
+	my ($self) = @_;
+
+	return $self->{_test_globals_events}
+		if defined $self->{_test_globals_events};
+
+	my $s = '';
+
+	$s .= $ENV{TEST_ANGIE_GLOBALS_EVENTS}
+		if $ENV{TEST_ANGIE_GLOBALS_EVENTS};
+
+	$self->{_test_globals_events} = $s;
 }
 
 sub test_globals_modules() {

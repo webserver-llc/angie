@@ -56,6 +56,10 @@ TEST_ANGIE_GLOBALS
 
     Sets additional directives in main context.
 
+TEST_ANGIE_GLOBALS_EVENTS
+
+    Sets additional directives in events context.
+
 TEST_ANGIE_GLOBALS_HTTP
 
     Sets additional directives in http context.

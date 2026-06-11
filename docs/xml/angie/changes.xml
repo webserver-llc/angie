@@ -8,6 +8,19 @@
 <changes ver="1.11.7" date="">
 
 <change type="bugfix">
+<para lang="ru">
+устранена ошибка компиляции с опцией "--with-stream=dynamic" в связи
+с обращением из ngx_stream_acme_module к неэкспортируемым внутренним
+данным ngx_http_acme_module, что приводило к ошибке линковки.
+</para>
+<para lang="en">
+fixed a compilation issue with the "--with-stream=dynamic" option caused
+by referencing non-exported internals of ngx_http_acme_module from
+ngx_stream_acme_module, leading to a linker error.
+</para>
+</change>
+
+<change type="bugfix">
 при использовании параметра window метрики average mean результат
 мог посчитаться неправильно, в частности, вскоре после запуска системы
 на Linux значения могли оставаться нулевыми.

@@ -917,6 +917,7 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_ACME = YES ]; then
+        USE_ACME=YES
         USE_OPENSSL=YES
         USE_JSON=YES
         HTTP_SSL=YES
@@ -1368,7 +1369,7 @@ if [ $STREAM != NO ]; then
 
     if [ $STREAM_ACME = YES ]; then
 
-        if [ $HTTP_ACME != YES ]; then
+        if [ $USE_ACME != YES ]; then
             echo "$0: error: ngx_stream_acme_module requires ngx_http_acme_module"
             exit 1
         fi
@@ -1586,6 +1587,20 @@ if [ $USE_DOCKER = YES ]; then
     ngx_module_incs=
     ngx_module_deps=src/core/ngx_docker.h
     ngx_module_srcs=src/core/ngx_docker.c
+    ngx_module_libs=
+    ngx_module_link=YES
+    ngx_module_order=
+
+    . auto/module
+fi
+
+
+if [ $USE_ACME = YES ]; then
+    ngx_module_type=CORE
+    ngx_module_name=ngx_acme_module
+    ngx_module_incs=
+    ngx_module_deps=src/core/ngx_acme.h
+    ngx_module_srcs=src/core/ngx_acme.c
     ngx_module_libs=
     ngx_module_link=YES
     ngx_module_order=

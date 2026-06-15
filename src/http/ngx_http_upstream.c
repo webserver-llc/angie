@@ -2964,6 +2964,10 @@ done:
         }
     }
 
+    if (u->peer.notify) {
+        u->peer.notify(&u->peer, u->peer.data, NGX_HTTP_UPSTREAM_NOTIFY_HEADER);
+    }
+
     rc = ngx_http_upstream_process_headers(r, u);
 
     if (rc == NGX_DONE) {

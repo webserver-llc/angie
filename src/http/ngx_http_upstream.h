@@ -66,6 +66,9 @@
 #define NGX_HTTP_UPSTREAM_IGN_VARY           0x00000200
 
 
+#define NGX_HTTP_UPSTREAM_NOTIFY_HEADER      0x01
+
+
 #define NGX_HTTP_UPSTREAM_CONNECTION_DROP_OFF  ((ngx_msec_t) -2)
 
 

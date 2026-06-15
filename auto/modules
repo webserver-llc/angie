@@ -1630,6 +1630,7 @@ if [ $HTTP = YES ] || [ $STREAM != NO ]; then
     if [ $HTTP_UPSTREAM_STICKY = YES ] || [ $STREAM_UPSTREAM_STICKY = YES ]
     then
         CORE_DEPS="$CORE_DEPS src/core/ngx_sticky.h"
+        CORE_SRCS="$CORE_SRCS src/core/ngx_sticky.c"
     fi
 fi
 

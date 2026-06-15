@@ -80,9 +80,6 @@ is(rr('/', 16), (join ' ', map { $p1, $p2, $p3, $p4 } (1 .. 4)),
 
 is(sticky('/', 'sticky=1', 4), "$p1 $p1 $p1 $p1", 'sticky');
 
-TODO: {
-todo_skip 'PRO-feature', 5;
-
 my $conf = $t->read_file('nginx.conf');
 
 $conf =~ s/(:$p1 route=.*);/$1 drain;/;
@@ -100,7 +97,6 @@ $t->write_file('nginx.conf', $conf);
 ok($t->reload(), 'reload - 2');
 
 is(sticky('/', 'sticky=1', 4), "$p1 $p1 $p1 $p1", 'still sticky - single');
-}
 
 ###############################################################################
 

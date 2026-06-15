@@ -9,6 +9,32 @@
 
 <change type="feature">
 <para lang="ru">
+дополнительный режим работы "learn" директивы "sticky" для привязки сессий
+к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
+разделяемой памяти сервера. Данный режим был ранее доступен в PRO версии.
+</para>
+<para lang="en">
+additional "learn" mode of the "sticky" directive for binding sessions to
+proxied servers that allows to discover sessions and save them in the server's
+shared memory. The mode was previously available in the PRO version.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+режим "drain", переводящий проксируемый сервер в новое состояние
+"draining", при котором на сервер направляются только запросы, привязанные
+с помощью модуля "sticky". Данный режим был ранее доступен в PRO версии.
+</para>
+<para lang="en">
+a "drain" mode that switches the proxied server to a new "draining"
+state, when only requests bound using the "sticky" module are sent to
+the server. The mode was previously available in the PRO version.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 произвольно конфигурируемый сбор статистики с помощью модуля Metric в
 STREAM; позволяет, используя различные методы (счетчики, гистограммы,
 скользящие средние и др.), агрегировать любые данные на разных стадиях

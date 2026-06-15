@@ -695,7 +695,8 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             }
 
             if (value[i].len == 0) {
-                goto invalid;
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "sid is empty");
+                return NGX_CONF_ERROR;
             }
 
             sid.len = value[i].len;

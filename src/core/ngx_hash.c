@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -12,7 +13,6 @@
 void *
 ngx_hash_find(ngx_hash_t *hash, ngx_uint_t key, u_char *name, size_t len)
 {
-    ngx_uint_t       i;
     ngx_hash_elt_t  *elt;
 
 #if 0
@@ -26,23 +26,14 @@ ngx_hash_find(ngx_hash_t *hash, ngx_uint_t key, u_char *name, size_t len)
     }
 
     while (elt->value) {
-        if (len != (size_t) elt->len) {
-            goto next;
+        if (len == (size_t) elt->len
+            && ngx_memcmp(name, elt->name, len) == 0)
+        {
+            return elt->value;
         }
-
-        for (i = 0; i < len; i++) {
-            if (name[i] != elt->name[i]) {
-                goto next;
-            }
-        }
-
-        return elt->value;
-
-    next:
 
         elt = (ngx_hash_elt_t *) ngx_align_ptr(&elt->name[0] + elt->len,
                                                sizeof(void *));
-        continue;
     }
 
     return NULL;

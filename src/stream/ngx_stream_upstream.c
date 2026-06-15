@@ -637,10 +637,33 @@ ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                 goto not_supported;
             }
 
+#if (NGX_STREAM_UPSTREAM_STICKY)
+            if (us->down == NGX_STREAM_UPSTREAM_DRAINING) {
+                goto down_and_drain;
+            }
+#endif
+
             us->down = 1;
 
             continue;
         }
+
+#if (NGX_STREAM_UPSTREAM_STICKY)
+        if (ngx_strcmp(value[i].data, "drain") == 0) {
+
+            if (!(uscf->flags & NGX_STREAM_UPSTREAM_DOWN)) {
+                goto not_supported;
+            }
+
+            if (us->down == 1) {
+                goto down_and_drain;
+            }
+
+            us->down = NGX_STREAM_UPSTREAM_DRAINING;
+
+            continue;
+        }
+#endif
 
         if (ngx_strncmp(value[i].data, "slow_start=", 11) == 0) {
 
@@ -841,6 +864,18 @@ not_supported:
                        &value[i]);
 
     return NGX_CONF_ERROR;
+
+#if (NGX_STREAM_UPSTREAM_STICKY)
+
+down_and_drain:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "incompatible parameters \"down\" and \"drain\"");
+
+    return NGX_CONF_ERROR;
+
+#endif
+
 }
 
 

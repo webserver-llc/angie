@@ -1116,6 +1116,11 @@ ngx_api_stream_upstream_peer_state_handler(ngx_api_entry_data_t data,
 
     peer = pctx->peer;
 
+#if (NGX_STREAM_UPSTREAM_STICKY)
+    if (peer->down & NGX_STREAM_UPSTREAM_DRAINING) {
+        ngx_str_set(&state, "draining");
+    } else
+#endif
     if (peer->down) {
         ngx_str_set(&state, "down");
 

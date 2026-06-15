@@ -1,4 +1,33 @@
 
+Changes with Angie 1.11.7                                        15 Jun 2026
+
+    *) Feature: compatibility with OpenSSL 4.0.
+
+    *) Bugfix: in some configurations, the response to an ACME DNS challenge
+       could be sent from a different IP address/interface than the one the
+       request was received on, which could result in a certificate issuance
+       failure.
+
+    *) Bugfix: when using the Docker module, rapid termination of containers
+       immediately after start could cause a worker process crash.
+
+    *) Bugfix: changing parameters in the "metric_zone" or
+       "metric_complex_zone" directives for an already existing zone could
+       cause a worker process crash on configuration reload.
+
+    *) Bugfix: when using the "window=" parameter of the "average mean"
+       metric, the result could be calculated incorrectly on some intervals;
+       in particular, shortly after system startup on Linux, the values
+       could remain zero.
+
+    *) Bugfix: the values of "count" and "histogram" metrics were output
+       incorrectly on 32-bit platforms after reaching 2^32-1.
+
+    *) Bugfix: the build failed when the ./configure option
+       "--with-stream=dynamic" was combined with
+       "--with-stream_acme_module"; the bug had appeared in 1.10.3.
+
+
 Changes with Angie 1.11.6                                        25 May 2026
 
     *) Security: when using the "rewrite" directive with a regex containing

@@ -21,7 +21,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl/)->plan(16);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl/)->plan(17);
 
 # config 1
 
@@ -322,6 +322,37 @@ isnt($code, 0, 'config syntax error as expected');
 
 like($log, qr/"acme_client" directive has an invalid algorithm value in the "eab" parameter/,
 	'got "invalid algorithm value" as expected');
+
+# config 9
+
+$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    acme_client test1 https://localhost/dir enabled=off;
+
+    acme_dns_port 127.0.0.1;
+    acme_http_port 127.0.0.1;
+
+    server {
+        listen %%PORT_8080%%;
+        server_name example.com;
+    }
+}
+
+EOF
+
+($code, $log) = $t->test_config();
+
+is($code, 0, 'acme_dns_port and acme_http_port');
 
 
 ###############################################################################

@@ -41,6 +41,17 @@ the fix was ported from nginx 1.31.2.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+IP-адрес без номера порта в директивах "acme_http_port" или "acme_dns_port"
+приводил к падению мастер-процесса при чтении конфигурации.
+</para>
+<para lang="en">
+an IP address without a port number in the "acme_http_port" or "acme_dns_port"
+directives caused a master process crash when reading the configuration.
+</para>
+</change>
+
 </changes>
 
 

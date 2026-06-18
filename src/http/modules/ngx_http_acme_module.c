@@ -6807,7 +6807,7 @@ ngx_http_acme_port(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if (ngx_inet_get_port(addr->sockaddr) == 0) {
-        ngx_inet_set_port(addr->sockaddr, *(uintptr_t *) cmd->post);
+        ngx_inet_set_port(addr->sockaddr, (uintptr_t) cmd->post);
     }
 
     port_conf->addr = addr;

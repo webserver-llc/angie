@@ -1,4 +1,24 @@
 
+Changes with Angie 1.11.8                                        18 Jun 2026
+
+    *) Security: when proxying a specially crafted request to a gRPC backend
+       using the "ignore_invalid_headers off;" and
+       "large_client_header_buffers" directives with a large value, a buffer
+       overflow could occur, allowing an attacker to corrupt the worker
+       process memory or cause its crash (CVE-2026-42055); the fix was
+       ported from nginx 1.31.2.
+
+    *) Security: when processing a specially crafted response with UTF-8
+       decoding via the "charset_map" directive, an out-of-bounds read could
+       occur, allowing an attacker to send limited worker process memory
+       contents to the client or cause its crash (CVE-2026-48142); the fix
+       was ported from nginx 1.31.2.
+
+    *) Bugfix: an IP address without a port number in the "acme_http_port"
+       or "acme_dns_port" directives caused a master process crash when
+       reading the configuration.
+
+
 Changes with Angie 1.11.7                                        15 Jun 2026
 
     *) Feature: compatibility with OpenSSL 4.0.

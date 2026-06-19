@@ -7,19 +7,6 @@
 
 <changes ver="1.12.0" date="">
 
-<change type="bugfix">
-<para lang="ru">
-если в директивах "acme_dns_port" и "acme_http_port" в качестве параметра
-указывался IP-адрес без номера порта, это приводило к падению на этапе
-разбора конфигурации.
-</para>
-<para lang="en">
-if the "acme_dns_port" and "acme_http_port" directives were given IP
-addresses without ports, this resulted in a crash during configuration
-parsing.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 дополнительный режим работы "learn" директивы "sticky" для привязки сессий
@@ -280,6 +267,56 @@ specifies a variable that can be used in filter.
 <para lang="en">
 errors encountered while processing the ssl_keylog_file directive
 might interrupt random connection or lead to other errors.
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.11.8" date="2026-06-18">
+
+<change type="security">
+<para lang="ru">
+при проксировании специально созданного запроса на gRPC-бэкенд с использованием
+директив "ignore_invalid_headers off;" и "large_client_header_buffers" с большим
+значением могло происходить переполнение буфера, что позволяло атакующему
+повредить память рабочего процесса или вызвать его падение (CVE-2026-42055);
+исправление портировано из nginx 1.31.2.
+</para>
+<para lang="en">
+when proxying a specially crafted request to a gRPC backend using the
+"ignore_invalid_headers off;" and "large_client_header_buffers" directives
+with a large value, a buffer overflow could occur, allowing an attacker to
+corrupt the worker process memory or cause its crash (CVE-2026-42055);
+the fix was ported from nginx 1.31.2.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при обработке специально переданного ответа с декодированием из UTF-8 через
+директиву "charset_map" могло происходить чтение данных за границами буфера,
+что позволяло атакующему отправить клиенту ограниченное содержимое памяти
+рабочего процесса или вызвать его падение (CVE-2026-48142);
+исправление портировано из nginx 1.31.2.
+</para>
+<para lang="en">
+when processing a specially crafted response with UTF-8 decoding via the
+"charset_map" directive, an out-of-bounds read could occur, allowing an
+attacker to send limited worker process memory contents to the client or
+cause its crash (CVE-2026-48142);
+the fix was ported from nginx 1.31.2.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+IP-адрес без номера порта в директивах "acme_http_port" или "acme_dns_port"
+приводил к падению мастер-процесса при чтении конфигурации.
+</para>
+<para lang="en">
+an IP address without a port number in the "acme_http_port" or "acme_dns_port"
+directives caused a master process crash when reading the configuration.
 </para>
 </change>
 

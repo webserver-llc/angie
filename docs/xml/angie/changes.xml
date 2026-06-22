@@ -9,6 +9,17 @@
 
 <change type="feature">
 <para lang="ru">
+снижено потребление CPU при использовании директивы "status_zone"
+с переменными в модулях HTTP и stream при интенсивной нагрузке.
+</para>
+<para lang="en">
+reduced CPU usage when using the "status_zone" directive with
+variables in the HTTP and stream modules under intensive load.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 дополнительный режим работы "learn" директивы "sticky" для привязки сессий
 к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
 разделяемой памяти сервера. Данный режим был ранее доступен в PRO версии.

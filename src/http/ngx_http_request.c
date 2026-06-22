@@ -4635,13 +4635,9 @@ ngx_api_status_zone_iterate(ngx_api_ctx_t *actx, ngx_http_stats_zone_t *zones,
     for (zone = zones; zone; zone = zone->next) {
         ictx.elts = zone;
 
-        ngx_rwlock_rlock(&zone->sh->lock);
-
         zone->current_node = zone->sh->first_node;
 
         rc = ngx_api_object_iterate(ngx_api_http_zones_iter, &ictx, actx);
-
-        ngx_rwlock_unlock(&zone->sh->lock);
 
         /* single zone */
         if (path.len != 0) {
@@ -4909,6 +4905,8 @@ ngx_http_get_stats_zone(ngx_http_request_t *r,
 #if (NGX_HTTP_SSL)
         stats_zone->ssl = status_zone->ssl;
 #endif
+
+        ngx_memory_barrier();
 
         zone->sh->last_node->next = stats_zone;
         zone->sh->last_node = stats_zone;

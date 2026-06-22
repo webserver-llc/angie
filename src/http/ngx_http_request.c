@@ -4870,6 +4870,22 @@ ngx_http_get_stats_zone(ngx_http_request_t *r,
 
     hash = ngx_crc32_short(key.data, key.len);
 
+    if (zone->sh->stats_count >= zone->count) {
+        node = ngx_http_stats_zone_lookup(&zone->sh->rbtree, &key, hash);
+        return node == NULL ? zone->sh->first_node
+                            : (ngx_http_stats_zone_node_t *) &node->color;
+    }
+
+    ngx_rwlock_rlock(&zone->sh->lock);
+
+    node = ngx_http_stats_zone_lookup(&zone->sh->rbtree, &key, hash);
+
+    ngx_rwlock_unlock(&zone->sh->lock);
+
+    if (node != NULL) {
+        return (ngx_http_stats_zone_node_t *) &node->color;
+    }
+
     ngx_rwlock_wlock(&zone->sh->lock);
 
     node = ngx_http_stats_zone_lookup(&zone->sh->rbtree, &key, hash);

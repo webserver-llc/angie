@@ -1446,6 +1446,12 @@ ngx_http_upstream_handler(ngx_event_t *ev)
 static void
 ngx_http_upstream_rd_check_broken_connection(ngx_http_request_t *r)
 {
+#if (NGX_HTTP_CLIENT)
+    if (r->connection->stub) {
+        return;
+    }
+#endif
+
     ngx_http_upstream_check_broken_connection(r, r->connection->read);
 }
 
@@ -1453,6 +1459,12 @@ ngx_http_upstream_rd_check_broken_connection(ngx_http_request_t *r)
 static void
 ngx_http_upstream_wr_check_broken_connection(ngx_http_request_t *r)
 {
+#if (NGX_HTTP_CLIENT)
+    if (r->connection->stub) {
+        return;
+    }
+#endif
+
     ngx_http_upstream_check_broken_connection(r, r->connection->write);
 }
 

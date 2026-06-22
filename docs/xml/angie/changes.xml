@@ -35,6 +35,23 @@ the server. The mode was previously available in the PRO version.
 
 <change type="feature">
 <para lang="ru">
+директива "goto" в модуле rewrite выполняет внутренний редирект на
+именованный "location" без изменения URI; поддерживает условное выполнение
+внутри блока "if"; заменяет распространённые обходные решения на основе
+"try_files" с заведомо несуществующим путём или "error_page" с "return"
+и неиспользуемым кодом ответа.
+</para>
+<para lang="en">
+the "goto" directive in the rewrite module performs an internal redirect
+to a named location without modifying the URI; supports conditional
+execution inside an "if" block; replaces common workarounds based on
+"try_files" with a guaranteed-nonexistent path or "error_page" with
+"return" and an otherwise-unused status code.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 произвольно конфигурируемый сбор статистики с помощью модуля Metric в
 STREAM; позволяет, используя различные методы (счетчики, гистограммы,
 скользящие средние и др.), агрегировать любые данные на разных стадиях

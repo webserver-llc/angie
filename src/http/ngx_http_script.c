@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -1509,6 +1510,23 @@ ngx_http_script_return_code(ngx_http_script_engine_t *e)
     } else {
         e->status = code->status;
     }
+
+    e->ip = ngx_http_script_exit;
+}
+
+
+void
+ngx_http_script_goto_code(ngx_http_script_engine_t *e)
+{
+    ngx_http_script_goto_code_t  *code;
+
+    code = (ngx_http_script_goto_code_t *) e->ip;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, e->request->connection->log, 0,
+                   "http script goto: \"%V\"", &code->name);
+
+    e->status = ngx_http_named_location(e->request, &code->name);
+    e->finalize = 1;
 
     e->ip = ngx_http_script_exit;
 }

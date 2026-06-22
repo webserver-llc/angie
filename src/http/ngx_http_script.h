@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -30,6 +31,7 @@ typedef struct {
     unsigned                    quote:1;
     unsigned                    is_args:1;
     unsigned                    log:1;
+    unsigned                    finalize:1;
 
     ngx_int_t                   status;
     ngx_http_request_t         *request;
@@ -168,6 +170,12 @@ typedef struct {
 } ngx_http_script_return_code_t;
 
 
+typedef struct {
+    ngx_http_script_code_pt     code;
+    ngx_str_t                   name;
+} ngx_http_script_goto_code_t;
+
+
 typedef enum {
     ngx_http_script_file_plain = 0,
     ngx_http_script_file_not_plain,
@@ -253,6 +261,7 @@ void ngx_http_script_regex_start_code(ngx_http_script_engine_t *e);
 void ngx_http_script_regex_end_code(ngx_http_script_engine_t *e);
 #endif
 void ngx_http_script_return_code(ngx_http_script_engine_t *e);
+void ngx_http_script_goto_code(ngx_http_script_engine_t *e);
 void ngx_http_script_break_code(ngx_http_script_engine_t *e);
 void ngx_http_script_if_code(ngx_http_script_engine_t *e);
 void ngx_http_script_equal_code(ngx_http_script_engine_t *e);

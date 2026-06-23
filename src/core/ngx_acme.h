@@ -41,7 +41,7 @@ ngx_int_t ngx_acme_select_alpn_proto(const unsigned char **out,
     unsigned char *outlen, const unsigned char *in, unsigned int inlen);
 ngx_uint_t ngx_acme_is_alpn_needed(ngx_conf_t *cf);
 
-#if (NGX_STREAM_ACME)
+#if (NGX_STREAM && NGX_STREAM_ACME)
 ngx_acme_client_ref_t *ngx_stream_acme_find_client(ngx_conf_t *cf,
     ngx_str_t *name);
 #endif

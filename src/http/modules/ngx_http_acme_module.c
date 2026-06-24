@@ -304,8 +304,9 @@ static ngx_acme_session_t *ngx_http_acme_create_session(
 static void ngx_http_acme_destroy_session(ngx_acme_session_t **ses);
 static ngx_int_t ngx_http_acme_preconfiguration(ngx_conf_t *cf);
 static ngx_int_t ngx_http_acme_postconfiguration(ngx_conf_t *cf);
-static ngx_int_t ngx_http_acme_check_server_name(ngx_http_server_name_t *sn,
-    int wildcard_allowed);
+static ngx_int_t ngx_http_acme_add_server_names(ngx_conf_t *cf,
+    ngx_acme_client_t *cli,  ngx_array_t *server_names, u_char *cf_file_name,
+    ngx_uint_t cf_line);
 static void ngx_http_acme_fds_close(void *data);
 static size_t ngx_http_acme_file_size(ngx_file_t *file);
 static ngx_int_t ngx_http_acme_init_file(ngx_conf_t *cf, ngx_str_t *path,
@@ -416,8 +417,6 @@ static ngx_int_t ngx_http_acme_hook_variable(ngx_http_request_t *r,
 static ngx_int_t ngx_acme_handle_alpn_variable(ngx_pool_t *pool,
     ngx_variable_value_t *v, ngx_acme_client_t *cli, ngx_uint_t is_key,
     const void *proto, size_t proto_len);
-static ngx_int_t ngx_acme_add_domain(ngx_acme_client_t *cli,
-    ngx_str_t *domain);
 static ngx_int_t ngx_http_acme_add_client_var(ngx_conf_t *cf,
     ngx_acme_client_t *cli, ngx_http_variable_t *var);
 static ngx_data_item_t *ngx_data_object_vget_value(ngx_data_item_t *obj,
@@ -5032,8 +5031,8 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
                 return NGX_ERROR;
             }
 
-            if (ngx_acme_add_server_names(cf, cli, &cscf->server_names,
-                                          cscf->file_name, cscf->line)
+            if (ngx_http_acme_add_server_names(cf, cli, &cscf->server_names,
+                                               cscf->file_name, cscf->line)
                 != NGX_OK)
             {
                 return NGX_ERROR;
@@ -5315,79 +5314,6 @@ ngx_http_acme_postconfiguration(ngx_conf_t *cf)
         v->get_handler = ngx_http_acme_server_variable;
         v->data = (uintptr_t) &amcf->acme_server_var;
     }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_http_acme_check_server_name(ngx_http_server_name_t *sn,
-    int wildcard_allowed)
-{
-    u_char     *p;
-    size_t      len;
-    ngx_str_t  *s;
-#if (NGX_HAVE_INET6)
-    u_char      dummy[16];
-#endif
-
-#if (NGX_PCRE)
-    if (sn->regex) {
-        return NGX_ERROR;
-    }
-#endif
-
-
-    /*
-     * This is mostly a sanity check with support for wildcard domains.
-     * It doesn't check for everything, e.g. hyphens in the wrong places, etc.
-     */
-
-    p = sn->name.data;
-    len = sn->name.len;
-
-    if (len < 3) {
-        return NGX_ERROR;
-    }
-
-    if ((*p == '*' || *p == '.') && !wildcard_allowed) {
-        return NGX_ERROR;
-    }
-
-    if (*p == '*') {
-        p++;
-        len--;
-
-        if (*p != '.') {
-            return NGX_ERROR;
-        }
-    }
-
-    while (len) {
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-            (*p >= '0' && *p <= '9') || *p == '-' || *p == '.')
-        {
-            p++;
-            len--;
-
-        } else {
-            return NGX_ERROR;
-        }
-    }
-
-    s = &sn->name;
-
-    /* IPs are not allowed */
-
-    if (ngx_inet_addr(s->data, s->len) != INADDR_NONE) {
-        return NGX_ERROR;
-    }
-
-#if (NGX_HAVE_INET6)
-    if (ngx_inet6_addr(s->data, s->len, dummy) == NGX_OK) {
-        return NGX_ERROR;
-    }
-#endif
 
     return NGX_OK;
 }
@@ -7184,11 +7110,11 @@ ngx_calc_cert_size(ngx_array_t *domains)
 }
 
 
-ngx_int_t
-ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
+static ngx_int_t
+ngx_http_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     ngx_array_t *server_names, u_char *cf_file_name, ngx_uint_t cf_line)
 {
-    ngx_str_t                s, name;
+    ngx_int_t                rc;
     ngx_uint_t               n, valid_domains;
     ngx_http_server_name_t  *sn;
 
@@ -7196,51 +7122,17 @@ ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
     valid_domains = 0;
 
     for (n = 0; n < server_names->nelts; n++) {
-        name = sn[n].name;
+        rc = ngx_acme_add_server_name(cf, cli, &sn[n].name);
 
-        if (!name.len) {
-            /* may contain an empty server_name */
-            continue;
-        }
-
-        if (ngx_http_acme_check_server_name(&sn[n],
-                                            cli->challenge == NGX_AC_DNS_01))
-        {
-            ngx_log_error(NGX_LOG_WARN, cf->log, 0,
-                          "unsupported domain format \"%V\" used "
-                          "by ACME client \"%V\", ignored", &name, &cli->name);
-            continue;
-        }
-
-        valid_domains++;
-
-        if (name.data[0] != '.') {
-            if (ngx_acme_add_domain(cli, &name) != NGX_OK) {
-                return NGX_ERROR;
-            }
-
-            continue;
-        }
-
-        s.data = ngx_pnalloc(cf->pool, name.len + 1);
-        if (s.data == NULL) {
+        if (rc == NGX_ERROR) {
             return NGX_ERROR;
         }
 
-        s.data[0] = '*';
-        ngx_memcpy(s.data + 1, name.data, name.len);
-        s.len = name.len + 1;
-
-        if (ngx_acme_add_domain(cli, &s) != NGX_OK) {
-            return NGX_ERROR;
+        if (rc == NGX_OK) {
+            valid_domains++;
         }
 
-        name.data++;
-        name.len--;
-
-        if (ngx_acme_add_domain(cli, &name) != NGX_OK) {
-            return NGX_ERROR;
-        }
+        /* NGX_DECLINED */
     }
 
     if (valid_domains == 0) {
@@ -7252,75 +7144,6 @@ ngx_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
 
         return NGX_ERROR;
     }
-
-    return NGX_OK;
-}
-
-
-static ngx_int_t
-ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain)
-{
-    ngx_str_t   *s;
-    ngx_int_t    i;
-    ngx_uint_t   wclen;
-
-    for (i = cli->domains->nelts - 1; i >= 0; i--) {
-        s = &((ngx_str_t *) cli->domains->elts)[i];
-
-        if (s->len == domain->len
-            && ngx_strncasecmp(s->data, domain->data, s->len) == 0)
-        {
-            /* Duplicate domain, ignore. */
-            return NGX_OK;
-        }
-
-        if ((s->data[0] == '*') == (domain->data[0] == '*')) {
-            /* Non-matching domain, continue searching. */
-            continue;
-        }
-
-        if (s->data[0] == '*') {
-            wclen = s->len - 1;
-
-            if (domain->len > wclen
-                && ngx_strncasecmp(domain->data + domain->len - wclen,
-                                   s->data + 1, wclen) == 0)
-            {
-                /*
-                 * We are adding a non-wildcard domain that matches a wildcard
-                 * domain in the list, ignore it.
-                 */
-                return NGX_OK;
-            }
-
-        } else {
-            wclen = domain->len - 1;
-
-            if (s->len > wclen
-                && ngx_strncasecmp(s->data + s->len - wclen,
-                                   domain->data + 1, wclen) == 0)
-            {
-                /*
-                 * We are adding a wildcard domain that matches a non-wildcard
-                 * domain in the list, remove the non-wildcard domain from the
-                 * list. We need to remove all the matching non-wildcard
-                 * domains from the list and replace them with the wildcard
-                 * domain.
-                 */
-                ngx_memmove(s, &s[1],
-                            (cli->domains->nelts - 1 - i) * sizeof(ngx_str_t));
-
-                cli->domains->nelts--;
-            }
-        }
-    }
-
-    s = ngx_array_push(cli->domains);
-    if (s == NULL) {
-        return NGX_ERROR;
-    }
-
-    *s = *domain;
 
     return NGX_OK;
 }

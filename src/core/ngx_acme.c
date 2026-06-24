@@ -11,6 +11,8 @@
 
 
 static void *ngx_acme_create_conf(ngx_cycle_t *cycle);
+static ngx_int_t ngx_acme_check_server_name(ngx_str_t *name, int wildcard_allowed);
+static ngx_int_t ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain);
 
 
 static ngx_core_module_t  ngx_acme_module_ctx = {
@@ -136,6 +138,185 @@ ngx_acme_clients(ngx_cycle_t *cycle)
     acf = (ngx_acme_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_acme_module);
 
     return &acf->clients;
+}
+
+
+static ngx_int_t
+ngx_acme_check_server_name(ngx_str_t *name, int wildcard_allowed)
+{
+    u_char  *p;
+    size_t   len;
+#if (NGX_HAVE_INET6)
+    u_char   dummy[16];
+#endif
+
+    /*
+     * This is mostly a sanity check with support for wildcard domains.
+     * It doesn't check for everything, e.g. hyphens in the wrong places, etc.
+     */
+
+    p = name->data;
+    len = name->len;
+
+    if (len < 3 || name->data[0] == '~') {
+        /* domains specified with regular expressions are not supported */
+        return NGX_ERROR;
+    }
+
+    if ((*p == '*' || *p == '.') && !wildcard_allowed) {
+        return NGX_ERROR;
+    }
+
+    if (*p == '*') {
+        p++;
+        len--;
+
+        if (*p != '.') {
+            return NGX_ERROR;
+        }
+    }
+
+    while (len) {
+        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+            (*p >= '0' && *p <= '9') || *p == '-' || *p == '.')
+        {
+            p++;
+            len--;
+
+        } else {
+            return NGX_ERROR;
+        }
+    }
+
+    /* IPs are not allowed */
+
+    if (ngx_inet_addr(name->data, name->len) != INADDR_NONE) {
+        return NGX_ERROR;
+    }
+
+#if (NGX_HAVE_INET6)
+    if (ngx_inet6_addr(name->data, name->len, dummy) == NGX_OK) {
+        return NGX_ERROR;
+    }
+#endif
+
+    return NGX_OK;
+}
+
+
+ngx_int_t
+ngx_acme_add_server_name(ngx_conf_t *cf, ngx_acme_client_t *cli,
+    ngx_str_t *name)
+{
+    ngx_str_t  s;
+
+    if (name->len == 0) {
+        /*
+         * server_names arrays used by "server_name" directives may contain
+         * empty names
+         */
+        return NGX_DECLINED;
+    }
+
+    if (ngx_acme_check_server_name(name, cli->challenge == NGX_AC_DNS_01)
+        != NGX_OK)
+    {
+        ngx_log_error(NGX_LOG_WARN, cf->log, 0,
+                      "unsupported domain format \"%V\" used "
+                      "by ACME client \"%V\", ignored", name, &cli->name);
+        return NGX_DECLINED;
+    }
+
+    if (name->data[0] != '.') {
+        return ngx_acme_add_domain(cli, name);
+    }
+
+    s.data = ngx_pnalloc(cf->pool, name->len + 1);
+    if (s.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    s.data[0] = '*';
+    ngx_memcpy(s.data + 1, name->data, name->len);
+    s.len = name->len + 1;
+
+    if (ngx_acme_add_domain(cli, &s) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    s.data = name->data + 1;
+    s.len = name->len - 1;
+
+    return ngx_acme_add_domain(cli, &s);
+}
+
+
+static ngx_int_t
+ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain)
+{
+    ngx_str_t   *s;
+    ngx_int_t    i;
+    ngx_uint_t   wclen;
+
+    for (i = cli->domains->nelts - 1; i >= 0; i--) {
+        s = &((ngx_str_t *) cli->domains->elts)[i];
+
+        if (s->len == domain->len
+            && ngx_strncasecmp(s->data, domain->data, s->len) == 0)
+        {
+            /* Duplicate domain, ignore. */
+            return NGX_OK;
+        }
+
+        if ((s->data[0] == '*') == (domain->data[0] == '*')) {
+            /* Non-matching domain, continue searching. */
+            continue;
+        }
+
+        if (s->data[0] == '*') {
+            wclen = s->len - 1;
+
+            if (domain->len > wclen
+                && ngx_strncasecmp(domain->data + domain->len - wclen,
+                                   s->data + 1, wclen) == 0)
+            {
+                /*
+                 * We are adding a non-wildcard domain that matches a wildcard
+                 * domain in the list, ignore it.
+                 */
+                return NGX_OK;
+            }
+
+        } else {
+            wclen = domain->len - 1;
+
+            if (s->len > wclen
+                && ngx_strncasecmp(s->data + s->len - wclen,
+                                   domain->data + 1, wclen) == 0)
+            {
+                /*
+                 * We are adding a wildcard domain that matches a non-wildcard
+                 * domain in the list, remove the non-wildcard domain from the
+                 * list. We need to remove all the matching non-wildcard
+                 * domains from the list and replace them with the wildcard
+                 * domain.
+                 */
+                ngx_memmove(s, &s[1],
+                            (cli->domains->nelts - 1 - i) * sizeof(ngx_str_t));
+
+                cli->domains->nelts--;
+            }
+        }
+    }
+
+    s = ngx_array_push(cli->domains);
+    if (s == NULL) {
+        return NGX_ERROR;
+    }
+
+    *s = *domain;
+
+    return NGX_OK;
 }
 
 

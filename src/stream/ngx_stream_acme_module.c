@@ -17,6 +17,9 @@ typedef struct {
 
 
 static ngx_int_t ngx_stream_acme_postconfig(ngx_conf_t *cf);
+static ngx_int_t ngx_stream_acme_add_server_names(ngx_conf_t *cf,
+    ngx_acme_client_t *cli, ngx_array_t *server_names, u_char *cf_file_name,
+    ngx_uint_t cf_line);
 static void *ngx_stream_acme_create_srv_conf(ngx_conf_t *cf);
 static ngx_int_t ngx_stream_acme_add_client_var(ngx_conf_t *cf,
     ngx_acme_client_t *cli, ngx_stream_variable_t *var);
@@ -102,8 +105,9 @@ ngx_stream_acme_postconfig(ngx_conf_t *cf)
 
         for (j = 0; j < ascf->clients.nelts; j++) {
 
-            if (ngx_acme_add_server_names(cf, cli_p[j], &cscf->server_names,
-                                          cscf->file_name, cscf->line)
+            if (ngx_stream_acme_add_server_names(cf, cli_p[j],
+                                                 &cscf->server_names,
+                                                 cscf->file_name, cscf->line)
                 != NGX_OK)
             {
                 return NGX_ERROR;
@@ -112,6 +116,45 @@ ngx_stream_acme_postconfig(ngx_conf_t *cf)
     }
 
     return ngx_stream_acme_add_vars(cf);
+}
+
+
+static ngx_int_t
+ngx_stream_acme_add_server_names(ngx_conf_t *cf, ngx_acme_client_t *cli,
+    ngx_array_t *server_names, u_char *cf_file_name, ngx_uint_t cf_line)
+{
+    ngx_int_t                  rc;
+    ngx_uint_t                 n, valid_domains;
+    ngx_stream_server_name_t  *sn;
+
+    sn = server_names->elts;
+    valid_domains = 0;
+
+    for (n = 0; n < server_names->nelts; n++) {
+        rc = ngx_acme_add_server_name(cf, cli, &sn[n].name);
+
+        if (rc == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        if (rc == NGX_OK) {
+            valid_domains++;
+        }
+
+        /* NGX_DECLINED */
+    }
+
+    if (valid_domains == 0) {
+        ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
+                      "no valid domain name defined in server "
+                      "block at %s:%ui for ACME client \"%V\" in %V:%ui",
+                      cf_file_name, cf_line, &cli->name,
+                      &cli->cf_filename, cli->cf_line);
+
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
 }
 
 

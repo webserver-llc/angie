@@ -49,28 +49,10 @@ typedef struct {
 
 
 typedef struct ngx_acme_client_s           ngx_acme_client_t;
-typedef struct ngx_http_acme_session_s     ngx_http_acme_session_t;
-typedef struct ngx_http_acme_sh_cert_s     ngx_http_acme_sh_cert_t;
+typedef struct ngx_acme_session_s          ngx_acme_session_t;
+typedef struct ngx_acme_sh_cert_s          ngx_acme_sh_cert_t;
 
-#ifndef _NGX_HTTP_H_INCLUDED_
-/*
- * The types below are defined in various HTTP modules and are not expected
- * to be used in a core module.
- *
- * However, the ACME implementation relies heavily on HTTP, and part of the
- * ACME client is implemented as an HTTP module.  As a result, this code may
- * be compiled either within the HTTP subsystem or outside of it.
- *
- * To keep it compatible with both contexts, we provide fallback definitions
- * when HTTP header files are not included.  Since these types are only used
- * via pointers, defining them as void is sufficient.
- */
-
-typedef void                               ngx_http_core_loc_conf_t;
-typedef void                               ngx_http_conf_ctx_t;
-typedef void                               ngx_http_complex_value_t;
-
-#endif
+typedef struct ngx_http_acme_client_s      ngx_http_acme_client_t;
 
 
 struct ngx_acme_client_s {
@@ -94,11 +76,9 @@ struct ngx_acme_client_s {
     u_char                      *private_key_data;
     ngx_file_t                   certificate_file;
     size_t                       certificate_file_size;
-    ngx_http_acme_session_t     *session;
-    ngx_http_acme_sh_cert_t     *sh_cert;
-    ngx_http_core_loc_conf_t    *hook_clcf;
-    ngx_http_conf_ctx_t         *hook_ctx;
-    ngx_http_complex_value_t    *hook_uri;
+    ngx_acme_session_t          *session;
+    ngx_acme_sh_cert_t          *sh_cert;
+    ngx_http_acme_client_t      *hcli;
     ngx_str_t                    eab_id;
     ngx_str_t                    eab_key;
     ngx_acme_eab_alg_t           eab_alg;

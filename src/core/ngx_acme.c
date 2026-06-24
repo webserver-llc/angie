@@ -112,6 +112,11 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
     cli->certificate_file.fd = NGX_INVALID_FILE;
     cli->eab_alg = NGX_AEA_HS256;
 
+    /*
+     * to be initialized properly in the http context:
+     * cli->hcli = NULL;
+     */
+
     cli_p = ngx_array_push(clients);
     if (cli_p == NULL) {
         return NULL;

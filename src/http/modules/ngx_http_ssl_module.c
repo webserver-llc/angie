@@ -2320,7 +2320,7 @@ ngx_api_http_ssl_acme_clients_handler(ngx_api_entry_data_t data,
     pkey = NULL;
 
     clients = ngx_acme_clients((ngx_cycle_t *) ngx_cycle);
-    if (clients == NULL || clients->nelts == 0) {
+    if (clients->nelts == 0) {
         return NGX_DECLINED;
     }
 
@@ -2356,7 +2356,7 @@ ngx_api_http_ssl_acme_clients_handler(ngx_api_entry_data_t data,
                 return NGX_ERROR;
             }
 
-            pitem->filename = *ngx_acme_client_name(cli);
+            pitem->filename = cli->name;
             pitem->chain = chain;
             pitem->pkey = pkey;
 

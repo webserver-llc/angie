@@ -1626,6 +1626,20 @@ if [ $USE_DOCKER = YES ]; then
 fi
 
 
+if [ $HTTP_ACME = YES ]; then
+    ngx_module_type=CORE
+    ngx_module_name=ngx_acme_module
+    ngx_module_incs=
+    ngx_module_deps=src/core/ngx_acme.h
+    ngx_module_srcs=src/core/ngx_acme.c
+    ngx_module_libs=
+    ngx_module_link=YES
+    ngx_module_order=
+
+    . auto/module
+fi
+
+
 if [ $HTTP = YES ] || [ $STREAM != NO ]; then
     if [ $HTTP_UPSTREAM_STICKY = YES ] || [ $STREAM_UPSTREAM_STICKY = YES ]
     then

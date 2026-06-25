@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
@@ -87,8 +88,8 @@ foreach my $name ('localhost') {
 $t->run_daemon(\&upgrade_fake_daemon);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Can't start test backend";
+eval { $t->waitforsocket('127.0.0.1:' . port(8081)); };
+die "Can't start test backend: $@" if $@;
 
 ###############################################################################
 

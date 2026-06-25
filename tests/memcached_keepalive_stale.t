@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Test for stale events handling in upstream keepalive.
@@ -82,8 +83,8 @@ $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts1);
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Unable to start memcached";
+eval { $t->waitforsocket('127.0.0.1:' . port(8081)); };
+die "Unable to start memcached: $@" if $@;
 
 ###############################################################################
 

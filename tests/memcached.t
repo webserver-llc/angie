@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Test for memcached backend.
@@ -72,8 +73,8 @@ if ($memhelp =~ /-U/) {
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Can't start memcached";
+eval { $t->waitforsocket('127.0.0.1:' . port(8081)); };
+die "Can't start memcached: $@" if $@;
 
 ###############################################################################
 

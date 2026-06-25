@@ -89,8 +89,8 @@ $t->write_file('index.html', 'SUCCESS');
 $t->write_file('50x.html', 'ERROR');
 
 $t->run_daemon(\&dns_daemon, $t);
-$t->waitforfile($t->testdir . '/' . port(8987))
-	or die "dns daemon failed to start\n";
+eval { $t->waitforfile($t->testdir . '/' . port(8987)); };
+die "dns daemon failed to start: $@\n" if $@;
 
 $t->plan(18)->run();
 

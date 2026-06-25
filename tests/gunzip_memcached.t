@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for gunzip filter module with memcached.
@@ -73,8 +74,8 @@ $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8081), @memopts);
 
 $t->run()->plan(2);
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Can't start memcached";
+eval { $t->waitforsocket('127.0.0.1:' . port(8081)); };
+die "Can't start memcached: $@" if $@;
 
 # Put compressed value into memcached.  This requires compress_threshold to be
 # set and compressed value to be at least 20% less than original one.

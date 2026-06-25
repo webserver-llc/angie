@@ -171,10 +171,10 @@ open STDERR, ">&", \*OLDERR;
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Can't start uwsgi";
-$t->waitforsocket('127.0.0.1:' . port(8082))
-	or die "Can't start uwsgi";
+for (1 .. 2) {
+	eval { $t->waitforsocket('127.0.0.1:' . port(808 . $_)); };
+	die "Can't start uwsgi: $@" if $@;
+}
 
 ###############################################################################
 

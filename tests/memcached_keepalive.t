@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Test for memcached with keepalive.
@@ -113,10 +114,11 @@ $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8082), @memopts2);
 
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081))
-	or die "Unable to start memcached";
-$t->waitforsocket('127.0.0.1:' . port(8082))
-	or die "Unable to start second memcached";
+eval { $t->waitforsocket('127.0.0.1:' . port(8081)); };
+die "Unable to start memcached: $@" if $@;
+
+eval { $t->waitforsocket('127.0.0.1:' . port(8082)); };
+die "Unable to start second memcached: $@" if $@;
 
 ###############################################################################
 

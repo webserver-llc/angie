@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -111,9 +112,10 @@ $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8082), @memopts);
 $t->run_daemon('memcached', '-l', '127.0.0.1', '-p', port(8083), @memopts);
 $t->run();
 
-$t->waitforsocket('127.0.0.1:' . port(8081)) or die "Can't start memcached";
-$t->waitforsocket('127.0.0.1:' . port(8082)) or die "Can't start memcached";
-$t->waitforsocket('127.0.0.1:' . port(8083)) or die "Can't start memcached";
+for (1 .. 3) {
+	eval { $t->waitforsocket('127.0.0.1:' . port(808 . $_)); };
+	die "Can't start memcached: $@" if $@;
+}
 
 ###############################################################################
 

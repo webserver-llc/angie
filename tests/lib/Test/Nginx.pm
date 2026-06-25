@@ -86,7 +86,9 @@ sub DESTROY {
 	$self->stop_daemons();
 	$self->stop_resolver();
 
-	if (Test::More->builder->expected_tests) {
+	my $do_log_check = Test::More->builder->expected_tests;
+
+	if ($do_log_check) {
 		foreach my $level (qw(alert crit emerg)) {
 			my $errors_re = join('|',
 				@{ $self->{_errors_to_skip}{$level} // [] });
@@ -116,13 +118,13 @@ sub DESTROY {
 		}
 	}
 
-	if (Test::More->builder->expected_tests) {
+	if ($do_log_check) {
 		my $errors = join "\n",
 			$self->find_in_file('error.log', qr/.+Sanitizer.+/);
 		Test::More::is($errors, '', 'no sanitizer errors');
 	}
 
-	if (Test::More->builder->expected_tests && $ENV{TEST_ANGIE_VALGRIND}) {
+	if ($do_log_check && $ENV{TEST_ANGIE_VALGRIND}) {
 		my $errors = $self->grep_file('valgrind.log', qr/^==\d+== .+/m);
 		Test::More::is($errors, '', 'no valgrind errors');
 	}
@@ -419,8 +421,8 @@ sub try_run {
 	eval {
 		open OLDERR, ">&", \*STDERR; close STDERR;
 		$self->run();
-		open STDERR, ">&", \*OLDERR;
 	};
+	open STDERR, ">&", \*OLDERR;
 
 	return $self unless $@;
 
@@ -439,9 +441,7 @@ sub try_run {
 		}
 	}
 
-	Test::More::diag($@);
-
-	die;
+	die $@;
 }
 
 sub retry_run($$) {
@@ -454,11 +454,14 @@ sub retry_run($$) {
 			open STDERR, ">&", \*OLDERR;
 		};
 
-		$k = $k + 1;
+		unless ($@) {
+			undef $self->{_setup_failed};
+			return $self;
+		}
 
-		return $self unless $@;
-		print("# attempt to run #$k/$attempts failed\n");
+		Test::More::diag("attempt to run #$k/$attempts failed");
 	}
+
 	return 0;
 }
 
@@ -525,14 +528,15 @@ sub run(;$) {
 
 	# wait for nginx to start
 
-	my $nginx_started = $self->waitforfile("$testdir/nginx.pid", $pid);
-	unless ($nginx_started) {
+	my $nginx_started = eval {
+		$self->waitforfile("$testdir/nginx.pid", $pid);
+	};
+	if (!$nginx_started || $@) {
 
 		# try to kill pid to prevent tests from hanging
-		stop_pid($pid, 1)
-			unless defined $nginx_started;
+		stop_pid($pid, 1);
 
-		die "Can't start nginx";
+		die "Can't start nginx" . (($@) ? ": $@" : '');
 	}
 
 	$self->{_started} = 1;
@@ -634,15 +638,19 @@ sub waitforfile($;$) {
 
 	for (1 .. ($sec * 10)) {
 		return 1 if -e $file;
-		return 0 if $exited;
+
+		if ($exited) {
+			$self->{_setup_failed} = 1;
+			return 0;
+		}
+
 		$exited = waitpid($pid, WNOHANG) != 0 if $pid;
 		select undef, undef, undef, 0.1;
 	}
 
 	my $c = get_caller();
-	Test::More::diag("$file was not created after $sec seconds ($c)");
-
-	return undef;
+	$self->{_setup_failed} = 1;
+	die "$file was not created after $sec seconds ($c)";
 }
 
 sub waitforsocket($) {
@@ -664,9 +672,8 @@ sub waitforsocket($) {
 	}
 
 	my $c = get_caller();
-	Test::More::diag("socket was not created after $sec seconds ($c)");
-
-	return undef;
+	$self->{_setup_failed} = 1;
+	die "socket on $peer was not created after $sec seconds ($c)";
 }
 
 sub waitforsslsocket($) {
@@ -689,9 +696,8 @@ sub waitforsslsocket($) {
 	}
 
 	my $c = get_caller();
-	Test::More::diag("SSL socket was not created after $sec seconds ($c)");
-
-	return undef;
+	$self->{_setup_failed} = 1;
+	die "SSL socket on $peer was not created after $sec seconds ($c)";
 }
 
 sub start_resolver {
@@ -748,8 +754,11 @@ EOF
 		'127.0.0.1');
 
 	# wait for pid file to appear
-	$self->waitforfile("$d/dnsmasq.pid", $resolver_pid)
-		or die "Can't start dnsmasq on port $port";
+	my $resolver_started = eval {
+		$self->waitforfile("$d/dnsmasq.pid", $resolver_pid);
+	};
+	die "Can't start dnsmasq on port $port" . (($@) ? ": $@" : '')
+		if !$resolver_started || $@;
 }
 
 sub stop_resolver {
@@ -837,7 +846,7 @@ sub reload {
 sub stop() {
 	my ($self) = @_;
 
-	$self->test_api();
+	$self->test_api() unless $self->{_setup_failed};
 
 	return $self unless $self->{_started};
 

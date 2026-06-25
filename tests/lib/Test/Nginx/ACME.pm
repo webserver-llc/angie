@@ -181,18 +181,20 @@ EOF
 	if ($mgmt_addr) {
 		my $mgmt_port = $params->{mgmt_port};
 
-		unless ($self->{t}->waitforsslsocket("127.0.0.1:$mgmt_port")) {
+		eval { $self->{t}->waitforsslsocket("127.0.0.1:$mgmt_port"); };
+		if ($@) {
 			$self->stop_pebble();
 			die "Couldn't start pebble's management interface on $mgmt_addr, "
-				. "pid $pid";
+				. "pid $pid: $@";
 		}
 
 		note("Pebble's management interface running on $mgmt_addr, pid $pid");
 	}
 
-	unless ($self->{t}->waitforsslsocket("127.0.0.1:$pebble_port")) {
+	eval { $self->{t}->waitforsslsocket("127.0.0.1:$pebble_port"); };
+	if ($@) {
 		$self->stop_pebble();
-		die "Couldn't start pebble on 0.0.0.0:$pebble_port, pid $pid";
+		die "Couldn't start pebble on 0.0.0.0:$pebble_port, pid $pid: $@";
 	}
 
 	note("Pebble running on 0.0.0.0:$pebble_port, pid $pid");
@@ -259,19 +261,21 @@ sub start_challtestsrv {
 	# but we check its availability on 127.0.0.1:$mgmt_port -- the way
 	# it will actually be used.
 
-	unless ($self->{t}->waitforsocket("127.0.0.1:$mgmt_port")) {
+	eval { $self->{t}->waitforsocket("127.0.0.1:$mgmt_port"); };
+	if ($@) {
 		$self->stop_challtestsrv();
 		die "Couldn't start challtestsrv's management interface on "
-			. "0.0.0.0:$mgmt_port, pid $pid";
+			. "0.0.0.0:$mgmt_port, pid $pid: $@";
 	}
 
 	note("Challtestsrv's management interface running on 0.0.0.0:$mgmt_port, "
 		. "pid $pid");
 
-	unless ($self->{t}->waitforsocket("127.0.0.1:$dns_port")) {
+	eval { $self->{t}->waitforsocket("127.0.0.1:$dns_port"); };
+	if ($@) {
 		$self->stop_challtestsrv();
 		die "Couldn't start challtestsrv's DNS server on "
-			. "127.0.0.1:$dns_port, pid $pid";
+			. "127.0.0.1:$dns_port, pid $pid: $@";
 	}
 
 	note("Challtestsrv's DNS server running on 127.0.0.1:$dns_port, pid $pid");

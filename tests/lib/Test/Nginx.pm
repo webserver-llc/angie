@@ -846,7 +846,7 @@ sub reload {
 sub stop() {
 	my ($self) = @_;
 
-	$self->test_api() unless $self->{_setup_failed};
+	$self->test_api();
 
 	return $self unless $self->{_started};
 
@@ -1687,6 +1687,10 @@ sub test_api {
 
 		unless ($self->{_started}) {
 			Test::More::skip 'API (the server is already stopped)', 1;
+		}
+
+		if ($self->{_setup_failed}) {
+			Test::More::skip 'API (setup failed)', 1;
 		}
 
 		my $unix_socket_params = {

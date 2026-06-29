@@ -1186,6 +1186,166 @@ ngx_json_list_encode(u_char *p, ngx_data_item_t *item,
 }
 
 
+ngx_int_t
+ngx_json_push_key(ngx_json_escape_t *ctx, const char *key)
+{
+    u_char  *p, *last;
+    size_t   len, left;
+    ngx_str_t  skey;
+
+    skey.data = (u_char *) key;
+    skey.len = ngx_strlen(key);
+
+    p = ctx->curr;
+    last = ctx->last;
+
+    left = last - p;
+
+    /* quoted escaped key + quoted value and a colon */
+    len = ngx_json_string_length(skey.data, skey.len) + sizeof(":qq") - 1;
+    if (ctx->comma) {
+        len++;
+    }
+
+    if (left < len) {
+        ctx->truncated = 1;
+        return NGX_DECLINED;
+    }
+
+    if (ctx->comma) {
+        *p++ = ',';
+
+    } else {
+        ctx->comma = 1;
+    }
+
+    p = ngx_json_string_encode(p, skey.data, skey.len);
+
+    *p++ = ':';
+
+    ctx->curr = p;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t ngx_cdecl
+ngx_json_push_string(ngx_json_escape_t *ctx, ngx_str_t *str)
+{
+    u_char  *p, *last;
+
+    p = ctx->curr;
+    last = ctx->last;
+
+    if ((last - p) < 2) {
+        ctx->truncated = 1;
+        return NGX_DECLINED;
+    }
+
+    *p++ = '"';
+
+    p = ngx_eslprintf(p, last - 1, NGX_STR_ESCAPE_JSON, "%V", str);
+    if (p == (last - 1)) {
+        ctx->truncated = 1;
+    }
+
+    *p++ = '"';
+
+    ctx->curr = p;
+
+    return NGX_OK;
+}
+
+
+ngx_int_t ngx_cdecl
+ngx_json_push_string_item(ngx_json_escape_t *ctx, ngx_str_t *str)
+{
+    u_char  *p, *last;
+
+    p = ctx->curr;
+    last = ctx->last;
+
+    if (ctx->comma) {
+        /* comma itself, and minimal next item ("" or {} or []) */
+        if ((last - p) < 3) {
+            ctx->truncated = 1;
+            return NGX_DECLINED;
+        }
+
+        *p++ = ',';
+
+    } else {
+        ctx->comma = 1;
+    }
+
+    ctx->curr = p;
+
+    return ngx_json_push_string(ctx, str);
+}
+
+
+ngx_int_t ngx_cdecl
+ngx_json_push_kv(ngx_json_escape_t *ctx, ngx_uint_t quote, const char *key,
+    const char *fmt, ...)
+{
+    va_list    args;
+    ngx_int_t  rc;
+
+    va_start(args, fmt);
+    rc = ngx_json_vpush_kv(ctx, 0, quote, key, fmt, args);
+    va_end(args);
+
+    return rc;
+}
+
+
+ngx_int_t
+ngx_json_vpush_kv(ngx_json_escape_t *ctx, ngx_uint_t escape_fmt,
+    ngx_uint_t quote, const char *key, const char *fmt, va_list args)
+{
+    u_char      *p, *last;
+    ngx_uint_t   flags;
+
+    flags = NGX_STR_ESCAPE_JSON;
+    if (escape_fmt) {
+        flags |= NGX_STR_ESCAPE_FMT;
+    }
+
+    if (ngx_json_push_key(ctx, key) != NGX_OK) {
+        return NGX_DECLINED;
+    }
+
+    p = ctx->curr;
+    last = ctx->last;
+
+    if (quote) {
+        *p++ = '\"';
+    }
+
+    p = ngx_evslprintf(p, last - 1, flags, fmt, args);
+    if (p == (last - 1)) {
+        /*
+         * simply consider that reaching buffer end means we failed to
+         * output full message;
+         *
+         * this leaves the rare case of message that exactly fits into
+         * the buffer; in this rare case we output full message but
+         * mark it as truncated, what does not seem to be very bad
+         */
+        ctx->truncated = 1;
+    }
+
+    if (quote) {
+        *p++ = '\"';
+    }
+
+    ctx->curr = p;
+
+    return NGX_OK;
+}
+
+
+
 static size_t
 ngx_json_string_length(u_char *start, size_t length)
 {

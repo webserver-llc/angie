@@ -20,12 +20,20 @@ typedef struct {
 } ngx_time_t;
 
 
+typedef struct {
+    ngx_str_t  format;
+    size_t     max_len;
+} ngx_time_format_t;
+
+
 void ngx_time_init(void);
 void ngx_time_update(void);
 void ngx_time_sigsafe_update(void);
 u_char *ngx_http_time(u_char *buf, time_t t);
 u_char *ngx_http_cookie_time(u_char *buf, time_t t);
 void ngx_gmtime(time_t t, ngx_tm_t *tp);
+size_t ngx_format_time_max_len(ngx_str_t *format);
+u_char *ngx_format_time(u_char *buf, ngx_str_t *format, ngx_time_t *tp);
 
 time_t ngx_next_time(time_t when);
 #define ngx_next_time_n      "mktime()"

@@ -62,6 +62,20 @@ static char  *week[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 static char  *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
+static ngx_str_t  week_full[] = {
+    ngx_string("Sunday"),    ngx_string("Monday"),   ngx_string("Tuesday"),
+    ngx_string("Wednesday"), ngx_string("Thursday"), ngx_string("Friday"),
+    ngx_string("Saturday"),
+};
+
+static ngx_str_t  months_full[] = {
+    ngx_string("January"), ngx_string("February"), ngx_string("March"),
+    ngx_string("April"),   ngx_string("May"),      ngx_string("June"),
+    ngx_string("July"),    ngx_string("August"),   ngx_string("September"),
+    ngx_string("October"), ngx_string("November"), ngx_string("December"),
+};
+
+
 void
 ngx_time_init(void)
 {
@@ -418,6 +432,228 @@ ngx_gmtime(time_t t, ngx_tm_t *tp)
     tp->ngx_tm_mon = (ngx_tm_mon_t) mon;
     tp->ngx_tm_year = (ngx_tm_year_t) year;
     tp->ngx_tm_wday = (ngx_tm_wday_t) wday;
+}
+
+
+/*
+ * Computes the exact maximum number of bytes ngx_format_time() can write
+ * for the given format string.
+ */
+size_t
+ngx_format_time_max_len(ngx_str_t *format)
+{
+    u_char  *p, *end;
+    size_t   len;
+
+    len = 0;
+    p = format->data;
+    end = p + format->len;
+
+    while (p < end) {
+        if (*p != '%') {
+            len++;
+            p++;
+            continue;
+        }
+
+        p++;  /* skip '%' */
+
+        if (p == end) {
+            break;
+        }
+
+        switch (*p++) {
+        case 'A': len += sizeof("Wednesday") - 1; break;  /* 9 */
+        case 'B': len += sizeof("September") - 1; break;  /* 9 */
+        case 'Z': len += sizeof("+03:00") - 1;    break;  /* 6 */
+        case 'z': len += sizeof("+0300") - 1;     break;  /* 5 */
+        case 'Y': len += 4;                       break;
+        case 'L': len += 3;                       break;
+        case 'a': case 'b': case 'h': len += 3;   break;
+        case 'y': case 'm': case 'd': case 'e':
+        case 'H': case 'I': case 'M': case 'S':
+        case 'p': case 'P':
+            len += 2;
+            break;
+        case 'n': case 't': case '%':
+            len += 1;
+            break;
+        default:
+            len += 2;  /* '%' + unknown char passed through */
+            break;
+        }
+    }
+
+    return len;
+}
+
+
+/*
+ * supported specifiers:
+ *    %Y    4-digit year
+ *    %y    2-digit year
+ *    %m    month (01-12)
+ *    %d    day of month (01-31)
+ *    %e    day of month, space-padded ( 1-31)
+ *    %H    hour (00-23)
+ *    %I    hour (01-12)
+ *    %M    minute (00-59)
+ *    %S    second (00-59)
+ *    %L    milliseconds (000-999)
+ *    %p    AM/PM
+ *    %P    am/pm
+ *    %a    abbreviated weekday name (Sun-Sat)
+ *    %A    full weekday name (Sunday-Saturday)
+ *    %b    abbreviated month name (Jan-Dec)
+ *    %h    same as %b
+ *    %B    full month name (January-December)
+ *    %z    timezone offset (+0300)
+ *    %Z    timezone offset, ISO 8601 (+03:00)
+ *    %n    newline
+ *    %t    tab
+ *    %%    literal %
+ *
+ * All wall-clock fields (%Y, %y, %m, %d, %e, %H, %I, %M, %S, %p, %P,
+ * %a, %A, %b, %h, %B) are computed in the timezone given by tp->gmtoff.
+ * The %z and %Z specifiers output that same offset.
+ */
+
+u_char *
+ngx_format_time(u_char *buf, ngx_str_t *format, ngx_time_t *tp)
+{
+    u_char      *p, *fmt, *end;
+    ngx_tm_t     tm;
+    ngx_int_t    gmtoff;
+    ngx_uint_t   hour12;
+
+    ngx_gmtime(tp->sec + tp->gmtoff * 60, &tm);
+    gmtoff = tp->gmtoff;
+
+    p = buf;
+    fmt = format->data;
+    end = fmt + format->len;
+
+    while (fmt < end) {
+        if (*fmt != '%') {
+            *p++ = *fmt++;
+            continue;
+        }
+
+        fmt++;  /* skip '%' */
+
+        if (fmt == end) {
+            break;
+        }
+
+        switch (*fmt) {
+
+        case 'Y':
+            p = ngx_sprintf(p, "%04d", tm.ngx_tm_year);
+            break;
+
+        case 'y':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_year % 100);
+            break;
+
+        case 'm':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_mon);
+            break;
+
+        case 'd':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_mday);
+            break;
+
+        case 'e':
+            p = ngx_sprintf(p, "%2d", tm.ngx_tm_mday);
+            break;
+
+        case 'H':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_hour);
+            break;
+
+        case 'I':
+            hour12 = tm.ngx_tm_hour % 12;
+            if (hour12 == 0) {
+                hour12 = 12;
+            }
+            p = ngx_sprintf(p, "%02ui", hour12);
+            break;
+
+        case 'M':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_min);
+            break;
+
+        case 'S':
+            p = ngx_sprintf(p, "%02d", tm.ngx_tm_sec);
+            break;
+
+        case 'L':
+            p = ngx_sprintf(p, "%03M", tp->msec);
+            break;
+
+        case 'p':
+            p = ngx_cpymem(p, tm.ngx_tm_hour < 12 ? "AM" : "PM", 2);
+            break;
+
+        case 'P':
+            p = ngx_cpymem(p, tm.ngx_tm_hour < 12 ? "am" : "pm", 2);
+            break;
+
+        case 'a':
+            p = ngx_cpymem(p, week[tm.ngx_tm_wday], 3);
+            break;
+
+        case 'A':
+            p = ngx_cpymem(p, week_full[tm.ngx_tm_wday].data,
+                              week_full[tm.ngx_tm_wday].len);
+            break;
+
+        case 'b':
+        case 'h':
+            p = ngx_cpymem(p, months[tm.ngx_tm_mon - 1], 3);
+            break;
+
+        case 'B':
+            p = ngx_cpymem(p, months_full[tm.ngx_tm_mon - 1].data,
+                              months_full[tm.ngx_tm_mon - 1].len);
+            break;
+
+        case 'z':
+            p = ngx_sprintf(p, "%c%02i%02i",
+                            gmtoff < 0 ? '-' : '+',
+                            ngx_abs(gmtoff / 60),
+                            ngx_abs(gmtoff % 60));
+            break;
+
+        case 'Z':
+            p = ngx_sprintf(p, "%c%02i:%02i",
+                            gmtoff < 0 ? '-' : '+',
+                            ngx_abs(gmtoff / 60),
+                            ngx_abs(gmtoff % 60));
+            break;
+
+        case 'n':
+            *p++ = LF;
+            break;
+
+        case 't':
+            *p++ = '\t';
+            break;
+
+        case '%':
+            *p++ = '%';
+            break;
+
+        default:
+            *p++ = '%';
+            *p++ = *fmt;
+            break;
+        }
+
+        fmt++;
+    }
+
+    return p;
 }
 
 

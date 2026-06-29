@@ -87,6 +87,10 @@ static char *ngx_http_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_http_core_error_log_user_tag(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
+static char *ngx_http_core_time_format(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static ngx_int_t ngx_http_variable_time_format(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 #if (NGX_HTTP_GZIP)
 static ngx_int_t ngx_http_gzip_accept_encoding(ngx_str_t *ae);
 static ngx_uint_t ngx_http_gzip_quantity(u_char *p, u_char *last);
@@ -795,6 +799,13 @@ static ngx_command_t  ngx_http_core_commands[] = {
       ngx_conf_set_msec_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_core_loc_conf_t, resolver_timeout),
+      NULL },
+
+    { ngx_string("time_format"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE2,
+      ngx_http_core_time_format,
+      0,
+      0,
       NULL },
 
 #if (NGX_HTTP_GZIP)
@@ -5695,6 +5706,68 @@ ngx_http_core_error_log_user_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
+
+static char *
+ngx_http_core_time_format(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t            *value;
+    ngx_time_format_t    *tf;
+    ngx_http_variable_t  *v;
+
+    value = cf->args->elts;
+
+    if (value[1].data[0] != '$') {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid variable name \"%V\"", &value[1]);
+        return NGX_CONF_ERROR;
+    }
+
+    value[1].len--;
+    value[1].data++;
+
+    v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_NOCACHEABLE);
+    if (v == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    tf = ngx_palloc(cf->pool, sizeof(ngx_time_format_t));
+    if (tf == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    tf->format = value[2];
+    tf->max_len = ngx_format_time_max_len(&tf->format);
+
+    v->get_handler = ngx_http_variable_time_format;
+    v->data = (uintptr_t) tf;
+
+    return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_http_variable_time_format(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    u_char             *p;
+    ngx_time_format_t  *tf;
+
+    tf = (ngx_time_format_t *) data;
+
+    p = ngx_pnalloc(r->pool, tf->max_len);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_format_time(p, &tf->format, ngx_timeofday()) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
+
+    return NGX_OK;
+}
 
 
 #if (NGX_HTTP_GZIP)

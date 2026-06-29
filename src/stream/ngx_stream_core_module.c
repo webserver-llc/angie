@@ -33,6 +33,10 @@ static char *ngx_stream_core_server_name(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
+static char *ngx_stream_core_time_format(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static ngx_int_t ngx_stream_variable_time_format(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data);
 #if (NGX_API)
 static char *ngx_stream_core_status_zone(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
@@ -144,6 +148,13 @@ static ngx_command_t  ngx_stream_core_commands[] = {
       ngx_conf_set_msec_slot,
       NGX_STREAM_SRV_CONF_OFFSET,
       offsetof(ngx_stream_core_srv_conf_t, preread_timeout),
+      NULL },
+
+    { ngx_string("time_format"),
+      NGX_STREAM_MAIN_CONF|NGX_CONF_TAKE2,
+      ngx_stream_core_time_format,
+      0,
+      0,
       NULL },
 
 #if (NGX_API)
@@ -1644,6 +1655,68 @@ ngx_stream_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_stream_core_time_format(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t              *value;
+    ngx_time_format_t      *tf;
+    ngx_stream_variable_t  *v;
+
+    value = cf->args->elts;
+
+    if (value[1].data[0] != '$') {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "invalid variable name \"%V\"", &value[1]);
+        return NGX_CONF_ERROR;
+    }
+
+    value[1].len--;
+    value[1].data++;
+
+    v = ngx_stream_add_variable(cf, &value[1], NGX_STREAM_VAR_NOCACHEABLE);
+    if (v == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    tf = ngx_palloc(cf->pool, sizeof(ngx_time_format_t));
+    if (tf == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    tf->format = value[2];
+    tf->max_len = ngx_format_time_max_len(&tf->format);
+
+    v->get_handler = ngx_stream_variable_time_format;
+    v->data = (uintptr_t) tf;
+
+    return NGX_CONF_OK;
+}
+
+
+static ngx_int_t
+ngx_stream_variable_time_format(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data)
+{
+    u_char             *p;
+    ngx_time_format_t  *tf;
+
+    tf = (ngx_time_format_t *) data;
+
+    p = ngx_pnalloc(s->connection->pool, tf->max_len);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_format_time(p, &tf->format, ngx_timeofday()) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
+
+    return NGX_OK;
 }
 
 

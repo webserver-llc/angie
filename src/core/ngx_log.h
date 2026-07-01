@@ -201,6 +201,17 @@ struct ngx_log_s {
 
 #endif
 
+#define ngx_log_copy_log(dst, src)                                            \
+    do {                                                                      \
+        (dst)->file = (src)->file;                                            \
+        (dst)->limit = (src)->limit;                                          \
+        (dst)->next = (src)->next;                                            \
+        (dst)->writer = (src)->writer;                                        \
+        (dst)->wdata = (src)->wdata;                                          \
+        (dst)->filter = (src)->filter;                                        \
+        (dst)->conf = (src)->conf;                                            \
+    } while (0)
+
 
 void ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, const char *filename,
     ngx_err_t err, const char *fmt, ...);

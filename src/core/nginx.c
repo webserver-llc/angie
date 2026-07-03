@@ -439,7 +439,7 @@ ngx_show_version_info(void)
             "             [-e filename] [-c filename] [-g directives]"
                           NGX_LINEFEED
             "             [--help] [--build-env] [--log-level=level]"
-            "             [--log-filters]"
+            " [--log-filters]"
                           NGX_LINEFEED NGX_LINEFEED
             "Options:" NGX_LINEFEED
             "  -?,-h,--help  : this help" NGX_LINEFEED

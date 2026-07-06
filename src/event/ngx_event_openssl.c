@@ -7789,11 +7789,13 @@ ngx_api_http_ssl_alt_names_handler(ngx_api_entry_data_t data,
 {
     ngx_api_http_ssl_dn_ctx_t  *nctx = ctx;
 
-    int               i, count;
-    ngx_str_t         s;
-    ngx_int_t         index, n;
-    GENERAL_NAME     *alt_name;
-    ngx_data_item_t  *list, *name;
+    int                 i, count, type;
+    ngx_str_t           s;
+    ngx_int_t           index, n;
+    GENERAL_NAME       *alt_name;
+    ngx_data_item_t    *list, *name;
+    const ASN1_STRING  *value;
+    u_char              buf[NGX_INET6_ADDRSTRLEN];
 
     if (nctx->alt_names == NULL) {
         return NGX_DECLINED;
@@ -7820,16 +7822,36 @@ ngx_api_http_ssl_alt_names_handler(ngx_api_entry_data_t data,
     for (i = 0; i != count; i++) {
         alt_name = sk_GENERAL_NAME_value(nctx->alt_names, i);
 
-        if (alt_name->type != GEN_DNS) {
+        value = GENERAL_NAME_get0_value(alt_name, &type);
+
+        if (type != GEN_DNS && type != GEN_IPADD) {
             continue;
         }
 
-        s.len = ASN1_STRING_length(alt_name->d.dNSName);
+        s.len = ASN1_STRING_length(value);
 #if OPENSSL_VERSION_NUMBER > 0x10100000L
-        s.data = (u_char *) ASN1_STRING_get0_data(alt_name->d.dNSName);
+        s.data = (u_char *) ASN1_STRING_get0_data(value);
 #else
-        s.data = ASN1_STRING_data(alt_name->d.dNSName);
+        s.data = ASN1_STRING_data(value);
 #endif
+
+        if (type == GEN_IPADD) {
+            switch (s.len) {
+                case 4:
+                    type = AF_INET;
+                    break;
+#if (NGX_HAVE_INET6)
+                case 16:
+                    type = AF_INET6;
+                    break;
+#endif
+                default:
+                    continue;
+            }
+
+            s.len = ngx_inet_ntop(type, s.data, buf, sizeof(buf));
+            s.data = buf;
+        }
 
         if (index < 0) {
             /* .../alt_names */

@@ -144,21 +144,21 @@ ngx_acme_clients(ngx_cycle_t *cycle)
 static ngx_int_t
 ngx_acme_check_server_name(ngx_str_t *name, int wildcard_allowed)
 {
-    u_char  *p;
-    size_t   len;
-#if (NGX_HAVE_INET6)
-    u_char   dummy[16];
-#endif
+    u_char  *p, *end;
 
     /*
      * This is mostly a sanity check with support for wildcard domains.
      * It doesn't check for everything, e.g. hyphens in the wrong places, etc.
      */
 
-    p = name->data;
-    len = name->len;
+    if (ngx_acme_str_is_ip(name)) {
+        /* IPs are allowed, but not for DNS-01 challenges. */
+        return wildcard_allowed ? NGX_ERROR : NGX_OK;
+    }
 
-    if (len < 3 || name->data[0] == '~') {
+    p = name->data;
+
+    if (name->len < 3 || *p == '~') {
         /* domains specified with regular expressions are not supported */
         return NGX_ERROR;
     }
@@ -167,38 +167,23 @@ ngx_acme_check_server_name(ngx_str_t *name, int wildcard_allowed)
         return NGX_ERROR;
     }
 
+    end = p + name->len;
+
     if (*p == '*') {
         p++;
-        len--;
 
         if (*p != '.') {
             return NGX_ERROR;
         }
     }
 
-    while (len) {
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-            (*p >= '0' && *p <= '9') || *p == '-' || *p == '.')
+    for ( /* void */ ; p < end; p++) {
+        if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')
+              || (*p >= '0' && *p <= '9') || *p == '-' || *p == '.'))
         {
-            p++;
-            len--;
-
-        } else {
             return NGX_ERROR;
         }
     }
-
-    /* IPs are not allowed */
-
-    if (ngx_inet_addr(name->data, name->len) != INADDR_NONE) {
-        return NGX_ERROR;
-    }
-
-#if (NGX_HAVE_INET6)
-    if (ngx_inet6_addr(name->data, name->len, dummy) == NGX_OK) {
-        return NGX_ERROR;
-    }
-#endif
 
     return NGX_OK;
 }
@@ -339,3 +324,17 @@ ngx_acme_create_conf(ngx_cycle_t *cycle)
     return acf;
 }
 
+
+ngx_uint_t
+ngx_acme_str_is_ip(ngx_str_t *str)
+{
+#if (NGX_HAVE_INET6)
+    u_char  dummy[16];
+#endif
+
+    return ngx_inet_addr(str->data, str->len) != INADDR_NONE
+#if (NGX_HAVE_INET6)
+           || ngx_inet6_addr(str->data, str->len, dummy) == NGX_OK
+#endif
+    ;
+}

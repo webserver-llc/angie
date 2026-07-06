@@ -9,6 +9,15 @@
 
 <change type="feature">
 <para lang="ru">
+получение сертификатов для IP-адресов по протоколу ACME.
+</para>
+<para lang="en">
+obtaining certificates for IP addresses using ACME.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 директива "time_format" позволяет определить переменную с произвольным
 форматом времени, поддерживающим спецификаторы в стиле strftime,
 а также %L для миллисекунд.

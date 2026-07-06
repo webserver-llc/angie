@@ -14,6 +14,13 @@
 #include <ngx_core.h>
 
 
+#define NGX_STR_ESCAPE_NONE        0
+#define NGX_STR_ESCAPE_JSON        1
+
+#define NGX_STR_ESCAPE_TYPE_MASK   0xff
+#define NGX_STR_ESCAPE_FMT  (((ngx_uint_t) 1) << ((NGX_PTR_SIZE) * 8 - 1))
+
+
 typedef struct {
     size_t      len;
     u_char     *data;
@@ -156,6 +163,14 @@ u_char * ngx_cdecl ngx_sprintf(u_char *buf, const char *fmt, ...);
 u_char * ngx_cdecl ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...);
 u_char * ngx_cdecl ngx_slprintf(u_char *buf, u_char *last, const char *fmt,
     ...);
+u_char * ngx_cdecl ngx_esprintf(u_char *buf, ngx_uint_t esc,
+    const char *fmt, ...);
+u_char * ngx_cdecl ngx_esnprintf(u_char *buf, size_t max, ngx_uint_t esc,
+    const char *fmt, ...);
+u_char * ngx_cdecl ngx_eslprintf(u_char *buf, u_char *last, ngx_uint_t escape,
+    const char *fmt, ...);
+u_char *ngx_evslprintf(u_char *buf, u_char *last, ngx_uint_t escape,
+    const char *fmt, va_list args);
 u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 #define ngx_vsnprintf(buf, max, fmt, args)                                   \
     ngx_vslprintf(buf, buf + (max), fmt, args)

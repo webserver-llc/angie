@@ -10,10 +10,14 @@
 #include <ngx_core.h>
 
 
+static u_char *ngx_vslprintf_real(u_char *buf, u_char *last, const char *fmt,
+    ngx_uint_t esc, va_list args);
 static u_char *ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64,
-    u_char zero, ngx_uint_t hexadecimal, ngx_uint_t width);
+    u_char zero, ngx_uint_t hexadecimal, ngx_uint_t width, ngx_uint_t esc);
 static u_char *ngx_sprintf_str(u_char *buf, u_char *last, u_char *src,
-    size_t len, ngx_uint_t hexadecimal);
+    size_t len, ngx_uint_t hexadecimal, ngx_uint_t esc);
+static u_char *ngx_sprintf_json(u_char *dst, u_char *last, u_char *src,
+    size_t size);
 static void ngx_encode_base64_internal(ngx_str_t *dst, ngx_str_t *src,
     const u_char *basis, ngx_uint_t padding);
 static ngx_int_t ngx_decode_base64_internal(ngx_str_t *dst, ngx_str_t *src,
@@ -127,7 +131,7 @@ ngx_sprintf(u_char *buf, const char *fmt, ...)
     va_list   args;
 
     va_start(args, fmt);
-    p = ngx_vslprintf(buf, (void *) -1, fmt, args);
+    p = ngx_vslprintf_real(buf, (void *) -1, fmt, 0, args);
     va_end(args);
 
     return p;
@@ -141,7 +145,7 @@ ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...)
     va_list   args;
 
     va_start(args, fmt);
-    p = ngx_vslprintf(buf, buf + max, fmt, args);
+    p = ngx_vslprintf_real(buf, buf + max, fmt, 0, args);
     va_end(args);
 
     return p;
@@ -155,15 +159,83 @@ ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...)
     va_list   args;
 
     va_start(args, fmt);
-    p = ngx_vslprintf(buf, last, fmt, args);
+    p = ngx_vslprintf_real(buf, last, fmt, 0, args);
     va_end(args);
 
     return p;
 }
 
 
+u_char * ngx_cdecl
+ngx_esprintf(u_char *buf, ngx_uint_t esc, const char *fmt, ...)
+{
+    u_char   *p;
+    va_list   args;
+
+    va_start(args, fmt);
+    p = ngx_vslprintf_real(buf, (void *) -1, fmt, esc, args);
+    va_end(args);
+
+    return p;
+}
+
+
+u_char * ngx_cdecl
+ngx_esnprintf(u_char *buf, size_t max, ngx_uint_t esc, const char *fmt, ...)
+{
+    u_char   *p;
+    va_list   args;
+
+    va_start(args, fmt);
+    p = ngx_vslprintf_real(buf, buf + max, fmt, esc, args);
+    va_end(args);
+
+    return p;
+}
+
+
+u_char * ngx_cdecl
+ngx_eslprintf(u_char *buf, u_char *last, ngx_uint_t esc, const char *fmt, ...)
+{
+    u_char   *p;
+    va_list   args;
+
+    va_start(args, fmt);
+    p = ngx_vslprintf_real(buf, last, fmt, esc, args);
+    va_end(args);
+
+    return p;
+}
+
+
+u_char * ngx_cdecl
+ngx_evslprintf(u_char *buf, u_char *last, ngx_uint_t esc, const char *fmt,
+    va_list args)
+{
+    return ngx_vslprintf_real(buf, last, fmt, esc, args);
+}
+
+
 u_char *
 ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
+{
+    return ngx_vslprintf_real(buf, last, fmt, 0, args);
+}
+
+
+#define ngx_escape_char(buf, last, ch, esc)                                   \
+    do {                                                                      \
+        if (esc & NGX_STR_ESCAPE_FMT) {                                       \
+            u_char tmp = ch;                                                  \
+            buf = ngx_sprintf_str(buf, last, (u_char *) &tmp, 1, 0, esc);     \
+        } else {                                                              \
+            *buf++ = ch;                                                      \
+        }                                                                     \
+    } while (0)
+
+static u_char *
+ngx_vslprintf_real(u_char *buf, u_char *last, const char *fmt, ngx_uint_t esc,
+    va_list args)
 {
     u_char                *p, zero;
     int                    d;
@@ -253,7 +325,7 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
             case 'V':
                 v = va_arg(args, ngx_str_t *);
 
-                buf = ngx_sprintf_str(buf, last, v->data, v->len, hex);
+                buf = ngx_sprintf_str(buf, last, v->data, v->len, hex, esc);
                 fmt++;
 
                 continue;
@@ -261,7 +333,7 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
             case 'v':
                 vv = va_arg(args, ngx_variable_value_t *);
 
-                buf = ngx_sprintf_str(buf, last, vv->data, vv->len, hex);
+                buf = ngx_sprintf_str(buf, last, vv->data, vv->len, hex, esc);
                 fmt++;
 
                 continue;
@@ -269,7 +341,7 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
             case 's':
                 p = va_arg(args, u_char *);
 
-                buf = ngx_sprintf_str(buf, last, p, slen, hex);
+                buf = ngx_sprintf_str(buf, last, p, slen, hex, esc);
                 fmt++;
 
                 continue;
@@ -392,14 +464,15 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
                     }
                 }
 
-                buf = ngx_sprintf_num(buf, last, ui64, zero, 0, width);
+                buf = ngx_sprintf_num(buf, last, ui64, zero, 0, width, esc);
 
                 if (frac_width) {
                     if (buf < last) {
                         *buf++ = '.';
                     }
 
-                    buf = ngx_sprintf_num(buf, last, frac, '0', 0, frac_width);
+                    buf = ngx_sprintf_num(buf, last, frac, '0', 0, frac_width,
+                                          esc);
                 }
 
                 fmt++;
@@ -423,9 +496,16 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
 
             case 'c':
                 d = va_arg(args, int);
-                *buf++ = (u_char) (d & 0xff);
-                fmt++;
 
+                if (esc & NGX_STR_ESCAPE_FMT) {
+                    u_char tmp = (d & 0xff);
+                    buf = ngx_sprintf_str(buf, last, &tmp, 1, 0, esc);
+                    fmt++;
+
+                } else {
+                    *buf++ = (u_char) (d & 0xff);
+                    fmt++;
+                }
                 continue;
 
             case 'Z':
@@ -436,12 +516,13 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
 
             case 'N':
 #if (NGX_WIN32)
-                *buf++ = CR;
+                ngx_escape_char(buf, last, CR, esc);
+
                 if (buf < last) {
-                    *buf++ = LF;
+                    ngx_escape_char(buf, last, LF, esc);
                 }
 #else
-                *buf++ = LF;
+                ngx_escape_char(buf, last, LF, esc);
 #endif
                 fmt++;
 
@@ -454,7 +535,14 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
                 continue;
 
             default:
-                *buf++ = *fmt++;
+
+                if (esc & NGX_STR_ESCAPE_FMT) {
+                    buf = ngx_sprintf_str(buf, last, (u_char *) fmt, 1, 0, esc);
+                    fmt++;
+
+                } else {
+                    *buf++ = *fmt++;
+                }
 
                 continue;
             }
@@ -469,12 +557,18 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
                 }
             }
 
-            buf = ngx_sprintf_num(buf, last, ui64, zero, hex, width);
+            buf = ngx_sprintf_num(buf, last, ui64, zero, hex, width, esc);
 
             fmt++;
 
         } else {
-            *buf++ = *fmt++;
+            if (esc & NGX_STR_ESCAPE_FMT) {
+                buf = ngx_sprintf_str(buf, last, (u_char *) fmt, 1, 0, esc);
+                fmt++;
+
+            } else {
+                *buf++ = *fmt++;
+            }
         }
     }
 
@@ -484,7 +578,7 @@ ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args)
 
 static u_char *
 ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64, u_char zero,
-    ngx_uint_t hexadecimal, ngx_uint_t width)
+    ngx_uint_t hexadecimal, ngx_uint_t width, ngx_uint_t esc)
 {
     u_char         *p, temp[NGX_INT64_LEN + 1];
                        /*
@@ -570,21 +664,31 @@ ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64, u_char zero,
 
 static u_char *
 ngx_sprintf_str(u_char *buf, u_char *last, u_char *src, size_t len,
-    ngx_uint_t hexadecimal)
+    ngx_uint_t hexadecimal, ngx_uint_t esc)
 {
+    ngx_uint_t      esc_type;
+
     static u_char   hex[] = "0123456789abcdef";
     static u_char   HEX[] = "0123456789ABCDEF";
 
     if (hexadecimal == 0) {
 
-        if (len == (size_t) -1) {
-            while (*src && buf < last) {
-                *buf++ = *src++;
+        esc_type = esc & NGX_STR_ESCAPE_TYPE_MASK;
+
+        if (esc_type == 0) {
+
+            if (len == (size_t) -1) {
+                while (*src && buf < last) {
+                    *buf++ = *src++;
+                }
+
+            } else {
+                len = ngx_min((size_t) (last - buf), len);
+                buf = ngx_cpymem(buf, src, len);
             }
 
-        } else {
-            len = ngx_min((size_t) (last - buf), len);
-            buf = ngx_cpymem(buf, src, len);
+        } else { /* if (esc_type == NGX_STR_ESCAPE_JSON) */
+            buf = ngx_sprintf_json(buf, last, src, len);
         }
 
     } else if (hexadecimal == 1) {
@@ -1932,6 +2036,88 @@ ngx_escape_html(u_char *dst, u_char *src, size_t size)
     }
 
     return (uintptr_t) dst;
+}
+
+
+static u_char *
+ngx_sprintf_json(u_char *dst, u_char *last, u_char *src, size_t size)
+{
+    u_char      ch;
+    ngx_uint_t  left, n;
+
+    left = last - dst;
+    n = size;
+
+    while (left && ((size == (size_t) -1) ? *src : n--)) {
+
+        ch = *src++;
+
+        if (ch > 0x1f) {
+
+            if (ch == '\\' || ch == '"') {
+
+                if (left < 2) {
+                    return dst;
+                }
+
+                *dst++ = '\\';
+                left--;
+            }
+
+            *dst++ = ch;
+
+        } else {
+
+            if (left < 2) {
+                return dst;
+            }
+
+            *dst++ = '\\';
+            left--;
+
+            switch (ch) {
+            case '\n':
+                *dst++ = 'n';
+                break;
+
+            case '\r':
+                *dst++ = 'r';
+                break;
+
+            case '\t':
+                *dst++ = 't';
+                break;
+
+            case '\b':
+                *dst++ = 'b';
+                break;
+
+            case '\f':
+                *dst++ = 'f';
+                break;
+
+            default:
+
+                if (left < 5) {
+                    /* avoid returning backslash at the end */
+                    return --dst;
+                }
+
+                *dst++ = 'u'; *dst++ = '0'; *dst++ = '0';
+                *dst++ = '0' + (ch >> 4);
+
+                left -= 4;
+
+                ch &= 0xf;
+
+                *dst++ = (ch < 10) ? ('0' + ch) : ('A' + ch - 10);
+            }
+        }
+
+        left--;
+    }
+
+    return dst;
 }
 
 

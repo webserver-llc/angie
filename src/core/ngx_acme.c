@@ -88,6 +88,7 @@ ngx_acme_client_add(ngx_conf_t *cf, ngx_str_t *name)
      *    cli->hook_uri = NULL;
      *    cli->eab_id = { 0, NULL };
      *    cli->eab_key = { 0, NULL };
+     *    cli->profile = { 0, NULL };
      *
      *    cli->renew_on_load = 0;
      *    cli->referenced = 0;

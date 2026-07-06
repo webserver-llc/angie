@@ -376,6 +376,8 @@ static ngx_buf_t *ngx_http_acme_create_dns_error_response(ngx_connection_t *c);
 static ngx_int_t ngx_http_acme_run(ngx_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_new_nonce(ngx_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_bootstrap(ngx_acme_session_t *ses);
+static void ngx_http_acme_log_profile_error(ngx_acme_session_t *ses,
+    ngx_data_item_t *profiles);
 static ngx_int_t ngx_http_acme_account_ensure(ngx_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_cert_issue(ngx_acme_session_t *ses);
 static ngx_int_t ngx_http_acme_authorize(ngx_acme_session_t *ses);
@@ -2046,13 +2048,18 @@ ngx_http_acme_identifiers(ngx_acme_session_t *ses, ngx_str_t *identifiers)
 {
     size_t        len;
     u_char       *p, *end;
-    ngx_str_t     s;
+    ngx_str_t     s, profile;
     ngx_uint_t    i;
     ngx_array_t  *domains;
 
     domains = ses->client->domains;
     len = sizeof("{\"identifiers\":[]}") - 1
           + domains->nelts - 1; /* separating commas */
+
+    profile = ses->client->profile;
+    if (profile.len != 0) {
+        len += sizeof("\"profile\":\"\",") - 1 + profile.len;
+    }
 
     for (i = 0; i < domains->nelts; i++) {
         s = ((ngx_str_t*) domains->elts)[i];
@@ -2065,10 +2072,17 @@ ngx_http_acme_identifiers(ngx_acme_session_t *ses, ngx_str_t *identifiers)
         return NGX_ERROR;
     }
 
-    p = ngx_cpymem(identifiers->data, "{\"identifiers\":[",
-                   sizeof("{\"identifiers\":[") - 1);
+    p = identifiers->data;
+    end = p + len;
 
-    end = identifiers->data + len;
+    if (profile.len != 0) {
+        p = ngx_slprintf(p, end, "{\"profile\":\"%V\",\"identifiers\":[",
+                         &profile);
+
+    } else {
+        p = ngx_cpymem(p, "{\"identifiers\":[",
+                       sizeof("{\"identifiers\":[") - 1);
+    }
 
     for (i = 0; i < domains->nelts; i++) {
         s = ((ngx_str_t*) domains->elts)[i];
@@ -2968,9 +2982,59 @@ ngx_http_acme_bootstrap(ngx_acme_session_t *ses)
         NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
     }
 
+    if (ses->client->profile.len != 0) {
+        item = ngx_data_object_get_value(ses->dir, "meta", "profiles", 0);
+
+        if (item == NULL || item->type != NGX_DATA_OBJECT_TYPE) {
+            ngx_log_error(NGX_LOG_ERR, ses->log, 0,
+                          "ACME server does not support profiles");
+            NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
+
+        } else if (ngx_data_object_find(item, &ses->client->profile) == NULL) {
+            ngx_http_acme_log_profile_error(ses, item);
+            NGX_ACME_TERMINATE(bootstrap, NGX_ERROR);
+        }
+    }
+
     NGX_ACME_END(bootstrap);
 
     return NGX_OK;
+}
+
+
+static void
+ngx_http_acme_log_profile_error(ngx_acme_session_t *ses,
+    ngx_data_item_t *profiles)
+{
+    u_char      *last, *p;
+    ngx_str_t    s;
+    const char  *sep;
+    u_char       buf[NGX_MAX_ERROR_STR];
+
+    sep = "";
+    p = buf;
+    last = p + NGX_MAX_ERROR_STR - 1;
+    p = ngx_slprintf(buf, last, "ACME server does not support profile \"%V\", "
+                     "supported profiles: ", &ses->client->profile);
+
+    profiles = profiles->data.child;
+
+    while (profiles) {
+        (void) ngx_data_get_string(&s, profiles);
+
+        /* skip the value */
+        profiles = profiles->next;
+
+        p = ngx_slprintf(p, last, "%s\"%V\"", sep, &s);
+
+        sep = ", ";
+
+        profiles = profiles->next;
+    }
+
+    *p = 0;
+
+    ngx_log_error(NGX_LOG_ERR, ses->log, 0, "%s", buf);
 }
 
 
@@ -6388,6 +6452,16 @@ ngx_http_acme_client(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             if (ngx_decode_base64url(&cli->eab_key, &s) != NGX_OK) {
                 return "has an invalid key value in the \"eab\" parameter";
             }
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "profile=", 8) == 0) {
+
+            value[i].data += 8;
+            value[i].len -= 8;
+
+            cli->profile = value[i];
 
             continue;
         }

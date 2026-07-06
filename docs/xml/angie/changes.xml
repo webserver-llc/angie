@@ -18,6 +18,17 @@ obtaining certificates for IP addresses using ACME.
 
 <change type="feature">
 <para lang="ru">
+поддержка ACME-профилей с помощью нового параметра "profile" директивы
+"acme_client".
+</para>
+<para lang="en">
+support for ACME profiles using a new "profile" parameter of the
+"acme_client" directive.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 директива "time_format" позволяет определить переменную с произвольным
 форматом времени, поддерживающим спецификаторы в стиле strftime,
 а также %L для миллисекунд.

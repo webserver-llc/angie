@@ -82,6 +82,7 @@ struct ngx_acme_client_s {
     ngx_str_t                    eab_id;
     ngx_str_t                    eab_key;
     ngx_acme_eab_alg_t           eab_alg;
+    ngx_str_t                    profile;
 
     unsigned                     enabled:1;
     unsigned                     renew_on_load:1;

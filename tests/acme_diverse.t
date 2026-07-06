@@ -92,7 +92,11 @@ my @keys = (
 	{ type => 'ecdsa', bits => 256 },
 );
 
-my @challenges = ('http', 'dns');
+my @challenges = ('http');
+
+if (!$acme_helper->{_dns_over_tcp}) {
+	push @challenges, 'dns';
+}
 
 if ($has_alpn) {
 	push @challenges, 'alpn';

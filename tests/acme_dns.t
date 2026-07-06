@@ -47,6 +47,9 @@ my $acme_helper = Test::Nginx::ACME->new({
 	t => $t, dns_port => $relay_dns_port
 });
 
+plan(skip_all => 'dns challenge over tcp not supported')
+    if $acme_helper->{_dns_over_tcp};
+
 my $d = $t->testdir();
 
 my $pebble_port = port(14000);

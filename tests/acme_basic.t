@@ -48,6 +48,10 @@ my $acme_helper = Test::Nginx::ACME->new({t => $t, dns_port => $dns_port});
 my $pebble_port = port(14000);
 my $http_port = port(5002);
 
+my $profile = $acme_helper->{_profiles_supported}
+			? 'profile=veryshortlived'
+			: '';
+
 $t->write_file_expand('nginx.conf', <<"EOF");
 %%TEST_GLOBALS%%
 
@@ -62,7 +66,9 @@ http {
     resolver localhost:$dns_port ipv6=off;
 
     acme_client test https://localhost:$pebble_port/dir
-                email=admin\@example.com;
+                email=admin\@example.com
+                $profile;
+
     server {
         listen          127.0.0.1:8080;
         server_name     localhost;
@@ -107,10 +113,28 @@ EOF
 
 $acme_helper->start_challtestsrv();
 
-$acme_helper->start_pebble({
-	pebble_port => $pebble_port, http_port => $http_port,
-	certificate_validity_period => 10
-});
+my $pebble_args = {
+	pebble_port => $pebble_port,
+	http_port => $http_port,
+};
+
+if ($acme_helper->{_profiles_supported}) {
+	# Create a profile for a very short-lived certificate.  This also tests
+	# support for ACME profiles.  The test passes if renewal occurs quickly
+	# enough, indicating that the certificate complies with the profile.
+
+	$pebble_args->{profiles} = {
+		veryshortlived => {
+			description => "A profile that won't require a long wait for certificate renewal",
+			validity_period => 10,
+		},
+	};
+
+} else {
+	$pebble_args->{certificate_validity_period} = 10;
+}
+
+$acme_helper->start_pebble($pebble_args);
 
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform');

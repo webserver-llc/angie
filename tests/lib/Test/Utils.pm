@@ -13,13 +13,15 @@ use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
 		getconn hash_like stream_daemon trim log2i log2o log2c
-		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller wait_for
-		get_primary_user_group /;
+		$TIME_RE $NUM_RE $POSITIVE_NUM $LOG_TIME_RE is_positive_num get_caller
+		wait_for get_primary_user_group /;
 
 	our %EXPORT_TAGS = (
 		json => [ qw/ get_json put_json delete_json patch_json / ],
 		log  => [ qw/ log2i log2o log2c / ],
-		re   => [ qw/ $TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num / ],
+		re   => [
+			qw/ $TIME_RE $NUM_RE $POSITIVE_NUM $LOG_TIME_RE is_positive_num /
+		],
 	);
 }
 
@@ -37,6 +39,9 @@ plan(skip_all => "JSON is not installed") if $@;
 our $TIME_RE = re(qr/^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}(\.\d{3})?Z$/);
 our $NUM_RE  = re(qr/^\d+$/);
 our $POSITIVE_NUM = code(\&is_positive_num);
+
+# ISO8601: "1970-01-01T00:00:00.000Z", .000 is optional
+our $LOG_TIME_RE = re(qr|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:.\d{3})?Z|);
 
 sub is_positive_num {
 	my ($a) = shift;

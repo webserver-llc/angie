@@ -40,6 +40,19 @@ for milliseconds.
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+Добавлена возможность вывода журнала ошибок в формате JSON.
+Директива "error_log" теперь поддерживает параметр "format=", который
+позволяет указать используемый формат.
+</para>
+<para lang="en">
+Added the ability to output error log messages in JSON format.
+The "error_log" directive now supports "format=" parameter that specifies
+desired format.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 модуль ACME не работал с модулями обработки событий "select" и "poll"

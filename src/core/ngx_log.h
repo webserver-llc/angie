@@ -46,33 +46,50 @@
 #define ngx_src_file()            (ngx_basename(__FILE__))
 #endif
 
+typedef struct {
+    void                *ctx;
+    uint8_t              type;
+    unsigned             done:1;
+} ngx_log_format_t;
+
 
 #if (NGX_SSL)
-#define NGX_HAS_SSL(x) x
+#define NGX_SX(a, b, c, d) NGX_X(a, b, c, d)
 #else
-#define NGX_HAS_SSL(x)
+#define NGX_SX(a, b, c, d)
 #endif
 
 #define NGX_CORE_LOG_PROP_LIST                                                \
-    NGX_X(RESOLVER,                   "resolver"     , "resolver")            \
-    NGX_X(SYSLOG_SERVER,              "syslog_server", "syslog server")       \
-    NGX_X(LISTEN_ADDR,                "listen_addr",   "listen addr")         \
-    NGX_HAS_SSL(NGX_X(OCSP_RESPONDER, "responder",     "responder"))          \
-    NGX_HAS_SSL(NGX_X(OCSP_PEER,      "peer",          "peer"))               \
-    NGX_HAS_SSL(NGX_X(OCSP_CERT,      "certificate",   "certificate"))
+    NGX_X(CONTEXT,         "context",       "context",       NGX_LOG_PT_OBJ)  \
+    NGX_X(MESSAGE,         "message",       "message",       NGX_LOG_PT_STR)  \
+    NGX_X(RESOLVER,        "resolver",      "resolver",      NGX_LOG_PT_STR)  \
+    NGX_X(SYSLOG_SERVER,   "syslog_server", "syslog server", NGX_LOG_PT_STR)  \
+    NGX_X(LISTEN_ADDR,     "listen_addr",   "listen addr",   NGX_LOG_PT_STR)  \
+    NGX_SX(OCSP_RESPONDER, "responder",     "responder",     NGX_LOG_PT_STR)  \
+    NGX_SX(OCSP_PEER,      "peer",          "peer",          NGX_LOG_PT_STR)  \
+    NGX_SX(OCSP_CERT,      "certificate",   "certificate",   NGX_LOG_PT_STR)
 
 
 enum {
-    #define NGX_X(id, key, name)  NGX_CORE_LOG_PROP__##id,
+    #define NGX_X(id, key, name, type)  NGX_CORE_LOG_PROP__##id,
     NGX_CORE_LOG_PROP_LIST
     #undef NGX_X
 };
 
+
+typedef enum {
+    NGX_LOG_PT_STR = 0,
+    NGX_LOG_PT_NUM = 1,
+    NGX_LOG_PT_OBJ = 2,
+} ngx_log_property_type_t;
+
+
 typedef struct {
-    ngx_uint_t           index;
-    ngx_str_t            key;
-    ngx_str_t            name;
-    const char          *module;
+    ngx_uint_t                index;
+    ngx_str_t                 key;
+    ngx_str_t                 name;
+    const char               *module;
+    ngx_log_property_type_t   type;
 } ngx_log_property_t;
 
 /*
@@ -127,6 +144,7 @@ struct ngx_log_s {
 
     ngx_log_filter_t    *filter;
     ngx_log_conf_t      *conf;
+    ngx_log_format_t     format;
 
     /* only meaningful during the call on the first log in list */
     ngx_uint_t           busy; /* unsigned busy:1; */
@@ -210,6 +228,7 @@ struct ngx_log_s {
         (dst)->wdata = (src)->wdata;                                          \
         (dst)->filter = (src)->filter;                                        \
         (dst)->conf = (src)->conf;                                            \
+        (dst)->format = (src)->format;                                        \
     } while (0)
 
 
@@ -231,8 +250,8 @@ void ngx_log_add_str_tag(ngx_log_t *log, ngx_str_t *s);
     ((ngx_log_property_key_t)                                                 \
      { ngx_core_log_properties[NGX_CORE_LOG_PROP__##id].index })
 
-#define ngx_log_prop_decl(key, name, module)                                  \
-    { 0, ngx_string(key), ngx_string(name), module}
+#define ngx_log_prop_decl(key, name, module, type)                            \
+    { 0, ngx_string(key), ngx_string(name), module, type }
 
 ngx_int_t ngx_log_add_property(ngx_cycle_t *cycle, ngx_log_property_t *prop);
 u_char *ngx_log_action(ngx_log_t *log, u_char *buf, u_char *last,

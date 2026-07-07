@@ -19,14 +19,14 @@
 #endif
 
 #define NGX_MAIL_LOG_PROP_LIST                                                \
-    NGX_X(CLIENT,   "client",   "client")                                     \
-    NGX_X(SERVER,   "server",   "server")                                     \
-    NGX_X(STARTTLS, "starttls", "starttls")                                   \
-    NGX_X(LOGIN,    "login",    "login")                                      \
-    NGX_X(UPSTREAM, "upstream", "upstream")
+    NGX_X(CLIENT,   "client",   "client",   NGX_LOG_PT_STR)                   \
+    NGX_X(SERVER,   "server",   "server",   NGX_LOG_PT_STR)                   \
+    NGX_X(STARTTLS, "starttls", "starttls", NGX_LOG_PT_STR)                   \
+    NGX_X(LOGIN,    "login",    "login",    NGX_LOG_PT_STR)                   \
+    NGX_X(UPSTREAM, "upstream", "upstream", NGX_LOG_PT_STR)
 
 enum {
-    #define NGX_X(id, key, name)  NGX_MAIL_LOG_PROP__##id,
+    #define NGX_X(id, key, name, type)  NGX_MAIL_LOG_PROP__##id,
     NGX_MAIL_LOG_PROP_LIST
     #undef NGX_X
 };

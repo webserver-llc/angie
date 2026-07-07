@@ -26,23 +26,23 @@ typedef struct ngx_http_v3_settings_s ngx_http_v3_settings_t;
 
 
 #if (NGX_HTTP_ACME)
-#define NGX_HAS_ACME(x) x
+#define NGX_AX(a, b, c, d) NGX_X(a, b, c, d)
 #else
-#define NGX_HAS_ACME(x)
+#define NGX_AX(a, b, c, d)
 #endif
 
 #define NGX_HTTP_LOG_PROP_LIST                                                \
-    NGX_X(CLIENT,      "client",      "client")                               \
-    NGX_X(SERVER,      "server",      "server")                               \
-    NGX_X(REQUEST,     "request",     "request")                              \
-    NGX_X(SUBREQUEST,  "subrequest",  "subrequest")                           \
-    NGX_X(UPSTREAM,    "upstream",    "upstream")                             \
-    NGX_X(HOST,        "host",        "host")                                 \
-    NGX_X(REFER,       "referrer",    "referrer")                             \
-    NGX_HAS_ACME(NGX_X(ACME_CLIENT, "acme_client", "ACME client"))
+    NGX_X(CLIENT,       "client",      "client",      NGX_LOG_PT_STR)         \
+    NGX_X(SERVER,       "server",      "server",      NGX_LOG_PT_STR)         \
+    NGX_X(REQUEST,      "request",     "request",     NGX_LOG_PT_STR)         \
+    NGX_X(SUBREQUEST,   "subrequest",  "subrequest",  NGX_LOG_PT_STR)         \
+    NGX_X(UPSTREAM,     "upstream",    "upstream",    NGX_LOG_PT_STR)         \
+    NGX_X(HOST,         "host",        "host",        NGX_LOG_PT_STR)         \
+    NGX_X(REFER,        "referrer",    "referrer",    NGX_LOG_PT_STR)         \
+    NGX_AX(ACME_CLIENT, "acme_client", "ACME client", NGX_LOG_PT_STR)
 
 enum {
-    #define NGX_X(id, key, name)  NGX_HTTP_LOG_PROP__##id,
+    #define NGX_X(id, key, name, type)  NGX_HTTP_LOG_PROP__##id,
     NGX_HTTP_LOG_PROP_LIST
     #undef NGX_X
 };

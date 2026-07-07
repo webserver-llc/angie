@@ -42,18 +42,22 @@ typedef struct ngx_stream_session_s  ngx_stream_session_t;
 
 
 #define NGX_STREAM_LOG_PROP_LIST                                              \
-    NGX_X(CLIENT,              "client",              "client")               \
-    NGX_X(SERVER,              "server",              "server")               \
-    NGX_X(PROTOCOL,            "protocol",            "protocol")             \
-    NGX_X(SESSION,             "session",             "session")              \
-    NGX_X(UPSTREAM,            "upstream",            "upstream")             \
-    NGX_X(BYTES_FROM_CLIENT,   "bytes_from_client",   "bytes from client")    \
-    NGX_X(BYTES_TO_CLIENT,     "bytes_to_client",     "bytes to client")      \
-    NGX_X(BYTES_FROM_UPSTREAM, "bytes_from_upstream", "bytes from upstream")  \
-    NGX_X(BYTES_TO_UPSTREAM,   "bytes_to_upstream",   "bytes to upstream")
+    NGX_X(CLIENT,              "client",   "client",    NGX_LOG_PT_STR)       \
+    NGX_X(SERVER,              "server",   "server",    NGX_LOG_PT_STR)       \
+    NGX_X(PROTOCOL,            "protocol", "protocol",  NGX_LOG_PT_STR)       \
+    NGX_X(SESSION,             "session",  "session",   NGX_LOG_PT_STR)       \
+    NGX_X(UPSTREAM,            "upstream",  "upstream", NGX_LOG_PT_STR)       \
+    NGX_X(BYTES_FROM_CLIENT,   "bytes_from_client",                           \
+                               "bytes from client",     NGX_LOG_PT_NUM)       \
+    NGX_X(BYTES_TO_CLIENT,     "bytes_to_client",                             \
+                               "bytes to client",       NGX_LOG_PT_NUM)       \
+    NGX_X(BYTES_FROM_UPSTREAM, "bytes_from_upstream",                         \
+                               "bytes from upstream",   NGX_LOG_PT_NUM)       \
+    NGX_X(BYTES_TO_UPSTREAM,   "bytes_to_upstream",                           \
+                               "bytes to upstream",     NGX_LOG_PT_NUM)
 
 enum {
-    #define NGX_X(id, key, name)  NGX_STREAM_LOG_PROP__##id,
+    #define NGX_X(id, key, name, type)  NGX_STREAM_LOG_PROP__##id,
     NGX_STREAM_LOG_PROP_LIST
     #undef NGX_X
 };

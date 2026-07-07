@@ -194,8 +194,6 @@ static ngx_api_entry_t  ngx_api_stream_session_codes_entries[] = {
 void
 ngx_stream_init_connection(ngx_connection_t *c)
 {
-    u_char                        text[NGX_SOCKADDR_STRLEN];
-    size_t                        len;
     ngx_uint_t                    i;
     ngx_time_t                   *tp;
     ngx_event_t                  *rev;
@@ -296,6 +294,15 @@ ngx_stream_init_connection(ngx_connection_t *c)
         return;
     }
 
+    s->client.data = ngx_pnalloc(c->pool, NGX_SOCKADDR_STRLEN);
+    if (s->client.data == NULL) {
+        ngx_stream_close_connection(c);
+        return;
+    }
+
+    s->client.len = ngx_sock_ntop(c->sockaddr, c->socklen, s->client.data,
+                                  NGX_SOCKADDR_STRLEN, 1);
+
     ctx = addr_conf->default_server->ctx;
 
     s->signature = NGX_STREAM_MODULE;
@@ -318,23 +325,23 @@ ngx_stream_init_connection(ngx_connection_t *c)
 
     ngx_set_connection_log(c, cscf->error_log);
 
-    len = ngx_sock_ntop(c->sockaddr, c->socklen, text, NGX_SOCKADDR_STRLEN, 1);
-
-    ngx_log_error(NGX_LOG_INFO, c->log, 0, "*%uA %sclient %*s connected to %V",
-                  c->number, c->type == SOCK_DGRAM ? "udp " : "",
-                  len, text, &c->listening->addr_text);
-
     c->log->connection = c->number;
     c->log->handler = ngx_stream_log_error;
+    c->log->handler_name = ngx_stream_log_prop(STREAM);
     c->log->data = s;
     c->log->action = "initializing session";
     c->log_error = NGX_ERROR_INFO;
+
+    ngx_log_add_tag(c->log, ngx_stream_log_tag(STREAM_TAG));
 
     s->ctx = ngx_pcalloc(c->pool, sizeof(void *) * ngx_stream_max_module);
     if (s->ctx == NULL) {
         ngx_stream_close_connection(c);
         return;
     }
+
+    ngx_log_error(NGX_LOG_INFO, c->log, 0, "%sclient connected",
+                  c->type == SOCK_DGRAM ? "udp " : "");
 
     cmcf = ngx_stream_get_module_main_conf(s, ngx_stream_core_module);
 
@@ -656,7 +663,7 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
     }
 
     p = ngx_log_property(log, p, last, ngx_stream_log_prop(CLIENT), "%V",
-                         &s->connection->addr_text);
+                         &s->client);
 
     p = ngx_log_property(log, p, last, ngx_stream_log_prop(SERVER), "%V",
                          &s->connection->listening->addr_text);
@@ -665,7 +672,7 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
                          s->connection->type == SOCK_DGRAM ? "udp" : "tcp");
 
     if (s->log_handler) {
-        p = ngx_log_object(log, p, last, ngx_stream_log_prop(STREAM),
+        p = ngx_log_object(log, p, last, ngx_stream_log_prop(SESSION),
                            s->log_handler, s);
     }
 

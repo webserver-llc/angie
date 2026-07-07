@@ -4749,10 +4749,9 @@ ngx_http_v2_idle_handler(ngx_event_t *rev)
 
     if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {
         if (rev->pending_eof) {
-            c->log->handler = NULL;
             ngx_log_error(NGX_LOG_INFO, c->log, rev->kq_errno,
-                          "kevent() reported that client %V closed "
-                          "idle connection", &c->addr_text);
+                          "kevent() reported that client closed "
+                          "idle connection");
 #if (NGX_HTTP_SSL)
             if (c->ssl) {
                 c->ssl->no_send_shutdown = 1;

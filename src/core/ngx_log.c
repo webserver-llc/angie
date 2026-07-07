@@ -192,7 +192,7 @@ static const char *debug_levels[] = {
 
 
 ngx_log_property_t  ngx_core_log_properties[] = {
-    #define NGX_X(id, key, name, type)  ngx_log_prop_decl(key, name, "core", type),
+    #define NGX_X(id, name, type)  ngx_log_prop_decl(name, "core", type),
     NGX_CORE_LOG_PROP_LIST
     #undef NGX_X
 };
@@ -348,6 +348,7 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, const char *filename,
         log->data = head->data;
         log->connection = head->connection;
         log->action = head->action;
+        log->handler_name = head->handler_name;
 
         log->tags = NULL;
 
@@ -1134,7 +1135,7 @@ ngx_log_action(ngx_log_t *log, u_char *buf, u_char *last, const char *action)
 
 
 static ngx_log_property_t ngx_log_default_property =
-    ngx_log_prop_decl("unknown", "unknown", "unknown", NGX_LOG_PT_STR);
+    ngx_log_prop_decl("unknown", "unknown", NGX_LOG_PT_STR);
 
 static void
 ngx_log_filter_property(ngx_log_t *log, ngx_log_property_t *prop,
@@ -1208,14 +1209,19 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
         ctx = log->format.ctx;
         va_start(args, fmt);
         ngx_json_vpush_kv(ctx, 1, (prop->type == NGX_LOG_PT_STR),
-                          (char* ) prop->name.data, fmt, args);
+                          (char *) prop->name.data, fmt, args);
         va_end(args);
 
         return ctx->curr;
     }
 
     /* default plain text log */
-    p = ngx_slprintf(buf, last, ", %V: \"", &prop->name);
+    if (prop->type == NGX_LOG_PT_STR) {
+        p = ngx_slprintf(buf, last, ", %V: \"", &prop->name);
+
+    } else {
+        p = ngx_slprintf(buf, last, ", %V: ", &prop->name);
+    }
 
     va_start(args, fmt);
     p = ngx_vslprintf(p, last, fmt, args);
@@ -1225,7 +1231,9 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
         return p;
     }
 
-    *p++ = '"';
+    if (prop->type == NGX_LOG_PT_STR) {
+        *p++ = '"';
+    }
 
     return p;
 }
@@ -1403,13 +1411,13 @@ ngx_log_create_json_message(ngx_log_t *log, ngx_log_params_t *lp,
     if (log->filter) {
         va_list  filter_args;
 
-
         va_copy(filter_args, args);
         ngx_log_filter_property(log, prop, fmt, filter_args);
         va_end(filter_args);
     }
 
-    ngx_json_vpush_kv(ctx, 1, 1, (char *) prop->name.data, fmt, args);
+    ngx_json_vpush_kv(ctx, 1, (prop->type == NGX_LOG_PT_STR),
+                      (char *) prop->name.data, fmt, args);
 
     lp->msg.len = ctx->curr - lp->msg.data;
 
@@ -1420,7 +1428,8 @@ ngx_log_create_json_message(ngx_log_t *log, ngx_log_params_t *lp,
     if (lp->level != NGX_LOG_DEBUG && log->handler) {
         /* json log uses buf pointers from log->format.ctx */
         (void) ngx_log_object(log, ctx->curr, ctx->last,
-                              ngx_core_log_prop(CONTEXT),
+                       (log->handler_name.id == ngx_core_log_prop(NULLPROP).id)
+                              ? ngx_core_log_prop(CONTEXT) : log->handler_name,
                               ngx_log_run_handler, NULL);
     }
 
@@ -1929,7 +1938,7 @@ ngx_log_conf_add_property(ngx_log_conf_t *lcf, ngx_log_t *log,
         if (props[i] == prop) {
             ngx_log_error(NGX_LOG_EMERG, log, 0,
                           "attempt to add duplicate log property: %V",
-                          &prop->key);
+                          &prop->name);
             return NGX_ERROR;
         }
     }
@@ -1981,7 +1990,7 @@ ngx_log_create_conf(ngx_cycle_t *cycle)
         return NULL;
     }
 
-#define NGX_X(id, key, name, type)                                            \
+#define NGX_X(id, name, type)                                                 \
     if (ngx_log_conf_add_property(lcf, cycle->log,                            \
                            &ngx_core_log_properties[NGX_CORE_LOG_PROP__##id]) \
         != NGX_OK)                                                            \
@@ -2037,12 +2046,11 @@ ngx_log_init_conf(ngx_cycle_t *cycle, void *conf)
             props = lcf->props.elts;
             for (k = 0; k < lcf->props.nelts; k++) {
 
-                if (props[k]->name.len == 0) {
-                    /* this is a tag, not property */
+                if (props[k]->type == NGX_LOG_PT_TAG) {
                     continue;
                 }
 
-                key = &props[k]->key;
+                key = &props[k]->name;
 
                 if (key->len != item->len) {
                     continue;
@@ -2093,12 +2101,11 @@ ngx_show_log_filters_info(ngx_cycle_t *cycle)
     props = lcf->props.elts;
 
     for (i = 0; i < lcf->props.nelts; i++) {
-        if (props[i]->name.len == 0) {
-            /* this is a tag, not property */
+        if (props[i]->type == NGX_LOG_PT_TAG) {
             continue;
         }
         ngx_write_stderr("  ");
-        ngx_write_fd(ngx_stderr, props[i]->key.data, props[i]->key.len);
+        ngx_write_fd(ngx_stderr, props[i]->name.data, props[i]->name.len);
         ngx_write_fd(ngx_stderr, " (", 2);
         ngx_write_stderr((char *) props[i]->module);
         ngx_write_fd(ngx_stderr, " module)\n", 9);

@@ -45,10 +45,10 @@ http {
             log_not_found on;
 
             error_log %%TESTDIR%%/filtered1.log
-                      filter=request:/f1;
+                      filter=request_line:/f1;
 
             error_log %%TESTDIR%%/filtered2.log
-                      filter=request:/f2;
+                      filter=request_line:/f2;
 
             error_log %%TESTDIR%%/filtered_fields_all.log;
         }
@@ -87,29 +87,29 @@ like(http_sp_xff('/client/f2', '192.168.44.44'), qr/404/, 'query client f2');
 
 $t->stop();
 
-is($t->find_in_file('filtered_fields_all.log', 'request:'), 3,
+is($t->find_in_file('filtered_fields_all.log', 'request_line:'), 3,
 	'logged into filtered_fields_all.log');
 
-is($t->find_in_file('filtered1.log', 'request:'), 1,
+is($t->find_in_file('filtered1.log', 'request_line:'), 1,
 	'single message in filtered1.log');
 is($t->find_in_file('filtered1.log', qr/f1/), 1,
 	'filtered field1 correct message');
 
-is($t->find_in_file('filtered2.log', 'request:'), 1,
+is($t->find_in_file('filtered2.log', 'request_line:'), 1,
 	'single message in filtered2.log');
 is($t->find_in_file('filtered2.log', qr/f2/), 1,
 	'filtered field2 correct message');
 
 
-is($t->find_in_file('filtered_clients_all.log', 'request:'), 3,
+is($t->find_in_file('filtered_clients_all.log', 'request_line:'), 3,
 	'logged into filtered_clients_all.log');
 
-is($t->find_in_file('filtered_client1.log', 'request:'), 1,
+is($t->find_in_file('filtered_client1.log', 'request_line:'), 1,
 	'single message in filtered_client1.log');
 is($t->find_in_file('filtered_client1.log', qr/192.168.33.33/), 1,
 	'filtered client1 correct message');
 
-is($t->find_in_file('filtered_client2.log', 'request:'), 1,
+is($t->find_in_file('filtered_client2.log', 'request_line:'), 1,
 	'single message in filtered_client2.log');
 is($t->find_in_file('filtered_client2.log', qr/192.168.44.44/), 1,
 	'filtered client2 correct message');

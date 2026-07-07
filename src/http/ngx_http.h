@@ -26,27 +26,28 @@ typedef struct ngx_http_v3_settings_s ngx_http_v3_settings_t;
 
 
 #if (NGX_HTTP_ACME)
-#define NGX_AX(a, b, c, d) NGX_X(a, b, c, d)
+#define NGX_AX(a, b, c) NGX_X(a, b, c)
 #else
-#define NGX_AX(a, b, c, d)
+#define NGX_AX(a, b, c)
 #endif
 
 #define NGX_HTTP_LOG_PROP_LIST                                                \
-    NGX_X(HTTP,         "http",        "http",        NGX_LOG_PT_OBJ)         \
-    NGX_X(HTTP_TAG,     "http",        "",            NGX_LOG_PT_STR)         \
-    NGX_X(CLIENT,       "client",      "client",      NGX_LOG_PT_STR)         \
-    NGX_X(SERVER,       "server",      "server",      NGX_LOG_PT_STR)         \
-    NGX_X(REQUEST,      "request",     "request",     NGX_LOG_PT_STR)         \
-    NGX_X(SUBREQUEST,   "subrequest",  "subrequest",  NGX_LOG_PT_STR)         \
-    NGX_X(UPSTREAM,     "upstream",    "upstream",    NGX_LOG_PT_STR)         \
-    NGX_X(PEER_TAG,     "peer",        "",            NGX_LOG_PT_STR)         \
-    NGX_X(HOST,         "host",        "host",        NGX_LOG_PT_STR)         \
-    NGX_X(REFER,        "referrer",    "referrer",    NGX_LOG_PT_STR)         \
-    NGX_AX(ACME_TAG,    "acme",        "",            NGX_LOG_PT_STR)         \
-    NGX_AX(ACME_CLIENT, "acme_client", "ACME client", NGX_LOG_PT_STR)
+    NGX_X(HTTP,         "http",         NGX_LOG_PT_OBJ)                       \
+    NGX_X(HTTP_TAG,     "http",         NGX_LOG_PT_TAG)                       \
+    NGX_X(CLIENT,       "client",       NGX_LOG_PT_STR)                       \
+    NGX_X(SERVER,       "server",       NGX_LOG_PT_STR)                       \
+    NGX_X(REQUEST,      "request",      NGX_LOG_PT_OBJ)                       \
+    NGX_X(REQUEST_LINE, "request_line", NGX_LOG_PT_STR)                       \
+    NGX_X(SUBREQUEST,   "subrequest",   NGX_LOG_PT_STR)                       \
+    NGX_X(UPSTREAM,     "upstream",     NGX_LOG_PT_STR)                       \
+    NGX_X(PEER_TAG,     "peer",         NGX_LOG_PT_TAG)                       \
+    NGX_X(HOST,         "host",         NGX_LOG_PT_STR)                       \
+    NGX_X(REFER,        "referrer",     NGX_LOG_PT_STR)                       \
+    NGX_AX(ACME_TAG,    "acme",         NGX_LOG_PT_TAG)                       \
+    NGX_AX(ACME_CLIENT, "acme_client",  NGX_LOG_PT_STR)
 
 enum {
-    #define NGX_X(id, key, name, type)  NGX_HTTP_LOG_PROP__##id,
+    #define NGX_X(id, name, type)  NGX_HTTP_LOG_PROP__##id,
     NGX_HTTP_LOG_PROP_LIST
     #undef NGX_X
 };

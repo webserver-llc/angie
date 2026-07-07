@@ -214,7 +214,7 @@ my $renewed_on_load = 0;
 if ($renewed) {
 	$renewed_on_load = $acme_log =~ /
 		\svalid\scertificate,\s
-		forced\srenewal\sscheduled\snow,\sACME\sclient:\s"$client1"
+		forced\srenewal\sscheduled\snow,\sacme_client:\s"$client1"
 	/x;
 }
 
@@ -230,7 +230,7 @@ my $ts = $1
 	if $acme_log =~ /
 		\svalid\scertificate,\srenewal\sscheduled\s
 		([[:alpha:]]+\s+[[:alpha:]]+\s+\d+\s+\d+\:\d+\:\d+\s+\d+),\s
-		ACME\sclient:\s"$client2"
+		acme_client:\s"$client2"
 	/x;
 
 my $t1 = Date::Parse::str2time($ts) // 0;

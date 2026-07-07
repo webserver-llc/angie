@@ -62,32 +62,36 @@ struct ngx_log_tag_s {
 
 
 #if (NGX_SSL)
-#define NGX_SX(a, b, c, d) NGX_X(a, b, c, d)
+#define NGX_SX(a, b, c) NGX_X(a, b, c)
 #else
-#define NGX_SX(a, b, c, d)
+#define NGX_SX(a, b, c)
 #endif
 
 /*
  * the list contains static definitions for the purposes of logging;
  * some entries has no name: those are not properties, but tags.
  * most tags has the same name as properties, so the same list is used
- * to keep both; this avoids having extra set of macros purely for tags
+ * to keep both; this avoids having extra set of macros purely for tags;
+ *
+ * NULLPROP is always at index 0, so that memzero()'ed ngx_log_t refers to it;
+ * with it, it is possible to distinguish uninitialized property keys.
  */
 
 #define NGX_CORE_LOG_PROP_LIST                                                \
-    NGX_X(CONTEXT,         "context",       "context",       NGX_LOG_PT_OBJ)  \
-    NGX_X(MESSAGE,         "message",       "message",       NGX_LOG_PT_STR)  \
-    NGX_X(RESOLVER,        "resolver",      "resolver",      NGX_LOG_PT_STR)  \
-    NGX_X(SYSLOG_SERVER,   "syslog_server", "syslog server", NGX_LOG_PT_STR)  \
-    NGX_X(LISTEN_ADDR,     "listen_addr",   "listen addr",   NGX_LOG_PT_STR)  \
-    NGX_SX(OCSP_TAG,       "ocsp",          "",              NGX_LOG_PT_STR)  \
-    NGX_SX(OCSP_RESPONDER, "responder",     "responder",     NGX_LOG_PT_STR)  \
-    NGX_SX(OCSP_PEER,      "peer",          "peer",          NGX_LOG_PT_STR)  \
-    NGX_SX(OCSP_CERT,      "certificate",   "certificate",   NGX_LOG_PT_STR)
+    NGX_X(NULLPROP,        "",              NGX_LOG_PT_NUM)                   \
+    NGX_X(CONTEXT,         "context",       NGX_LOG_PT_OBJ)                   \
+    NGX_X(MESSAGE,         "message",       NGX_LOG_PT_STR)                   \
+    NGX_X(RESOLVER,        "resolver",      NGX_LOG_PT_STR)                   \
+    NGX_X(SYSLOG_SERVER,   "syslog_server", NGX_LOG_PT_STR)                   \
+    NGX_X(LISTEN_ADDR,     "listen_addr",   NGX_LOG_PT_STR)                   \
+    NGX_SX(OCSP_TAG,       "ocsp",          NGX_LOG_PT_TAG)                   \
+    NGX_SX(OCSP_RESPONDER, "responder",     NGX_LOG_PT_STR)                   \
+    NGX_SX(OCSP_PEER,      "peer",          NGX_LOG_PT_STR)                   \
+    NGX_SX(OCSP_CERT,      "certificate",   NGX_LOG_PT_STR)
 
 
 enum {
-    #define NGX_X(id, key, name, type)  NGX_CORE_LOG_PROP__##id,
+    #define NGX_X(id, name, type)  NGX_CORE_LOG_PROP__##id,
     NGX_CORE_LOG_PROP_LIST
     #undef NGX_X
 };
@@ -97,12 +101,12 @@ typedef enum {
     NGX_LOG_PT_STR = 0,
     NGX_LOG_PT_NUM = 1,
     NGX_LOG_PT_OBJ = 2,
+    NGX_LOG_PT_TAG = 3,
 } ngx_log_property_type_t;
 
 
 typedef struct {
     ngx_uint_t                index;
-    ngx_str_t                 key;
     ngx_str_t                 name;
     const char               *module;
     ngx_log_property_type_t   type;
@@ -143,6 +147,7 @@ struct ngx_log_s {
 
     ngx_log_handler_pt   handler;
     void                *data;
+    ngx_log_property_key_t  handler_name;
 
     ngx_log_writer_pt    writer;
     void                *wdata;
@@ -275,9 +280,9 @@ ngx_int_t ngx_log_add_user_tag(ngx_log_t *log, ngx_str_t *tag,
 #define ngx_core_log_tag(id)                                                  \
     ( &(ngx_core_log_properties[NGX_CORE_LOG_PROP__##id].tag) )
 
-#define ngx_log_prop_decl(key, name, module, type)                            \
-    { 0, ngx_string(key), ngx_string(name), module, type,                     \
-      { ngx_string(key), NULL }                                               \
+#define ngx_log_prop_decl(name, module, type)                                 \
+    { 0, ngx_string(name), module, type,                                      \
+      { ngx_string(name), NULL }                                              \
     }
 
 ngx_int_t ngx_log_add_property(ngx_cycle_t *cycle, ngx_log_property_t *prop);

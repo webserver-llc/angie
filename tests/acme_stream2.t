@@ -105,7 +105,7 @@ my $ts = $1
 	if $error_log =~ /
 		\svalid\scertificate,\srenewal\sscheduled\s
 		([[:alpha:]]+\s+[[:alpha:]]+\s+\d+\s+\d+\:\d+\:\d+\s+\d+),\s
-		ACME\sclient:\s"test1"
+		acme_client:\s"test1"
 	/x;
 
 # TODO We could read the existing certificate's enddate and compare it with

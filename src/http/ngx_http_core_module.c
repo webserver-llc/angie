@@ -915,7 +915,7 @@ ngx_module_t  ngx_http_core_module = {
 ngx_str_t  ngx_http_core_get_method = { 3, (u_char *) "GET" };
 
 ngx_log_property_t  ngx_http_log_properties[] = {
-    #define NGX_X(id, key, name, type) ngx_log_prop_decl(key, name, "http", type),
+    #define NGX_X(id, name, type) ngx_log_prop_decl(name, "http", type),
     NGX_HTTP_LOG_PROP_LIST
     #undef NGX_X
 };
@@ -3820,7 +3820,7 @@ ngx_http_core_type(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
 static ngx_int_t
 ngx_http_core_preconfiguration(ngx_conf_t *cf)
 {
-#define NGX_X(id, key, name, type)                                                  \
+#define NGX_X(id, name, type)                                                 \
     if (ngx_log_add_property(cf->cycle,                                       \
                            &ngx_http_log_properties[NGX_HTTP_LOG_PROP__##id]) \
         != NGX_OK)                                                            \

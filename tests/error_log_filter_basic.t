@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $bad_msg = 'invalid URL prefix in \"http://\", client: \"127.0.0.1\",'
-	. ' server: \"localhost\", request: \"GET /bad HTTP/1.0\",'
+	. ' server: \"localhost\", request_line: \"GET /bad HTTP/1.0\",'
 	. ' host: \"localhost\"';
 
 my $t = Test::Nginx->new()->has(qw/http realip rewrite proxy/)

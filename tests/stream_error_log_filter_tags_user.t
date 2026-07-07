@@ -60,6 +60,9 @@ stream {
                   filter=tag:%%PORT_8082%%;
 
         error_log %%TESTDIR%%/filtered_usertag-all.log;
+
+		# XXXX
+        error_log %%TESTDIR%%/all.json format=json;
     }
 }
 
@@ -79,12 +82,12 @@ is($t->find_in_file('filtered_usertag-all.log', 'connecting to upstream'), 3,
 
 is($t->find_in_file('filtered_usertag1.log', 'connecting to upstream'), 1,
 	'single message in filtered_usertag1.log');
-is($t->find_in_file('filtered_usertag1.log', qr/bytes to upstream/), 1,
+is($t->find_in_file('filtered_usertag1.log', qr/bytes_to_upstream/), 1,
 	'filtered tag1 correct message');
 
 is($t->find_in_file('filtered_usertag2.log', 'connecting to upstream'), 1,
 	'single message in filtered_usertag2.log');
-is($t->find_in_file('filtered_usertag2.log', qr/bytes to upstream/), 1,
+is($t->find_in_file('filtered_usertag2.log', qr/bytes_to_upstream/), 1,
 	'filtered tag2 correct message');
 
 

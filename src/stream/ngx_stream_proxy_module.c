@@ -929,7 +929,6 @@ ngx_stream_proxy_init_upstream(ngx_stream_session_t *s)
     u_char                       *p;
     ngx_chain_t                  *cl;
     ngx_connection_t             *c, *pc;
-    ngx_log_handler_pt            handler;
     ngx_stream_upstream_t        *u;
     ngx_stream_core_srv_conf_t   *cscf;
     ngx_stream_proxy_srv_conf_t  *pscf;
@@ -979,15 +978,10 @@ ngx_stream_proxy_init_upstream(ngx_stream_session_t *s)
         str.data = addr;
 
         if (ngx_connection_local_sockaddr(pc, &str, 1) == NGX_OK) {
-            handler = c->log->handler;
-            c->log->handler = NULL;
 
             ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                          "%sproxy %V connected to %V",
-                          pc->type == SOCK_DGRAM ? "udp " : "",
-                          &str, u->peer.name);
-
-            c->log->handler = handler;
+                          "%sproxy %V connected",
+                          pc->type == SOCK_DGRAM ? "udp " : "", &str);
         }
     }
 
@@ -1937,7 +1931,6 @@ static void
 ngx_stream_proxy_process_connection(ngx_event_t *ev, ngx_uint_t from_upstream)
 {
     ngx_connection_t             *c, *pc;
-    ngx_log_handler_pt            handler;
     ngx_stream_session_t         *s;
     ngx_stream_upstream_t        *u;
     ngx_stream_proxy_srv_conf_t  *pscf;
@@ -1996,20 +1989,7 @@ ngx_stream_proxy_process_connection(ngx_event_t *ev, ngx_uint_t from_upstream)
                      * successfully terminate timed out UDP session
                      * if expected number of responses was received
                      */
-
-                    handler = c->log->handler;
-                    c->log->handler = NULL;
-
-                    ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                                  "udp timed out"
-                                  ", packets from/to client:%ui/%ui"
-                                  ", bytes from/to client:%O/%O"
-                                  ", bytes from/to upstream:%O/%O",
-                                  u->requests, u->responses,
-                                  s->received, c->sent, u->received,
-                                  pc ? pc->sent : 0);
-
-                    c->log->handler = handler;
+                    ngx_log_error(NGX_LOG_INFO, c->log, 0, "udp timed out");
 
                     ngx_stream_proxy_finalize(s, NGX_STREAM_OK);
                     return;
@@ -2150,7 +2130,6 @@ ngx_stream_proxy_process(ngx_stream_session_t *s, ngx_uint_t from_upstream,
     ngx_msec_t                    delay;
     ngx_chain_t                  *cl, **ll, **out, **busy;
     ngx_connection_t             *c, *pc, *src, *dst;
-    ngx_log_handler_pt            handler;
     ngx_stream_upstream_t        *u;
     ngx_stream_proxy_srv_conf_t  *pscf;
 
@@ -2162,14 +2141,7 @@ ngx_stream_proxy_process(ngx_stream_session_t *s, ngx_uint_t from_upstream,
     if (c->type == SOCK_DGRAM && (ngx_terminate || ngx_exiting)) {
 
         /* socket is already closed on worker shutdown */
-
-        handler = c->log->handler;
-        c->log->handler = NULL;
-
         ngx_log_error(NGX_LOG_INFO, c->log, 0, "disconnected on shutdown");
-
-        c->log->handler = handler;
-
         ngx_stream_proxy_finalize(s, NGX_STREAM_OK);
         return;
     }
@@ -2358,7 +2330,6 @@ ngx_stream_proxy_test_finalize(ngx_stream_session_t *s,
     ngx_uint_t from_upstream)
 {
     ngx_connection_t             *c, *pc;
-    ngx_log_handler_pt            handler;
     ngx_stream_upstream_t        *u;
     ngx_stream_proxy_srv_conf_t  *pscf;
 
@@ -2388,18 +2359,7 @@ ngx_stream_proxy_test_finalize(ngx_stream_session_t *s,
             return NGX_DECLINED;
         }
 
-        handler = c->log->handler;
-        c->log->handler = NULL;
-
-        ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                      "udp done"
-                      ", packets from/to client:%ui/%ui"
-                      ", bytes from/to client:%O/%O"
-                      ", bytes from/to upstream:%O/%O",
-                      u->requests, u->responses,
-                      s->received, c->sent, u->received, pc ? pc->sent : 0);
-
-        c->log->handler = handler;
+        ngx_log_error(NGX_LOG_INFO, c->log, 0, "udp done");
 
         ngx_stream_proxy_finalize(s, NGX_STREAM_OK);
 
@@ -2423,17 +2383,8 @@ ngx_stream_proxy_test_finalize(ngx_stream_session_t *s,
         }
     }
 
-    handler = c->log->handler;
-    c->log->handler = NULL;
-
-    ngx_log_error(NGX_LOG_INFO, c->log, 0,
-                  "%s disconnected"
-                  ", bytes from/to client:%O/%O"
-                  ", bytes from/to upstream:%O/%O",
-                  from_upstream ? "upstream" : "client",
-                  s->received, c->sent, u->received, pc ? pc->sent : 0);
-
-    c->log->handler = handler;
+    ngx_log_error(NGX_LOG_INFO, c->log, 0, "%s disconnected",
+                  from_upstream ? "upstream" : "client");
 
     ngx_stream_proxy_finalize(s, NGX_STREAM_OK);
 
@@ -2618,6 +2569,16 @@ ngx_stream_proxy_log_error(ngx_log_t *log, u_char *buf, u_char *last,
     }
 
     pc = u->peer.connection;
+
+    if (s->connection->type == SOCK_DGRAM) {
+        p = ngx_log_property(log, p, last,
+                             ngx_stream_log_prop(PACKETS_FROM_CLIENT),
+                             "%ui", u->requests);
+
+        p = ngx_log_property(log, p, last,
+                             ngx_stream_log_prop(PACKETS_TO_CLIENT),
+                             "%ui", u->responses);
+    }
 
     p = ngx_log_property(log, p, last, ngx_stream_log_prop(BYTES_FROM_CLIENT),
                          "%O", s->received);

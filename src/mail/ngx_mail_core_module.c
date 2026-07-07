@@ -27,7 +27,7 @@ static char *ngx_mail_core_resolver(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 
 ngx_log_property_t  ngx_mail_log_properties[] = {
-    #define NGX_X(id, key, name, type)  ngx_log_prop_decl(key, name, "mail", type),
+    #define NGX_X(id, name, type)  ngx_log_prop_decl(name, "mail", type),
     NGX_MAIL_LOG_PROP_LIST
     #undef NGX_X
 };
@@ -165,7 +165,7 @@ ngx_mail_core_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-#define NGX_X(id, key, name, type)                                            \
+#define NGX_X(id, name, type)                                                 \
     if (ngx_log_add_property(cf->cycle,                                       \
                            &ngx_mail_log_properties[NGX_MAIL_LOG_PROP__##id]) \
         != NGX_OK)                                                            \

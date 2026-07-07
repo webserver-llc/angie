@@ -19,16 +19,16 @@
 #endif
 
 #define NGX_MAIL_LOG_PROP_LIST                                                \
-    NGX_X(MAIL,     "mail"  ,   "mail",     NGX_LOG_PT_OBJ)                   \
-    NGX_X(MAIL_TAG, "mail"  ,   "",         NGX_LOG_PT_STR)                   \
-    NGX_X(CLIENT,   "client",   "client",   NGX_LOG_PT_STR)                   \
-    NGX_X(SERVER,   "server",   "server",   NGX_LOG_PT_STR)                   \
-    NGX_X(STARTTLS, "starttls", "starttls", NGX_LOG_PT_STR)                   \
-    NGX_X(LOGIN,    "login",    "login",    NGX_LOG_PT_STR)                   \
-    NGX_X(UPSTREAM, "upstream", "upstream", NGX_LOG_PT_STR)
+    NGX_X(MAIL,     "mail"  ,   NGX_LOG_PT_OBJ)                               \
+    NGX_X(MAIL_TAG, "mail"  ,   NGX_LOG_PT_TAG)                               \
+    NGX_X(CLIENT,   "client",   NGX_LOG_PT_STR)                               \
+    NGX_X(SERVER,   "server",   NGX_LOG_PT_STR)                               \
+    NGX_X(STARTTLS, "starttls", NGX_LOG_PT_STR)                               \
+    NGX_X(LOGIN,    "login",    NGX_LOG_PT_STR)                               \
+    NGX_X(UPSTREAM, "upstream", NGX_LOG_PT_STR)
 
 enum {
-    #define NGX_X(id, key, name, type)  NGX_MAIL_LOG_PROP__##id,
+    #define NGX_X(id, name, type)  NGX_MAIL_LOG_PROP__##id,
     NGX_MAIL_LOG_PROP_LIST
     #undef NGX_X
 };
@@ -284,7 +284,7 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t              *client;
+    ngx_str_t               client;
     ngx_mail_session_t     *session;
 } ngx_mail_log_ctx_t;
 

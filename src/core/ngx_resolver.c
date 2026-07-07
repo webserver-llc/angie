@@ -5119,7 +5119,7 @@ ngx_resolver_log_error(ngx_log_t *log, u_char *buf, size_t len)
     p = buf;
     last = buf + len;
 
-    ngx_log_add_tag(log, "resolver");
+    ngx_log_add_tag(log, ngx_core_log_tag(RESOLVER));
 
     if (log->action) {
         p = ngx_log_action(log, p, last, log->action);

@@ -2609,10 +2609,10 @@ ngx_stream_proxy_log_error(ngx_log_t *log, u_char *buf, u_char *last,
 
     p = buf;
 
-    ngx_log_add_tag(log, "upstream");
+    ngx_log_add_tag(log, ngx_stream_log_tag(UPSTREAM));
 
     if (u->peer.name) {
-        ngx_log_add_tag(log, "peer");
+        ngx_log_add_tag(log, ngx_stream_log_tag(PEER_TAG));
         p = ngx_log_property(log, p, last, ngx_stream_log_prop(UPSTREAM),
                              "%V", u->peer.name);
     }

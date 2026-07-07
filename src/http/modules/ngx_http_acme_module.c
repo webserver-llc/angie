@@ -660,7 +660,7 @@ ngx_http_acme_log_error(ngx_log_t *log, u_char *buf, size_t len)
     p = buf;
     last = buf + len;
 
-    ngx_log_add_tag(log, "acme");
+    ngx_log_add_tag(log, ngx_http_log_tag(ACME_TAG));
 
     if (amcf->current != NULL) {
         p = ngx_log_property(log, p, last, ngx_http_log_prop(ACME_CLIENT),

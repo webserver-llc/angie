@@ -4335,7 +4335,7 @@ ngx_http_log_error(ngx_log_t *log, u_char *buf, size_t len)
     p = buf;
     last = buf + len;
 
-    ngx_log_add_tag(log, "http");
+    ngx_log_add_tag(log, ngx_http_log_tag(HTTP_TAG));
 
     if (log->action) {
         p = ngx_log_action(log, p, last, log->action);
@@ -4349,7 +4349,7 @@ ngx_http_log_error(ngx_log_t *log, u_char *buf, size_t len)
     r = ctx->request;
 
     if (r) {
-        p = ngx_log_object(log, p, last, ngx_http_log_prop(REQUEST),
+        p = ngx_log_object(log, p, last, ngx_http_log_prop(HTTP),
                            r->log_handler, ctx);
 
     } else {
@@ -4393,7 +4393,13 @@ ngx_http_log_error_handler(ngx_log_t *log, u_char *buf, u_char *last,
                 return buf;
             }
 
-            ngx_log_add_str_tag(log, &utag);
+            if (utag.len == 0) {
+                continue;
+            }
+
+            if (ngx_log_add_user_tag(log, &utag, r->pool) != NGX_OK) {
+                return buf;
+            }
         }
     }
 
@@ -4417,7 +4423,7 @@ ngx_http_log_error_handler(ngx_log_t *log, u_char *buf, u_char *last,
     }
 
     if (r != sr) {
-        ngx_log_add_tag(log, "subrequest");
+        ngx_log_add_tag(log, ngx_http_log_tag(SUBREQUEST));
         p = ngx_log_property(log, p, last, ngx_http_log_prop(SUBREQUEST), "%V",
                              &sr->uri);
     }
@@ -4425,12 +4431,12 @@ ngx_http_log_error_handler(ngx_log_t *log, u_char *buf, u_char *last,
     u = sr->upstream;
 
     if (u) {
-        ngx_log_add_tag(log, "upstream");
+        ngx_log_add_tag(log, ngx_http_log_tag(UPSTREAM));
     }
 
     if (u && u->peer.name) {
 
-        ngx_log_add_tag(log, "peer");
+        ngx_log_add_tag(log, ngx_http_log_tag(PEER_TAG));
 
         uri_separator = "";
 

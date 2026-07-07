@@ -625,7 +625,7 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     s = log->data;
 
-    ngx_log_add_tag(log, "stream");
+    ngx_log_add_tag(log, ngx_stream_log_tag(STREAM_TAG));
 
     cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
 
@@ -639,7 +639,15 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
                 return buf;
             }
 
-            ngx_log_add_str_tag(log, &utag);
+            if (utag.len == 0) {
+                continue;
+            }
+
+            if (ngx_log_add_user_tag(log, &utag, s->connection->pool)
+                != NGX_OK)
+            {
+                return buf;
+            }
         }
     }
 
@@ -657,7 +665,7 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
                          s->connection->type == SOCK_DGRAM ? "udp" : "tcp");
 
     if (s->log_handler) {
-        p = ngx_log_object(log, p, last, ngx_stream_log_prop(SESSION),
+        p = ngx_log_object(log, p, last, ngx_stream_log_prop(STREAM),
                            s->log_handler, s);
     }
 

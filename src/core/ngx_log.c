@@ -109,6 +109,10 @@ static u_char *ngx_log_run_handler(ngx_log_t *log, u_char *buf, u_char *last,
 static ngx_int_t ngx_log_json_errno(ngx_json_escape_t *ctx, ngx_err_t err);
 static ngx_int_t ngx_log_json_escape_inplace(ngx_json_escape_t *ctx, u_char *p,
     size_t len);
+static ngx_int_t ngx_log_json_push_tags(ngx_json_escape_t *root,
+    ngx_log_tag_t *tags);
+static void ngx_log_filter_tag(ngx_log_t *log, ngx_str_t *tag);
+static void ngx_log_save_tag(ngx_log_t *log, ngx_log_tag_t *ltag);
 
 
 #if (NGX_DEBUG)
@@ -344,6 +348,8 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, const char *filename,
         log->data = head->data;
         log->connection = head->connection;
         log->action = head->action;
+
+        log->tags = NULL;
 
         if (log->filter) {
             ngx_log_filter_init(log->filter);
@@ -1419,6 +1425,11 @@ ngx_log_create_json_message(ngx_log_t *log, ngx_log_params_t *lp,
     }
 
     /* the message can be big and fill the whole buffer, and truncate json */
+
+    if (!ctx->truncated && log->tags) {
+        (void) ngx_log_json_push_tags(ctx, log->tags);
+    }
+
     if (ctx->truncated) {
         ctx->curr = ngx_cpymem(ctx->curr, trunc.data, trunc.len);
     }
@@ -1428,6 +1439,37 @@ ngx_log_create_json_message(ngx_log_t *log, ngx_log_params_t *lp,
     ngx_linefeed(p);
 
     return p;
+}
+
+
+static ngx_int_t
+ngx_log_json_push_tags(ngx_json_escape_t *root, ngx_log_tag_t *tags)
+{
+    u_char             *p;
+    ngx_log_tag_t      *tl;
+    ngx_json_escape_t   ctx;
+
+    if (ngx_json_push_key(root, "tags") != NGX_OK) {
+        return NGX_DECLINED;
+    }
+
+    if (ngx_json_start(&ctx, NGX_JSON_ARR, root->curr, root->last) != NGX_OK) {
+        root->truncated = 1;
+        return NGX_DECLINED;
+    }
+
+    for (tl = tags; tl; tl = tl->next) {
+        if (ngx_json_push_string_item(&ctx, &tl->str) != NGX_OK) {
+            break;
+        }
+    }
+
+    p = ngx_json_end(&ctx);
+
+    root->truncated |= ctx.truncated;
+    root->curr = p;
+
+    return NGX_OK;
 }
 
 
@@ -1779,14 +1821,51 @@ ngx_log_filter_rule_match(ngx_log_filter_rule_t *rule, ngx_str_t *str)
 
 
 void
-ngx_log_add_str_tag(ngx_log_t *log, ngx_str_t *tag)
+ngx_log_add_tag(ngx_log_t *log, ngx_log_tag_t *ltag)
+{
+    if (log->filter) {
+        ngx_log_filter_tag(log, &ltag->str);
+    }
+
+    if (!log->need_tags) {
+        return;
+    }
+
+    ngx_log_save_tag(log, ltag);
+}
+
+
+ngx_int_t
+ngx_log_add_user_tag(ngx_log_t *log, ngx_str_t *tag, ngx_pool_t *pool)
+{
+    ngx_log_tag_t  *ltag;
+
+    if (log->filter) {
+        ngx_log_filter_tag(log, tag);
+    }
+
+    if (!log->need_tags) {
+        return NGX_OK;
+    }
+
+    ltag = ngx_pcalloc(pool, sizeof(ngx_log_tag_t));
+    if (ltag == NULL) {
+        return NGX_ERROR;
+    }
+
+    ltag->str = *tag;
+
+    ngx_log_save_tag(log, ltag);
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_log_filter_tag(ngx_log_t *log, ngx_str_t *tag)
 {
     ngx_uint_t              i;
     ngx_log_filter_rule_t  *rules;
-
-    if (log->filter == NULL) {
-        return;
-    }
 
     rules = log->filter->rules.elts;
 
@@ -1800,6 +1879,40 @@ ngx_log_add_str_tag(ngx_log_t *log, ngx_str_t *tag)
             rules[i].match = 1;
         }
     }
+}
+
+
+static void
+ngx_log_save_tag(ngx_log_t *log, ngx_log_tag_t *ltag)
+{
+    ngx_str_t       tag;
+    ngx_log_tag_t  *tl;
+
+    if (log->tags == NULL) {
+        log->tags = ltag;
+        ltag->next = NULL;
+        return;
+    }
+
+    tag.data = ltag->str.data;
+    tag.len = ltag->str.len;
+
+    for (tl = log->tags ;; tl = tl->next ) {
+        if (tl->str.len == tag.len
+            && ngx_strncmp(tl->str.data, tag.data, tag.len) == 0)
+        {
+            /* such tag was already added, ignore */
+            return;
+        }
+
+        if (tl->next == NULL) {
+            break;
+        }
+    }
+
+    tl->next = ltag;
+    ltag->next = NULL;
+
 }
 
 
@@ -1887,8 +2000,8 @@ ngx_log_init_conf(ngx_cycle_t *cycle, void *conf)
 {
     ngx_log_conf_t *lcf = conf;
 
-    ngx_uint_t               i, j, k, found;
     ngx_str_t               *item, *key;
+    ngx_uint_t               i, j, k, found;
     ngx_log_ref_t           *lref;
     ngx_log_property_t    **props;
     ngx_log_filter_rule_t   *rules, *rule;
@@ -1897,6 +2010,11 @@ ngx_log_init_conf(ngx_cycle_t *cycle, void *conf)
 
     /* process all user-defined logs to check for invalid properties */
     for (i = 0; i < lcf->logs.nelts; i++) {
+
+        if (lref[i].log->format.type == NGX_STR_ESCAPE_JSON) {
+            /* with JSON, tags are shown in log file as array */
+            lref[i].log->need_tags = 1;
+        }
 
         if (lref[i].log->filter == NULL) {
             continue;
@@ -1918,6 +2036,11 @@ ngx_log_init_conf(ngx_cycle_t *cycle, void *conf)
             found = 0;
             props = lcf->props.elts;
             for (k = 0; k < lcf->props.nelts; k++) {
+
+                if (props[k]->name.len == 0) {
+                    /* this is a tag, not property */
+                    continue;
+                }
 
                 key = &props[k]->key;
 

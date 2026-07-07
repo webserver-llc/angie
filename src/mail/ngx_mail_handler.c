@@ -1277,7 +1277,7 @@ ngx_mail_log_error(ngx_log_t *log, u_char *buf, size_t len)
     ctx = log->data;
     s = ctx->session;
 
-    ngx_log_add_tag(log, "mail");
+    ngx_log_add_tag(log, ngx_mail_log_tag(MAIL_TAG));
 
     if (s) {
         cscf = ngx_mail_get_module_srv_conf(s, ngx_mail_core_module);
@@ -1287,7 +1287,16 @@ ngx_mail_log_error(ngx_log_t *log, u_char *buf, size_t len)
             utags = cscf->error_log_user_tags->elts;
 
             for (i = 0; i < cscf->error_log_user_tags->nelts; i++) {
-                ngx_log_add_str_tag(log, &utags[i]);
+
+                if (utags[i].len == 0) {
+                    continue;
+                }
+
+                if (ngx_log_add_user_tag(log, &utags[i], s->connection->pool)
+                    != NGX_OK)
+                {
+                    return buf;
+                }
             }
         }
     }

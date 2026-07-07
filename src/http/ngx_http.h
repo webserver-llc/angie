@@ -32,13 +32,17 @@ typedef struct ngx_http_v3_settings_s ngx_http_v3_settings_t;
 #endif
 
 #define NGX_HTTP_LOG_PROP_LIST                                                \
+    NGX_X(HTTP,         "http",        "http",        NGX_LOG_PT_OBJ)         \
+    NGX_X(HTTP_TAG,     "http",        "",            NGX_LOG_PT_STR)         \
     NGX_X(CLIENT,       "client",      "client",      NGX_LOG_PT_STR)         \
     NGX_X(SERVER,       "server",      "server",      NGX_LOG_PT_STR)         \
     NGX_X(REQUEST,      "request",     "request",     NGX_LOG_PT_STR)         \
     NGX_X(SUBREQUEST,   "subrequest",  "subrequest",  NGX_LOG_PT_STR)         \
     NGX_X(UPSTREAM,     "upstream",    "upstream",    NGX_LOG_PT_STR)         \
+    NGX_X(PEER_TAG,     "peer",        "",            NGX_LOG_PT_STR)         \
     NGX_X(HOST,         "host",        "host",        NGX_LOG_PT_STR)         \
     NGX_X(REFER,        "referrer",    "referrer",    NGX_LOG_PT_STR)         \
+    NGX_AX(ACME_TAG,    "acme",        "",            NGX_LOG_PT_STR)         \
     NGX_AX(ACME_CLIENT, "acme_client", "ACME client", NGX_LOG_PT_STR)
 
 enum {
@@ -52,6 +56,9 @@ extern ngx_log_property_t  ngx_http_log_properties[];
 #define ngx_http_log_prop(id)                                                 \
     ((ngx_log_property_key_t)                                                 \
      { ngx_http_log_properties[NGX_HTTP_LOG_PROP__##id].index })
+
+#define ngx_http_log_tag(id)                                                  \
+    ( &(ngx_http_log_properties[NGX_HTTP_LOG_PROP__##id].tag) )
 
 
 #if (NGX_API)

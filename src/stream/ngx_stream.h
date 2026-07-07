@@ -42,11 +42,14 @@ typedef struct ngx_stream_session_s  ngx_stream_session_t;
 
 
 #define NGX_STREAM_LOG_PROP_LIST                                              \
+    NGX_X(STREAM,              "stream",   "stream",    NGX_LOG_PT_OBJ)       \
+    NGX_X(STREAM_TAG,          "stream",   "",          NGX_LOG_PT_STR)       \
     NGX_X(CLIENT,              "client",   "client",    NGX_LOG_PT_STR)       \
     NGX_X(SERVER,              "server",   "server",    NGX_LOG_PT_STR)       \
     NGX_X(PROTOCOL,            "protocol", "protocol",  NGX_LOG_PT_STR)       \
     NGX_X(SESSION,             "session",  "session",   NGX_LOG_PT_STR)       \
     NGX_X(UPSTREAM,            "upstream",  "upstream", NGX_LOG_PT_STR)       \
+    NGX_X(PEER_TAG,            "peer",      "",         NGX_LOG_PT_STR)       \
     NGX_X(BYTES_FROM_CLIENT,   "bytes_from_client",                           \
                                "bytes from client",     NGX_LOG_PT_NUM)       \
     NGX_X(BYTES_TO_CLIENT,     "bytes_to_client",                             \
@@ -65,6 +68,10 @@ enum {
 #define ngx_stream_log_prop(id)                                               \
     ((ngx_log_property_key_t)                                                 \
      { ngx_stream_log_properties[NGX_STREAM_LOG_PROP__##id].index })
+
+#define ngx_stream_log_tag(id)                                                  \
+    ( &(ngx_stream_log_properties[NGX_STREAM_LOG_PROP__##id].tag) )
+
 
 extern ngx_log_property_t  ngx_stream_log_properties[];
 

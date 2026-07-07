@@ -19,6 +19,8 @@
 #endif
 
 #define NGX_MAIL_LOG_PROP_LIST                                                \
+    NGX_X(MAIL,     "mail"  ,   "mail",     NGX_LOG_PT_OBJ)                   \
+    NGX_X(MAIL_TAG, "mail"  ,   "",         NGX_LOG_PT_STR)                   \
     NGX_X(CLIENT,   "client",   "client",   NGX_LOG_PT_STR)                   \
     NGX_X(SERVER,   "server",   "server",   NGX_LOG_PT_STR)                   \
     NGX_X(STARTTLS, "starttls", "starttls", NGX_LOG_PT_STR)                   \
@@ -36,6 +38,9 @@ extern ngx_log_property_t  ngx_mail_log_properties[];
 #define ngx_mail_log_prop(id)                                                 \
     ((ngx_log_property_key_t)                                                 \
      { ngx_mail_log_properties[NGX_MAIL_LOG_PROP__##id].index })
+
+#define ngx_mail_log_tag(id)                                                  \
+    ( &(ngx_mail_log_properties[NGX_MAIL_LOG_PROP__##id].tag) )
 
 
 typedef struct {

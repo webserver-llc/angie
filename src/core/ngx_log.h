@@ -53,11 +53,26 @@ typedef struct {
 } ngx_log_format_t;
 
 
+typedef struct ngx_log_tag_s  ngx_log_tag_t;
+
+struct ngx_log_tag_s {
+    ngx_str_t            str;
+    ngx_log_tag_t       *next;
+};
+
+
 #if (NGX_SSL)
 #define NGX_SX(a, b, c, d) NGX_X(a, b, c, d)
 #else
 #define NGX_SX(a, b, c, d)
 #endif
+
+/*
+ * the list contains static definitions for the purposes of logging;
+ * some entries has no name: those are not properties, but tags.
+ * most tags has the same name as properties, so the same list is used
+ * to keep both; this avoids having extra set of macros purely for tags
+ */
 
 #define NGX_CORE_LOG_PROP_LIST                                                \
     NGX_X(CONTEXT,         "context",       "context",       NGX_LOG_PT_OBJ)  \
@@ -65,6 +80,7 @@ typedef struct {
     NGX_X(RESOLVER,        "resolver",      "resolver",      NGX_LOG_PT_STR)  \
     NGX_X(SYSLOG_SERVER,   "syslog_server", "syslog server", NGX_LOG_PT_STR)  \
     NGX_X(LISTEN_ADDR,     "listen_addr",   "listen addr",   NGX_LOG_PT_STR)  \
+    NGX_SX(OCSP_TAG,       "ocsp",          "",              NGX_LOG_PT_STR)  \
     NGX_SX(OCSP_RESPONDER, "responder",     "responder",     NGX_LOG_PT_STR)  \
     NGX_SX(OCSP_PEER,      "peer",          "peer",          NGX_LOG_PT_STR)  \
     NGX_SX(OCSP_CERT,      "certificate",   "certificate",   NGX_LOG_PT_STR)
@@ -90,6 +106,7 @@ typedef struct {
     ngx_str_t                 name;
     const char               *module;
     ngx_log_property_type_t   type;
+    ngx_log_tag_t             tag;
 } ngx_log_property_t;
 
 /*
@@ -147,7 +164,10 @@ struct ngx_log_s {
     ngx_log_format_t     format;
 
     /* only meaningful during the call on the first log in list */
-    ngx_uint_t           busy; /* unsigned busy:1; */
+    ngx_log_tag_t       *tags;
+    unsigned             busy:1;
+
+    unsigned             need_tags:1;
 
     NGX_COMPAT_BEGIN(5)
     NGX_COMPAT_END
@@ -229,6 +249,7 @@ struct ngx_log_s {
         (dst)->filter = (src)->filter;                                        \
         (dst)->conf = (src)->conf;                                            \
         (dst)->format = (src)->format;                                        \
+        (dst)->need_tags = (src)->need_tags;                                  \
     } while (0)
 
 
@@ -243,15 +264,21 @@ ngx_int_t ngx_log_redirect_stderr(ngx_cycle_t *cycle);
 ngx_log_t *ngx_log_get_file_log(ngx_log_t *head);
 ngx_int_t ngx_log_get_level(u_char *level);
 char *ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head);
-void ngx_log_add_str_tag(ngx_log_t *log, ngx_str_t *s);
-
+void ngx_log_add_tag(ngx_log_t *log, ngx_log_tag_t *ltag);
+ngx_int_t ngx_log_add_user_tag(ngx_log_t *log, ngx_str_t *tag,
+    ngx_pool_t *pool);
 
 #define ngx_core_log_prop(id)                                                 \
     ((ngx_log_property_key_t)                                                 \
      { ngx_core_log_properties[NGX_CORE_LOG_PROP__##id].index })
 
+#define ngx_core_log_tag(id)                                                  \
+    ( &(ngx_core_log_properties[NGX_CORE_LOG_PROP__##id].tag) )
+
 #define ngx_log_prop_decl(key, name, module, type)                            \
-    { 0, ngx_string(key), ngx_string(name), module, type }
+    { 0, ngx_string(key), ngx_string(name), module, type,                     \
+      { ngx_string(key), NULL }                                               \
+    }
 
 ngx_int_t ngx_log_add_property(ngx_cycle_t *cycle, ngx_log_property_t *prop);
 u_char *ngx_log_action(ngx_log_t *log, u_char *buf, u_char *last,
@@ -294,15 +321,6 @@ ngx_basename(const char *filename)
 
     return base ? (base + 1) : filename;
 }
-
-#define ngx_log_add_tag(log, s)                                               \
-    do {                                                                      \
-        ngx_str_t  tmp;                                                       \
-                                                                              \
-        tmp.data = (u_char *) s;                                              \
-        tmp.len = ngx_strlen(s);                                              \
-        ngx_log_add_str_tag(log, &tmp);                                       \
-    } while (0)
 
 
 extern ngx_module_t  ngx_errlog_module;

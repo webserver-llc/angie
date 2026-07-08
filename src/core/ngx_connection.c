@@ -1149,7 +1149,7 @@ ngx_configure_quic_socket(ngx_socket_t s, ngx_addr_t *addr, ngx_log_t *log)
         }
     }
 
-#elif (NGX_HAVE_IP_DONTFRAG)
+#elif (NGX_HAVE_IPV6_DONTFRAG)
     {
         int  value;
 

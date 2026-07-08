@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 # (C) Valentin Bartenev
 
@@ -146,7 +147,9 @@ sub test_tls13 {
 sub get_cert_cn {
 	my ($host) = @_;
 	my $s = http('', start => 1, SSL => 1, SSL_hostname => $host);
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub get_host {

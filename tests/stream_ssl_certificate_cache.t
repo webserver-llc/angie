@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -139,7 +140,10 @@ sub get {
 		start => 1,
 		SSL => 1,
 		SSL_hostname => $host) or return;
-	return $s->dump_peer_certificate();
+
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub update {

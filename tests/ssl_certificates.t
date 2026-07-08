@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -97,7 +98,9 @@ like(cert('ECDSA'), qr/CN=ec/, 'ssl cert ECDSA');
 
 sub cert {
 	my $s = get_socket(@_) || return;
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub get_socket {

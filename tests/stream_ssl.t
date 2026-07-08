@@ -143,7 +143,9 @@ sub get {
 
 sub cert {
 	my $s = get_socket(@_);
-	return $s->socket()->dump_peer_certificate();
+	my $cert = $s->socket()->dump_peer_certificate();
+	$s->socket()->close();
+	return $cert;
 }
 
 sub get_socket {

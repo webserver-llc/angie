@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -178,7 +179,13 @@ sub get {
 
 sub cert {
 	my $s = get_socket(@_) || return;
-	return $s->socket()->dump_peer_certificate();
+
+	my $cert = $s->socket()->dump_peer_certificate();
+
+	$s->read();
+	$s->socket()->close();
+
+	return $cert;
 }
 
 sub session {

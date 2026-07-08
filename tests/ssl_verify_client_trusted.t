@@ -123,6 +123,9 @@ sub get {
 		my $name = Net::SSLeay::sk_X509_NAME_value($list, $i);
 		push @names, Net::SSLeay::X509_NAME_oneline($name);
 	}
+
+	http_end($s);
+
 	return @names;
 }
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -139,7 +140,9 @@ sub get {
 		PeerAddr => '127.0.0.1:' . port($port || 8443),
 		SSL => 1,
 		SSL_hostname => $host) or return;
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub update {

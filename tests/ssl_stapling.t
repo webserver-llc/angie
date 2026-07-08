@@ -18,7 +18,7 @@ use MIME::Base64 qw/ decode_base64 /;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -353,8 +353,7 @@ sub staple {
 
 	return $s unless $s;
 
-	while (<$s>) {}
-	$s->close();
+	http_end($s);
 
 	return join ' ', @resp;
 }

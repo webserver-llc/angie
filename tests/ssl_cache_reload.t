@@ -105,7 +105,9 @@ sub get_cert_cn {
 		start => 1,
 		PeerAddr => '127.0.0.1:' . port($port),
 		SSL => 1);
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub update {

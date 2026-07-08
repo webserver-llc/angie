@@ -193,7 +193,9 @@ sub get {
 sub cert {
 	my ($uri, $port, $type) = @_;
 	my $s = get_ssl_socket($port, $type) or return;
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	$s->close();
+	return $cert;
 }
 
 sub get_ssl_socket {

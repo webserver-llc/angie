@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -15,7 +16,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/ :DEFAULT http_end /;
 
 ###############################################################################
 
@@ -90,7 +91,9 @@ like(cert('two'), qr/CN=two/, 'certificate 2');
 
 sub cert {
 	my $s = get_socket(@_) || return;
-	return $s->dump_peer_certificate();
+	my $cert = $s->dump_peer_certificate();
+	http_end($s);
+	return $cert;
 }
 
 sub get_socket {

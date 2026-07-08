@@ -62,7 +62,9 @@ static u_char ngx_http_msie_refresh_tail[] =
 
 #define ngx_http_error_page_ext(title, h1, extra)                             \
     "<html>" CRLF                                                             \
-    "<head><title>" title "</title></head>" CRLF                              \
+    "<title>" title "</title>" CRLF                                           \
+    "<style>html{color-scheme:light dark;}</style>" CRLF                      \
+    "</head>" CRLF                                                            \
     "<body>" CRLF                                                             \
     "<center><h1>" h1 "</h1></center>" CRLF                                   \
     extra

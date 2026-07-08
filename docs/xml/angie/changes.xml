@@ -84,6 +84,18 @@ variables in the HTTP and stream modules under intensive load.
 
 <change type="feature">
 <para lang="ru">
+встроенные HTML-страницы ошибок и страница листинга директорий AutoIndex-модуля
+теперь поддерживают тёмную цветовую схему в соответствии с системными
+настройками пользователя.
+</para>
+<para lang="en">
+built-in HTML error pages and the directory listing page of the AutoIndex module
+now support dark color scheme following the user's OS-level preference.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 дополнительный режим работы "learn" директивы "sticky" для привязки сессий
 к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
 разделяемой памяти сервера. Данный режим был ранее доступен в PRO версии.

@@ -1717,7 +1717,12 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     u->state->connect_time = (ngx_msec_t) -1;
     u->state->header_time = (ngx_msec_t) -1;
 
-    rc = ngx_event_connect_peer(&u->peer);
+    rc = u->peer.get(&u->peer, u->peer.data);
+
+    if (rc == NGX_OK) {
+        rc = u->peer.connect ? u->peer.connect(&u->peer, u->peer.data)
+                             : ngx_event_connect(&u->peer, u->peer.data);
+    }
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http upstream connect: %i", rc);

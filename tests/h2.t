@@ -767,10 +767,18 @@ local $TODO = 'not yet';
 $s = Test::Nginx::HTTP2->new();
 
 # $s->h2_settings(0, 0x4 => 2**17, 0x5 => 16384);
-syswrite($s->{socket}, pack("x2C2x5nN", 12, 0x4, 4, 2**17));
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("x2C2x5nN", 12, 0x4, 4, 2**17));
+}
+
 select undef, undef, undef, 0.2;
 
-syswrite($s->{socket}, pack("nN", 5, 16384));
+{
+	local $SIG{PIPE} = 'IGNORE';
+	syswrite($s->{socket}, pack("nN", 5, 16384));
+}
+
 $s->h2_window(2**17);
 
 $sid = $s->new_stream({ path => '/t1.html' });

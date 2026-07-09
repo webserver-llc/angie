@@ -503,6 +503,12 @@ ngx_int_t ngx_http_upstream_preserve_ssl_passwords(ngx_conf_t *cf,
     ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev);
 #endif
 
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
+void ngx_http_upstream_stat(ngx_peer_connection_t *pc, ngx_uint_t state);
+void ngx_http_upstream_stat_locked(ngx_peer_connection_t *pc,
+    ngx_uint_t state);
+#endif
+
 #if (NGX_HTTP_V3)
 void ngx_http_v3_upstream_close_request_stream(ngx_connection_t *c,
     ngx_uint_t do_reset);

@@ -32,10 +32,6 @@ static void ngx_http_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t type);
 static ngx_inline void ngx_http_upstream_recover_round_robin_peer(
     ngx_http_upstream_rr_peer_t *peer);
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-static void ngx_http_upstream_stat(ngx_peer_connection_t *pc,
-    ngx_http_upstream_rr_peer_t *peer, ngx_uint_t state);
-#endif
 
 #if (NGX_HTTP_SSL)
 
@@ -788,7 +784,11 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    time_t                       now;
+    time_t                        now;
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
+    ngx_http_request_t           *r;
+    ngx_http_upstream_t          *u;
+#endif
     ngx_http_upstream_rr_peer_t  *peer;
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, pc->log, 0,
@@ -854,7 +854,12 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
     peer->conns--;
 
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-    ngx_http_upstream_stat(pc, peer, state);
+    r = pc->ctx;
+    u = r->upstream;
+
+    if (u->upstream != NULL && u->upstream->shm_zone != NULL) {
+        ngx_http_upstream_stat_locked(pc, state);
+    }
 #endif
 
     if (ngx_http_upstream_rr_peer_unref(rrp->peers, peer) == NGX_OK) {
@@ -981,60 +986,6 @@ ngx_http_upstream_recover_round_robin_peer(
 
     peer->fails = 0;
 }
-
-
-#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
-
-static void
-ngx_http_upstream_stat(ngx_peer_connection_t *pc,
-    ngx_http_upstream_rr_peer_t *peer, ngx_uint_t state)
-{
-    ngx_time_t           *tp;
-    ngx_uint_t            code, idx;
-    ngx_connection_t     *c;
-    ngx_http_request_t   *r;
-    ngx_http_upstream_t  *u;
-
-    r = pc->ctx;
-    u = r->upstream;
-
-    if (u->upstream == NULL || u->upstream->shm_zone == NULL) {
-        return;
-    }
-
-    if (state & NGX_PEER_FAILED) {
-        peer->stats.fails++;
-
-        if (peer->max_fails && peer->fails == peer->max_fails) {
-            peer->stats.unavailable++;
-
-            tp = ngx_timeofday();
-            peer->stats.downstart = (uint64_t) tp->sec * 1000 + tp->msec;
-        }
-    }
-
-    c = pc->connection;
-
-    if (c == NULL) {
-        /*
-         * immediate fail of establishing connection
-         * in ngx_event_connect_peer()
-         */
-        return;
-    }
-
-    if (u->state->status) {
-        code = u->state->status;
-        idx = (code >= 100 && code <= 599) ? code - 100 : 500;
-
-        peer->stats.responses[idx]++;
-    }
-
-    peer->stats.sent += c->sent;
-    peer->stats.received += u->state->bytes_received;
-}
-
-#endif
 
 
 #if (NGX_HTTP_UPSTREAM_SID)

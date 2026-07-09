@@ -987,7 +987,9 @@ ngx_stream_proxy_init_upstream(ngx_stream_session_t *s)
 
     u->state->connect_time = ngx_current_msec - u->start_time;
 
-    if (u->peer.notify) {
+    if (pc->type == SOCK_STREAM
+        && u->peer.notify_mask & NGX_STREAM_UPSTREAM_NOTIFY_CONNECT)
+    {
         u->peer.notify(&u->peer, u->peer.data,
                        NGX_STREAM_UPSTREAM_NOTIFY_CONNECT);
     }
@@ -2244,6 +2246,13 @@ ngx_stream_proxy_process(ngx_stream_session_t *s, ngx_uint_t from_upstream,
                     if (u->state->first_byte_time == (ngx_msec_t) -1) {
                         u->state->first_byte_time = ngx_current_msec
                                                     - u->start_time;
+
+                        if (u->peer.notify_mask
+                            & NGX_STREAM_UPSTREAM_NOTIFY_RESPONSE_BEGIN)
+                        {
+                            u->peer.notify(&u->peer, u->peer.data,
+                                NGX_STREAM_UPSTREAM_NOTIFY_RESPONSE_BEGIN);
+                        }
                     }
                 }
 

@@ -181,7 +181,10 @@ subtest 'verify peer properties' => sub {
 		responses => {},
 		data      => {sent => 0, received => 0},
 		selected  => {current => 0, total => 0},
-		health    => {unavailable => 0, downtime => 0, fails => 0},
+		health    => {
+			unavailable => 0, downtime => 0, fails => 0,
+			header_time => $NUM_RE, response_time => $NUM_RE,
+		},
 	};
 
 	cmp_deeply($j, superhashof($expected_properties), 'peer b3 properties');

@@ -161,6 +161,8 @@ struct ngx_http_upstream_srv_conf_s {
     in_port_t                        port;
     ngx_uint_t                       no_port;  /* unsigned no_port:1 */
 
+    ngx_uint_t                       rt_factor;
+
 #if (NGX_HTTP_UPSTREAM_ZONE)
     ngx_shm_zone_t                  *shm_zone;
     ngx_resolver_t                  *resolver;

@@ -97,6 +97,8 @@ ngx_int_t ngx_api_struct_int64_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_struct_atomic_handler(ngx_api_entry_data_t data,
     ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_struct_msec_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx);
 
 ngx_api_entry_t *ngx_api_root(ngx_cycle_t *cycle);
 

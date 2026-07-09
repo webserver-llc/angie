@@ -96,6 +96,68 @@ now support dark color scheme following the user's OS-level preference.
 
 <change type="feature">
 <para lang="ru">
+балансировка с учетом среднего времени получения заголовка ответа
+или полного ответа от проксируемых HTTP-серверов с настраиваемым
+коэффициентом сглаживания, использующая директивы "least_time"
+и "response_time_factor" в блоке "upstream".
+Данный режим балансировки был ранее доступен в PRO версии.
+</para>
+<para lang="en">
+load balancing by average time to receive the response header
+or full response from proxied HTTP servers with an adjustable
+smoothing factor, using the "least_time" and "response_time_factor"
+directives in the "upstream" block.
+This balancing mode was previously available in the PRO version.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+среднее время получения заголовков ответа и полного ответа в секции
+"/status/http/upstreams/" API статистики по каждому из проксируемых серверов.
+</para>
+<para lang="en">
+average time to receive the response headers and full response in the
+"/status/http/upstreams/" statistics API section for each upstream server.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+балансировка с учётом среднего времени установки соединения, получения
+первого или последнего байта ответа от проксируемых stream-серверов
+с настраиваемым коэффициентом сглаживания, использующая директивы "least_time"
+и "response_time_factor" в блоке "upstream".
+Данный режим балансировки был ранее доступен в PRO версии.
+</para>
+<para lang="en">
+load balancing by average time to establish a connection, receive
+the first or last byte of a response of proxied stream upstream servers
+with an adjustable smoothing factor, using the "least_time"
+and "response_time_factor" directives in the "upstream" block.
+This balancing mode was previously available in the PRO version.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+статистика по среднему времени установки соединения, получения первого
+и последнего байта ответа от проксируемых stream-серверов
+в интерфейсе, предоставляемом директивой "api",
+с возможностью настройки коэффициента сглаживания
+директивой "response_time_factor" блока "upstream".
+</para>
+<para lang="en">
+statistics of average time to establish a connection, receive the first
+and last byte of a response of proxied stream upstream servers
+in the interface provided by the "api" directive,
+with the ability to adjust the average smoothing factor via
+the "response_time_factor" directive of the "upstream" block.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 дополнительный режим работы "learn" директивы "sticky" для привязки сессий
 к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
 разделяемой памяти сервера. Данный режим был ранее доступен в PRO версии.

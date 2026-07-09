@@ -169,6 +169,18 @@ static ngx_api_entry_t  ngx_api_http_upstream_peer_health_entries[] = {
         .handler   = ngx_api_http_upstream_peer_downstart_handler,
     },
 
+    {
+        .name      = ngx_string("header_time"),
+        .handler   = ngx_api_http_upstream_peer_struct_msec_handler,
+        .data.off  = offsetof(ngx_http_upstream_rr_peer_t, header_time)
+    },
+
+    {
+        .name      = ngx_string("response_time"),
+        .handler   = ngx_api_http_upstream_peer_struct_msec_handler,
+        .data.off  = offsetof(ngx_http_upstream_rr_peer_t, response_time)
+    },
+
     ngx_api_null_entry
 };
 
@@ -863,6 +875,8 @@ ngx_http_upstream_zone_new_peer(ngx_http_upstream_rr_peers_t *peers,
     peer->server.len = server->len;
     ngx_memcpy(peer->server.data, server->data, server->len);
 
+    peer->average = -1;
+
     if (template->host->service.len == 0) {
         peer->weight = template->weight;
 
@@ -1048,6 +1062,16 @@ ngx_api_http_upstream_peer_struct_int64_handler(ngx_api_entry_data_t data,
     ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
 
     return ngx_api_struct_int64_handler(data, actx, pctx->peer);
+}
+
+
+ngx_int_t
+ngx_api_http_upstream_peer_struct_msec_handler(ngx_api_entry_data_t data,
+    ngx_api_ctx_t *actx, void *ctx)
+{
+    ngx_api_http_upstream_peers_ctx_t  *pctx = ctx;
+
+    return ngx_api_struct_msec_handler(data, actx, pctx->peer);
 }
 
 

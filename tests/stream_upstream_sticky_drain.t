@@ -156,6 +156,8 @@ cmp_deeply(
 	$j->{health},
 	{
 		unavailable => 0, downtime => 0, fails => 0,
+		connect_time => $NUM_RE, first_byte_time => $NUM_RE,
+		last_byte_time => $NUM_RE
 	},
 	'b1 health is OK'
 );
@@ -180,7 +182,8 @@ cmp_deeply(
 	$j->{health},
 	{
 		unavailable => 1, downtime => $NUM_RE, fails => 1,
-		downstart => $TIME_RE
+		connect_time => $NUM_RE, first_byte_time => $NUM_RE,
+		last_byte_time => $NUM_RE, downstart => $TIME_RE
 	},
 	'b1 health (peer is dead)'
 );
@@ -202,6 +205,8 @@ cmp_deeply(
 	$j->{health},
 	{
 		unavailable => 1, downtime => $NUM_RE, fails => 1,
+		connect_time => $NUM_RE, first_byte_time => $NUM_RE,
+		last_byte_time => $NUM_RE
 	},
 	'b1 health (peer is revived, no downstart)'
 );

@@ -38,6 +38,12 @@ static void *ngx_stream_upstream_create_main_conf(ngx_conf_t *cf);
 static char *ngx_stream_upstream_init_main_conf(ngx_conf_t *cf, void *conf);
 
 
+static ngx_conf_num_bounds_t  ngx_stream_upstream_response_time_factor_bounds =
+{
+    ngx_conf_check_num_bounds, 0, 99
+};
+
+
 static ngx_command_t  ngx_stream_upstream_commands[] = {
 
     { ngx_string("upstream"),
@@ -71,6 +77,13 @@ static ngx_command_t  ngx_stream_upstream_commands[] = {
       NULL },
 
 #endif
+
+    { ngx_string("response_time_factor"),
+      NGX_STREAM_UPS_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_STREAM_SRV_CONF_OFFSET,
+      offsetof(ngx_stream_upstream_srv_conf_t, rt_factor),
+      &ngx_stream_upstream_response_time_factor_bounds },
 
       ngx_null_command
 };
@@ -983,6 +996,7 @@ ngx_stream_upstream_add(ngx_conf_t *cf, ngx_url_t *u, ngx_uint_t flags)
     uscf->line = cf->conf_file->line;
     uscf->port = u->port;
     uscf->no_port = u->no_port;
+    uscf->rt_factor = NGX_CONF_UNSET_UINT;
 #if (NGX_STREAM_UPSTREAM_ZONE)
     uscf->resolver_timeout = NGX_CONF_UNSET_MSEC;
 #endif

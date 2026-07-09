@@ -26,6 +26,8 @@ static ngx_inline ngx_int_t ngx_stream_upstream_set_round_robin_peer(
     ngx_stream_upstream_server_t *server);
 static ngx_stream_upstream_rr_peer_t *ngx_stream_upstream_get_peer(
     ngx_stream_upstream_rr_peer_data_t *rrp, ngx_uint_t *tot, ngx_uint_t *idx);
+static ngx_inline void ngx_stream_upstream_response_time(
+    ngx_peer_connection_t *pc, ngx_stream_upstream_rr_peer_t *peer);
 static void ngx_stream_upstream_notify_round_robin_peer(
     ngx_peer_connection_t *pc, void *data, ngx_uint_t type);
 static ngx_inline void ngx_stream_upstream_recover_round_robin_peer(
@@ -59,6 +61,8 @@ ngx_stream_upstream_init_round_robin(ngx_conf_t *cf,
     ngx_stream_upstream_rr_peers_t  *peers, *backup;
 
     us->peer.init = ngx_stream_upstream_init_round_robin_peer;
+
+    ngx_conf_init_uint_value(us->rt_factor, 90);
 
     if (us->servers) {
 
@@ -345,6 +349,8 @@ ngx_stream_upstream_set_round_robin_peer(ngx_pool_t *pool,
     peer->socklen = addr->socklen;
     peer->name = addr->name;
 
+    peer->average = -1; /* it means this peer was not used yet */
+
     if (server) {
 
         peer->weight = server->weight;
@@ -460,6 +466,19 @@ ngx_stream_upstream_init_round_robin_peer(ngx_stream_session_t *s,
     s->upstream->peer.get = ngx_stream_upstream_get_round_robin_peer;
     s->upstream->peer.free = ngx_stream_upstream_free_round_robin_peer;
     s->upstream->peer.notify = ngx_stream_upstream_notify_round_robin_peer;
+    /*
+     * Connect notification is always necessary for rr and rr-based balancers
+     * because it's used to manage peer fail state.
+     */
+    s->upstream->peer.notify_mask = NGX_STREAM_UPSTREAM_NOTIFY_CONNECT;
+
+#if (NGX_API && NGX_STREAM_UPSTREAM_ZONE)
+    if (us->shm_zone) {
+        s->upstream->peer.notify_mask |=
+                                     NGX_STREAM_UPSTREAM_NOTIFY_RESPONSE_BEGIN;
+    }
+#endif
+
     s->upstream->peer.tries = ngx_stream_upstream_tries(rrp->peers);
 #if (NGX_STREAM_SSL)
     s->upstream->peer.set_session =
@@ -847,6 +866,8 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
                 ngx_stream_upstream_recover_round_robin_peer(peer);
             }
         }
+
+        ngx_stream_upstream_response_time(pc, peer);
     }
 
     peer->conns--;
@@ -867,29 +888,91 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
 }
 
 
+static ngx_inline void
+ngx_stream_upstream_response_time_avg(ngx_msec_t *avg, ngx_msec_t v,
+    ngx_uint_t factor)
+{
+    /* moving average and rounding */
+
+    *avg = *avg ? (*avg * factor + v * (100 - factor) + 50) / 100 : v;
+
+    if (*avg == 0) {
+        *avg = 1;
+    }
+}
+
+
+static ngx_inline void
+ngx_stream_upstream_response_time(ngx_peer_connection_t *pc,
+    ngx_stream_upstream_rr_peer_t *peer)
+{
+    ngx_stream_session_t   *s;
+    ngx_stream_upstream_t  *u;
+
+    s = pc->ctx;
+    u = s->upstream;
+
+    if (u->upstream == NULL || u->state->connect_time == (ngx_msec_t) -1) {
+        return;
+    }
+
+    ngx_stream_upstream_response_time_avg(&peer->response_time,
+                                          u->state->response_time,
+                                          u->upstream->rt_factor);
+
+    ngx_log_debug3(NGX_LOG_DEBUG_STREAM, pc->log, 0, "rr (last_byte stat): "
+                   "peer: %V, value: %M, last_byte_time: %M",
+                   &peer->server, u->state->response_time, peer->response_time);
+}
+
+
 static void
 ngx_stream_upstream_notify_round_robin_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t type)
 {
     ngx_stream_upstream_rr_peer_data_t  *rrp = data;
 
+    ngx_stream_session_t           *s;
+    ngx_stream_upstream_t          *u;
     ngx_stream_upstream_rr_peer_t  *peer;
 
     peer = rrp->current;
+    s = pc->ctx;
+    u = s->upstream;
 
-    if (type == NGX_STREAM_UPSTREAM_NOTIFY_CONNECT
-        && pc->connection->type == SOCK_STREAM)
-    {
-        ngx_stream_upstream_rr_peers_rlock(rrp->peers);
-        ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
+    ngx_stream_upstream_rr_peers_rlock(rrp->peers);
+    ngx_stream_upstream_rr_peer_lock(rrp->peers, peer);
 
-        if (peer->recover_at <= peer->checked) {
-            ngx_stream_upstream_recover_round_robin_peer(peer);
+    if (type & NGX_STREAM_UPSTREAM_NOTIFY_CONNECT) {
+
+        if (pc->connection->type == SOCK_STREAM) {
+
+            if (peer->recover_at <= peer->checked) {
+                ngx_stream_upstream_recover_round_robin_peer(peer);
+            }
         }
 
-        ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
-        ngx_stream_upstream_rr_peers_unlock(rrp->peers);
+        ngx_stream_upstream_response_time_avg(&peer->connect_time,
+                                              u->state->connect_time,
+                                              u->upstream->rt_factor);
+
+        ngx_log_debug3(NGX_LOG_DEBUG_STREAM, pc->log, 0, "rr (connect stat): "
+                     "peer: %V, value: %M, connect_time: %M",
+                     &peer->server, u->state->connect_time, peer->connect_time);
     }
+
+    if (type & NGX_STREAM_UPSTREAM_NOTIFY_RESPONSE_BEGIN) {
+        ngx_stream_upstream_response_time_avg(&peer->first_byte_time,
+                                              u->state->first_byte_time,
+                                              u->upstream->rt_factor);
+
+        ngx_log_debug3(NGX_LOG_DEBUG_STREAM, pc->log, 0, "rr (first_byte stat):"
+               " peer: %V, value: %M, first_byte_time: %M",
+               &peer->server, u->state->first_byte_time, peer->first_byte_time);
+    }
+
+    ngx_stream_upstream_rr_peer_unlock(rrp->peers, peer);
+    ngx_stream_upstream_rr_peers_unlock(rrp->peers);
 }
 
 

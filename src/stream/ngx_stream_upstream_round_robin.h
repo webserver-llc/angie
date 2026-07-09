@@ -82,8 +82,13 @@ struct ngx_stream_upstream_rr_peer_s {
 
     ngx_uint_t                       max_fails;
     time_t                           fail_timeout;
+    ngx_msec_t                       response_time;
+    ngx_msec_t                       connect_time;
+    ngx_msec_t                       first_byte_time;
     ngx_msec_t                       slow_start;
     ngx_msec_t                       slow_time;
+
+    double                           average;
 
     ngx_uint_t                       down;
 
@@ -139,6 +144,8 @@ struct ngx_stream_upstream_rr_peers_s {
 
     ngx_stream_upstream_rr_peer_t   *peer;
 
+    double                           last_average;
+
 #if (NGX_STREAM_UPSTREAM_ZONE)
     ngx_uint_t                      *generation;
     ngx_stream_upstream_rr_peer_t   *resolve;
@@ -162,6 +169,8 @@ typedef struct {
 ngx_int_t ngx_api_stream_upstream_peer_struct_int_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 ngx_int_t ngx_api_stream_upstream_peer_struct_int64_handler(
+    ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
+ngx_int_t ngx_api_stream_upstream_peer_struct_msec_handler(
     ngx_api_entry_data_t data, ngx_api_ctx_t *actx, void *ctx);
 
 #endif

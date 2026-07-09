@@ -27,7 +27,15 @@
 #define NGX_STREAM_UPSTREAM_MAX_CONNS     0x0100
 
 
-#define NGX_STREAM_UPSTREAM_NOTIFY_CONNECT     0x1
+/*
+ * Notification types.  Types are used with notify() function and to define
+ * notification mask (bitmask).  Each balancer can set its own mask to enable
+ * interested notifications.
+ */
+/* established connection to upstream peer */
+#define NGX_STREAM_UPSTREAM_NOTIFY_CONNECT         0x01
+/* first byte of response is received from peer */
+#define NGX_STREAM_UPSTREAM_NOTIFY_RESPONSE_BEGIN  0x02
 
 /* zero indicates no sticky */
 #define NGX_STREAM_UPSTREAM_STICKY_STATUS_NEW  1
@@ -100,6 +108,8 @@ struct ngx_stream_upstream_srv_conf_s {
     ngx_uint_t                         line;
     in_port_t                          port;
     ngx_uint_t                         no_port;  /* unsigned no_port:1 */
+
+    ngx_uint_t                         rt_factor;
 
 #if (NGX_STREAM_UPSTREAM_ZONE)
     ngx_shm_zone_t                    *shm_zone;

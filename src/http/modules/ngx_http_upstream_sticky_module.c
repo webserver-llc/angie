@@ -333,6 +333,7 @@ ngx_http_upstream_init_sticky_peer(ngx_http_request_t *r,
         if (scf->header) {
             sp->original_notify_peer = r->upstream->peer.notify;
             r->upstream->peer.notify = ngx_http_upstream_notify_sticky_peer;
+            r->upstream->peer.notify_mask |= NGX_HTTP_UPSTREAM_NOTIFY_HEADER;
 
         } else {
             sp->original_free_peer = r->upstream->peer.free;

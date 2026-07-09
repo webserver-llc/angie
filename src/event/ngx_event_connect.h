@@ -55,6 +55,7 @@ struct ngx_peer_connection_s {
     ngx_event_connect_peer_pt        connect;
     ngx_event_close_peer_pt          close;
 
+    ngx_uint_t                       notify_mask;
     void                            *data;
     void                            *ctx;
 

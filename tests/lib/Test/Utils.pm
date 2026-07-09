@@ -12,7 +12,8 @@ use strict;
 use Exporter qw/import/;
 BEGIN {
 	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-		getconn hash_like stream_daemon trim log2i log2o log2c
+		getconn hash_like stream_daemon
+		socket_read trim log2i log2o log2c
 		$TIME_RE $NUM_RE $POSITIVE_NUM $LOG_TIME_RE is_positive_num get_caller
 		wait_for get_primary_user_group /;
 

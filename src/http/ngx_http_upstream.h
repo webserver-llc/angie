@@ -48,6 +48,7 @@
 
 #define NGX_HTTP_UPSTREAM_INVALID_HEADER     40
 #define NGX_HTTP_UPSTREAM_EARLY_HINTS        41
+#define NGX_HTTP_UPSTREAM_RECONNECT          42
 
 /* zero indicates no sticky */
 #define NGX_HTTP_UPSTREAM_STICKY_STATUS_NEW  1
@@ -73,6 +74,7 @@
 
 
 typedef struct {
+    int                              transport;
     ngx_uint_t                       status;
     ngx_msec_t                       response_time;
     ngx_msec_t                       connect_time;

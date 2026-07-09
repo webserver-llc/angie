@@ -18,6 +18,32 @@ the "proxy_no_cache" directive was not checked when caching errors.
 
 <change type="feature">
 <para lang="ru">
+новый HTTP-модуль DoH, реализующий сервер по протоколу DNS over HTTPS
+(RFC 8484), который позволяет принимать DNS-запросы по HTTP/HTTPS и
+проксировать их к группам DNS-серверов через UDP или TCP.
+</para>
+<para lang="en">
+new DoH HTTP module implementing a DNS over HTTPS server (RFC 8484)
+that accepts DNS queries over HTTP/HTTPS and proxies them to DNS server
+groups via UDP or TCP.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+новая переменная "$upstream_transport" отображает транспортный протокол
+(TCP или UDP), использованный для каждой попытки соединения с проскируемым
+сервером; при нескольких попытках значения разделяются запятой.
+</para>
+<para lang="en">
+the new "$upstream_transport" variable exposes the transport protocol
+(TCP or UDP) used for each upstream connection attempt; values for multiple
+attempts are separated by a comma.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
 получение сертификатов для IP-адресов по протоколу ACME.
 </para>
 <para lang="en">

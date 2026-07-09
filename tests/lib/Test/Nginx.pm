@@ -206,6 +206,7 @@ sub has_module($) {
 		grpc	=> '(?s)^(?!.*--without-http_grpc_module)',
 		memcached
 			=> '(?s)^(?!.*--without-http_memcached_module)',
+		doh	=> '(?s)^(?!.*--without-http_doh_module)',
 		limit_conn
 			=> '(?s)^(?!.*--without-http_limit_conn_module)',
 		limit_req
@@ -551,7 +552,11 @@ sub port {
 	my ($num, %opts) = @_;
 	my ($sock, $lock, $port);
 
-	goto done if defined $ports{$num};
+	if (defined $ports{$num}) {
+		die "port($num) was not initialized with 'dual' option"
+			if $opts{dual} && !exists $ports{$num}{tcp_socket};
+		goto done;
+	}
 
 	my $socket = sub {
 		IO::Socket::INET->new(
@@ -587,7 +592,14 @@ sub port {
 		socket => $lock
 	};
 
+	if ($opts{dual}) {
+		$ports{$num}{udp_socket} = $lock,
+		$ports{$num}{tcp_socket} = $sock,
+	}
+
 done:
+	return ($ports{$num}{tcp_socket}, $ports{$num}{udp_socket})
+		if $opts{dual};
 	return $ports{$num}{socket} if $opts{socket};
 	return $ports{$num}{port};
 }
@@ -658,15 +670,16 @@ sub waitforfile($;$) {
 }
 
 sub waitforsocket($) {
-	my ($self, $peer) = @_;
+	my ($self, $peer, $proto) = @_;
 
+	$proto //= 'tcp';
 	my $sec = 5;
 
 	# wait for socket to accept connections
 
 	for (1 .. ($sec * 10)) {
 		my $s = IO::Socket::INET->new(
-			Proto => 'tcp',
+			Proto    => $proto,
 			PeerAddr => $peer,
 		);
 
@@ -677,7 +690,7 @@ sub waitforsocket($) {
 
 	my $c = get_caller();
 	$self->{_setup_failed} = 1;
-	die "socket on $peer was not created after $sec seconds ($c)";
+	die "$proto socket on $peer was not created after $sec seconds ($c)";
 }
 
 sub waitforsslsocket($) {

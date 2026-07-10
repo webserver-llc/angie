@@ -1,4 +1,158 @@
 
+Changes with Angie 1.12.0                                        13 Jul 2026
+
+    *) Change: in the HTTP and stream modules, the "resolver conf" directive
+       is now set by default, using DNS servers from "/etc/resolv.conf"; to
+       explicitly disable DNS resolution, as was previously the case when no
+       "resolver" directive was present in the configuration, the new "off"
+       parameter can be used.
+
+    *) Feature: load balancing based on the average time to receive the
+       response header or the full response from proxied HTTP servers, with
+       a configurable smoothing factor, using the "least_time" directive in
+       the "upstream" block; the feature was ported from Angie PRO.
+
+    *) Feature: load balancing based on the average time to establish a
+       connection and receive the first or last byte of the response from
+       proxied stream servers, with a configurable smoothing factor, using
+       the "least_time" directive in the "upstream" block; the feature was
+       ported from Angie PRO.
+
+    *) Feature: the "learn" mode of the "sticky" directive for binding
+       sessions to proxied servers, which allows detecting sessions and
+       storing them in the server's shared memory; the feature was ported
+       from Angie PRO.
+
+    *) Feature: the "drain" mode, which puts a proxied server into the new
+       "draining" state, where only requests bound via "sticky" are directed
+       to that server; the feature was ported from Angie PRO.
+
+    *) Feature: average time to receive the HTTP response header and the
+       full response in the "/status/http/upstreams/" statistics API section
+       for each proxied server, with the ability to configure the smoothing
+       factor using the "response_time_factor" directive in the "upstream"
+       block, and Prometheus support; the feature was ported from Angie PRO.
+
+    *) Feature: average time to establish a connection and receive the first
+       and last byte in the "/status/stream/upstreams/" statistics API
+       section for each proxied stream server, with the ability to configure
+       the smoothing factor using the "response_time_factor" directive in
+       the "upstream" block, and Prometheus support; the feature was ported
+       from Angie PRO.
+
+    *) Feature: the Metric module for stream enabling arbitrarily
+       configurable statistics collection; allows aggregating any
+       connection-processing data at any stage in real time using variables
+       grouped by custom keys, with various methods (counters, histograms,
+       moving averages, etc.), and exposes them via the
+       "/status/stream/metric_zones/" statistics API section (with
+       Prometheus support).
+
+    *) Feature: information about certificates defined in the configuration,
+       as well as those obtained by ACME clients, in the "/certificates/"
+       statistics API section; allows easy monitoring of certificates loaded
+       in the configuration.
+
+    *) Feature: obtaining certificates for IP addresses using ACME.
+
+    *) Feature: support for ACME profiles using the new "profile" parameter
+       of the "acme_client" directive; used in particular for requesting
+       certificates for IP addresses in Let's Encrypt.
+
+    *) Feature: support for External Account Binding (EAB), which allows
+       linking an ACME account with an external account at the certificate
+       authority using HMAC authentication; required by some commercial
+       certificate authorities.
+
+    *) Feature: enhanced compatibility with servers that do not strictly
+       comply with the ACME protocol, particularly SSL.com.
+
+    *) Feature: the "acme_dns_ttl" directive that allows changing the TTL
+       value in DNS query responses during domain verification for ACME;
+       some providers filter DNS responses with a low TTL.
+
+    *) Feature: automatic retrieval of DNS server addresses from a file in
+       "resolv.conf" format using the "conf" parameter of the "resolver"
+       directive; the file is re-read when it changes, which simplifies
+       configuration and eliminates the need to manually specify server
+       addresses in the configuration.
+
+    *) Feature: new DoH HTTP module implementing a DNS over HTTPS server
+       (RFC 8484) that accepts DNS queries over HTTP/HTTPS and proxies them
+       to DNS server groups via UDP or TCP.
+
+    *) Feature: the Docker network in which container IP addresses are
+       looked up can now be specified via an individual Docker label for
+       each specific upstream group.
+
+    *) Feature: the "goto" directive in the rewrite module performs an
+       internal redirect to a named location without modifying the URI;
+       supports conditional execution inside an "if" block; replaces common
+       workarounds based on "try_files" with a guaranteed-nonexistent path
+       or "error_page" with "return" and an otherwise-unused status code.
+
+    *) Feature: log message filtering using the "filter=" parameter of the
+       "error_log" directive, and the new "error_log_user_tag" directive for
+       adding tags that can then be used in filter conditions; allows
+       flexible log configuration for tracking unique events on the server
+       with the ability to attach various handlers to them.
+
+    *) Feature: the "format=" parameter of the "error_log" directive, which
+       allows switching the log message format to JSON.
+
+    *) Feature: limiting the maximum error logging rate using the "rate"
+       parameter of the "error_log" directive; the default limit is 1000
+       messages per second.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Feature: the "time_format" directive allows defining a variable with
+       a custom time format, supporting strftime()-like specifiers as well
+       as %L for milliseconds.
+
+    *) Feature: reduced CPU usage when using the "status_zone" directive
+       with variables in the HTTP and stream modules under high load.
+
+    *) Feature: built-in HTML error pages and the directory listing page of
+       the AutoIndex module now support a dark color scheme following the
+       user's OS-level preference.
+
+    *) Feature: the new "$upstream_transport" variable exposes the transport
+       protocol (TCP or UDP) used for each upstream connection attempt;
+       values for multiple attempts are separated by a comma.
+
+    *) Feature: the "ssl_keylog_file" and "proxy_ssl_keylog_file" directives
+       specify the file to log SSL session keys.
+
+    *) Feature: all functionality of nginx 1.31.2, including the new Tunnel
+       HTTP module for CONNECT tunneling and HTTP/2 support for connections
+       to proxied servers; the "keepalive" directive in the "upstream" block
+       is left disabled, as its use may lead to unexpected consequences in
+       some scenarios that are not addressed by the proposed "local" option.
+
+    *) Bugfix: if "$metric_*" or "$metric_*_key" variables were set
+       sequentially for multiple metric zones within a single request,
+       updating statistics or retrieving related variables used the key of
+       the last specified zone.
+
+    *) Bugfix: the "$metric_*" variable returned the specified string, not
+       the key along with the calculated metric value. The "$metric_*_value"
+       variable had to be used in order to get the actual value.
+
+    *) Bugfix: a key used for statistics calculation in the Metric module
+       could be truncated if it was specified together with a value and
+       contained the "=" character.
+
+    *) Bugfix: the "proxy_no_cache" directive was not checked when caching
+       errors.
+       Thanks to Maxim Dounin (freenginx).
+
+    *) Bugfix: the "add_header Content-Type" directive might result in the
+       addition of another "Content-Type" field in the response header.
+
+    *) Bugfix: the ACME module was not functional with "select" and "poll"
+       event processing methods.
+
+
 Changes with Angie 1.11.8                                        18 Jun 2026
 
     *) Security: when proxying a specially crafted request to a gRPC backend

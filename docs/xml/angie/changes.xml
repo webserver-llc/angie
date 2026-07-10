@@ -7,12 +7,218 @@
 
 <changes ver="1.12.0" date="">
 
-<change type="bugfix">
+<change type="change">
 <para lang="ru">
-директива proxy_no_cache не учитывалась при кэшировании ошибок.
+в модулях HTTP и stream теперь по умолчанию задана директива "resolver conf",
+использующая DNS-серверы из "/etc/resolv.conf"; явно отключить разрешение DNS,
+как это было ранее при отсутствии директивы "resolver" в конфигурации, можно
+с помощью нового параметра "off".
 </para>
 <para lang="en">
-the "proxy_no_cache" directive was not checked when caching errors.
+in the HTTP and stream modules, the "resolver conf" directive is now set by
+default, using DNS servers from "/etc/resolv.conf"; to explicitly disable DNS
+resolution, as was previously the case when no "resolver" directive was present
+in the configuration, the new "off" parameter can be used.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+балансировка с учётом среднего времени получения заголовка ответа или полного
+ответа от проксируемых HTTP-серверов с настраиваемым коэффициентом сглаживания
+с помощью директивы "least_time" блока "upstream";
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+load balancing based on the average time to receive the response header or the
+full response from proxied HTTP servers, with a configurable smoothing factor,
+using the "least_time" directive in the "upstream" block;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+балансировка с учётом среднего времени установки соединения, получения
+первого или последнего байта ответа от проксируемых stream-серверов
+с настраиваемым коэффициентом сглаживания с помощью директивы "least_time"
+блока "upstream";
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+load balancing based on the average time to establish a connection and receive
+the first or last byte of the response from proxied stream servers, with a
+configurable smoothing factor, using the "least_time" directive in the
+"upstream" block;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+дополнительный режим работы "learn" директивы "sticky" для привязки сессий
+к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
+разделяемой памяти сервера;
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+the "learn" mode of the "sticky" directive for binding sessions to proxied
+servers, which allows detecting sessions and storing them in the server's
+shared memory;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+режим "drain", переводящий проксируемый сервер в новое состояние "draining",
+при котором на сервер направляются только запросы, привязанные с помощью
+"sticky";
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+the "drain" mode, which puts a proxied server into the new "draining" state,
+where only requests bound via "sticky" are directed to that server;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+среднее время получения HTTP-заголовка ответа и полного ответа в секции
+"/status/http/upstreams/" API статистики по каждому из проксируемых серверов,
+с возможностью настройки коэффициента сглаживания директивой
+"response_time_factor" блока "upstream" и поддержкой Prometheus;
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+average time to receive the HTTP response header and the full response in the
+"/status/http/upstreams/" statistics API section for each proxied server, with
+the ability to configure the smoothing factor using the "response_time_factor"
+directive in the "upstream" block, and Prometheus support;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+среднее время установки соединения, получения первого и последнего байта
+в секции "/status/stream/upstreams/" API статистики по каждому из проксируемых
+stream-серверов, с возможностью настройки коэффициента сглаживания директивой
+"response_time_factor" блока "upstream" и поддержкой Prometheus;
+функциональность портирована из Angie PRO.
+</para>
+<para lang="en">
+average time to establish a connection and receive the first and last byte in
+the "/status/stream/upstreams/" statistics API section for each proxied stream
+server, with the ability to configure the smoothing factor using the
+"response_time_factor" directive in the "upstream" block, and Prometheus
+support;
+the feature was ported from Angie PRO.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+произвольно конфигурируемый сбор статистики с помощью Metric-модуля в stream;
+позволяет, используя различные методы (счётчики, гистограммы, скользящие средние
+и др.), агрегировать любые данные на разных стадиях обработки соединения в
+реальном времени с помощью переменных по заданным ключам и отдавать их в секции
+"/status/stream/metric_zones/" API статистики (с поддержкой Prometheus).
+</para>
+<para lang="en">
+the Metric module for stream enabling arbitrarily configurable statistics
+collection; allows aggregating any connection-processing data at any stage in
+real time using variables grouped by custom keys, with various methods
+(counters, histograms, moving averages, etc.), and exposes them via the
+"/status/stream/metric_zones/" statistics API section (with Prometheus support).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+информация о сертификатах, заданных в конфигурации, а также полученных
+ACME-клиентами, в разделе "/certificates/" API статистики; позволяет легко
+мониторить загруженные в конфигурации сертификаты.
+</para>
+<para lang="en">
+information about certificates defined in the configuration, as well as those
+obtained by ACME clients, in the "/certificates/" statistics API section;
+allows easy monitoring of certificates loaded in the configuration.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+получение сертификатов для IP-адресов по протоколу ACME.
+</para>
+<para lang="en">
+obtaining certificates for IP addresses using ACME.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка ACME-профилей с помощью нового параметра "profile" директивы
+"acme_client"; в частности, используется для запроса сертификатов на IP-адреса
+в Let's Encrypt.
+</para>
+<para lang="en">
+support for ACME profiles using the new "profile" parameter of the
+"acme_client" directive; used in particular for requesting certificates for
+IP addresses in Let's Encrypt.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+поддержка External Account Binding (EAB), позволяющая связывать ACME-аккаунт
+с внешним аккаунтом на стороне удостоверяющего центра с использованием
+HMAC-аутентификации; требуется для ряда коммерческих удостоверяющих центров.
+</para>
+<para lang="en">
+support for External Account Binding (EAB), which allows linking an ACME account
+with an external account at the certificate authority using HMAC authentication;
+required by some commercial certificate authorities.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+улучшена совместимость с ACME-серверами, не полностью соответствующими
+спецификации протокола, в частности с SSL.com.
+</para>
+<para lang="en">
+enhanced compatibility with servers that do not strictly comply with
+the ACME protocol, particularly SSL.com.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+директива "acme_dns_ttl", позволяющая изменить значение TTL в ответах на
+DNS-запросы при верификации доменов для ACME; некоторые провайдеры фильтруют
+DNS-ответы с низким TTL.
+</para>
+<para lang="en">
+the "acme_dns_ttl" directive that allows changing the TTL value in DNS query
+responses during domain verification for ACME; some providers filter DNS
+responses with a low TTL.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+автоматическое получение адресов DNS-серверов из файла в формате "resolv.conf"
+с помощью параметра "conf" директивы "resolver"; файл перечитывается при его
+изменении, что упрощает настройку и избавляет от необходимости вручную задавать
+адреса серверов в конфигурации.
+</para>
+<para lang="en">
+automatic retrieval of DNS server addresses from a file in "resolv.conf" format
+using the "conf" parameter of the "resolver" directive; the file is re-read
+when it changes, which simplifies configuration and eliminates the need to
+manually specify server addresses in the configuration.
 </para>
 </change>
 
@@ -31,180 +237,13 @@ groups via UDP or TCP.
 
 <change type="feature">
 <para lang="ru">
-новая переменная "$upstream_transport" отображает транспортный протокол
-(TCP или UDP), использованный для каждой попытки соединения с проскируемым
-сервером; при нескольких попытках значения разделяются запятой.
+Docker-сеть, в которой будет происходить поиск IP-адресов контейнеров,
+теперь может быть задана через индивидуальную Docker-метку для каждой
+конкретной upstream-группы.
 </para>
 <para lang="en">
-the new "$upstream_transport" variable exposes the transport protocol
-(TCP or UDP) used for each upstream connection attempt; values for multiple
-attempts are separated by a comma.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-получение сертификатов для IP-адресов по протоколу ACME.
-</para>
-<para lang="en">
-obtaining certificates for IP addresses using ACME.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка ACME-профилей с помощью нового параметра "profile" директивы
-"acme_client".
-</para>
-<para lang="en">
-support for ACME profiles using a new "profile" parameter of the
-"acme_client" directive.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-директива "time_format" позволяет определить переменную с произвольным
-форматом времени, поддерживающим спецификаторы в стиле strftime,
-а также %L для миллисекунд.
-</para>
-<para lang="en">
-the "time_format" directive allows defining a variable with a custom
-time format, supporting strftime-like specifiers as well as %L
-for milliseconds.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-Добавлена возможность вывода журнала ошибок в формате JSON.
-Директива "error_log" теперь поддерживает параметр "format=", который
-позволяет указать используемый формат.
-</para>
-<para lang="en">
-Added the ability to output error log messages in JSON format.
-The "error_log" directive now supports "format=" parameter that specifies
-desired format.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-модуль ACME не работал с модулями обработки событий "select" и "poll"
-</para>
-<para lang="en">
-ACME module was not functional with "select" and "poll" event processing modules
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-снижено потребление CPU при использовании директивы "status_zone"
-с переменными в модулях HTTP и stream при интенсивной нагрузке.
-</para>
-<para lang="en">
-reduced CPU usage when using the "status_zone" directive with
-variables in the HTTP and stream modules under intensive load.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-встроенные HTML-страницы ошибок и страница листинга директорий AutoIndex-модуля
-теперь поддерживают тёмную цветовую схему в соответствии с системными
-настройками пользователя.
-</para>
-<para lang="en">
-built-in HTML error pages and the directory listing page of the AutoIndex module
-now support dark color scheme following the user's OS-level preference.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-балансировка с учетом среднего времени получения заголовка ответа
-или полного ответа от проксируемых HTTP-серверов с настраиваемым
-коэффициентом сглаживания, использующая директивы "least_time"
-и "response_time_factor" в блоке "upstream".
-Данный режим балансировки был ранее доступен в PRO версии.
-</para>
-<para lang="en">
-load balancing by average time to receive the response header
-or full response from proxied HTTP servers with an adjustable
-smoothing factor, using the "least_time" and "response_time_factor"
-directives in the "upstream" block.
-This balancing mode was previously available in the PRO version.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-среднее время получения заголовков ответа и полного ответа в секции
-"/status/http/upstreams/" API статистики по каждому из проксируемых серверов.
-</para>
-<para lang="en">
-average time to receive the response headers and full response in the
-"/status/http/upstreams/" statistics API section for each upstream server.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-балансировка с учётом среднего времени установки соединения, получения
-первого или последнего байта ответа от проксируемых stream-серверов
-с настраиваемым коэффициентом сглаживания, использующая директивы "least_time"
-и "response_time_factor" в блоке "upstream".
-Данный режим балансировки был ранее доступен в PRO версии.
-</para>
-<para lang="en">
-load balancing by average time to establish a connection, receive
-the first or last byte of a response of proxied stream upstream servers
-with an adjustable smoothing factor, using the "least_time"
-and "response_time_factor" directives in the "upstream" block.
-This balancing mode was previously available in the PRO version.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-статистика по среднему времени установки соединения, получения первого
-и последнего байта ответа от проксируемых stream-серверов
-в интерфейсе, предоставляемом директивой "api",
-с возможностью настройки коэффициента сглаживания
-директивой "response_time_factor" блока "upstream".
-</para>
-<para lang="en">
-statistics of average time to establish a connection, receive the first
-and last byte of a response of proxied stream upstream servers
-in the interface provided by the "api" directive,
-with the ability to adjust the average smoothing factor via
-the "response_time_factor" directive of the "upstream" block.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-дополнительный режим работы "learn" директивы "sticky" для привязки сессий
-к проксируемым серверам, позволяющий обнаруживать сессии и запоминать их в
-разделяемой памяти сервера. Данный режим был ранее доступен в PRO версии.
-</para>
-<para lang="en">
-additional "learn" mode of the "sticky" directive for binding sessions to
-proxied servers that allows to discover sessions and save them in the server's
-shared memory. The mode was previously available in the PRO version.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-режим "drain", переводящий проксируемый сервер в новое состояние
-"draining", при котором на сервер направляются только запросы, привязанные
-с помощью модуля "sticky". Данный режим был ранее доступен в PRO версии.
-</para>
-<para lang="en">
-a "drain" mode that switches the proxied server to a new "draining"
-state, when only requests bound using the "sticky" module are sent to
-the server. The mode was previously available in the PRO version.
+the Docker network in which container IP addresses are looked up can now be
+specified via an individual Docker label for each specific upstream group.
 </para>
 </change>
 
@@ -227,32 +266,119 @@ execution inside an "if" block; replaces common workarounds based on
 
 <change type="feature">
 <para lang="ru">
-произвольно конфигурируемый сбор статистики с помощью модуля Metric в
-STREAM; позволяет, используя различные методы (счетчики, гистограммы,
-скользящие средние и др.), агрегировать любые данные на разных стадиях
-обработки соединения в реальном времени с помощью переменных по заданным ключам
-и отдавать их в секции "/status/stream/metric_zones/" API статистики (с
-поддержкой Prometheus).
+фильтрация сообщений лога с помощью параметра "filter=" директивы "error_log"
+и новая директива "error_log_user_tag" для добавления меток, используемых в
+условиях фильтрации; позволяет гибко настраивать лог для отслеживания уникальных
+событий на сервере с возможностью назначения для них тех или иных обработчиков.
 </para>
 <para lang="en">
-the Metrics module enabling arbitrary, real‑time STREAM metrics collection
-with fully configurable aggregation methods (counters, histograms,
-moving averages, etc.); it allows tracking processing data at any stage,
-grouped by custom keys, and exposes the metrics via the
-"/status/stream/metric_zones/" API section (including Prometheus support).
+log message filtering using the "filter=" parameter of the "error_log"
+directive, and the new "error_log_user_tag" directive for adding tags that can
+then be used in filter conditions; allows flexible log configuration for
+tracking unique events on the server with the ability to attach various
+handlers to them.
 </para>
 </change>
 
-<change type="bugfix">
+<change type="feature">
 <para lang="ru">
-переменная "$metric_*" возвращала заданную строку, а не ключ вместе с
-подсчитанным значением метрики, из-за чего для получения значения приходилось
-использовать переменную "$metric_*_value".
+параметр "format=" директивы "error_log", позволяющий переключать формат
+сообщений лога на JSON.
 </para>
 <para lang="en">
-the "$metric_*" variable returned the specified string, not the key
-along with the calculated metric value. The "$metric_*_value" variable had
-to be used in order to get the actual value.
+the "format=" parameter of the "error_log" directive, which allows switching
+the log message format to JSON.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+ограничение максимальной частоты логирования ошибок с помощью параметра "rate"
+директивы "error_log"; по умолчанию используется ограничение в 1000 сообщений
+в секунду.<br/>
+Спасибо Максиму Дунину (freenginx).
+</para>
+<para lang="en">
+limiting the maximum error logging rate using the "rate" parameter of the
+"error_log" directive; the default limit is 1000 messages per second.<br/>
+Thanks to Maxim Dounin (freenginx).
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+директива "time_format" позволяет определить переменную с произвольным
+форматом времени, поддерживающим спецификаторы в стиле strftime(), а также
+%L для миллисекунд.
+</para>
+<para lang="en">
+the "time_format" directive allows defining a variable with a custom time
+format, supporting strftime()-like specifiers as well as %L for milliseconds.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+снижено потребление ресурсов процессора при использовании директивы
+"status_zone" с переменными в модулях HTTP и stream под высокой нагрузкой.
+</para>
+<para lang="en">
+reduced CPU usage when using the "status_zone" directive with variables in the
+HTTP and stream modules under high load.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+встроенные HTML-страницы ошибок и страница листинга директорий AutoIndex-модуля
+теперь поддерживают тёмную цветовую схему в соответствии с системными
+настройками пользователя.
+</para>
+<para lang="en">
+built-in HTML error pages and the directory listing page of the AutoIndex module
+now support a dark color scheme following the user's OS-level preference.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+новая переменная "$upstream_transport" отображает транспортный протокол
+(TCP или UDP), использованный для каждой попытки соединения с проксируемым
+сервером; при нескольких попытках значения разделяются запятой.
+</para>
+<para lang="en">
+the new "$upstream_transport" variable exposes the transport protocol
+(TCP or UDP) used for each upstream connection attempt; values for multiple
+attempts are separated by a comma.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+директивы "ssl_keylog_file" и "proxy_ssl_keylog_file", позволяющие задать файл
+для логирования сессионных SSL-ключей.
+</para>
+<para lang="en">
+the "ssl_keylog_file" and "proxy_ssl_keylog_file" directives specify the file
+to log SSL session keys.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.31.2, включая новый HTTP-модуль Tunnel для
+CONNECT-туннелирования и поддержку HTTP/2 для соединений с проксируемыми
+серверами; при этом директива "keepalive" в блоке "upstream" оставлена
+выключенной, поскольку её использование может приводить к непредвиденным
+последствиям в ряде сценариев, которые не устраняются поддержкой предложенной
+опции "local".
+</para>
+<para lang="en">
+all functionality of nginx 1.31.2, including the new Tunnel HTTP module for
+CONNECT tunneling and HTTP/2 support for connections to proxied servers; the
+"keepalive" directive in the "upstream" block is left disabled, as its use may
+lead to unexpected consequences in some scenarios that are not addressed by the
+proposed "local" option.
 </para>
 </change>
 
@@ -272,51 +398,36 @@ retrieving related variables used the key of the last specified zone.
 
 <change type="bugfix">
 <para lang="ru">
-при использовании нескольких символов '=' в директиве "metric" обрезался ключ.
+переменная "$metric_*" возвращала заданную строку, а не ключ вместе с
+подсчитанным значением метрики, из-за чего для получения значения приходилось
+использовать переменную "$metric_*_value".
 </para>
 <para lang="en">
-when using multiple '=' characters in the "metric" directive,
-the key was truncated.
+the "$metric_*" variable returned the specified string, not the key
+along with the calculated metric value. The "$metric_*_value" variable had
+to be used in order to get the actual value.
 </para>
 </change>
 
-<change type="feature">
+<change type="bugfix">
 <para lang="ru">
-теперь максимальная частота логгирования ошибок может быть ограничена
-с помощью параметра rate директивы error_log;
-по умолчанию используется ограничение в 1000 сообщений в секунду.
-<br/>
+ключ при подсчёте статистики в Metric-модуле мог быть обрезан, если был указан
+вместе со значением и при этом содержал символ "=".
+</para>
+<para lang="en">
+a key used for statistics calculation in the Metric module could be truncated
+if it was specified together with a value and contained the "=" character.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+директива "proxy_no_cache" не учитывалась при кэшировании ошибок.<br/>
 Спасибо Максиму Дунину (freenginx).
 </para>
 <para lang="en">
-now maximum error logging rate can be limited
-with the "rate" parameter of the "error_log" directive;
-by default the limit is 1000 messages per second.
-<br/>
+the "proxy_no_cache" directive was not checked when caching errors.<br/>
 Thanks to Maxim Dounin (freenginx).
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-улучшена совместимость с ACME-серверами, не полностью соответствующими
-спецификации протокола, в частности с SSL.com.
-</para>
-<para lang="en">
-enhanced compatibility with servers that do not strictly comply with
-the ACME protocol, particularly SSL.com.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-поддержка External Account Binding (EAB), позволяющая связывать
-ACME-аккаунт с внешним аккаунтом на стороне УЦ с использованием
-HMAC-аутентификации.
-</para>
-<para lang="en">
-support for External Account Binding (EAB), allowing an ACME account to be
-linked with an external account on the CA side via HMAC-based credentials.
 </para>
 </change>
 
@@ -331,134 +442,13 @@ the "add_header Content-Type" directive might result in the addition of another
 </para>
 </change>
 
-<change type="feature">
-<para lang="ru">
-информация о сертификатах, заданных в конфигурации и полученных ACME-клиентами,
-отображается в разделе "/certificates/" API статистики.
-</para>
-<para lang="en">
-information about certificates specified in the configuration and obtained by
-ACME clients is displayed in the "/certificates/" section of the statistics API.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-Директива "acme_dns_ttl" позволяет изменить значение TTL
-в ответах на DNS-запросы при DNS-верификации для ACME;
-допустимый диапазон значений от 0 до 2147483647 (в соответствии
-с RFC 2181), значение по умолчанию 1.
-</para>
-<para lang="en">
-The "acme_dns_ttl" directive allows configuration
-of the TTL value in responses to ACME DNS challenges;
-the allowed range of values is from 0 through 2147483647 as per
-RFC 2181, the default value is 1.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-добавлена возможность через Docker-метки указывать Docker-сеть,
-в которой будет происходить поиск IP-адресов контейнеров,
-для конкретных upstream-групп.
-</para>
-<para lang="en">
-added support for specifying Docker network via labels to search
-for container IPs for specific upstream groups.
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-В модулях http и stream директива "resolver" всегда задана по умолчанию.
-Параметр "off" позволяет явно отключить разрешение DNS-имён,
-что соответсвтует старому поведению, когда директива не указана.
-</para>
-<para lang="en">
-In the http and stream modules, the "resolver" directive is always set
-by default. The "off" parameter explicitly disables DNS name resolution,
-which corresponds to the old behavior when the directive was not specified.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-Параметр по умолчанию "conf" для директивы "resolver" позволяет
-автоматически считывать адреса DNS-серверов из заданного файла
-(по умолчанию "/etc/resolv.conf"). Для указания собственного файла
-используется синтаксис "conf=/path/to/file". Если ни один DNS-сервер
-не найден в указанном файле и не заданы сервера в конфигурации Angie,
-то используется сервер по умолчанию "127.0.0.1:53".
-</para>
-<para lang="en">
-The default "conf" parameter for the "resolver" directive automatically
-reads DNS server addresses from a specified file
-(default: "/etc/resolv.conf"). To use a custom file, the "conf=/path/to/file"
-syntax is used. If no DNS servers are found in the specified file and
-none are configured in Angie, the default server "127.0.0.1:53" is used.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-вся функциональность nginx 1.31.2, за исключением HTTP-модуля "sticky",
-модуля балансировки "least_time", директивы "ssl_ech_file" и связанных
-с ней переменных ("$ssl_ech_status" и "$ssl_ech_outer_server_name"),
-а также изменений в поведении директивы "keepalive" HTTP модуля "upstream".
-Поддержка Encrypted Client Hello уже реализована при помощи директивы
-"ssl_encrypted_hello_key". Функциональность HTTP-модуля "sticky" была ранее
-независимо реализована в angie; Включение keepalive по-умолчанию может
-привести к непредвиденным последствиям, которые не устраняются поддержкой
-предложенной опции "local".
-</para>
-<para lang="en">
-all functionality of nginx 1.31.2 except the HTTP "sticky" module, "least_time"
-balancing module, the "ssl_ech_file" directive, and related variables
-("ssl_ech_status" and "ssl_ech_outer_server_name"), and changes of the
-"keepalive" directive in the "upstream" HTTP module. The Encrypted Client
-Hello is already supported using the "ssl_encrypted_hello_key" variable.
-The HTTP "sticky" module functionality was independently implemented in
-angie earlier. Enabling keepalive by default may lead to unexpected
-consequences that may not be mitigated by the suggested "local" option.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-директивы "ssl_keylog_file" и "proxy_ssl_keylog_file" позволяют задать файл
-для логгирования SSL-ключей.
-</para>
-<para lang="en">
-the "ssl_keylog_file" and "proxy_ssl_keylog_file" directives specify the file
-to log SSL keys.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-Добавлена возможность фильтрации сообщений об ошибках. Директива "error_log"
-теперь поддерживает параметр "filter=", который позволяет указать условия,
-при которых ошибка будет записана в журнал. Новая директива
-"error_log_user_tag" позволяет задать переменную, которая может быть
-использована в условии фильтрации.
-</para>
-<para lang="en">
-Added the ability to filter error log messages. The "error_log" directive
-now supports "filter=" parameter that specifies conditions required to
-write an error into log.  The new "error_log_user_tag" directive
-specifies a variable that can be used in filter.
-</para>
-</change>
-
 <change type="bugfix">
 <para lang="ru">
-ошибки при работе директивы "ssl_keylog_file" могли нарушать обработку
-произвольного соединения и приводить к другим ошибкам.
+ACME-модуль не работал с методами обработки событий "select" и "poll".
 </para>
 <para lang="en">
-errors encountered while processing the ssl_keylog_file directive
-might interrupt random connection or lead to other errors.
+the ACME module was not functional with "select" and "poll" event processing
+methods.
 </para>
 </change>
 

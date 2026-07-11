@@ -167,11 +167,11 @@ sub wait_info {
 
 	if (WIFEXITED($status)) {
 		my $code = WEXITSTATUS($status);
-		return "normally with code $code";
+		return "exited with code $code";
 
 	} elsif (WIFSIGNALED($status)) {
 		my $signal = WTERMSIG($status);
-		return "terminated by signal $signal";
+		return "killed by signal $signal";
 
 	} elsif (WIFSTOPPED($status)) {
 		return "stopped";

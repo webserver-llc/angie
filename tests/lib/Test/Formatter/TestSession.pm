@@ -27,7 +27,6 @@ BEGIN {
 		xresults        => sub { shift; shift; },
 		tc_errors       => sub { shift; shift; },
 		tc_misc         => sub { shift; shift; },
-		tc_end_time     => sub { shift; shift; },
 		meta            => sub { shift; shift; },
 		closed          => sub { shift; shift; },
 		tmp_fh          => sub { shift; shift; },
@@ -59,7 +58,6 @@ sub _initialize {
 	$self->err_lines([]);
 	$self->tc_errors({});
 	$self->tc_misc({});
-	$self->tc_end_time([]);
 	$self->started_at(0);
 	$self->meta({});
 	$self->closed(0);
@@ -101,8 +99,6 @@ sub result {
 	$self->grab_stderr();
 
 	if ($result->is_test) {
-
-		push @{$self->tc_end_time}, time();
 
 		$result->{test_status}  = $result->has_todo ? 'todo-' : '';
 		$result->{test_status} .= $result->has_skip ? 'skip-' : '';
@@ -172,7 +168,6 @@ sub session_report {
 		xresults => $self->xresults,
 		tc_errors => $self->tc_errors,
 		tc_misc => $self->tc_misc,
-		tc_end_time => $self->tc_end_time,
 		err_lines => $self->err_lines,
 	};
 

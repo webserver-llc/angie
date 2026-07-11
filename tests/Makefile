@@ -20,7 +20,7 @@ ifeq ($(REPORT),yes)
 TAP_FORMATTER_VERBOSITY=1
 TENV+=TAP_FORMATTER_VERBOSITY=$(TAP_FORMATTER_VERBOSITY)
 TENV+=PERL5LIB=lib
-PROVE_OPTS+= --formatter Test::Formatter::JSON
+PROVE_OPTS+= --formatter Test::Formatter::JSON -m
 endif
 
 ifneq ($(REPORT_PREFIX),)

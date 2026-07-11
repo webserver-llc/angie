@@ -27,7 +27,7 @@ use base qw(TAP::Base);
 BEGIN {
 	my %PROPS= (
 		verbosity          => sub { shift; shift; },
-		stdout             => sub { shift; shift; },
+		output             => sub { shift; shift; },
 		output_fh          => sub { shift; shift; },
 		session_class      => sub { shift; shift; },
 		template_processor => sub { shift; shift; },
@@ -267,42 +267,18 @@ sub create_report {
 		$tres{time_process} = $test->{time_process};
 
 		if ($verbosity > 0) {
-			my @stdout;
-			my @stderr;
+			my @output;
 
 			for my $line (@{$test->{xresults}}) {
-				push @stdout, $line->{raw};
+				push @output, $line->{raw};
 			}
 
-			for my $line (@{$test->{err_lines}}) {
-				push @stderr, $line;
-			}
-
-			$tres{stdout} = \@stdout;
-			if (scalar @stderr) {
-				$tres{stderr} = \@stderr;
-			}
+			$tres{output} = \@output;
 		}
 
 		$tres{failed_tests} = $test->{failed_tests};
 
 		if ($verbosity > -1) {
-			my %stderr = ();
-
-			for my $tnum (keys %{$test->{tc_errors}}) {
-
-				my @tc_stderr;
-				for my $line (@{$test->{tc_errors}{$tnum}}) {
-					push @tc_stderr, $line;
-				}
-
-				$stderr{$tnum} = \@tc_stderr;
-			}
-
-			if (scalar keys %stderr) {
-				$tres{tc_stderr} = \%stderr;
-			}
-
 			my %misc= ();
 
 			for my $tnum (keys %{$test->{tc_misc}}) {

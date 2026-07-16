@@ -193,6 +193,8 @@ if ($t->has_module('http_api')) {
     metric_zone stage1:128k last;
     metric_zone stage3:128k last;
 
+    metric_zone rbtree:128k expire=on count;
+
     metric_complex_zone block0:128k {
         count count;
         min   min;
@@ -363,6 +365,12 @@ EOF
     server {
         listen 127.0.0.1:%%PORT_8120%% proxy_protocol;
         metric block4 $key=$value on=preread;
+        return "ok";
+    }
+
+    server {
+        listen 127.0.0.1:%%PORT_8121%% proxy_protocol;
+        metric rbtree $key on=end;
         return "ok";
     }
 }
@@ -1143,6 +1151,45 @@ my %test_cases = (
 		my $discarded = get_json('/api/block4/discarded');
 
 		is($discarded, $expired->{'count'}, 'discarded count');
+	},
+
+	'rbtree' => sub {
+		plan(skip_all => 'no http api') unless $t->has_module('http_api');
+
+		my @keys = (
+			'ABsV4D2',
+			'ABsV4D2AHjJMmQ',
+			'AAAAAAAAAAAAAZ9liH',
+			'ABsV4D2AHjJMmQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAADy1YZd',
+			'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAGfLVQ',
+			'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+			. 'AAC6NobD'
+		);
+
+		metric_send(8121, $keys[0], 0);
+		metric_send(8121, $keys[0], 0);
+		metric_send(8121, $keys[1], 0);
+		metric_send(8121, $keys[2], 0);
+		metric_send(8121, $keys[3], 0);
+		metric_send(8121, $keys[4], 0);
+		metric_send(8121, $keys[5], 0);
+
+		is(get_json("/api/rbtree/metrics/$keys[0]"), 2, 'hash collision 1');
+		is(get_json("/api/rbtree/metrics/$keys[1]"), 1, 'hash collision 2');
+		is(get_json("/api/rbtree/metrics/$keys[2]"), 1, 'hash collision 3');
+		is(get_json("/api/rbtree/metrics/$keys[3]"), 1, 'hash collision 4');
+		is(get_json("/api/rbtree/metrics/$keys[4]"), 1, 'hash collision 5');
+		is(get_json("/api/rbtree/metrics/$keys[5]"), 1, 'hash collision 6');
 	},
 );
 

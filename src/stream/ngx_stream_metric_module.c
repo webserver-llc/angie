@@ -1561,8 +1561,8 @@ static ngx_stream_metric_node_t *
 ngx_stream_metric_find_node_locked(ngx_stream_metric_ctx_t *mctx,
     ngx_uint_t hash, ngx_str_t key, u_char **endptr)
 {
-    u_char                    *end, *pos;
     size_t                     chunk;
+    u_char                    *end, *pos;
     ngx_int_t                  rc;
     ngx_str_t                  tmp;
     ngx_rbtree_node_t         *rbt, *sentinel;
@@ -1822,7 +1822,7 @@ ngx_stream_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
     size_t                      chunk, rest;
     u_char                     *end_m, *end_t, *key_m, *key_t;
     ngx_rbtree_node_t         **parent;
-    ngx_stream_metric_node_t   *node_t, *node_m;
+    ngx_stream_metric_node_t   *node_m, *node_t;
 
     for ( ;; ) {
 

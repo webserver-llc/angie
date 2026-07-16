@@ -1565,8 +1565,8 @@ static ngx_http_metric_node_t *
 ngx_http_metric_find_node_locked(ngx_http_metric_ctx_t *mctx,
     ngx_uint_t hash, ngx_str_t key, u_char **endptr)
 {
-    u_char                  *end, *pos;
     size_t                   chunk;
+    u_char                  *end, *pos;
     ngx_int_t                rc;
     ngx_str_t                tmp;
     ngx_rbtree_node_t       *rbt, *sentinel;
@@ -1818,13 +1818,13 @@ ngx_http_metric_skip_key_locked(ngx_http_metric_node_t *node)
 
 
 static void
-ngx_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
+ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel)
 {
     size_t                    chunk, rest;
     u_char                   *end_m, *end_t, *key_m, *key_t;
     ngx_rbtree_node_t       **parent;
-    ngx_http_metric_node_t   *node_t, *node_m;
+    ngx_http_metric_node_t   *node_m, *node_t;
 
     for ( ;; ) {
 
@@ -2026,7 +2026,7 @@ done:
     mctx->shpool->data = mctx->sh;
 
     ngx_rbtree_init(&mctx->sh->rbtree, &mctx->sh->sentinel,
-                    ngx_metric_rbtree_insert_value);
+                    ngx_http_metric_rbtree_insert_value);
 
     ngx_queue_init(&mctx->sh->queue);
 

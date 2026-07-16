@@ -273,17 +273,18 @@ subtest 'truncation' => sub {
 
 	my $expected_json = $j->decode($good_line);
 
-	my $truncated;
+	my $prev_request_len =
+		length($expected_json->{http}{request}{request_line});
+
+	$expected_json->{message} = re(qr/limiting requests/);
+	$expected_json->{http}{request}{request_line} = re(qr/GET \//);
+	$expected_json->{time} = $TIME_RE;
+
 	for my $i (2 .. $#raw_lines) {
 		$expected_json->{connection}++;
-		$expected_json->{message} = re(qr/limiting requests/);
-		$expected_json->{http}{request}{request_line} = re(qr/GET \//);
-		$expected_json->{time} = $TIME_RE;
 
-		my $prev_request_len =
-			length($expected_json->{http}{request}{request_line});
-
-		my $slen = length($raw_lines[$i]);
+		my $raw_line = $raw_lines[$i];
+		my $slen = length($raw_line);
 
 		ok($slen <= ERROR_LOG_BUFFER_SIZE,
 			"line $i length [$slen chars] does not exceed "
@@ -291,33 +292,27 @@ subtest 'truncation' => sub {
 
 		my $json;
 		eval {
-			$json = $j->decode($raw_lines[$i]);
+			$json = $j->decode($raw_line);
 		};
 		if ($@) {
 			undef $json;
-			diag("Broken JSON line[$slen chars]: >>" . $raw_lines[$i] . '<<');
+			diag("Broken JSON line[$slen chars]: >>$raw_line<<");
 		}
-		ok(defined $json, "line $i decoded OK");
+		ok(defined $json, "line $i decoded OK")
+			or next;
 
 		my $request_len = length($json->{http}{request}{request_line});
 
 		my $ok = eq_deeply($json, $expected_json);
-
-		if (!$truncated) {
-			if ($ok) {
-				pass("line $i is not truncated");
-				ok($request_len > $prev_request_len, 'request len increased: '
-					. "$prev_request_len -> $request_len");
-			} else {
-				$truncated = 1;
-			}
+		if ($ok && $request_len >= $prev_request_len) {
+			is($json->{truncated}, undef, "line $i truncated False")
+				or diag $raw_line;
+		} else {
+			is($json->{truncated}, JSON::true(), "line $i truncated True")
+				or diag $raw_line;
 		}
 
-		if ($truncated) {
-			is($json->{truncated}, JSON::true(), "line $i truncated True");
-		}
-
-		$expected_json = $json;
+		$prev_request_len = $request_len;
 	}
 };
 

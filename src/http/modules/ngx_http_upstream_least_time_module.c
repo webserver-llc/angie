@@ -333,6 +333,8 @@ found:
 
 failed:
 
+    ngx_http_upstream_rr_peers_unlock(peers);
+
     if (peers->next) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "get least time peer, backup servers");
@@ -340,8 +342,6 @@ failed:
         rrp->peers = peers->next;
 
         ngx_http_upstream_rr_reset_tried(rrp, rrp->peers->number);
-
-        ngx_http_upstream_rr_peers_unlock(peers);
 
         rc = ngx_http_upstream_get_least_time_peer(pc, rrp);
 

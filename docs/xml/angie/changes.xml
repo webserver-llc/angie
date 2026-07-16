@@ -20,6 +20,19 @@ process crash.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при использовании директивы "least_time" для группы серверов с директивой
+"zone" обращение к такой группе, когда все серверы были недоступны, могло
+приводить к зацикливанию рабочего процесса.
+</para>
+<para lang="en">
+when using the "least_time" directive with the "zone" directive, proxying
+to such a group with all servers unavailable could cause the worker process
+to enter an infinite loop.
+</para>
+</change>
+
 </changes>
 
 

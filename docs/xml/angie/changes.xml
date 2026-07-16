@@ -7,6 +7,62 @@
 
 <changes ver="1.12.1" date="">
 
+<change type="security">
+<para lang="ru">
+при вычислении строкового выражения, в котором безымянные переменные захвата
+($1, $2 и т.п.) предшествуют переменной директивы "map", значение которой
+определяется регулярным выражением, а также при использовании некэшируемой
+переменной ("volatile") директивы "map", ключ которой при этом содержит
+переменную захвата, используемую также в значении той же директивы,
+могло происходить повреждение памяти рабочего процесса или его падение
+(CVE-2026-42533);
+исправление портировано из nginx 1.31.3.
+</para>
+<para lang="en">
+when evaluating a string expression in which unnamed capture variables
+($1, $2, etc.) preceded a "map" directive variable whose value is determined
+by a regular expression, or when using a non-cacheable ("volatile") "map"
+directive variable whose key contained a capture variable also used in the
+value of the same directive, worker process memory corruption or a worker
+process crash could occur (CVE-2026-42533);
+the fix was ported from nginx 1.31.3.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "slice" или фонового обновления кэша,
+если в конфигурации безымянные переменные захвата ($1, $2 и т.п.)
+использовались совместно с некэшируемой переменной ("volatile") директивы
+"map" с регулярным выражением, значение безымянной переменной захвата
+могло содержать произвольные байты из памяти рабочего процесса или могло
+происходить его падение (CVE-2026-60005);
+исправление портировано из nginx 1.31.3.
+</para>
+<para lang="en">
+when using the "slice" directive or background cache update,
+if unnamed capture variables ($1, $2, etc.) were used together with
+a non-cacheable ("volatile") "map" directive variable with a regular
+expression, the value of an unnamed capture variable could contain
+arbitrary bytes from worker process memory, or a worker process crash
+could occur (CVE-2026-60005);
+the fix was ported from nginx 1.31.3.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании SSI-модуля с проксированием без буферизации могло происходить
+повреждение памяти рабочего процесса или его падение (CVE-2026-56434);
+исправление портировано из nginx 1.31.3.
+</para>
+<para lang="en">
+when using the SSI module with unbuffered proxying, worker process
+memory corruption or a worker process crash could occur (CVE-2026-56434);
+the fix was ported from nginx 1.31.3.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 при использовании Metric-модуля в отдельных случаях могла происходить

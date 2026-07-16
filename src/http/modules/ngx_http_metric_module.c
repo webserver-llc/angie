@@ -1831,86 +1831,90 @@ ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
     size_t                    chunk, rest;
     u_char                   *end_m, *end_t, *key_m, *key_t;
     ngx_int_t                 rc;
-    ngx_rbtree_node_t       **parent;
+    ngx_rbtree_node_t       **rbt;
     ngx_http_metric_node_t   *node_m, *node_t;
+
+    node_m = (ngx_http_metric_node_t *) &node->color;
 
     for ( ;; ) {
 
         if (node->key < temp->key) {
-
-            parent = &temp->left;
-
-        } else if (node->key > temp->key) {
-
-            parent = &temp->right;
-
-        } else { /* node->key == temp->key */
-
-            node_m = (ngx_http_metric_node_t *) &node->color;
-            node_t = (ngx_http_metric_node_t *) &temp->color;
-
-            if (node_m->key_len < node_t->key_len) {
-                parent = &temp->left;
-                goto next;
-            }
-
-            if (node_m->key_len > node_t->key_len) {
-                parent = &temp->right;
-                goto next;
-            }
-
-            /* node_m->key_len == node_t->key_len */
-
-            key_m = node_m->key;
-            key_t = node_t->key;
-
-            /*
-             * the node lock doesn't need to be set,
-             * as this part cannot be changed due to the rbtree lock
-             */
-
-            end_m = ngx_align_ptr(key_m + 1, NGX_HTTP_METRIC_SLAB_SIZE)
-                    - NGX_HTTP_METRIC_PTR_SIZE;
-            end_t = ngx_align_ptr(key_t + 1, NGX_HTTP_METRIC_SLAB_SIZE)
-                    - NGX_HTTP_METRIC_PTR_SIZE;
-
-            rest = node_m->key_len;
-
-            for ( ;; ) {
-                chunk = ngx_min((size_t) (end_m - key_m), rest);
-
-                rc = ngx_memcmp(key_m, key_t, chunk);
-
-                if (rc != 0) {
-                    parent = (rc < 0) ? &temp->left : &temp->right;
-                    goto next;
-                }
-
-                rest -= chunk;
-
-                if (rest == 0) {
-                    break;
-                }
-
-                /* switch to the next slab */
-
-                ngx_http_metric_slab_next_locked(&key_m, &end_m);
-                ngx_http_metric_slab_next_locked(&key_t, &end_t);
-            }
-
-            parent = &temp->right;
+            rbt = &temp->left;
+            goto next;
         }
+
+        if (node->key > temp->key) {
+            rbt = &temp->right;
+            goto next;
+        }
+
+        /* node->key == temp->key */
+
+        node_t = (ngx_http_metric_node_t *) &temp->color;
+
+        if (node_m->key_len < node_t->key_len) {
+            rbt = &temp->left;
+            goto next;
+        }
+
+        if (node_m->key_len > node_t->key_len) {
+            rbt = &temp->right;
+            goto next;
+        }
+
+        /* node_m->key_len == node_t->key_len */
+
+        key_m = node_m->key;
+        key_t = node_t->key;
+
+        rest = node_m->key_len;
+
+        /*
+         * the node lock doesn't need to be set,
+         * as this part cannot be changed due to the rbtree lock
+         */
+
+        end_m = ngx_align_ptr(key_m + 1, NGX_HTTP_METRIC_SLAB_SIZE)
+                - NGX_HTTP_METRIC_PTR_SIZE;
+        end_t = ngx_align_ptr(key_t + 1, NGX_HTTP_METRIC_SLAB_SIZE)
+                - NGX_HTTP_METRIC_PTR_SIZE;
+
+        for ( ;; ) {
+            chunk = ngx_min((size_t) (end_m - key_m), rest);
+
+            rc = ngx_memcmp(key_m, key_t, chunk);
+
+            if (rc != 0) {
+                rbt = (rc < 0) ? &temp->left : &temp->right;
+                goto next;
+            }
+
+            rest -= chunk;
+
+            if (rest == 0) {
+                break;
+            }
+
+            /* switch to the next slab */
+
+            ngx_http_metric_slab_next_locked(&key_m, &end_m);
+            ngx_http_metric_slab_next_locked(&key_t, &end_t);
+        }
+
+        /* rc == 0 */
+
+        rbt = &temp->right;
 
     next:
 
-        if (*parent == sentinel) {
+        if (*rbt == sentinel) {
             break;
         }
 
-        temp = *parent;
+        temp = *rbt;
     }
 
-    *parent = node;
+    *rbt = node;
 
     node->parent = temp;
     node->left = sentinel;

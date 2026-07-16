@@ -1,4 +1,35 @@
 
+Changes with Angie 1.12.1                                        17 Jul 2026
+
+    *) Security: when evaluating a string expression in which unnamed
+       capture variables ($1, $2, etc.) preceded a "map" directive variable
+       whose value is determined by a regular expression, or when using a
+       non-cacheable ("volatile") "map" directive variable whose key
+       contained a capture variable also used in the value of the same
+       directive, worker process memory corruption or a worker process crash
+       could occur (CVE-2026-42533); the fix was ported from nginx 1.31.3.
+
+    *) Security: when using the "slice" directive or background cache
+       update, if unnamed capture variables ($1, $2, etc.) were used
+       together with a non-cacheable ("volatile") "map" directive variable
+       with a regular expression, the value of an unnamed capture variable
+       could contain arbitrary bytes from worker process memory, or a worker
+       process crash could occur (CVE-2026-60005); the fix was ported from
+       nginx 1.31.3.
+
+    *) Security: when using the SSI module with unbuffered proxying, worker
+       process memory corruption or a worker process crash could occur
+       (CVE-2026-56434); the fix was ported from nginx 1.31.3.
+
+    *) Bugfix: in certain cases when using the Metric module, metric data
+       corruption could occur; in "expire=on" mode, this could also cause a
+       worker process crash.
+
+    *) Bugfix: when using the "least_time" directive with the "zone"
+       directive, proxying to such a group with all servers unavailable
+       could cause the worker process to enter an infinite loop.
+
+
 Changes with Angie 1.12.0                                        13 Jul 2026
 
     *) Change: in the HTTP and stream modules, the "resolver conf" directive

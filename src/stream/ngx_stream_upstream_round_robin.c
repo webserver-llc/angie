@@ -635,6 +635,7 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
     ngx_stream_upstream_rr_peers_wlock(peers);
 
     if (ngx_stream_upstream_conf_changed(peers, rrp)) {
+        ngx_stream_upstream_rr_peers_unlock(peers);
         goto busy;
     }
 
@@ -676,6 +677,8 @@ ngx_stream_upstream_get_round_robin_peer(ngx_peer_connection_t *pc, void *data)
 
 failed:
 
+    ngx_stream_upstream_rr_peers_unlock(peers);
+
     if (peers->next) {
 
         ngx_log_debug0(NGX_LOG_DEBUG_STREAM, pc->log, 0, "backup servers");
@@ -684,24 +687,14 @@ failed:
 
         ngx_stream_upstream_rr_reset_tried(rrp, rrp->peers->number);
 
-        ngx_stream_upstream_rr_peers_unlock(peers);
-
         rc = ngx_stream_upstream_get_round_robin_peer(pc, rrp);
 
         if (rc != NGX_BUSY) {
             return rc;
         }
-
-        ngx_stream_upstream_rr_peers_wlock(peers);
-
-        if (ngx_stream_upstream_conf_changed(peers, rrp)) {
-            goto busy;
-        }
     }
 
 busy:
-
-    ngx_stream_upstream_rr_peers_unlock(peers);
 
     pc->name = peers->name;
 

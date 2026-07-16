@@ -1579,34 +1579,39 @@ ngx_http_metric_find_node_locked(ngx_http_metric_ctx_t *mctx,
 
         if (hash < rbt->key) {
             rbt = rbt->left;
-            continue;
+            goto next;
         }
 
         if (hash > rbt->key) {
             rbt = rbt->right;
-            continue;
+            goto next;
         }
 
-        /* hash = rbt->key */
+        /* hash == rbt->key */
 
         node = (ngx_http_metric_node_t *) &rbt->color;
+
+        if (key.len < node->key_len) {
+            rbt = rbt->left;
+            goto next;
+        }
+
+        if (key.len > node->key_len) {
+            rbt = rbt->right;
+            goto next;
+        }
+
+        /* key.len == node->key_len */
+
+        tmp = key;
 
         /*
          * the node lock doesn't need to be set,
          * as this part cannot be changed due to the rbtree lock
          */
 
-        if (node->key_len != key.len) {
-            rbt = (node->key_len > key.len) ? rbt->left : rbt->right;
-            continue;
-        }
-
-        /* node->key_len == key.len */
-
         pos = node->key;
         end = (u_char *) rbt + NGX_HTTP_METRIC_DATA_SIZE;
-
-        tmp = key;
 
         for ( ;; ) {
             chunk = ngx_min((size_t) (end - pos), tmp.len);
@@ -1623,6 +1628,8 @@ ngx_http_metric_find_node_locked(ngx_http_metric_ctx_t *mctx,
             if (tmp.len == 0) {
                 break;
             }
+
+            /* switch to the next slab */
 
             tmp.data += chunk;
 
@@ -1823,6 +1830,7 @@ ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
 {
     size_t                    chunk, rest;
     u_char                   *end_m, *end_t, *key_m, *key_t;
+    ngx_int_t                 rc;
     ngx_rbtree_node_t       **parent;
     ngx_http_metric_node_t   *node_m, *node_t;
 
@@ -1838,24 +1846,28 @@ ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
 
         } else { /* node->key == temp->key */
 
-            parent = &temp->right;
-
             node_m = (ngx_http_metric_node_t *) &node->color;
             node_t = (ngx_http_metric_node_t *) &temp->color;
 
-            if (node_m->key_len != node_t->key_len) {
+            if (node_m->key_len < node_t->key_len) {
+                parent = &temp->left;
+                goto next;
+            }
 
-                if (node_m->key_len < node_t->key_len) {
-                    parent = &temp->left;
-                }
-
-                break;
+            if (node_m->key_len > node_t->key_len) {
+                parent = &temp->right;
+                goto next;
             }
 
             /* node_m->key_len == node_t->key_len */
 
             key_m = node_m->key;
             key_t = node_t->key;
+
+            /*
+             * the node lock doesn't need to be set,
+             * as this part cannot be changed due to the rbtree lock
+             */
 
             end_m = ngx_align_ptr(key_m + 1, NGX_HTTP_METRIC_SLAB_SIZE)
                     - NGX_HTTP_METRIC_PTR_SIZE;
@@ -1867,9 +1879,11 @@ ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
             for ( ;; ) {
                 chunk = ngx_min((size_t) (end_m - key_m), rest);
 
-                if (ngx_memcmp(key_m, key_t, chunk) < 0) {
-                    parent = &temp->left;
-                    break;
+                rc = ngx_memcmp(key_m, key_t, chunk);
+
+                if (rc != 0) {
+                    parent = (rc < 0) ? &temp->left : &temp->right;
+                    goto next;
                 }
 
                 rest -= chunk;
@@ -1878,10 +1892,16 @@ ngx_http_metric_rbtree_insert_value(ngx_rbtree_node_t *temp,
                     break;
                 }
 
+                /* switch to the next slab */
+
                 ngx_http_metric_slab_next_locked(&key_m, &end_m);
                 ngx_http_metric_slab_next_locked(&key_t, &end_t);
             }
+
+            parent = &temp->right;
         }
+
+    next:
 
         if (*parent == sentinel) {
             break;

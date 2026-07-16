@@ -7,6 +7,19 @@
 
 <changes ver="1.12.1" date="">
 
+<change type="bugfix">
+<para lang="ru">
+при использовании Metric-модуля в отдельных случаях могла происходить
+порча данных метрик; в режиме "expire=on" это также могло вызывать
+падение рабочего процесса.
+</para>
+<para lang="en">
+in certain cases when using the Metric module, metric data corruption
+could occur; in "expire=on" mode, this could also cause a worker
+process crash.
+</para>
+</change>
+
 </changes>
 
 

@@ -278,7 +278,7 @@ subtest 'truncation' => sub {
 		$expected_json->{connection}++;
 		$expected_json->{message} = re(qr/limiting requests/);
 		$expected_json->{http}{request}{request_line} = re(qr/GET \//);
-		$expected_json->{time} = $LOG_TIME_RE;
+		$expected_json->{time} = $TIME_RE;
 
 		my $prev_request_len =
 			length($expected_json->{http}{request}{request_line});
@@ -358,7 +358,7 @@ sub verify_json_log_basic_entry {
 	my $json = $j->decode($line);
 
 	my $expected = {
-		time       => $LOG_TIME_RE,
+		time       => $TIME_RE,
 		pid        => $NUM_RE,
 		tid        => $NUM_RE,
 		level      => $level,
@@ -386,7 +386,7 @@ sub verify_json_log_http_entry {
 	}
 
 	my $expected = {
-		time       => $LOG_TIME_RE,
+		time       => $TIME_RE,
 		pid        => $NUM_RE,
 		tid        => $NUM_RE,
 		level      => $level,

@@ -102,7 +102,7 @@ sub verify_json_log_entry {
 	my $json = $j->decode($line);
 
 	my $expected = {
-		time       => $LOG_TIME_RE,
+		time       => $TIME_RE,
 		pid        => $NUM_RE,
 		tid        => $NUM_RE,
 		level      => re(qr/info|error|warn|debug/),

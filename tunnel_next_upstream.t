@@ -22,8 +22,9 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http tunnel/)
-	->write_file_expand('nginx.conf', <<'EOF');
+my $t = Test::Nginx->new()->has(qw/http tunnel/);
+
+(my $conf = <<'EOF') =~ s/127.0.0.1:8092/bad_addr(0)/ge;
 
 %%TEST_GLOBALS%%
 
@@ -96,10 +97,7 @@ http {
 
 EOF
 
-my $_p = port(8092);
-$t->write_file('nginx.conf',
-	$t->read_file('nginx.conf') =~ s/127\.0\.0\.1:$_p/240.0.0.1:$_p/gr)
-	if $^O eq 'MSWin32';
+$t->write_file_expand('nginx.conf', $conf);
 
 $t->write_file('index.html', 'SUCCESS');
 $t->write_file('50x.html', 'ERROR');
@@ -123,8 +121,8 @@ my $p = port(8086);
 
 is(proxy_get("/", '127.0.0.1:' . port(8087), port(8080)), 'HTTP/1.1 ',
 	'tunnel read timeout');
-like(proxy_get("/", ($^O eq 'MSWin32' ? '127' : '240') . ".0.0.1:$_p",
-	port(8080)), qr/504 Gateway Time-out/, 'tunnel connect timeout');
+like(proxy_get("/", bad_addr(1), port(8080)), qr/504 Gateway Time-out/,
+	'tunnel connect timeout');
 like(proxy_get("/", "nxt.example.net:$p", port(8080)), qr/SEE-THIS/,
 	'tunnel next upstream default');
 like(proxy_get("/", 'off.example.net:80', port(8081)), qr/502 Bad Gateway/,
@@ -139,6 +137,11 @@ like(proxy_get("/", "uto.example.net:$p", port(8085)), qr/504 Gateway Time-out/,
 	'tunnel next upstream timeout');
 
 ###############################################################################
+
+sub bad_addr {
+	my @addr = ( '127.0.0.1', '240.0.0.1' );
+	$addr[$^O eq 'MSWin32' ^ shift] . ':' . port(8092);
+}
 
 sub proxy_get {
 	my ($uri, $host, $proxy_port) = @_;

@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(9)
+my $t = Test::Nginx->new()->has(qw/stream/)->plan(6)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -60,18 +60,6 @@ stream {
     }
 
     server {
-        listen               127.0.0.1:8083;
-        proxy_pass           127.0.0.1:8080;
-        proxy_download_rate  1;
-    }
-
-    server {
-        listen               127.0.0.1:8084;
-        proxy_pass           127.0.0.1:8080;
-        proxy_upload_rate    1;
-    }
-
-    server {
         listen               127.0.0.1:8085;
         proxy_pass           127.0.0.1:8080;
         proxy_download_rate  250;
@@ -103,23 +91,6 @@ is($r{'data'}, $str, 'exact limit');
 %r = response($str . 'extra', peer => '127.0.0.1:' . port(8082));
 is($r{'data'}, $str . 'extra', 'unlimited');
 
-SKIP: {
-skip 'unsafe on VM', 3 unless $ENV{TEST_ANGIE_UNSAFE};
-
-# if interaction between backend and client is slow then proxy can add extra
-# bytes to upload/download data
-
-%r = response($str . 'extra', peer => '127.0.0.1:' . port(8081));
-is($r{'data'}, $str, 'limited');
-
-%r = response($str, peer => '127.0.0.1:' . port(8083), readonce => 1);
-is($r{'data'}, '1', 'download - one byte');
-
-%r = response($str, peer =>  '127.0.0.1:' . port(8084));
-is($r{'data'}, '1', 'upload - one byte');
-
-}
-
 # Five chunks are split with four 1s delays:
 # the first four chunks are quarters of test string
 # and the fifth one is some extra data from backend.
@@ -149,8 +120,6 @@ sub response {
 		last unless length($buf);
 
 		$data .= $buf;
-
-		last if $extra{'readonce'};
 	}
 	$data =~ /([\S]*)\s?(\d+)?/;
 

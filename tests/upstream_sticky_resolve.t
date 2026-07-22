@@ -175,7 +175,7 @@ my %addrs = (
 
 $t->start_resolver(5252, \%addrs);
 
-$t->run()->plan(24);
+$t->run()->plan(26);
 
 my @ports = my ($p1, $p2, $p3, $p4, $p5) =
 	(port(8081), port(8082), port(8083), port(8084), port(8085));

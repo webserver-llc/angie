@@ -327,22 +327,27 @@ sub wait_for {
 	my ($condition, $info, $delay) = @_;
 
 	my $sec = $delay // 20;
-	my $ms = 0;
+	my $s = 0;
 
+	my $ok = 0;
 	for (1 .. ($sec * 10)) {
 		if ($condition->()) {
-			note("Condition '$info' met in $ms ms\n");
-			return 1;
+			$ok = 1;
+			last;
 		}
 
-		$ms += 0.1;
+		$s += 0.1;
 		select undef, undef, undef, 0.1;
 	}
 
-	my $c = get_caller();
-	diag("Timeout waiting for '$info' after $sec seconds ($c)");
+	unless ($ok) {
+		my $c = get_caller();
+		diag("Timeout waiting for '$info' after $sec seconds ($c)");
+	}
 
-	return;
+	ok($ok, "Condition '$info' met in $s s");
+
+	return $ok;
 }
 
 sub get_primary_user_group {

@@ -23,9 +23,6 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-plan(skip_all => '127.0.0.3 local address required')
-	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.3' );
-
 my $t = Test::Nginx->new()->has(qw/http tunnel/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -145,9 +142,9 @@ like(proxy_get("/", "uto.example.net:$p", port(8085)), qr/504 Gateway Timeout/,
 
 if ($^O eq 'freebsd') {
 	$t->skip_errors_check('crit',
-		"Can't assign requested address.+request: "
+		"Can't assign requested address.+request_line: "
 			. "\"CONNECT nxt.example.net:$p HTTP/1.1\"",
-		"Can't assign requested address.+request: "
+		"Can't assign requested address.+request_line: "
 			. "\"CONNECT try.example.net:$p HTTP/1.1\""
 	);
 }

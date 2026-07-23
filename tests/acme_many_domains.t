@@ -136,7 +136,7 @@ Host: $domain
 
 EOF
 
-	$s = http_content($s);
+	$s = http_content($s) // '';
 
 	if ($s ne 'SECURED') {
 		$used = 0;

@@ -67,6 +67,7 @@ http {
 
     acme_client test https://localhost:$pebble_port/dir
                 email=admin\@example.com
+                renew_before_expiry=5
                 $profile;
 
     server {
@@ -223,7 +224,7 @@ subtest 'obtaining and renewing a certificate' => sub {
 
 			$expected_acme_clients->{test}{next_run} =
 				strftime('%Y-%m-%dT%H:%M:%SZ',
-					gmtime(Date::Parse::str2time($renewed_enddate) - 5 // 0));
+					gmtime(Date::Parse::str2time($renewed_enddate) - 5));
 
 			last;
 		}

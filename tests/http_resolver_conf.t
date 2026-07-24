@@ -25,8 +25,8 @@ select STDOUT; $| = 1;
 plan(skip_all => 'must be root') if $> != 0;
 
 for my $i (1 .. 5) {
-	plan(skip_all => "127.0.1.$i local address required")
-		unless defined IO::Socket::INET->new( LocalAddr => "127.0.1.$i" );
+	plan(skip_all => "requires listening on 127.0.1.$i:53")
+		unless defined IO::Socket::INET->new(LocalAddr => "127.0.1.$i:53");
 }
 
 my $primary_root_group = get_primary_user_group('root');

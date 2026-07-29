@@ -29,6 +29,10 @@ if [ $USE_ZLIB = YES ]; then
     . auto/lib/zlib/conf
 fi
 
+if [ $USE_ZSTD = YES -o $ZSTD != NONE ]; then
+    . auto/lib/zstd/conf
+fi
+
 if [ $USE_LIBXSLT != NO ]; then
     . auto/lib/libxslt/conf
 fi

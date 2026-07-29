@@ -188,6 +188,9 @@ ZLIB=NONE
 ZLIB_OPT=
 ZLIB_ASM=NO
 
+USE_ZSTD=NO
+ZSTD=NONE
+
 USE_PERL=NO
 NGX_PERL=perl
 
@@ -458,6 +461,9 @@ $0: warning: the \"--with-sha1-asm\" option is deprecated"
         --with-zlib-opt=*)               ZLIB_OPT="$value"          ;;
         --with-zlib-asm=*)               ZLIB_ASM="$value"          ;;
 
+        --with-zstd)                     USE_ZSTD=YES               ;;
+        --with-zstd=*)                   ZSTD="$value"              ;;
+
         --with-libatomic)                NGX_LIBATOMIC=YES          ;;
         --with-libatomic=*)              NGX_LIBATOMIC="$value"     ;;
 
@@ -677,6 +683,10 @@ cat << END
   --with-zlib-asm=CPU                use zlib assembler sources optimized
                                      for the specified CPU, valid values:
                                      pentium, pentiumpro
+
+  --with-zstd                        enable zstd compression support
+                                     for access_log (uses system libzstd)
+  --with-zstd=DIR                    set path to libzstd library sources
 
   --with-libatomic                   force libatomic_ops library usage
   --with-libatomic=DIR               set path to libatomic_ops library sources

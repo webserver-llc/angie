@@ -177,8 +177,8 @@ typedef struct {
     ngx_quic_stream_peer_t            server;
     ngx_quic_stream_peer_t            client;
 
-    ngx_uint_t                        initialized;
-                                                 /* unsigned  initialized:1; */
+    unsigned                          initialized:1;
+    unsigned                          blocked:1;
 } ngx_quic_streams_t;
 
 

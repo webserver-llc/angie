@@ -1,7 +1,5 @@
 
 # Copyright (C) 2024 Web Server LLC
-# Copyright (C) Igor Sysoev
-# Copyright (C) Nginx, Inc.
 
 
 # Build libzstd from sources when --with-zstd=DIR was given.

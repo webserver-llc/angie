@@ -1,7 +1,5 @@
 
 # Copyright (C) 2024 Web Server LLC
-# Copyright (C) Igor Sysoev
-# Copyright (C) Nginx, Inc.
 
 
 if [ $ZSTD != NONE ]; then
@@ -52,10 +50,9 @@ else
 cat << END
 
 $0: error: the HTTP/stream log zstd module requires the libzstd library.
-You can either disable the module by using --without-http_log_zstd_module
-option, or install the libzstd library into the system, or build the libzstd
-library statically from the source with Angie by using --with-zstd=<path>
-option.
+You can either disable the module, or install the libzstd library into 
+the system, or build the libzstd library statically from the source 
+with Angie by using --with-zstd=<path> option.
 
 END
         exit 1

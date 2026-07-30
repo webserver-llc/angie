@@ -47,6 +47,10 @@ typedef struct {
 } ngx_stream_log_main_conf_t;
 
 
+typedef ssize_t (*ngx_stream_log_compress_pt)(ngx_fd_t fd, u_char *buf,
+    size_t len, ngx_int_t level, ngx_log_t *log);
+
+
 typedef struct {
     u_char                      *start;
     u_char                      *pos;
@@ -54,8 +58,8 @@ typedef struct {
 
     ngx_event_t                 *event;
     ngx_msec_t                   flush;
-    ngx_int_t                    gzip;
-    ngx_int_t                    zstd;
+    ngx_stream_log_compress_pt   compress;
+    ngx_int_t                    comp_level;
 } ngx_stream_log_buf_t;
 
 
@@ -377,23 +381,16 @@ ngx_stream_log_write(ngx_stream_session_t *s, ngx_stream_log_t *log,
 
 #if (NGX_ZLIB || NGX_ZSTD)
         buffer = log->file->data;
-#endif
 
-#if (NGX_ZSTD)
-        if (buffer && buffer->zstd) {
-            n = ngx_stream_log_zstd(log->file->fd, buf, len, buffer->zstd,
-                                    s->connection->log);
-        } else
-#endif
-#if (NGX_ZLIB)
-        if (buffer && buffer->gzip) {
-            n = ngx_stream_log_gzip(log->file->fd, buf, len, buffer->gzip,
-                                    s->connection->log);
-        } else
-#endif
-        {
+        if (buffer && buffer->compress) {
+            n = buffer->compress(log->file->fd, buf, len,
+                                 buffer->comp_level, s->connection->log);
+        } else {
             n = ngx_write_fd(log->file->fd, buf, len);
         }
+#else
+        n = ngx_write_fd(log->file->fd, buf, len);
+#endif
 
     } else {
         name = NULL;
@@ -711,16 +708,10 @@ ngx_stream_log_flush(ngx_open_file_t *file, ngx_log_t *log)
         return;
     }
 
-#if (NGX_ZSTD)
-    if (buffer->zstd) {
-        n = ngx_stream_log_zstd(file->fd, buffer->start, len, buffer->zstd,
-                                log);
-    } else
-#endif
-#if (NGX_ZLIB)
-    if (buffer->gzip) {
-        n = ngx_stream_log_gzip(file->fd, buffer->start, len, buffer->gzip,
-                                log);
+#if (NGX_ZLIB || NGX_ZSTD)
+    if (buffer->compress) {
+        n = buffer->compress(file->fd, buffer->start, len,
+                             buffer->comp_level, log);
     } else
 #endif
     {
@@ -1122,8 +1113,7 @@ ngx_stream_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_stream_log_srv_conf_t *lscf = conf;
 
     ssize_t                              size;
-    ngx_int_t                            gzip;
-    ngx_int_t                            zstd;
+    ngx_int_t                            comp_level;
     ngx_uint_t                           i, n;
     ngx_msec_t                           flush;
     ngx_str_t                           *value, name, s;
@@ -1134,6 +1124,11 @@ ngx_stream_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_stream_script_compile_t          sc;
     ngx_stream_log_main_conf_t          *lmcf;
     ngx_stream_compile_complex_value_t   ccv;
+#if (NGX_ZLIB || NGX_ZSTD)
+    ngx_stream_log_compress_pt           compress = NULL;
+#else
+    void                                *compress = NULL;
+#endif
 
     value = cf->args->elts;
 
@@ -1243,8 +1238,7 @@ process_formats:
 
     size = 0;
     flush = 0;
-    gzip = 0;
-    zstd = 0;
+    comp_level = 0;
 
     for (i = 3; i < cf->args->nelts; i++) {
 
@@ -1282,26 +1276,35 @@ process_formats:
             && (value[i].len == 4 || value[i].data[4] == '='))
         {
 #if (NGX_ZLIB)
+            if (compress) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "duplicate compression method "
+                                   "in access_log \"%V\"", &value[1]);
+                return NGX_CONF_ERROR;
+            }
+
             if (size == 0) {
                 size = 64 * 1024;
             }
 
             if (value[i].len == 4) {
-                gzip = Z_BEST_SPEED;
+                comp_level = Z_BEST_SPEED;
+                compress = ngx_stream_log_gzip;
                 continue;
             }
 
             s.len = value[i].len - 5;
             s.data = value[i].data + 5;
 
-            gzip = ngx_atoi(s.data, s.len);
+            comp_level = ngx_atoi(s.data, s.len);
 
-            if (gzip < 1 || gzip > 9) {
+            if (comp_level < 1 || comp_level > 9) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "invalid compression level \"%V\"", &s);
                 return NGX_CONF_ERROR;
             }
 
+            compress = ngx_stream_log_gzip;
             continue;
 
 #else
@@ -1315,26 +1318,35 @@ process_formats:
             && (value[i].len == 4 || value[i].data[4] == '='))
         {
 #if (NGX_ZSTD)
+            if (compress) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "duplicate compression method "
+                                   "in access_log \"%V\"", &value[1]);
+                return NGX_CONF_ERROR;
+            }
+
             if (size == 0) {
                 size = 64 * 1024;
             }
 
             if (value[i].len == 4) {
-                zstd = ZSTD_CLEVEL_DEFAULT;
+                comp_level = ZSTD_CLEVEL_DEFAULT;
+                compress = ngx_stream_log_zstd;
                 continue;
             }
 
             s.len = value[i].len - 5;
             s.data = value[i].data + 5;
 
-            zstd = ngx_atoi(s.data, s.len);
+            comp_level = ngx_atoi(s.data, s.len);
 
-            if (zstd < 1 || zstd > ZSTD_maxCLevel()) {
+            if (comp_level < 1 || comp_level > ZSTD_maxCLevel()) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "invalid compression level \"%V\"", &s);
                 return NGX_CONF_ERROR;
             }
 
+            compress = ngx_stream_log_zstd;
             continue;
 
 #else
@@ -1398,8 +1410,8 @@ process_formats:
 
             if (buffer->last - buffer->start != size
                 || buffer->flush != flush
-                || buffer->gzip != gzip
-                || buffer->zstd != zstd)
+                || buffer->compress != compress
+                || buffer->comp_level != comp_level)
             {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "access_log \"%V\" already defined "
@@ -1438,8 +1450,8 @@ process_formats:
             buffer->flush = flush;
         }
 
-        buffer->gzip = gzip;
-        buffer->zstd = zstd;
+        buffer->compress = compress;
+        buffer->comp_level = comp_level;
 
         log->file->flush = ngx_stream_log_flush;
         log->file->data = buffer;

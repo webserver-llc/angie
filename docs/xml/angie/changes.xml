@@ -5,7 +5,28 @@
 <change_log title="Angie">
 
 
-<changes ver="1.12.1" date="2026-07-17">
+<changes ver="1.13.0" date="">
+
+<change type="feature">
+<para lang="ru">
+сжатие логов доступа на лету в формате zstd с помощью параметра "zstd[=уровень]"
+директивы "access_log" в модулях http и stream;
+сжатие выполняется атомарно, по одному zstd-фрейму на каждую запись буфера,
+аналогично существующей поддержке gzip;
+для сборки с поддержкой zstd предназначена опция "--with-zstd" (системная
+библиотека libzstd) или "--with-zstd=DIR" (сборка из исходников) опцилнально 
+для компиляции "--with-zstd-opt=OPTIONS" (опции при компиляции исходников).
+</para>
+<para lang="en">
+on-the-fly zstd compression of access logs via the "zstd[=level]" parameter
+of the "access_log" directive in the http and stream modules;
+compression is atomic, with one zstd frame per buffer flush, mirroring the
+existing gzip support;
+the "--with-zstd" configure option (system libzstd) or "--with-zstd=DIR"
+(build from sources) enables zstd support optional for source compilation
+"--with-zstd-opt=OPTIONS" (compilation options).
+</para>
+</change>
 
 <change type="security">
 <para lang="ru">

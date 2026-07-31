@@ -1113,7 +1113,6 @@ ngx_stream_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_stream_log_srv_conf_t *lscf = conf;
 
     ssize_t                              size;
-    ngx_int_t                            comp_level;
     ngx_uint_t                           i, n;
     ngx_msec_t                           flush;
     ngx_str_t                           *value, name, s;
@@ -1126,8 +1125,7 @@ ngx_stream_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_stream_compile_complex_value_t   ccv;
 #if (NGX_ZLIB || NGX_ZSTD)
     ngx_stream_log_compress_pt           compress = NULL;
-#else
-    void                                *compress = NULL;
+    ngx_int_t                            comp_level = 0;
 #endif
 
     value = cf->args->elts;
@@ -1238,7 +1236,6 @@ process_formats:
 
     size = 0;
     flush = 0;
-    comp_level = 0;
 
     for (i = 3; i < cf->args->nelts; i++) {
 
@@ -1410,8 +1407,11 @@ process_formats:
 
             if (buffer->last - buffer->start != size
                 || buffer->flush != flush
+#if (NGX_ZLIB || NGX_ZSTD)
                 || buffer->compress != compress
-                || buffer->comp_level != comp_level)
+                || buffer->comp_level != comp_level
+#endif
+            )
             {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "access_log \"%V\" already defined "
@@ -1450,8 +1450,10 @@ process_formats:
             buffer->flush = flush;
         }
 
+#if (NGX_ZLIB || NGX_ZSTD)
         buffer->compress = compress;
         buffer->comp_level = comp_level;
+#endif
 
         log->file->flush = ngx_stream_log_flush;
         log->file->data = buffer;

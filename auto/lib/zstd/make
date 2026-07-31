@@ -1,28 +1,11 @@
 
-# Copyright (C) 2024 Web Server LLC
+# Copyright (C) 2026 Web Server LLC
 
 
 # Build libzstd from sources when --with-zstd=DIR was given.
 # Mirrors auto/lib/zlib/make but uses zstd's native "libzstd.a" target
 # rather than a configure script (libzstd does not need one).
 
-case "$NGX_PLATFORM" in
-
-    win32)
-        # On Windows, fall back to the user's pre-built import library
-        # if it already exists in the expected location, otherwise try
-        # to build the DLL via the upstream Makefile (mingw-cross).
-        cat << END                                        >> $NGX_MAKEFILE
-
-`echo "$ZSTD/lib/libzstd.lib:  $NGX_MAKEFILE" | sed -e "s/\//$ngx_regex_dirsep/g"`
-	cd $ZSTD \\
-	&& \$(MAKE) -C lib lib-release \\
-		CFLAGS="$ZSTD_OPT" CC="\$(CC)"
-
-END
-    ;;
-
-    *)
         cat << END                                        >> $NGX_MAKEFILE
 
 $ZSTD/lib/libzstd.a:	$NGX_MAKEFILE
@@ -31,6 +14,3 @@ $ZSTD/lib/libzstd.a:	$NGX_MAKEFILE
 		CFLAGS="$ZSTD_OPT" CC="\$(CC)"
 
 END
-    ;;
-
-esac

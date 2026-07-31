@@ -1,5 +1,5 @@
 
-# Copyright (C) 2024 Web Server LLC
+# Copyright (C) 2026 Web Server LLC
 
 
 if [ $ZSTD != NONE ]; then
@@ -23,27 +23,25 @@ if [ $ZSTD != NONE ]; then
 
 else
 
-    if [ "$NGX_PLATFORM" != win32 ]; then
-        ZSTD=NO
+    ZSTD=NO
 
-        # FreeBSD, Solaris, Linux
+    # FreeBSD, Solaris, Linux
 
-        ngx_feature="zstd library"
-        ngx_feature_name="NGX_ZSTD"
-        ngx_feature_run=no
-        ngx_feature_incs="#include <zstd.h>"
-        ngx_feature_path=
-        ngx_feature_libs="-lzstd"
-        ngx_feature_test="size_t r = ZSTD_compress(NULL, 0, NULL, 0, 3);
-                          (void) ZSTD_isError(r)"
-        . auto/feature
+    ngx_feature="zstd library"
+    ngx_feature_name="NGX_ZSTD"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <zstd.h>"
+    ngx_feature_path=
+    ngx_feature_libs="-lzstd"
+    ngx_feature_test="size_t r = ZSTD_compress(NULL, 0, NULL, 0, 3);
+                      (void) ZSTD_isError(r)"
+    . auto/feature
 
 
-        if [ $ngx_found = yes ]; then
-            CORE_LIBS="$CORE_LIBS $ngx_feature_libs"
-            ZSTD=YES
-            ngx_found=no
-        fi
+    if [ $ngx_found = yes ]; then
+        CORE_LIBS="$CORE_LIBS $ngx_feature_libs"
+        ZSTD=YES
+        ngx_found=no
     fi
 
     if [ $ZSTD != YES ]; then

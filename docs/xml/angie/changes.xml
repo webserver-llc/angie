@@ -9,16 +9,16 @@
 
 <change type="feature">
 <para lang="ru">
-сжатие логов доступа на лету в формате zstd с помощью параметра "zstd[=уровень]"
+Сжатие логов доступа на лету в формате zstd с помощью параметра "zstd[=уровень]"
 директивы "access_log" в модулях http и stream;
 сжатие выполняется атомарно, по одному zstd-фрейму на каждую запись буфера,
 аналогично существующей поддержке gzip;
 для сборки с поддержкой zstd предназначена опция "--with-zstd" (системная
-библиотека libzstd) или "--with-zstd=DIR" (сборка из исходников) опцилнально 
+библиотека libzstd) или "--with-zstd=DIR" (сборка из исходников) опцилнально
 для компиляции "--with-zstd-opt=OPTIONS" (опции при компиляции исходников).
 </para>
 <para lang="en">
-on-the-fly zstd compression of access logs via the "zstd[=level]" parameter
+On-the-fly zstd compression of access logs via the "zstd[=level]" parameter
 of the "access_log" directive in the http and stream modules;
 compression is atomic, with one zstd frame per buffer flush, mirroring the
 existing gzip support;
@@ -27,6 +27,24 @@ the "--with-zstd" configure option (system libzstd) or "--with-zstd=DIR"
 "--with-zstd-opt=OPTIONS" (compilation options).
 </para>
 </change>
+
+<change type="bugfix">
+<para lang="ru">
+Let's Encrypt завершал ACME ALPN-верификацию для IP-адресов с сообщением об
+ошибке "Incorrect validation certificate for tls-alpn-01 challenge ... wrong
+number of identifiers".
+</para>
+<para lang="en">
+Let's Encrypt failed the TLS-ALPN-01 challenge for an IP address identifier
+with the error message: "Incorrect validation certificate for tls-alpn-01
+challenge ... wrong number of identifiers".
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.12.1" date="2026-07-17">
 
 <change type="security">
 <para lang="ru">

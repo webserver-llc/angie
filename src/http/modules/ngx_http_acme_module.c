@@ -6758,7 +6758,8 @@ ngx_http_acme_fix_listen_ctx(ngx_conf_t *cf, ngx_module_t *module,
 static ngx_int_t
 ngx_http_acme_add_dns_listen(ngx_http_acme_main_conf_t *amcf)
 {
-    ngx_uint_t        i;
+    in_port_t         port;
+    ngx_uint_t        i, port_only;
     ngx_addr_t       *addr, tmp;
     ngx_cycle_t      *cycle;
     ngx_listening_t  *ls;
@@ -6767,9 +6768,11 @@ ngx_http_acme_add_dns_listen(ngx_http_acme_main_conf_t *amcf)
 
     if (amcf->dns_port.addr != NULL) {
         addr = amcf->dns_port.addr;
+        port_only = amcf->dns_port.port_only;
 
     } else {
         addr = &tmp;
+        port_only = 1;
 
         if (ngx_parse_addr_port(cycle->pool, addr, (u_char *) "0.0.0.0:53", 10)
             != NGX_OK)
@@ -6784,19 +6787,36 @@ ngx_http_acme_add_dns_listen(ngx_http_acme_main_conf_t *amcf)
         }
     }
 
+    port = ngx_inet_get_port(addr->sockaddr);
+
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
         if (ls[i].type == SOCK_DGRAM
-            && ngx_cmp_sockaddr(ls[i].sockaddr, ls[i].socklen,
-                                addr->sockaddr, addr->socklen, 1)
-            == NGX_OK)
+            && port == ngx_inet_get_port(ls[i].sockaddr)
+            && (port_only
+                || ngx_inet_wildcard(ls[i].sockaddr)
+                || ngx_cmp_sockaddr(addr->sockaddr, addr->socklen,
+                                    ls[i].sockaddr, ls[i].socklen, 0)
+                   == NGX_OK))
         {
-            amcf->default_dns_handler = ls[i].handler;
-            ls[i].handler = ngx_http_acme_dns_handler;
+            if (amcf->default_dns_handler == NULL) {
+                amcf->default_dns_handler = ls[i].handler;
 
-            return NGX_OK;
+            } else if (amcf->default_dns_handler != ls[i].handler) {
+                ngx_log_error(NGX_LOG_EMERG, amcf->cf->log, 0,
+                              "current configuration is incompatible with ACME "
+                              "DNS challenges because of multiple listeners "
+                              "on port %ui", (ngx_uint_t) port);
+                return NGX_ERROR;
+            }
+
+            ls[i].handler = ngx_http_acme_dns_handler;
         }
+    }
+
+    if (amcf->default_dns_handler != NULL) {
+        return NGX_OK;
     }
 
     ls = ngx_create_listening(amcf->cf, addr->sockaddr, addr->socklen);

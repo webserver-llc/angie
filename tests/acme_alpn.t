@@ -57,34 +57,56 @@ my @keys = (
 );
 
 my $domain_count = 1;
+my $cli_count = 1;
 
-# Each iteration creates 2 clients, one with the RSA key type, the other with
-# the ECDSA.
-for (1 .. 2) {
-	my $n = $_;
+# This creates 3 servers and 4 clients: 2 groups, each made of one client
+# using an RSA key and one using an ECDSA key. The first two servers (IPv4
+# and IPv6) share the same group, so it validates both address families.
+# The third server has its own group and validates domain names.
+for (1 .. 3) {
+	my $srv_count = $_;
 
 	my $srv = {
 		domains => [],
 		clients => [],
+		ip => ($srv_count == 1),
+		ipv6 => ($srv_count == 2),
 	};
 
-	for (1 .. 2) {
-		push @{ $srv->{domains} }, "angie-test${domain_count}.com";
-		$domain_count++;
+	if ($srv->{ip}) {
+		push @{ $srv->{domains} }, '127.0.0.1';
+
+	} elsif ($srv->{ipv6}) {
+		push @{ $srv->{domains} }, '::1';
+
+	} else {
+		for (1 .. 2) {
+			push @{ $srv->{domains} }, "angie-test${domain_count}.com";
+			$domain_count++;
+		}
 	}
 
-	for my $key (@keys) {
-		my $cli = {
-			name => "test${n}_$key->{type}",
-			key_type => $key->{type},
-			key_bits => $key->{bits},
-			challenge => 'alpn',
-			renewed => 0,
-			enddate => "n/a",
-		};
+	if ($srv->{ipv6}) {
+		# the IPv6 server reuses the IPv4 server's client group, so that
+		# group validates both address families
+		$srv->{clients} = $servers[-1]->{clients};
 
-		push @clients, $cli;
-		push @{ $srv->{clients} }, $cli;
+	} else {
+		for my $key (@keys) {
+			my $cli = {
+				name => "test${cli_count}_$key->{type}",
+				key_type => $key->{type},
+				key_bits => $key->{bits},
+				challenge => 'alpn',
+				renewed => 0,
+				enddate => "n/a",
+			};
+
+			push @clients, $cli;
+			push @{ $srv->{clients} }, $cli;
+		}
+
+		$cli_count++;
 	}
 
 	push @servers, $srv;
@@ -111,8 +133,31 @@ for my $e (@servers) {
 
 	$conf_servers .=
 "    server {
-        listen       localhost:$alpn_port ssl;
-        server_name  @{ $e->{domains} };
+";
+
+	# For an IP identifier, the CA sends the reverse-DNS form of the
+	# address as SNI (e.g. "1.0.0.127.in-addr.arpa", or its IPv6
+	# equivalent), not the address itself, so "server_name" below never
+	# actually matches it via SNI. default_server is what actually routes
+	# the challenge connection to the IPv4 and IPv6 blocks, letting them
+	# share their ports with the domain-based block.
+
+	if ($e->{ip}) {
+		$conf_servers .=
+"        listen       127.0.0.1:$alpn_port ssl default_server;
+";
+	} elsif ($e->{ipv6}) {
+		$conf_servers .=
+"        listen       [::1]:$alpn_port ssl default_server;
+";
+	} else {
+		$conf_servers .=
+"        listen       localhost:$alpn_port ssl;
+";
+	}
+
+	$conf_servers .=
+"        server_name  @{ $e->{domains} };
 
 ";
 

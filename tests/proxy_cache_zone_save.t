@@ -26,147 +26,10 @@ my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_zone reload/);
 # mmap may fail due to ASLR and test does some retries
 $t->skip_errors_check('alert', 'failed to restore zone at address', 'mmap');
 
-$t->write_file_expand('nginx.conf', <<'EOF');
-
-%%TEST_GLOBALS%%
-
-daemon off;
-
-events {
-}
-
-http {
-    %%TEST_GLOBALS_HTTP%%
-
-    log_format fmt '$remote_addr $request $status bytes_sent=$body_bytes_sent'
-                   'ua="$upstream_addr" uc="$upstream_cache_status"';
-
-
-    proxy_cache_path cache keys_zone=cz:256m:file=%%TESTDIR%%/cache.zone;
-
-    upstream u {
-        zone uz 1m;
-        server 127.0.0.1:8081;
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  localhost;
-
-        access_log access.log fmt;
-
-        proxy_cache cz;
-        proxy_cache_valid 200 1d;
-
-        location / {
-            add_header X-STATUS $upstream_cache_status;
-            proxy_pass http://u/;
-        }
-    }
-
-    server {
-        listen 127.0.0.1:8081;
-
-        error_log  backend_error.log;
-        access_log backend_access.log fmt;
-
-        location / {
-            return 200 "backend response 0123456789 for uri=$uri\n";
-        }
-    }
-}
-
-EOF
-
-my $d = $t->testdir();
-
-# start with no state and empty cache
-
-$t->try_run(
-	'Angie was built without support for the persistent shared memory');
-
-$t->plan(19);
-
-# fill the cache with some requests:
-
-like(http_get("/a"), qr/200/, "a response");
-like(http_get("/b"), qr/200/, "b response");
-like(http_get("/c"), qr/200/, "c response");
-like(http_get("/d"), qr/200/, "d response");
-
-like(http_get("/a"), qr/X-STATUS: HIT/, "a cached");
-like(http_get("/b"), qr/X-STATUS: HIT/, "b cached");
-like(http_get("/c"), qr/X-STATUS: HIT/, "c cached");
-like(http_get("/d"), qr/X-STATUS: HIT/, "d cached");
-
-$t->stop();
-
-# ensure we have state files created
-
-$t->waitforfile("$d/cache.zone");
-
-my $czone_found = 1 if -e "$d/cache.zone";
-is($czone_found, 1, "cache.zone state file created");
-
-# now restart using state files and no backend - we expect to have all in cache
-
-$t->write_file_expand('nginx.conf', <<'EOF');
-
-%%TEST_GLOBALS%%
-
-daemon off;
-
-events {
-}
-
-http {
-    %%TEST_GLOBALS_HTTP%%
-
-    log_format fmt '$remote_addr $request $status bytes_sent=$body_bytes_sent'
-                   'ua="$upstream_addr" uc="$upstream_cache_status"';
-
-
-    proxy_cache_path cache keys_zone=cz:256m:file=%%TESTDIR%%/cache.zone;
-
-    upstream u {
-        zone uz 1m;
-        server 127.0.0.1:8081;
-    }
-
-    server {
-        listen       127.0.0.1:8080;
-        server_name  localhost;
-
-        access_log access.log fmt;
-
-        proxy_cache cz;
-        proxy_cache_valid 200 1d;
-
-        location / {
-            add_header X-STATUS $upstream_cache_status;
-            proxy_pass http://u/;
-        }
-    }
-}
-
-EOF
-
-if (!$t->retry_run(200)) {
-	die("failed to restart angie with saved zones after 200 attempts");
-}
-
-# the cache zone content is loaded from state file - check this
-
-
-# access existing entries
-like(http_get("/a"), qr/X-STATUS: HIT/, "existing a cache");
-like(http_get("/b"), qr/X-STATUS: HIT/, "existing b cache");
-like(http_get("/c"), qr/X-STATUS: HIT/, "existing c cache");
-like(http_get("/d"), qr/X-STATUS: HIT/, "existing d cache");
-
-$t->stop();
-
-# restore backend
+use constant {
+	MAX_ATTEMPTS => 10,
+	MAX_RETRIES  => 20
+};
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -220,20 +83,220 @@ http {
 
 EOF
 
-if (!$t->retry_run(200)) {
-	die("failed to restart angie with saved zones after 200 attempts");
-}
+$t->try_run('Angie was built without support for the persistent shared'
+	. ' memory');
 
-# we still can add entries
-#
-like(http_get("/bbb"), qr/200/, "new response");
-like(http_get("/bbb"), qr/X-STATUS: HIT/, "new response cached");
+$t->plan(1);
+$t->stop();
 
-ok($t->reload(), 'reloaded');
+subtest 'proxy cache save zone' => sub {
 
-like(http_get("/a"), qr/X-STATUS: HIT/, "existing a cache");
+	my $passed = 0;
+	for my $i (1 .. MAX_ATTEMPTS) {
 
-like(http_get("/ffff"), qr/200/, "f response");
-like(http_get("/ffff"), qr/X-STATUS: HIT/, "f cached");
+		note("ATTEMPT $i/" . MAX_ATTEMPTS);
+
+		# try with better address
+		unlink $t->testdir() . '/cache.zone';
+
+		init_cache($t);
+		note('init cache done');
+
+		if (!use_cache_only($t)) {
+			next;
+		}
+
+		note('use_cache_only done');
+
+		if (!use_cache($t)) {
+			next;
+		}
+
+		note('use_cache done');
+
+		$passed = 1;
+		last;
+	}
+
+	unless ($passed) {
+		fail('failed to use angie with saved zones after ' . MAX_ATTEMPTS
+			. ' attempts');
+	}
+};
 
 ###############################################################################
+
+sub init_cache {
+	my ($t) = @_;
+
+	# start with no state and empty cache
+
+	$t->run();
+
+	# fill the cache with some requests:
+
+	like(http_get('/a'), qr/200/, 'a response');
+	like(http_get('/b'), qr/200/, 'b response');
+	like(http_get('/c'), qr/200/, 'c response');
+	like(http_get('/d'), qr/200/, 'd response');
+
+	like(http_get('/a'), qr/X-STATUS: HIT/, 'a cached');
+	like(http_get('/b'), qr/X-STATUS: HIT/, 'b cached');
+	like(http_get('/c'), qr/X-STATUS: HIT/, 'c cached');
+	like(http_get('/d'), qr/X-STATUS: HIT/, 'd cached');
+
+	$t->stop();
+
+	# ensure we have state files created
+
+	my $d = $t->testdir();
+	$t->waitforfile("$d/cache.zone");
+
+	ok(-e "$d/cache.zone", 'cache.zone state file created');
+}
+
+sub use_cache_only {
+	my ($t) = @_;
+
+	# now restart using state files and no backend - we expect
+	# to have all in cache
+
+	$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    log_format fmt '$remote_addr $request $status bytes_sent=$body_bytes_sent'
+                   'ua="$upstream_addr" uc="$upstream_cache_status"';
+
+
+    proxy_cache_path cache keys_zone=cz:256m:file=%%TESTDIR%%/cache.zone;
+
+    upstream u {
+        zone uz 1m;
+        server 127.0.0.1:8081;
+    }
+
+    server {
+        listen       127.0.0.1:8080;
+        server_name  localhost;
+
+        access_log access.log fmt;
+
+        proxy_cache cz;
+        proxy_cache_valid 200 1d;
+
+        location / {
+            add_header X-STATUS $upstream_cache_status;
+            proxy_pass http://u/;
+        }
+    }
+}
+
+EOF
+
+	if (!$t->retry_run(MAX_RETRIES)) {
+		diag('failed to restart angie with saved zones after '
+			. MAX_RETRIES . ' retries');
+		return 0;
+	}
+
+	# the cache zone content is loaded from state file - check this
+
+	# access existing entries
+	like(http_get('/a'), qr/X-STATUS: HIT/, 'existing a cache');
+	like(http_get('/b'), qr/X-STATUS: HIT/, 'existing b cache');
+	like(http_get('/c'), qr/X-STATUS: HIT/, 'existing c cache');
+	like(http_get('/d'), qr/X-STATUS: HIT/, 'existing d cache');
+
+	$t->stop();
+
+	return 1;
+}
+
+sub use_cache {
+	my ($t) = @_;
+
+	# restore backend
+
+	$t->write_file_expand('nginx.conf', <<'EOF');
+
+%%TEST_GLOBALS%%
+
+daemon off;
+
+events {
+}
+
+http {
+    %%TEST_GLOBALS_HTTP%%
+
+    log_format fmt '$remote_addr $request $status bytes_sent=$body_bytes_sent'
+                   'ua="$upstream_addr" uc="$upstream_cache_status"';
+
+
+    proxy_cache_path cache keys_zone=cz:256m:file=%%TESTDIR%%/cache.zone;
+
+    upstream u {
+        zone uz 1m;
+        server 127.0.0.1:8081;
+    }
+
+    server {
+        listen       127.0.0.1:8080;
+        server_name  localhost;
+
+        access_log access.log fmt;
+
+        proxy_cache cz;
+        proxy_cache_valid 200 1d;
+
+        location / {
+            add_header X-STATUS $upstream_cache_status;
+            proxy_pass http://u/;
+        }
+    }
+
+    server {
+        listen 127.0.0.1:8081;
+
+        error_log  backend_error.log;
+        access_log backend_access.log fmt;
+
+        location / {
+            return 200 "backend response 0123456789 for uri=$uri\n";
+        }
+    }
+}
+
+EOF
+
+	if (!$t->retry_run(MAX_RETRIES)) {
+		diag('failed to restart angie with saved zones after ' . MAX_RETRIES
+			.' retries');
+		return 0;
+	}
+
+	# we still can add entries
+
+	like(http_get('/bbb'), qr/200/, 'new response');
+	like(http_get('/bbb'), qr/X-STATUS: HIT/, 'new response cached');
+
+	ok($t->reload(), 'reloaded');
+
+	like(http_get('/a'), qr/X-STATUS: HIT/, 'existing a cache');
+
+	like(http_get('/ffff'), qr/200/, 'f response');
+	like(http_get('/ffff'), qr/X-STATUS: HIT/, 'f cached');
+
+	$t->stop();
+
+	return 1;
+}

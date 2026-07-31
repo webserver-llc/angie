@@ -4023,7 +4023,8 @@ ngx_http_acme_create_alpn_cert(ngx_acme_session_t *ses, ngx_str_t *ident,
         goto failed;
     }
 
-    ngx_snprintf(s, n, "DNS:%V%Z", ident);
+    ngx_snprintf(s, n, "%s:%V%Z", ngx_acme_str_is_ip(ident) ? "IP" : "DNS",
+                 ident);
 
     /* id-pe-acmeIdentifier as per RFC 8737 sec 6.1 */
     obj = OBJ_txt2obj("1.3.6.1.5.5.7.1.31", 1);

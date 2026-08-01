@@ -14,6 +14,19 @@
 # compared with the value specified by the "acme_dns_ttl" directive. The test
 # passes if the values match.
 
+# "acme_dns_port" listener reuse check
+#
+# The "acme_dns_port" directive specifies only a port number, while stream
+# servers are listening on that port. In this case, the ACME module must not
+# create a listening socket of its own; instead, it must attach to all the
+# existing sockets on that port to handle DNS challenge queries there, passing
+# all other datagrams to the respective stream servers. If a 127.0.0.2 local
+# address is available, a stream server listening on it is placed before the
+# one on 127.0.0.1 targeted by the DNS relay; certificate renewal then
+# confirms that all the matching sockets are attached to, not just the first
+# one. A non-DNS datagram answered by each stream server confirms the passing
+# through.
+
 # This script requires pebble
 # (see Test::Nginx::ACME for details)
 
@@ -29,13 +42,17 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::ACME;
+use Test::Nginx::Stream qw/ dgram /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+my $second_addr = defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
+
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
+	->has(qw/stream stream_return udp/)
 	->has_daemon('openssl');
 
 # XXX
@@ -136,12 +153,32 @@ for my $e (@servers) {
 	$conf_servers .= "    }\n\n";
 }
 
+# The DNS relay sends challenge queries to 127.0.0.1; with this stream server
+# placed before the one on 127.0.0.1, their handling depends on the second
+# matching listener being attached to as well.
+
+my $conf_stream_server2 = !$second_addr ? '' : "
+    server {
+        listen  127.0.0.2:$angie_dns_port udp;
+        return  PASSTHROUGH2;
+    }
+";
+
 $t->write_file_expand('nginx.conf', <<"EOF");
 %%TEST_GLOBALS%%
 
 daemon off;
 
 events {
+}
+
+stream {
+    %%TEST_GLOBALS_STREAM%%
+$conf_stream_server2
+    server {
+        listen  127.0.0.1:$angie_dns_port udp;
+        return  PASSTHROUGH1;
+    }
 }
 
 http {
@@ -164,7 +201,7 @@ $t->waitforfile("$d/$angie_dns_port");
 
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
-$t->run()->plan(scalar @clients + 1);
+$t->run()->plan(scalar @clients + 2 + ($second_addr ? 1 : 0));
 
 my $renewed_count = 0;
 my $loop_start = time();
@@ -212,6 +249,17 @@ for my $cli (@clients) {
 my $ttl_ok = -e "$d/ttl_match" && ! -e "$d/ttl_mismatch";
 
 ok($ttl_ok, 'acme_dns_ttl');
+
+# The ACME module attaches to the stream servers' sockets to handle DNS
+# challenge queries; anything else must reach the stream servers themselves.
+
+is(dgram('127.0.0.1:' . $angie_dns_port)->io('x'), 'PASSTHROUGH1',
+	'non-ACME datagram passed to the 127.0.0.1 stream listener');
+
+if ($second_addr) {
+	is(dgram('127.0.0.2:' . $angie_dns_port)->io('x'), 'PASSTHROUGH2',
+		'non-ACME datagram passed to the 127.0.0.2 stream listener');
+}
 
 ###############################################################################
 

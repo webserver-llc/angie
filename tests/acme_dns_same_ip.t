@@ -18,6 +18,16 @@
 # renewal confirms that the DNS challenge responses made it back to pebble
 # through the relay, which in turn confirms that Angie sent each response out
 # on the correct interface -- the one the request arrived on.
+#
+# Additionally, the test covers reuse of an existing wildcard listening
+# socket. A stream server is listening on the wildcard address, and the
+# "acme_dns_port" directive specifies 127.0.0.2 with the same port. The ACME
+# module must not create a separate listening socket for 127.0.0.2; instead,
+# it must attach to the wildcard socket to handle DNS challenge queries there,
+# passing all other datagrams to the stream server itself. Note that this
+# makes the routing check stronger: the challenge responses must be sent from
+# the address the queries arrived on even though the socket the ACME module
+# operates on is bound to the wildcard address.
 
 # This script requires pebble (see Test::Nginx::ACME for details).
 
@@ -34,13 +44,18 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::ACME;
+use Test::Nginx::Stream qw/ dgram /;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
+plan(skip_all => 'listen on wildcard address')
+	unless $ENV{TEST_ANGIE_UNSAFE};
+
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
+	->has(qw/stream stream_return udp/)
 	->has_daemon('openssl');
 
 # XXX
@@ -68,6 +83,15 @@ daemon off;
 events {
 }
 
+stream {
+    %%TEST_GLOBALS_STREAM%%
+
+    server {
+        listen  $angie_dns_port udp;
+        return  PASSTHROUGH;
+    }
+}
+
 http {
     %%TEST_GLOBALS_HTTP%%
 
@@ -75,7 +99,7 @@ http {
     # as ACME server addresses.
     #resolver localhost:$angie_dns_port ipv6=off;
 
-    acme_dns_port $angie_dns_port;
+    acme_dns_port 127.0.0.2:$angie_dns_port;
 
     server {
         listen       localhost:%%PORT_8080%%;
@@ -95,7 +119,7 @@ $t->waitforfile("$d/$angie_dns_port");
 
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
-$t->run()->plan(1);
+$t->run()->plan(2);
 
 my $cert_file = "$d/acme_client/test/certificate.pem";
 my $renewed = 0;
@@ -122,6 +146,14 @@ for (1 .. 60) {
 }
 
 ok($renewed, "renewed (enddate: $enddate)");
+
+# The ACME module attaches to the stream server's wildcard socket to handle
+# DNS challenge queries; anything else must reach the stream server itself.
+# Had the module created a listening socket of its own for 127.0.0.2, the
+# datagram below would have been consumed by that socket instead.
+
+is(dgram('127.0.0.2:' . $angie_dns_port)->io('x'), 'PASSTHROUGH',
+	'non-ACME datagram passed to the stream listener');
 
 ###############################################################################
 

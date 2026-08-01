@@ -27,6 +27,26 @@ the "--with-zstd" configure option (system libzstd) or "--with-zstd=DIR"
 "--with-zstd-opt=OPTIONS" (compilation options).
 </para>
 </change>
+  
+<change type="change">
+<para lang="ru">
+теперь логика директивы "acme_dns_port" аналогична логике "acme_http_port":
+если в директиве указан только порт без IP и есть слушающие на этом порту
+блоки "server", то обработка соединений для заданного порта в ACME работает
+только на указанных IP-адресах в директивах "listen" данных блоков; попытки
+слушать на всех остальных IP, как было раньше, не производится;
+логика директивы "acme_http_port" изменилась в версии 1.11.1.
+</para>
+<para lang="en">
+now the logic of the "acme_dns_port" directive is similar to that of
+"acme_http_port": if only a port, without an IP address, is specified in
+the directive, and there are "server" blocks listening on that port,
+ACME handles connections to that port only on the IP addresses configured
+in the "listen" directives of those blocks; it no longer attempts to listen
+on all IP addresses, as it did before;
+the "acme_http_port" directive received the same change in version 1.11.1.
+</para>
+</change>
 
 <change type="bugfix">
 <para lang="ru">

@@ -59,8 +59,10 @@ typedef struct {
 
     ngx_event_t                *event;
     ngx_msec_t                  flush;
+#if (NGX_ZLIB || NGX_ZSTD)
     ngx_http_log_compress_pt    compress;
     ngx_int_t                   comp_level;
+#endif
 } ngx_http_log_buf_t;
 
 

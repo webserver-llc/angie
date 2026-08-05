@@ -97,11 +97,6 @@ http {
 
 EOF
 
-my $_p = port(8092);
-$t->write_file('nginx.conf',
-	$t->read_file('nginx.conf') =~ s/127\.0\.0\.1:$_p/240.0.0.1:$_p/gr)
-	if $^O eq 'MSWin32';
-
 $t->write_file('index.html', 'SUCCESS');
 $t->write_file('50x.html', 'ERROR');
 
@@ -122,10 +117,11 @@ $t->plan(8)->run();
 ###############################################################################
 
 my $p = port(8086);
+my $_p = port(8092);
 
 is(proxy_get("/", '127.0.0.1:' . port(8087), port(8080)), 'HTTP/1.1 ',
 	'tunnel read timeout');
-like(proxy_get("/", ($^O eq 'MSWin32' ? '127' : '240') . ".0.0.1:$_p",
+like(proxy_get("/", "240.0.0.1:$_p",
 	port(8080)), qr/504 Gateway Timeout/, 'tunnel connect timeout');
 like(proxy_get("/", "nxt.example.net:$p", port(8080)), qr/SEE-THIS/,
 	'tunnel next upstream default');
@@ -224,13 +220,8 @@ sub reply_handler {
 	my $name = join('.', @name);
 	if ($name eq 'to.example.net' or $name eq 'uto.example.net') {
 		if ($type == A) {
-			if ($^O eq 'MSWin32') {
-				push @rdata, rd_addr($ttl, '127.0.0.3');
-				push @rdata, rd_addr($ttl, '127.0.0.1');
-			} else {
-				push @rdata, rd_addr($ttl, '240.0.0.1');
-				push @rdata, rd_addr($ttl, '127.0.0.1');
-			}
+			push @rdata, rd_addr($ttl, '240.0.0.1');
+			push @rdata, rd_addr($ttl, '127.0.0.1');
 		}
 	} elsif ($name eq 'nxt.example.net') {
 		if ($type == A) {

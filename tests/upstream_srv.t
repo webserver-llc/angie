@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 plan(skip_all => '127.0.0.2 local address required')
 	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
 
-my $t = Test::Nginx->new()->has(qw/http http_api proxy upstream_zone/)
+my $t = Test::Nginx->new()->has(qw/http http_api proxy upstream_zone rewrite/)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

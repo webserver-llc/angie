@@ -30,7 +30,7 @@ my $response = 'OK' x 500;
 
 my $t = Test::Nginx->new()
 	->has(qw/upstream_least_time upstream_zone map/)
-	->has(qw/http http_api http_perl/);
+	->has(qw/http http_api perl rewrite/);
 
 # for http_perl_module
 plan(skip_all => 'perl >= 5.6.1 required')

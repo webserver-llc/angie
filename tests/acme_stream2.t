@@ -25,7 +25,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http_acme http_ssl socket_ssl/)
+my $t = Test::Nginx->new()->has(qw/http_acme http_ssl socket_ssl rewrite/)
 	->has(qw/stream stream_acme stream_ssl stream_return/);
 
 $t->write_file_expand('nginx.conf', <<"EOF");

@@ -27,7 +27,8 @@ use constant 'TOLERANCE' => 1e-6;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_metric stream_return/);
+my $t = Test::Nginx->new()
+	->has(qw/stream stream_metric stream_return stream_set stream_map/);
 
 my $conf = <<'EOF'
 

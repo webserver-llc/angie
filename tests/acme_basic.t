@@ -31,7 +31,7 @@ select STDOUT; $| = 1;
 eval { require Date::Parse; };
 plan(skip_all => 'Date::Parse not installed') if $@;
 
-my $t = Test::Nginx->new()->has(qw/acme http_api http_ssl socket_ssl/)
+my $t = Test::Nginx->new()->has(qw/acme http_api http_ssl socket_ssl rewrite/)
 	->has_daemon('openssl');
 
 # XXX

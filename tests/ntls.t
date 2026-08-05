@@ -23,7 +23,7 @@ select STDOUT; $| = 1;
 
 my $openssl = $ENV{'TEST_ANGIE_OPENSSL_BINARY'} || 'openssl';
 
-my $t = Test::Nginx->new()->has(qw/ntls http http_ssl/)
+my $t = Test::Nginx->new()->has(qw/ntls http http_ssl rewrite/)
 	->has_daemon($openssl);
 
 plan(skip_all => 'no NTLS client')

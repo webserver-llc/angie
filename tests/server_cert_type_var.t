@@ -23,7 +23,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_ssl/)
+	->has(qw/http http_ssl rewrite/)
 	->has_daemon("openssl")->plan(9);
 
 my $is_old_openssl = ($t->has_module('OpenSSL')

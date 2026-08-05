@@ -43,7 +43,7 @@ use constant 'TOLERANCE' => 1e-6;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_api http_metric/);
+my $t = Test::Nginx->new()->has(qw/http http_api http_metric rewrite/);
 
 my $conf = <<'EOF'
 

@@ -25,7 +25,8 @@ use Test::Utils qw/get_json/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_api http_ssl map socket_ssl_sni/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_api http_ssl map socket_ssl_sni rewrite/)
 	->has(qw/sni/)
 	->has_daemon('openssl')->plan(2153)
 	->write_file_expand('nginx.conf', <<'EOF');

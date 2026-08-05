@@ -30,7 +30,7 @@ plan(skip_all => 'no NTLS client')
 	if `$openssl s_client -help 2>&1` !~ /-ntls/m;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_ssl ntls/)
+	->has(qw/http http_ssl ntls rewrite/)
 	->has_daemon("$openssl")->plan(10)
 	->write_file_expand('nginx.conf', <<'EOF');
 

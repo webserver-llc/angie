@@ -23,7 +23,7 @@ use Socket qw/ CRLF /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v3 proxy/)
+my $t = Test::Nginx->new()->has(qw/http http_v3 proxy rewrite/)
 	->has_daemon('openssl')->plan(50)
 	->write_file_expand('nginx.conf', <<'EOF');
 

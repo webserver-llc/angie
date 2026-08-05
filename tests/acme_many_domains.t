@@ -30,7 +30,7 @@ select STDOUT; $| = 1;
 # To restore Pebble's default sleep behavior, set PEBBLE_VA_NOSLEEP to 0.
 $ENV{PEBBLE_VA_NOSLEEP} //= 1;
 
-my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/);
+my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl rewrite/);
 
 # XXX
 # We don't use the port function here, because the port it creates is currently

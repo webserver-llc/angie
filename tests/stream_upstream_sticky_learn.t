@@ -27,7 +27,8 @@ plan(skip_all => "JSON::PP not installed") if $@;
 
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_ssl_preread stream_upstream_zone/)
-	->has(qw/stream_upstream_sticky http http_api http_ssl rewrite proxy/)
+	->has(qw/stream_upstream_sticky stream_map/)
+	->has(qw/http http_api http_ssl rewrite proxy/)
 	->plan(26)
 	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');

@@ -22,7 +22,7 @@ use Test::Utils qw/annotate/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl proxy rewrite/)
+my $t = Test::Nginx->new()->has(qw/http http_ssl proxy rewrite map/)
 	->has(qw/upstream_least_conn upstream_ip_hash upstream_hash/)
 	->has(qw/upstream_random upstream_sticky/)
 	->has_daemon('openssl')->plan(115);

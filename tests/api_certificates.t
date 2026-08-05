@@ -24,7 +24,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api http_ssl acme socket_ssl/)
+	->has(qw/http http_api http_ssl acme socket_ssl rewrite/)
 	->has(qw/stream stream_acme stream_ssl/)
 	->has_daemon('openssl');
 

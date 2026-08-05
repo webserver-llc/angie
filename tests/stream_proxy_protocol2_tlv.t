@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Roman Arutyunyan
 # (C) Eugene Grebenschikov
 # (C) Nginx, Inc.
@@ -25,7 +26,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/stream stream_return stream_map rewrite/)->plan(14)
+	->has(qw/stream stream_return stream_map/)->plan(14)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

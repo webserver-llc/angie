@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 use constant ERROR_LOG_BUFFER_SIZE => 2048;
 
-my $t = Test::Nginx->new()->has(qw/stream http/)
+my $t = Test::Nginx->new()->has(qw/stream stream_return http rewrite/)
 	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%

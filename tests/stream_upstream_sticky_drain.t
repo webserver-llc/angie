@@ -26,7 +26,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl stream_ssl_preread stream_upstream_zone/)
-	->has(qw/stream_upstream_sticky http http_api http_ssl socket_ssl/)
+	->has(qw/stream_upstream_sticky stream_map/)
+	->has(qw/http http_api http_ssl socket_ssl/)
 	->plan(24)
 	->has_daemon('openssl')
 	->write_file_expand('nginx.conf', <<'EOF');

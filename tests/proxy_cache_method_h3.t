@@ -22,7 +22,7 @@ use Test::Nginx::HTTP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v3 proxy cache/)
+my $t = Test::Nginx->new()->has(qw/http http_v3 proxy cache cryptx/)
 	->has_daemon('openssl')->plan(24)
 	->write_file_expand('nginx.conf', <<'EOF');
 

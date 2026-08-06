@@ -24,8 +24,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/proxy http_api stream_upstream_zone stream/)
-	->plan(11);
+	->has(qw/proxy http http_api stream_upstream_zone stream/)
+	->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -104,8 +104,20 @@ $t->run_daemon(\&stream_daemon, $p2);
 
 select undef, undef, undef, 3;
 
-stream('127.0.0.1:' . port(8090))->io('.$');
-stream('127.0.0.1:' . port(8090))->io('.$');
+# to make sure the upstream is definitely revived,
+# we need to get OK response from each upstream server
+my $ok_responses = {$p1 => 0, $p2 => 0};
+for (1..3) {
+	my $port = stream('127.0.0.1:' . port(8090))->io('.$');
+	next unless defined $port && $port =~ /^\d+$/;
+
+	last if $ok_responses->{$p1} > 0 && $ok_responses->{$p2} > 0;
+
+	$ok_responses->{$port}++;
+}
+
+ok($ok_responses->{$p1} && $ok_responses->{$p2}, 'both backends revived')
+	or diag(explain($ok_responses));
 
 # expect peer to be in 'recovery' state due to slow start
 $r = get_json("/api/status/stream/upstreams/u1/peers/127.0.0.1:$p1");

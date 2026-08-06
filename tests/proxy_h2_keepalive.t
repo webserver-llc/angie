@@ -256,7 +256,7 @@ like(http_get('/nobody/length2'), qr/X-Connection: $n.*SEE/msi, 'no body 2');
 
 # check for errors, shouldn't be any
 
-like(`grep -F '[error]' ${\($t->testdir())}/error.log`, qr/^$/s, 'no errors');
+like($t->grep_file('error.log', '[error]'), qr/^$/s, 'no errors');
 
 ###############################################################################
 

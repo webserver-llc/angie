@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-# (C) 2024 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for proxy with keepalive.
@@ -26,7 +25,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive ssi rewrite/)
-	->plan(48)->write_file_expand('nginx.conf', <<'EOF');
+	->plan(49)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -206,6 +205,10 @@ like(http_get('/unbuffered/closed1'), qr/200 OK/, 'unbuffered closed 1');
 like(http_get('/unbuffered/closed2'), qr/200 OK/, 'unbuffered closed 2');
 like(http_get('/inmemory/closed1'), qr/200 OK/, 'inmemory closed 1');
 like(http_get('/inmemory/closed2'), qr/200 OK/, 'inmemory closed 2');
+
+# check for errors, shouldn't be any
+
+like($t->grep_file('error.log', '[error]'), qr/^$/s, 'no errors');
 
 ###############################################################################
 

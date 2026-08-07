@@ -16,15 +16,16 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
-use Test::Nginx;
+use Test::Nginx qw/:DEFAULT http_post/;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite upstream_keepalive/)
-	->plan(9);
+my $t = Test::Nginx->new()
+	->has(qw/http proxy rewrite upstream_keepalive/)
+	->plan(12);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -54,6 +55,21 @@ http {
         server 127.0.0.1:8081 max_fails=0;
     }
 
+    upstream uf {
+        server 127.0.0.1:8081 max_fails=1 fail_timeout=1m;
+        server 127.0.0.1:8083 max_fails=1 fail_timeout=1m;
+    }
+
+    upstream uf_retry {
+        server 127.0.0.1:8081 max_fails=1 fail_timeout=1m;
+        server 127.0.0.1:8083 max_fails=1 fail_timeout=1m;
+    }
+
+    upstream uf_recover {
+        server 127.0.0.1:8081 max_fails=1 fail_timeout=2s;
+        server 127.0.0.1:8083 max_fails=1 fail_timeout=2s;
+    }
+
     server {
         listen       127.0.0.1:8080;
         server_name  localhost;
@@ -80,6 +96,21 @@ http {
         location /conn {
             proxy_pass http://uc;
         }
+
+        location /fail {
+            proxy_pass http://uf;
+            proxy_next_upstream error timeout http_404;
+        }
+
+        location /fail_retry {
+            proxy_pass http://uf_retry;
+            proxy_next_upstream error timeout non_idempotent;
+        }
+
+        location /fail_recover {
+            proxy_pass http://uf_recover;
+            proxy_next_upstream error timeout http_404;
+        }
     }
 
     server {
@@ -100,6 +131,21 @@ http {
 
         location /keepalive/establish {
             return 204;
+        }
+    }
+
+    server {
+        listen       127.0.0.1:8083;
+        server_name  localhost;
+
+        location /404
+                 /fail
+        {
+            return 404 SEE-THIS;
+        }
+
+        location /fail_retry {
+            return 444;
         }
     }
 }
@@ -137,17 +183,69 @@ like(http_post('/keepalive/drop'), qr/X-IP: (\S+)\x0d?$/m, 'keepalive post');
 
 like(http_post('/conn'), qr/X-IP: \S+, \S+.*SEE-THIS/s, 'post conn failed');
 
-###############################################################################
+subtest 'non-idempotent request marks peer' => sub {
+	# non-idempotent request against a failing upstream should still
+	# mark the responding peer's status via the error path
+	# (ngx_http_upstream_next -> free_peer), even though the request
+	# itself is not retried
 
-sub http_post {
-	my ($uri, %extra) = @_;
-	my $cl = $extra{cl} || 0;
+	my $r1 = http_post('/fail');
+	unlike($r1, qr/SEE-THIS.*SEE-THIS/s, 'post fail single attempt');
 
-	http(<<"EOF");
-POST $uri HTTP/1.0
-Content-Length: $cl
+	$r1 =~ /X-IP: (\S+)/;
+	my $failed_peer = $1;
+	ok(defined $failed_peer, 'failed peer captured');
 
-EOF
-}
+	# a following idempotent GET (with proxy_next_upstream) should retry
+	# across both peers in the upstream; if the first peer was correctly
+	# marked failed, it should be skipped due to max_fails/fail_timeout
+	# and GET must be routed to the surviving good peer
+
+	my $r2 = http_get('/fail');
+	unlike($r2, qr/X-IP:[^\r\n]*\Q$failed_peer\E/,
+		'failed peer skipped on retry');
+
+	my @peers = $r2 =~ /X-IP: (.+)/g;
+	my @addrs = split /,\s*/, $peers[0];
+
+	ok((grep { $_ ne $failed_peer } @addrs),
+		'GET directed to non-failed peer');
+};
+
+subtest 'POST non_idempotent retried across both peers' => sub {
+	# with "non_idempotent" explicitly allowed in proxy_next_upstream,
+	# a POST is retried across both peers, marking both
+	# as failed after a single request
+
+	like(http_post('/fail_retry'), qr/X-IP: \S+, \S+/s,
+		'post non_idempotent retried across both peers');
+
+	# both peers should be skipped after the immediately following
+	# non idempotent GET - both peers are failed
+	my $r = http_get('/fail_retry');
+	like($r, qr/X-IP: uf_retry\x0d?$/m,
+		'both peers skipped after non_idempotent retry');
+	like($r, qr/502 Bad Gateway/,
+		'both peers marked failed after non_idempotent retry');
+};
+
+subtest 'peer recovering after fail_timeout' => sub {
+	my $p1 = port(8081);
+
+	# mark 8081 as failed (POST -> 444 -> error path -> free_peer)
+	http_post('/fail_recover');
+
+	# 8081 must be skipped as failed, the request routes only to 8083
+	unlike(http_get('/fail_recover'), qr/127\.0\.0\.1:$p1/,
+		'failed peer skipped before fail_timeout');
+
+	# wait out fail_timeout=2s
+	select undef, undef, undef, 3;
+
+	# 8081 eligible again
+	# (8081 -> 444 -> error -> retry -> 8083)
+	like(http_get('/fail_recover'), qr/127\.0\.0\.1:$p1/,
+		'peer eligible again after fail_timeout');
+};
 
 ###############################################################################

@@ -1263,7 +1263,7 @@ EOF
 
 sub http_post($;%) {
 	my ($url, %extra) = @_;
-	my $content_length = length($extra{body} // 0);
+	my $content_length = length($extra{body} // '');
 	return http(<<EOF, %extra);
 POST $url HTTP/1.0
 Host: localhost

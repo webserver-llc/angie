@@ -7,6 +7,42 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="feature">
+<para lang="ru">
+Сжатие логов доступа в формате zstd с помощью параметра zstd[=уровень].
+Уровень может принимать значение от 1 до 22. Уровни >= 20
+следует использовать с осторожностью, так как они требуют больше памяти.
+По умолчанию используется буфер размером 64 КБ и уровень сжатия 3.
+Сжатие выполняется атомарно, по одному zstd-фрейму на каждую запись буфера.
+В любой момент времени лог-файл может быть распакован или прочитан
+с помощью утилиты zstdcat.
+
+Для сборки с поддержкой zstd предназначена опция --with-zstd (системная
+библиотека libzstd) или --with-zstd=DIR (сборка из исходников).
+Для передачи дополнительных флагов компиляции при сборке из исходников
+предусмотрена опция --with-zstd-opt=OPTIONS.
+
+Пример использования:
+access_log /path/to/log.zstd combined buffer=64k zstd=5 flush=5m;
+</para>
+<para lang="en">
+Access log compression in zstd format using the zstd[=level] parameter.
+The level can take values from 1 to 22. Levels >= 20
+should be used with caution, as they require more memory.
+By default, a 64 KB buffer and compression level 3 are used.
+Compression is performed atomically, one zstd frame per buffer write.
+At any time, the log file can be decompressed or read using the zstdcat utility.
+
+To build with zstd support, use the --with-zstd option (system libzstd
+library) or --with-zstd=DIR (build from source).
+To pass additional compilation flags when building from source,
+use the --with-zstd-opt=OPTIONS option.
+
+Usage example:
+access_log /path/to/log.zstd combined buffer=64k zstd=5 flush=5m;
+</para>
+</change>
+  
 <change type="change">
 <para lang="ru">
 теперь логика директивы "acme_dns_port" аналогична логике "acme_http_port":

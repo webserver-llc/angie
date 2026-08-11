@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -1441,8 +1442,8 @@ ngx_http_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_script_compile_t          sc;
     ngx_http_compile_complex_value_t   ccv;
 #if (NGX_ZLIB || NGX_ZSTD)
-    ngx_http_log_compress_pt           compress = NULL;
-    ngx_int_t                          comp_level = 0;
+    ngx_http_log_compress_pt           compress;
+    ngx_int_t                          comp_level;
 #endif
 
     value = cf->args->elts;
@@ -1556,6 +1557,10 @@ process_formats:
 
     size = 0;
     flush = 0;
+#if (NGX_ZLIB || NGX_ZSTD)
+    compress = NULL;
+    comp_level = 0;
+#endif    
 
     for (i = 3; i < cf->args->nelts; i++) {
 

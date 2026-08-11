@@ -3,23 +3,11 @@
 
 
 if [ $ZSTD != NONE ]; then
+
     CORE_INCS="$CORE_INCS $ZSTD/include"
-
-    case "$NGX_CC_NAME" in
-
-        msvc | owc | bcc)
-            have=NGX_ZSTD . auto/have
-            LINK_DEPS="$LINK_DEPS $ZSTD/lib/libzstd.lib"
-            CORE_LIBS="$CORE_LIBS $ZSTD/lib/libzstd.lib"
-        ;;
-
-        *)
-            have=NGX_ZSTD . auto/have
-            LINK_DEPS="$LINK_DEPS $ZSTD/lib/libzstd.a"
-            CORE_LIBS="$CORE_LIBS $ZSTD/lib/libzstd.a"
-        ;;
-
-    esac
+    have=NGX_ZSTD . auto/have
+    LINK_DEPS="$LINK_DEPS $ZSTD/lib/libzstd.a"
+    CORE_LIBS="$CORE_LIBS $ZSTD/lib/libzstd.a"
 
 else
 

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -1126,8 +1127,8 @@ ngx_stream_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_stream_log_main_conf_t          *lmcf;
     ngx_stream_compile_complex_value_t   ccv;
 #if (NGX_ZLIB || NGX_ZSTD)
-    ngx_stream_log_compress_pt           compress = NULL;
-    ngx_int_t                            comp_level = 0;
+    ngx_stream_log_compress_pt           compress;
+    ngx_int_t                            comp_level;
 #endif
 
     value = cf->args->elts;
@@ -1238,6 +1239,10 @@ process_formats:
 
     size = 0;
     flush = 0;
+#if (NGX_ZLIB || NGX_ZSTD)
+    compress = NULL;
+    comp_level = 0;
+#endif    
 
     for (i = 3; i < cf->args->nelts; i++) {
 
@@ -1286,9 +1291,10 @@ process_formats:
                 size = 64 * 1024;
             }
 
+            compress = ngx_stream_log_gzip;
+
             if (value[i].len == 4) {
                 comp_level = Z_BEST_SPEED;
-                compress = ngx_stream_log_gzip;
                 continue;
             }
 
@@ -1303,7 +1309,6 @@ process_formats:
                 return NGX_CONF_ERROR;
             }
 
-            compress = ngx_stream_log_gzip;
             continue;
 
 #else
@@ -1328,9 +1333,10 @@ process_formats:
                 size = 64 * 1024;
             }
 
+            compress = ngx_stream_log_zstd;
+
             if (value[i].len == 4) {
                 comp_level = ZSTD_CLEVEL_DEFAULT;
-                compress = ngx_stream_log_zstd;
                 continue;
             }
 
@@ -1345,7 +1351,6 @@ process_formats:
                 return NGX_CONF_ERROR;
             }
 
-            compress = ngx_stream_log_zstd;
             continue;
 
 #else

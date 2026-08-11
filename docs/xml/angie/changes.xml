@@ -9,37 +9,22 @@
 
 <change type="feature">
 <para lang="ru">
-Сжатие логов доступа в формате zstd с помощью параметра zstd[=уровень].
-Уровень может принимать значение от 1 до 22. Уровни >= 20
-следует использовать с осторожностью, так как они требуют больше памяти.
-По умолчанию используется буфер размером 64 КБ и уровень сжатия 3.
-Сжатие выполняется атомарно, по одному zstd-фрейму на каждую запись буфера.
-В любой момент времени лог-файл может быть распакован или прочитан
-с помощью утилиты zstdcat.
-
-Для сборки с поддержкой zstd предназначена опция --with-zstd (системная
-библиотека libzstd) или --with-zstd=DIR (сборка из исходников).
-Для передачи дополнительных флагов компиляции при сборке из исходников
-предусмотрена опция --with-zstd-opt=OPTIONS.
-
-Пример использования:
-access_log /path/to/log.zstd combined buffer=64k zstd=5 flush=5m;
+Сжатие логов доступа на лету в формате zstd с помощью параметра "zstd[=уровень]"
+директивы "access_log" в модулях http и stream;
+сжатие выполняется атомарно, по одному zstd-фрейму на каждую запись буфера,
+аналогично существующей поддержке gzip;
+для сборки с поддержкой zstd предназначена опция "--with-zstd" (системная
+библиотека libzstd) или "--with-zstd=DIR" (сборка из исходников) опцилнально
+для компиляции "--with-zstd-opt=OPTIONS" (опции при компиляции исходников).
 </para>
 <para lang="en">
-Access log compression in zstd format using the zstd[=level] parameter.
-The level can take values from 1 to 22. Levels >= 20
-should be used with caution, as they require more memory.
-By default, a 64 KB buffer and compression level 3 are used.
-Compression is performed atomically, one zstd frame per buffer write.
-At any time, the log file can be decompressed or read using the zstdcat utility.
-
-To build with zstd support, use the --with-zstd option (system libzstd
-library) or --with-zstd=DIR (build from source).
-To pass additional compilation flags when building from source,
-use the --with-zstd-opt=OPTIONS option.
-
-Usage example:
-access_log /path/to/log.zstd combined buffer=64k zstd=5 flush=5m;
+On-the-fly zstd compression of access logs via the "zstd[=level]" parameter
+of the "access_log" directive in the http and stream modules;
+compression is atomic, with one zstd frame per buffer flush, mirroring the
+existing gzip support;
+the "--with-zstd" configure option (system libzstd) or "--with-zstd=DIR"
+(build from sources) enables zstd support optional for source compilation
+"--with-zstd-opt=OPTIONS" (compilation options).
 </para>
 </change>
   

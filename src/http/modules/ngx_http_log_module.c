@@ -1609,9 +1609,10 @@ process_formats:
                 size = 64 * 1024;
             }
 
+            compress = ngx_http_log_gzip;
+
             if (value[i].len == 4) {
                 comp_level = Z_BEST_SPEED;
-                compress = ngx_http_log_gzip;
                 continue;
             }
 
@@ -1626,7 +1627,6 @@ process_formats:
                 return NGX_CONF_ERROR;
             }
 
-            compress = ngx_http_log_gzip;
             continue;
 
 #else
@@ -1651,9 +1651,10 @@ process_formats:
                 size = 64 * 1024;
             }
 
+            compress = ngx_http_log_zstd;
+
             if (value[i].len == 4) {
                 comp_level = ZSTD_CLEVEL_DEFAULT;
-                compress = ngx_http_log_zstd;
                 continue;
             }
 
@@ -1668,7 +1669,6 @@ process_formats:
                 return NGX_CONF_ERROR;
             }
 
-            compress = ngx_http_log_zstd;
             continue;
 
 #else

@@ -40,6 +40,15 @@ challenge ... wrong number of identifiers".
 </para>
 </change>
 
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.31.3.
+</para>
+<para lang="en">
+all functionality of nginx 1.31.3.
+</para>
+</change>
+
 </changes>
 
 

@@ -10,12 +10,13 @@ use warnings;
 use strict;
 
 use Test::More;
+use Test::Deep qw/cmp_bag/;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx qw/http_start http_get http_end port/;
-use Test::Utils qw/get_json/;
+use Test::Utils qw/get_json wait_for/;
 
 ###############################################################################
 
@@ -71,16 +72,17 @@ http {
         listen 127.0.0.1:%%PORT_8081%%;
         location / { return 200 "B1"; }
         location /slow {
+            add_header X-Backend B1;
             limit_rate 40;
             return 200 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         }
-
     }
     server {
         error_log backend2.log debug;
         listen 127.0.0.2:%%PORT_8082%%;
         location / { return 200 "B2"; }
         location /slow {
+            add_header X-Backend B2;
             limit_rate 40;
             return 200 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         }
@@ -93,26 +95,28 @@ my ($port1, $port2) = (port(8081), port(8082));
 
 # TODO: use substituted ports for parallel execution for DNS server
 my %addrs = (
-    'b1.example.com' => ['127.0.0.1', '::1'],
-    'b2.example.com' => ['127.0.0.2', '::1']
+	'b1.example.com' => ['127.0.0.1', '::1'],
+	'b2.example.com' => ['127.0.0.2', '::1']
 );
 
 my @srv_records = (
-    "_http._tcp.backends.example.com,b1.example.com,$port1",
-    "_http._tcp.backends.example.com,b2.example.com,$port2"
+	"_http._tcp.backends.example.com,b1.example.com,$port1",
+	"_http._tcp.backends.example.com,b2.example.com,$port2"
 );
 
 $t->start_resolver(5454, \%addrs, {srvs => \@srv_records});
 
-$t->run()->plan(4);
+$t->run()->plan(10);
+
+# wait for all backends to be available
+$t->waitforsocket('127.0.0.1:' . $port1);
+$t->waitforsocket('127.0.0.2:' . $port2);
 
 ###############################################################################
 
 # wait for nginx resolver to complete query
-for (1 .. 50) {
-	last if http_get('/') =~ qr /200 OK/;
-	select undef, undef, undef, 0.1;
-}
+wait_for(
+	sub {http_get('/') =~ qr /200 OK/}, 'nginx resolver completed query', 5);
 
 # expect that upstream contains addresses from 'test_hosts' file
 
@@ -120,37 +124,56 @@ my $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.1:$port1");
 is($j->{server}, 'backends.example.com', 'b1 address resolved from srv');
 
 $j = get_json("/api/status/http/upstreams/u/peers/127.0.0.2:$port2");
-is($j->{'server'}, 'backends.example.com', 'b2 address resolved from srv');
+is($j->{server}, 'backends.example.com', 'b2 address resolved from srv');
 
-my $s = http_start_uri('/u/slow'); # connects to b1
-my $s2 = http_start_uri('/u/slow'); # connects to b2
+# connects to b1/b2
+my $s = http_start_uri('/u/slow');
+my $s2 = http_start_uri('/u/slow');
 
 # start DNS server with new config, b2 disappears from backends.example.com
 %addrs = (
-    'b1.example.com' => ['127.0.0.1', '::1']
+	'b1.example.com' => ['127.0.0.1', '::1']
 );
 
 $t->restart_resolver(5454, \%addrs, {srvs => \@srv_records,
 	nxaddrs => ['b2.example.com']});
 
 # let various resolve timers run
-select undef, undef, undef, 2;
+wait_for(
+	sub {
+		my $j = get_json("/api/status/http/upstreams/u/127.0.0.2:$port2");
+		return !defined $j->{server} && $j->{error} eq 'PathNotFound';
+	},
+	'b2.example.com disappeared', 5
+);
 
-$j = get_json("/api/status/http/upstreams/u/127.0.0.2:$port2");
-is($j->{'error'}, 'PathNotFound', 'b2.example.com disappeared');
+# verify that active connections aren't killed when a peer is removed from SRV
 
 my $res = http_end($s);
+my ($backend1) = $res =~ /^X-Backend: (B\d)\s?$/m;
+ok(defined $backend1, 'first slow request has X-Backend header');
+like($res, qr/200 OK/, 'first slow request has code 200');
+
 my $res2 = http_end($s2);
+my ($backend2) = $res2 =~ /^X-Backend: (B\d)\s?$/m;
+ok(defined $backend2, 'second slow request has X-Backend header');
+like($res2, qr/200 OK/, 'second slow request has code 200');
+
+cmp_bag([$backend1, $backend2], [qw(B1 B2)], 'both backends answered');
 
 # start DNS server with new config,
 # whole backends.example.com disappears
 $t->restart_resolver(5454, \%addrs, {nxaddrs => ['backends.example.com']});
 
 # let various resolve timers run
-select undef, undef, undef, 2;
-
-$j = get_json("/api/status/http/upstreams/u/peers");
-is(%$j, 0, "example.com disappeared");
+wait_for(
+	sub {
+		my $j = get_json('/api/status/http/upstreams/u/peers');
+		return unless defined $j;
+		return !scalar keys %$j;
+	},
+	'example.com disappeared', 5
+);
 
 ###############################################################################
 

@@ -34,6 +34,12 @@ case $ZLIB in
     *)     echo "  + using zlib library: $ZLIB" ;;
 esac
 
+case $ZSTD in
+    YES)   echo "  + using system zstd library" ;;
+    NONE)  echo "  + zstd library is not used" ;;
+    *)     echo "  + using zstd library: $ZSTD" ;;
+esac
+
 case $NGX_LIBATOMIC in
     YES)   echo "  + using system libatomic_ops library" ;;
     NO)    ;; # not used

@@ -1,5 +1,6 @@
 
 /*
+ * Copyright (C) 2026 Web Server LLC
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
@@ -11,6 +12,10 @@
 
 #if (NGX_ZLIB)
 #include <zlib.h>
+#endif
+
+#if (NGX_ZSTD)
+#include <zstd.h>
 #endif
 
 
@@ -44,6 +49,10 @@ typedef struct {
 } ngx_http_log_main_conf_t;
 
 
+typedef ssize_t (*ngx_http_log_compress_pt)(ngx_fd_t fd, u_char *buf,
+    size_t len, ngx_int_t level, ngx_log_t *log);
+
+
 typedef struct {
     u_char                     *start;
     u_char                     *pos;
@@ -51,7 +60,10 @@ typedef struct {
 
     ngx_event_t                *event;
     ngx_msec_t                  flush;
-    ngx_int_t                   gzip;
+#if (NGX_ZLIB || NGX_ZSTD)
+    ngx_http_log_compress_pt    compress;
+    ngx_int_t                   comp_level;
+#endif
 } ngx_http_log_buf_t;
 
 
@@ -106,6 +118,11 @@ static ssize_t ngx_http_log_gzip(ngx_fd_t fd, u_char *buf, size_t len,
 
 static void *ngx_http_log_gzip_alloc(void *opaque, u_int items, u_int size);
 static void ngx_http_log_gzip_free(void *opaque, void *address);
+#endif
+
+#if (NGX_ZSTD)
+static ssize_t ngx_http_log_zstd(ngx_fd_t fd, u_char *buf, size_t len,
+    ngx_int_t level, ngx_log_t *log);
 #endif
 
 static void ngx_http_log_flush(ngx_open_file_t *file, ngx_log_t *log);
@@ -410,19 +427,19 @@ ngx_http_log_write(ngx_http_request_t *r, ngx_http_log_t *log, u_char *buf,
     time_t               now;
     ssize_t              n;
     ngx_err_t            err;
-#if (NGX_ZLIB)
+#if (NGX_ZLIB || NGX_ZSTD)
     ngx_http_log_buf_t  *buffer;
 #endif
 
     if (log->script == NULL) {
         name = log->file->name.data;
 
-#if (NGX_ZLIB)
+#if (NGX_ZLIB || NGX_ZSTD)
         buffer = log->file->data;
 
-        if (buffer && buffer->gzip) {
-            n = ngx_http_log_gzip(log->file->fd, buf, len, buffer->gzip,
-                                  r->connection->log);
+        if (buffer && buffer->compress) {
+            n = buffer->compress(log->file->fd, buf, len,
+                                 buffer->comp_level, r->connection->log);
         } else {
             n = ngx_write_fd(log->file->fd, buf, len);
         }
@@ -715,6 +732,78 @@ ngx_http_log_gzip_free(void *opaque, void *address)
 #endif
 
 
+#if (NGX_ZSTD)
+
+static ssize_t
+ngx_http_log_zstd(ngx_fd_t fd, u_char *buf, size_t len, ngx_int_t level,
+    ngx_log_t *log)
+{
+    u_char      *out;
+    size_t       size, zret;
+    ssize_t      n;
+    ngx_err_t    err;
+    ngx_pool_t  *pool;
+
+    /*
+     * Allocate the worst-case output buffer reported by ZSTD_compressBound().
+     * zstd does not need a deflate-style wrapper, so no extra bytes are added.
+     * The whole compressed frame is then written in a single ngx_write_fd()
+     * call to preserve atomicity, exactly like ngx_http_log_gzip() does.
+     */
+
+    size = ZSTD_compressBound(len);
+
+    pool = ngx_create_pool(256, log);
+    if (pool == NULL) {
+        /* simulate successful logging */
+        return len;
+    }
+
+    pool->log = log;
+
+    out = ngx_pnalloc(pool, size);
+    if (out == NULL) {
+        goto done;
+    }
+
+    ngx_log_debug3(NGX_LOG_DEBUG_HTTP, log, 0,
+                   "zstd compress: len:%uz bound:%uz level:%i",
+                   len, size, level);
+
+    zret = ZSTD_compress(out, size, buf, len, (int) level);
+
+    if (ZSTD_isError(zret)) {
+        ngx_log_error(NGX_LOG_ALERT, log, 0,
+                      "ZSTD_compress() failed: %s",
+                      ZSTD_getErrorName(zret));
+        goto done;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, log, 0,
+                   "zstd compressed: in:%uz out:%uz", len, zret);
+
+    n = ngx_write_fd(fd, out, zret);
+
+    if (n != (ssize_t) zret) {
+        err = (n == -1) ? ngx_errno : 0;
+
+        ngx_destroy_pool(pool);
+
+        ngx_set_errno(err);
+        return -1;
+    }
+
+done:
+
+    ngx_destroy_pool(pool);
+
+    /* simulate successful logging */
+    return len;
+}
+
+#endif
+
+
 static void
 ngx_http_log_flush(ngx_open_file_t *file, ngx_log_t *log)
 {
@@ -730,15 +819,15 @@ ngx_http_log_flush(ngx_open_file_t *file, ngx_log_t *log)
         return;
     }
 
-#if (NGX_ZLIB)
-    if (buffer->gzip) {
-        n = ngx_http_log_gzip(file->fd, buffer->start, len, buffer->gzip, log);
-    } else {
+#if (NGX_ZLIB || NGX_ZSTD)
+    if (buffer->compress) {
+        n = buffer->compress(file->fd, buffer->start, len,
+                             buffer->comp_level, log);
+    } else
+#endif
+    {
         n = ngx_write_fd(file->fd, buffer->start, len);
     }
-#else
-    n = ngx_write_fd(file->fd, buffer->start, len);
-#endif
 
     if (n == -1) {
         ngx_log_error(NGX_LOG_ALERT, log, ngx_errno,
@@ -1342,7 +1431,6 @@ ngx_http_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_log_loc_conf_t *llcf = conf;
 
     ssize_t                            size;
-    ngx_int_t                          gzip;
     ngx_uint_t                         i, n;
     ngx_msec_t                         flush;
     ngx_str_t                         *value, name, s;
@@ -1353,6 +1441,10 @@ ngx_http_log_set_log(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_log_main_conf_t          *lmcf;
     ngx_http_script_compile_t          sc;
     ngx_http_compile_complex_value_t   ccv;
+#if (NGX_ZLIB || NGX_ZSTD)
+    ngx_http_log_compress_pt           compress;
+    ngx_int_t                          comp_level;
+#endif
 
     value = cf->args->elts;
 
@@ -1465,7 +1557,10 @@ process_formats:
 
     size = 0;
     flush = 0;
-    gzip = 0;
+#if (NGX_ZLIB || NGX_ZSTD)
+    compress = NULL;
+    comp_level = 0;
+#endif    
 
     for (i = 3; i < cf->args->nelts; i++) {
 
@@ -1503,21 +1598,30 @@ process_formats:
             && (value[i].len == 4 || value[i].data[4] == '='))
         {
 #if (NGX_ZLIB)
+            if (compress) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "duplicate compression method "
+                                   "in access_log \"%V\"", &value[1]);
+                return NGX_CONF_ERROR;
+            }
+
             if (size == 0) {
                 size = 64 * 1024;
             }
 
+            compress = ngx_http_log_gzip;
+
             if (value[i].len == 4) {
-                gzip = Z_BEST_SPEED;
+                comp_level = Z_BEST_SPEED;
                 continue;
             }
 
             s.len = value[i].len - 5;
             s.data = value[i].data + 5;
 
-            gzip = ngx_atoi(s.data, s.len);
+            comp_level = ngx_atoi(s.data, s.len);
 
-            if (gzip < 1 || gzip > 9) {
+            if (comp_level < 1 || comp_level > 9) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "invalid compression level \"%V\"", &s);
                 return NGX_CONF_ERROR;
@@ -1528,6 +1632,48 @@ process_formats:
 #else
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Angie was built without zlib support");
+            return NGX_CONF_ERROR;
+#endif
+        }
+
+        if (ngx_strncmp(value[i].data, "zstd", 4) == 0
+            && (value[i].len == 4 || value[i].data[4] == '='))
+        {
+#if (NGX_ZSTD)
+            if (compress) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "duplicate compression method "
+                                   "in access_log \"%V\"", &value[1]);
+                return NGX_CONF_ERROR;
+            }
+
+            if (size == 0) {
+                size = 64 * 1024;
+            }
+
+            compress = ngx_http_log_zstd;
+
+            if (value[i].len == 4) {
+                comp_level = ZSTD_CLEVEL_DEFAULT;
+                continue;
+            }
+
+            s.len = value[i].len - 5;
+            s.data = value[i].data + 5;
+
+            comp_level = ngx_atoi(s.data, s.len);
+
+            if (comp_level < 1 || comp_level > ZSTD_maxCLevel()) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                                   "invalid compression level \"%V\"", &s);
+                return NGX_CONF_ERROR;
+            }
+
+            continue;
+
+#else
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "Angie was built without zstd support");
             return NGX_CONF_ERROR;
 #endif
         }
@@ -1586,7 +1732,11 @@ process_formats:
 
             if (buffer->last - buffer->start != size
                 || buffer->flush != flush
-                || buffer->gzip != gzip)
+#if (NGX_ZLIB || NGX_ZSTD)
+                || buffer->compress != compress
+                || buffer->comp_level != comp_level
+#endif
+            )
             {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                    "access_log \"%V\" already defined "
@@ -1625,7 +1775,10 @@ process_formats:
             buffer->flush = flush;
         }
 
-        buffer->gzip = gzip;
+#if (NGX_ZLIB || NGX_ZSTD)
+        buffer->compress = compress;
+        buffer->comp_level = comp_level;
+#endif
 
         log->file->flush = ngx_http_log_flush;
         log->file->data = buffer;

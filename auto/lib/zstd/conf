@@ -1,0 +1,47 @@
+
+# Copyright (C) 2026 Web Server LLC
+
+
+if [ $ZSTD != NONE ]; then
+
+    CORE_INCS="$CORE_INCS $ZSTD/include"
+    have=NGX_ZSTD . auto/have
+    LINK_DEPS="$LINK_DEPS $ZSTD/lib/libzstd.a"
+    CORE_LIBS="$CORE_LIBS $ZSTD/lib/libzstd.a"
+
+else
+
+    ZSTD=NO
+
+    # FreeBSD, Solaris, Linux
+
+    ngx_feature="zstd library"
+    ngx_feature_name="NGX_ZSTD"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <zstd.h>"
+    ngx_feature_path=
+    ngx_feature_libs="-lzstd"
+    ngx_feature_test="size_t r = ZSTD_compress(NULL, 0, NULL, 0, 3);
+                      (void) ZSTD_isError(r)"
+    . auto/feature
+
+
+    if [ $ngx_found = yes ]; then
+        CORE_LIBS="$CORE_LIBS $ngx_feature_libs"
+        ZSTD=YES
+        ngx_found=no
+    fi
+
+    if [ $ZSTD != YES ]; then
+cat << END
+
+$0: error: the HTTP/stream log zstd module requires the libzstd library.
+You can either disable the module, or install the libzstd library into 
+the system, or build the libzstd library statically from the source 
+with Angie by using --with-zstd=<path> option.
+
+END
+        exit 1
+    fi
+
+fi

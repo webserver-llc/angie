@@ -1,4 +1,4 @@
-
+# Copyright (C) 2026 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -27,6 +27,10 @@ fi
 
 if [ $USE_ZLIB = YES ]; then
     . auto/lib/zlib/conf
+fi
+
+if [ $USE_ZSTD = YES -o $ZSTD != NONE ]; then
+    . auto/lib/zstd/conf
 fi
 
 if [ $USE_LIBXSLT != NO ]; then

@@ -1,0 +1,16 @@
+
+# Copyright (C) 2026 Web Server LLC
+
+
+# Build libzstd from sources when --with-zstd=DIR was given.
+# Mirrors auto/lib/zlib/make but uses zstd's native "libzstd.a" target
+# rather than a configure script (libzstd does not need one).
+
+        cat << END                                        >> $NGX_MAKEFILE
+
+$ZSTD/lib/libzstd.a:	$NGX_MAKEFILE
+	cd $ZSTD \\
+	&& \$(MAKE) -C lib libzstd.a \\
+		CFLAGS="$ZSTD_OPT" CC="\$(CC)"
+
+END

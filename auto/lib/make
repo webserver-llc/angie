@@ -1,4 +1,4 @@
-
+# Copyright (C) 2026 Web Server LLC
 # Copyright (C) Igor Sysoev
 # Copyright (C) Nginx, Inc.
 
@@ -13,6 +13,10 @@ fi
 
 if [ $ZLIB != NONE -a $ZLIB != NO -a $ZLIB != YES ]; then
     . auto/lib/zlib/make
+fi
+
+if [ $ZSTD != NONE -a $ZSTD != NO -a $ZSTD != YES ]; then
+    . auto/lib/zstd/make
 fi
 
 if [ $NGX_LIBATOMIC != NO -a $NGX_LIBATOMIC != YES ]; then

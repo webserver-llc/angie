@@ -7,6 +7,17 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="feature">
+<para lang="ru">
+возможность задавать в директиве "acme_dns_ttl" значения времени,
+например "1h" вместо "3600".
+</para>
+<para lang="en">
+support for time values in the "acme_dns_ttl" directive;
+a value can now be specified as "1h" instead of "3600".
+</para>
+</change>
+
 <change type="change">
 <para lang="ru">
 теперь логика директивы "acme_dns_port" аналогична логике "acme_http_port":

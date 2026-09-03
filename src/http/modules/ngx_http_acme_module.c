@@ -172,7 +172,7 @@ struct ngx_http_acme_main_conf_s {
     ngx_connection_handler_pt    default_dns_handler;
     ngx_http_acme_port_conf_t    dns_port;
     ngx_http_acme_port_conf_t    http_port;
-    ngx_uint_t                   dns_ttl;
+    time_t                       dns_ttl;
 };
 
 
@@ -508,7 +508,7 @@ static ngx_command_t  ngx_http_acme_commands[] = {
 
     { ngx_string("acme_dns_ttl"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_conf_set_sec_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_http_acme_main_conf_t, dns_ttl),
       &ngx_acme_dns_ttl_post },
@@ -4550,7 +4550,7 @@ ngx_http_acme_dns_handler(ngx_connection_t *c)
     amcf = ngx_http_acme_get_main_conf();
 
     if (n > 0) {
-        b = ngx_http_acme_create_dns_response(c, n, amcf->dns_ttl);
+        b = ngx_http_acme_create_dns_response(c, n, (uint32_t) amcf->dns_ttl);
 
     } else if (n == NGX_DECLINED && amcf->default_dns_handler == NULL) {
         b = ngx_http_acme_create_dns_error_response(c);
@@ -4825,9 +4825,9 @@ ngx_http_acme_create_dns_error_response(ngx_connection_t *c)
 static char *
 ngx_acme_dns_ttl_check(ngx_conf_t *cf, void *post, void *data)
 {
-    ngx_uint_t  *np = data;
+    time_t  *sp = data;
 
-    if (*np > NGX_MAX_INT32_VALUE) {
+    if ((uint64_t) *sp > NGX_MAX_INT32_VALUE) {
         return "value is out of range";
     }
 
@@ -6027,7 +6027,7 @@ ngx_http_acme_create_main_conf(ngx_conf_t *cf)
     ngx_memcpy(&amcf->log, cf->log, sizeof(ngx_log_t));
     amcf->max_key_auth_size = NGX_CONF_UNSET_SIZE;
     amcf->max_response_size = NGX_CONF_UNSET_SIZE;
-    amcf->dns_ttl = NGX_CONF_UNSET_UINT;
+    amcf->dns_ttl = NGX_CONF_UNSET;
 
     return amcf;
 }
@@ -6048,7 +6048,7 @@ ngx_http_acme_init_main_conf(ngx_conf_t *cf, void *conf)
 
     ngx_conf_init_size_value(amcf->max_key_auth_size, 2 * 1024);
     ngx_conf_init_size_value(amcf->max_response_size, 32 * 1024);
-    ngx_conf_init_uint_value(amcf->dns_ttl, 1);
+    ngx_conf_init_value(amcf->dns_ttl, 1);
 
     return NGX_CONF_OK;
 }

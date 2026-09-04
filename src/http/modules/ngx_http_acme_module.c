@@ -363,11 +363,9 @@ static int ngx_http_acme_server_error_type(ngx_acme_session_t *ses,
     const char *type);
 static void ngx_http_acme_timer_handler(ngx_event_t *ev);
 static ngx_int_t ngx_acme_http_challenge_handler(ngx_http_request_t *r);
-static void ngx_http_acme_empty_handler(ngx_event_t *ev);
 static void ngx_http_acme_http_handler(ngx_connection_t *c);
 static void ngx_http_acme_dns_handler(ngx_connection_t *c);
 static void ngx_http_acme_dns_close(ngx_connection_t *c);
-static void ngx_http_acme_dns_resend(ngx_event_t *wev);
 static ssize_t ngx_http_acme_parse_dns_request(ngx_connection_t *c, char **err);
 static ngx_buf_t *ngx_http_acme_create_dns_response(ngx_connection_t *c,
     size_t quest_size, uint32_t ttl);
@@ -4573,53 +4571,12 @@ ngx_http_acme_dns_handler(ngx_connection_t *c)
 
     out = c->send_chain(c, &cl, 0);
 
-    if (out && out != NGX_CHAIN_ERROR
-        && ngx_handle_write_event(c->write, 0) == NGX_OK)
-    {
-        c->buffer = b;
-
-        c->read->handler = ngx_http_acme_empty_handler;
-        c->write->handler = ngx_http_acme_dns_resend;
-
-        ngx_add_timer(c->write, 5000);
-
-        return;
+    if (out != NULL && out != NGX_CHAIN_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, c->log, NGX_EAGAIN,
+                      "failed to send acme dns-01 challenge reply");
     }
 
 done:
-
-    ngx_http_acme_dns_close(c);
-}
-
-
-static void
-ngx_http_acme_empty_handler(ngx_event_t *ev)
-{
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "acme empty handler");
-}
-
-
-static void
-ngx_http_acme_dns_resend(ngx_event_t *wev)
-{
-    ngx_err_t          err;
-    ngx_buf_t         *b;
-    ngx_chain_t        cl, *out;
-    ngx_connection_t  *c;
-
-    c = wev->data;
-    b = c->buffer;
-
-    cl.buf = b;
-    cl.next = NULL;
-
-    out = c->send_chain(c, &cl, 0);
-
-    if (out != NULL) {
-        err = (out == NGX_CHAIN_ERROR) ? 0 : NGX_EAGAIN;
-        ngx_log_error(NGX_LOG_ALERT, c->log, err,
-                      "failed to send acme dns-01 challenge reply");
-    }
 
     ngx_http_acme_dns_close(c);
 }

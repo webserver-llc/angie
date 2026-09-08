@@ -5928,7 +5928,7 @@ ngx_http_proxy_set_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *plcf)
     }
 
 #if (NGX_HTTP_V3 && NGX_QUIC_OPENSSL_COMPAT)
-    if (ngx_quic_compat_init(cf, plcf->upstream.ssl->ctx) != NGX_OK) {
+    if (ngx_quic_compat_ext_init(cf, plcf->upstream.ssl->ctx) != NGX_OK) {
         return NGX_ERROR;
     }
 #endif

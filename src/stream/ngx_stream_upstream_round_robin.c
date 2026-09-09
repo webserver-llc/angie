@@ -844,7 +844,7 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
             peer->effective_weight = 0;
         }
 
-    } else if (pc->connection) {
+    } else if (pc->connected) {
 
         /*
          * Mark peer live if check passed.  This code is for UDP only.  In a
@@ -853,7 +853,7 @@ ngx_stream_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
          * state faster for the long time connections.
          */
 
-        if (pc->connection->type != SOCK_STREAM) {
+        if (pc->type != SOCK_STREAM) {
 
             if (peer->recover_at <= peer->checked) {
                 ngx_stream_upstream_recover_round_robin_peer(peer);
@@ -1003,7 +1003,6 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
     ngx_stream_upstream_rr_peer_t *peer, ngx_uint_t state)
 {
     ngx_time_t             *tp;
-    ngx_connection_t       *c;
     ngx_stream_session_t   *s;
     ngx_stream_upstream_t  *u;
 
@@ -1025,9 +1024,7 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
         }
     }
 
-    c = pc->connection;
-
-    if (c == NULL) {
+    if (!pc->connected) {
         /*
          * immediate fail of establishing connection
          * in ngx_event_connect_peer()
@@ -1035,7 +1032,7 @@ ngx_stream_upstream_stat(ngx_peer_connection_t *pc,
         return;
     }
 
-    peer->stats.sent += c->sent;
+    peer->stats.sent += u->state->bytes_sent;
     peer->stats.received += u->received;
 }
 

@@ -2426,6 +2426,10 @@ ngx_stream_proxy_next_upstream(ngx_stream_session_t *s)
         u->upstream_out = NULL;
     }
 
+    if (pc) {
+        u->state->bytes_sent = pc->sent;
+    }
+
     if (u->peer.sockaddr) {
         ngx_stream_upstream_free_peer(u, NGX_PEER_FAILED);
     }
@@ -2456,7 +2460,6 @@ ngx_stream_proxy_next_upstream(ngx_stream_session_t *s)
 #endif
 
         u->state->bytes_received = u->received;
-        u->state->bytes_sent = pc->sent;
 
         ngx_close_connection(pc);
         u->peer.connection = NULL;
@@ -2481,12 +2484,15 @@ ngx_stream_upstream_free_peer(ngx_stream_upstream_t *u, ngx_uint_t state)
         state = NGX_PEER_FAILED;
     }
 
-    if (pc->free) {
-        pc->free(pc, pc->data, state);
-    }
+    pc->connected = pc->connection ? 1 : 0;
+    pc->closed = pc->connection ? pc->connection->read->eof : 0;
 
     if (pc->close) {
         pc->close(pc, pc->data, state);
+    }
+
+    if (pc->free) {
+        pc->free(pc, pc->data, state);
     }
 
     pc->sockaddr = NULL;

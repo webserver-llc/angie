@@ -1161,11 +1161,29 @@ ngx_quic_shutdown_connection(ngx_connection_t *c, ngx_uint_t err,
 static void
 ngx_quic_close_handler(ngx_event_t *ev)
 {
-    ngx_connection_t  *c;
+    ngx_connection_t       *c;
+#if (NGX_API)
+    ngx_quic_connection_t  *qc;
+#endif
 
     ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ev->log, 0, "quic close handler");
 
     c = ev->data;
+
+#if (NGX_API)
+    qc = ngx_quic_get_connection(c);
+
+    /*
+     * account for failed SSL handshake due to timeout;
+     * the ngx_quic_handshake is not called in this case
+     */
+    if (ev->timedout && qc && !qc->closing && c->ssl && !c->ssl->handshaked
+        && !qc->post_hs_done && qc->conf->post_ssl_handshake)
+    {
+        (void) qc->conf->post_ssl_handshake(c, qc->streams.initialized, 1);
+        qc->post_hs_done = 1;
+    }
+#endif
 
     ngx_quic_close_connection(c, NGX_OK);
 }

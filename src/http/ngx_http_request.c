@@ -1058,7 +1058,8 @@ ngx_http_ssl_handshake_handler(ngx_connection_t *c)
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
     if (cscf->status_zone != NULL) {
-        ngx_http_calculate_ssl_statistic(c, cscf->status_zone);
+        ngx_http_calculate_ssl_statistic(c, cscf->status_zone,
+                                         c->read->timedout);
     }
 #endif
 
@@ -4506,7 +4507,7 @@ ngx_http_calculate_request_statistic(ngx_http_request_t *r,
 
 void
 ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
-    ngx_http_status_zone_t *status_zone)
+    ngx_http_status_zone_t *status_zone, ngx_uint_t timedout)
 {
     ngx_http_request_t       *r;
     ngx_http_server_stats_t  *stats;
@@ -4541,7 +4542,7 @@ ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
             (void) ngx_atomic_fetch_add(&stats->ssl.reuses, 1);
         }
 
-    } else if (c->read->timedout) {
+    } else if (timedout) {
         (void) ngx_atomic_fetch_add(&stats->ssl.timedout, 1);
 
     } else {

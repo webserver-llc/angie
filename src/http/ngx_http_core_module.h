@@ -684,7 +684,7 @@ ngx_int_t ngx_http_link_multi_headers(ngx_http_request_t *r);
 
 #if (NGX_API && NGX_HTTP_SSL)
 void ngx_http_calculate_ssl_statistic(ngx_connection_t *c,
-    ngx_http_status_zone_t *status_zone);
+    ngx_http_status_zone_t *status_zone, ngx_uint_t timedout);
 #endif
 
 

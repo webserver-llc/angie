@@ -942,7 +942,6 @@ ngx_http_upstream_stat_locked(ngx_peer_connection_t *pc, ngx_uint_t state)
 {
     ngx_time_t                        *tp;
     ngx_uint_t                         code, idx;
-    ngx_connection_t                  *c;
     ngx_http_request_t                *r;
     ngx_http_upstream_t               *u;
     ngx_http_upstream_rr_peer_t       *peer;
@@ -962,9 +961,7 @@ ngx_http_upstream_stat_locked(ngx_peer_connection_t *pc, ngx_uint_t state)
         }
     }
 
-    c = pc->connection;
-
-    if (c == NULL) {
+    if (!pc->connected) {
         /*
          * immediate fail of establishing connection
          * in ngx_event_connect_peer()
@@ -982,7 +979,7 @@ ngx_http_upstream_stat_locked(ngx_peer_connection_t *pc, ngx_uint_t state)
         peer->stats.responses[idx]++;
     }
 
-    peer->stats.sent += c->sent;
+    peer->stats.sent += u->state->bytes_sent;
     peer->stats.received += u->state->bytes_received;
 }
 

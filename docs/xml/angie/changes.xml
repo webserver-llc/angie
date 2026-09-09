@@ -211,6 +211,23 @@ enabled and the logging occurred at an early stage;
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при совместном использовании директив "keepalive" и "zone" в блоке "upstream"
+могло происходить использование освобождённой разделяемой памяти, если
+проксируемый сервер удалялся в момент возврата его соединения в кэш keepalive;
+в результате соединение из кэша могло использоваться для другого сервера;
+проблема появилась в 1.8.0.
+</para>
+<para lang="en">
+when the "keepalive" and "zone" directives were used together in the "upstream"
+block, a use-after-free could occur if a proxied server was removed while its
+connection was being returned to the keepalive cache; the cached connection
+could then be reused for the wrong server;
+The bug had appeared in 1.8.0.
+</para>
+</change>
+
 </changes>
 
 

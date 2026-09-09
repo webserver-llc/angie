@@ -400,7 +400,6 @@ ngx_http_upstream_free_least_time_peer(ngx_peer_connection_t *pc,
 {
     ngx_http_upstream_rr_peer_data_t  *rrp = data;
 
-    ngx_connection_t                          *c;
     ngx_event_pipe_t                          *p;
     ngx_http_request_t                        *r;
     ngx_http_upstream_t                       *u;
@@ -423,8 +422,6 @@ ngx_http_upstream_free_least_time_peer(ngx_peer_connection_t *pc,
         goto done;
     }
 
-    c = pc->connection;
-
     if (u->buffering) {
         p = u->pipe;
 
@@ -432,7 +429,7 @@ ngx_http_upstream_free_least_time_peer(ngx_peer_connection_t *pc,
             goto done;
         }
 
-    } else if (u->length != 0 && !(c->read->eof && u->length == -1)) {
+    } else if (u->length != 0 && !(pc->closed && u->length == -1)) {
         goto done;
     }
 

@@ -3022,7 +3022,10 @@ done:
          * the status previously set by the module in u->state->status.
          */
 
-        u->state->bytes_sent = u->peer.connection->sent;
+        u->state->bytes_sent = c->sent;
+
+        u->peer.connected = 1;
+        u->peer.closed = c->read->eof;
 
 #if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
         if (u->upstream != NULL && u->upstream->shm_zone != NULL) {
@@ -5299,12 +5302,15 @@ ngx_http_upstream_free_peer(ngx_http_upstream_t *u, ngx_uint_t ft_type)
         break;
     }
 
-    if (pc->free) {
-        pc->free(pc, pc->data, state);
-    }
+    pc->connected = pc->connection ? 1 : 0;
+    pc->closed = pc->connection ? pc->connection->read->eof : 0;
 
     if (pc->close) {
         pc->close(pc, pc->data, state);
+    }
+
+    if (pc->free) {
+        pc->free(pc, pc->data, state);
     }
 
     pc->sockaddr = NULL;

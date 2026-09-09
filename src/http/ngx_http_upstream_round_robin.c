@@ -832,7 +832,7 @@ ngx_http_upstream_free_round_robin_peer(ngx_peer_connection_t *pc, void *data,
             peer->effective_weight = 0;
         }
 
-    } else if (pc->connection) {
+    } else if (pc->connected) {
 
         /* mark peer live if check passed */
         if (peer->recover_at <= peer->checked) {
@@ -885,7 +885,6 @@ static ngx_inline void
 ngx_http_upstream_response_time(ngx_peer_connection_t *pc,
     ngx_http_upstream_rr_peer_t *peer)
 {
-    ngx_connection_t     *c;
     ngx_event_pipe_t     *p;
     ngx_http_request_t   *r;
     ngx_http_upstream_t  *u;
@@ -905,9 +904,8 @@ ngx_http_upstream_response_time(ngx_peer_connection_t *pc,
         }
 
     } else {
-        c = pc->connection;
 
-        if (u->length != 0 && !(c->read->eof && u->length == -1)) {
+        if (u->length != 0 && !(pc->closed && u->length == -1)) {
             return;
         }
     }

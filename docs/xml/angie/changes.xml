@@ -77,6 +77,19 @@ the bug had appeared in 1.12.0.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+статистика "ssl" директивы "status_zone" модуля http не учитывала неудачные
+SSL-рукопожатия для соединений HTTP/3.
+проблема появилась в 1.11.0.
+</para>
+<para lang="en">
+the "ssl" statistics of the "status_zone" directive in the HTTP module did
+not count failed SSL handshakes for HTTP/3 connections.
+the bug had appeared in 1.11.0.
+</para>
+</change>
+
 </changes>
 
 

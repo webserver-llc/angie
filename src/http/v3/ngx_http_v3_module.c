@@ -23,7 +23,7 @@ static char *ngx_http_quic_host_key(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #if (NGX_API)
 static ngx_int_t ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c,
-    ngx_uint_t initialized);
+    ngx_uint_t initialized, ngx_uint_t timedout);
 #endif
 
 
@@ -455,7 +455,8 @@ failed:
 #if (NGX_API)
 
 static ngx_int_t
-ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_uint_t initialized)
+ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_uint_t initialized,
+    ngx_uint_t timedout)
 {
     ngx_http_connection_t     *hc;
     ngx_http_core_srv_conf_t  *cscf;
@@ -465,7 +466,7 @@ ngx_http_v3_calculate_ssl_statistic(ngx_connection_t *c, ngx_uint_t initialized)
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
     if (cscf->status_zone != NULL) {
-        ngx_http_calculate_ssl_statistic(c, cscf->status_zone);
+        ngx_http_calculate_ssl_statistic(c, cscf->status_zone, timedout);
     }
 
     return NGX_OK;

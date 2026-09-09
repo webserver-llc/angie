@@ -723,10 +723,15 @@ ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
 
     qc = ngx_quic_get_connection(c);
 
-    if (qc->conf->post_ssl_handshake
-        && qc->conf->post_ssl_handshake(c, qc->streams.initialized) != NGX_OK)
-    {
-        return NGX_ERROR;
+    if (qc->conf->post_ssl_handshake && !qc->post_hs_done) {
+
+        qc->post_hs_done = 1;
+
+        if (qc->conf->post_ssl_handshake(c, qc->streams.initialized, 0)
+            != NGX_OK)
+        {
+            return NGX_ERROR;
+        }
     }
 
     if (rc != NGX_OK) {

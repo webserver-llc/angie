@@ -60,6 +60,7 @@ static int ngx_quic_send_alert(ngx_ssl_conn_t *ssl_conn,
 #endif
 
 static ngx_int_t ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level);
+static ngx_int_t ngx_quic_ssl_handshake(ngx_connection_t *c);
 static ngx_int_t ngx_quic_crypto_provide(ngx_connection_t *c, ngx_uint_t level);
 
 
@@ -710,76 +711,25 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
 static ngx_int_t
 ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
 {
-    int                     n, sslerr;
-    ngx_ssl_conn_t         *ssl_conn;
+    ngx_int_t               rc;
     ngx_quic_frame_t       *frame;
     ngx_quic_connection_t  *qc;
 
-    qc = ngx_quic_get_connection(c);
+    rc = ngx_quic_ssl_handshake(c);
 
-    ssl_conn = c->ssl->connection;
-
-    n = SSL_do_handshake(ssl_conn);
-
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
-
-    if (n <= 0) {
-        sslerr = SSL_get_error(ssl_conn, n);
-
-        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_get_error: %d",
-                       sslerr);
-
-        if (c->ssl->handshake_rejected) {
-            ngx_connection_error(c, 0, "handshake rejected");
-            ERR_clear_error();
-            return NGX_ERROR;
-        }
-
-        if (qc->error) {
-            ngx_connection_error(c, 0, "SSL_do_handshake() failed");
-            ERR_clear_error();
-            return NGX_ERROR;
-        }
-
-        if (sslerr != SSL_ERROR_WANT_READ) {
-            ngx_ssl_connection_error(c, sslerr, 0, "SSL_do_handshake() failed");
-            return NGX_ERROR;
-        }
-    }
-
-    if (qc->error) {
-        ngx_connection_error(c, 0, "SSL_do_handshake() failed");
-        return NGX_ERROR;
-    }
-
-    if (!SSL_is_init_finished(ssl_conn)) {
-        if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_EARLY_DATA, 0)
-            && qc->client_tp_done)
-        {
-            if (ngx_quic_init_streams(c) != NGX_OK) {
-                return NGX_ERROR;
-            }
-        }
-
+    if (rc == NGX_AGAIN) {
         return NGX_OK;
     }
 
-#if (NGX_DEBUG)
-    ngx_ssl_handshake_log(c);
-#endif
-
-#if !defined(NGX_QUIC_OPENSSL_COMPAT) && !(NGX_QUIC_OPENSSL_API)
-    /* missing in compat, session reuse is not going to work there */
-    if (SSL_process_quic_post_handshake(c->ssl->connection) != 1) {
-        return NGX_ERROR;
-    }
-#endif
-
-    c->ssl->handshaked = 1;
+    qc = ngx_quic_get_connection(c);
 
     if (qc->conf->post_ssl_handshake
         && qc->conf->post_ssl_handshake(c, qc->streams.initialized) != NGX_OK)
     {
+        return NGX_ERROR;
+    }
+
+    if (rc != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -847,6 +797,79 @@ ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
     if (ngx_quic_init_streams(c) != NGX_OK) {
         return NGX_ERROR;
     }
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_quic_ssl_handshake(ngx_connection_t *c)
+{
+    int                     n, sslerr;
+    ngx_ssl_conn_t         *ssl_conn;
+    ngx_quic_connection_t  *qc;
+
+    qc = ngx_quic_get_connection(c);
+
+    ssl_conn = c->ssl->connection;
+
+    n = SSL_do_handshake(ssl_conn);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+
+    if (n <= 0) {
+        sslerr = SSL_get_error(ssl_conn, n);
+
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_get_error: %d",
+                       sslerr);
+
+        if (c->ssl->handshake_rejected) {
+            ngx_connection_error(c, 0, "handshake rejected");
+            ERR_clear_error();
+            return NGX_ERROR;
+        }
+
+        if (qc->error) {
+            ngx_connection_error(c, 0, "SSL_do_handshake() failed");
+            ERR_clear_error();
+            return NGX_ERROR;
+        }
+
+        if (sslerr != SSL_ERROR_WANT_READ) {
+            ngx_ssl_connection_error(c, sslerr, 0, "SSL_do_handshake() failed");
+            return NGX_ERROR;
+        }
+    }
+
+    if (qc->error) {
+        ngx_connection_error(c, 0, "SSL_do_handshake() failed");
+        return NGX_ERROR;
+    }
+
+    if (!SSL_is_init_finished(ssl_conn)) {
+        if (ngx_quic_keys_available(qc->keys, NGX_QUIC_ENCRYPTION_EARLY_DATA, 0)
+            && qc->client_tp_done)
+        {
+            if (ngx_quic_init_streams(c) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+
+        return NGX_AGAIN;
+    }
+
+#if (NGX_DEBUG)
+    ngx_ssl_handshake_log(c);
+#endif
+
+#if !defined(NGX_QUIC_OPENSSL_COMPAT) && !(NGX_QUIC_OPENSSL_API)
+    /* missing in compat, session reuse is not going to work there */
+    if (SSL_process_quic_post_handshake(c->ssl->connection) != 1) {
+        return NGX_ERROR;
+    }
+#endif
+
+    c->ssl->handshaked = 1;
 
     return NGX_OK;
 }

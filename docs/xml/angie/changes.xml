@@ -60,6 +60,23 @@ all functionality of nginx 1.31.3.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при использовании нескольких директив "error_log", если последующая
+директива имела более высокий уровень логирования, а также при
+отсутствии в конфигурации директив "error_log" с записью в файл,
+имена полей в записях лога могли заменяться на "unknown";
+проблема появилась в 1.12.0.
+</para>
+<para lang="en">
+when several "error_log" directives were used and a subsequent directive
+had a higher logging level, as well as when there were no "error_log"
+directives logging to a file in the configuration, field names in log
+records could be replaced with "unknown";
+the bug had appeared in 1.12.0.
+</para>
+</change>
+
 </changes>
 
 

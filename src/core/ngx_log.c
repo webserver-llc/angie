@@ -674,6 +674,9 @@ ngx_log_open_default(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
+    log->conf = (ngx_log_conf_t *) ngx_get_conf(cycle->conf_ctx,
+                                                ngx_errlog_module);
+
     if (log != &cycle->new_log) {
         ngx_log_insert(&cycle->new_log, log);
     }
@@ -869,10 +872,6 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
         return rv;
     }
 
-    if (*head != new_log) {
-        ngx_log_insert(*head, new_log);
-    }
-
     lcf = (ngx_log_conf_t *) ngx_get_conf(cf->cycle->conf_ctx,
                                           ngx_errlog_module);
 
@@ -886,6 +885,10 @@ ngx_log_set_log(ngx_conf_t *cf, ngx_log_t **head)
     lref->log = new_log;
     lref->name = cf->conf_file->file.name;
     lref->line = cf->conf_file->line;
+
+    if (*head != new_log) {
+        ngx_log_insert(*head, new_log);
+    }
 
     return NGX_CONF_OK;
 }

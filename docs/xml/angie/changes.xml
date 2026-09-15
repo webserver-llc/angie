@@ -151,6 +151,21 @@ the bug had appeared in 1.12.0.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+в минимальной конфигурации, например с опцией "./configure --without-http",
+сборка могла завершаться на этапе линковки ошибкой вида
+"undefined reference to `ceil'";
+проблема появилась в 1.11.0.
+</para>
+<para lang="en">
+in a minimal configuration, e.g. with the "./configure --without-http"
+option, the build could fail at the link stage with an error like
+"undefined reference to `ceil'";
+the bug had appeared in 1.11.0.
+</para>
+</change>
+
 </changes>
 
 

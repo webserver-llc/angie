@@ -673,6 +673,9 @@ if [ $HTTP = YES ]; then
     fi
 
     if [ $HTTP_PROMETHEUS = YES ]; then
+
+        USE_DTOA=YES
+
         ngx_module_name=ngx_http_prometheus_module
         ngx_module_incs=
         ngx_module_deps=
@@ -1390,6 +1393,9 @@ if [ $STREAM != NO ]; then
     fi
 
     if [ $STREAM_METRIC = YES ]; then
+
+        USE_DTOA=YES
+
         ngx_module_name=ngx_stream_metric_module
         ngx_module_deps=
         ngx_module_srcs=src/stream/ngx_stream_metric_module.c
@@ -1606,6 +1612,7 @@ fi
 
 if [ $USE_JSON = YES ]; then
     have=NGX_JSON . auto/have
+    USE_DTOA=YES
 
     ngx_module_type=CORE
     ngx_module_name=
@@ -1617,6 +1624,13 @@ if [ $USE_JSON = YES ]; then
     ngx_module_order=
 
     . auto/module
+fi
+
+
+if [ $USE_DTOA = YES ]; then
+    CORE_DEPS="$CORE_DEPS src/core/ngx_dtoa.h"
+    CORE_SRCS="$CORE_SRCS src/core/ngx_dtoa.c"
+    CORE_LIBS="$CORE_LIBS -lm"
 fi
 
 

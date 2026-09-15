@@ -102,6 +102,7 @@ static ngx_int_t ngx_log_conf_add_property(ngx_log_conf_t *lcf, ngx_log_t *log,
 static void *ngx_log_create_conf(ngx_cycle_t *cycle);
 static char *ngx_log_init_conf(ngx_cycle_t *cycle, void *conf);
 
+#if (NGX_JSON)
 static u_char *ngx_log_create_json_message(ngx_log_t *log, ngx_log_params_t *lp,
     const char *fmt, va_list args);
 static u_char *ngx_log_run_handler(ngx_log_t *log, u_char *buf, u_char *last,
@@ -111,6 +112,8 @@ static ngx_int_t ngx_log_json_escape_inplace(ngx_json_escape_t *ctx, u_char *p,
     size_t len);
 static ngx_int_t ngx_log_json_push_tags(ngx_json_escape_t *root,
     ngx_log_tag_t *tags);
+#endif
+
 static void ngx_log_filter_tag(ngx_log_t *log, ngx_str_t *tag);
 static void ngx_log_save_tag(ngx_log_t *log, ngx_log_tag_t *ltag);
 
@@ -204,8 +207,10 @@ ngx_log_create_message_esc(ngx_log_t *log, ngx_log_params_t *lp,
     const char *fmt, va_list args)
 {
     switch (log->format.type) {
+#if (NGX_JSON)
     case NGX_STR_ESCAPE_JSON:
         return ngx_log_create_json_message(log, lp, fmt, args);
+#endif
 
     default:
         return ngx_log_create_message(log, lp, fmt, args);
@@ -1116,10 +1121,13 @@ ngx_log_memory_cleanup(void *data)
 u_char *
 ngx_log_action(ngx_log_t *log, u_char *buf, u_char *last, const char *action)
 {
+#if (NGX_JSON)
     ngx_json_escape_t  *ctx;
+#endif
 
     switch (log->format.type) {
 
+#if (NGX_JSON)
     case NGX_STR_ESCAPE_JSON:
 
         ctx = log->format.ctx;
@@ -1128,6 +1136,7 @@ ngx_log_action(ngx_log_t *log, u_char *buf, u_char *last, const char *action)
         log->format.done = 1;
 
         return ctx->curr;
+#endif
 
     default:
 
@@ -1187,7 +1196,9 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
 {
     u_char              *p;
     va_list              args;
+#if (NGX_JSON)
     ngx_json_escape_t   *ctx;
+#endif
     ngx_log_property_t  *prop, **props;
 
     /* if the log handler calls ngx_log_property, it is aware of escaping */
@@ -1208,6 +1219,7 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
         va_end(args);
     }
 
+#if (NGX_JSON)
     if (log->format.type == NGX_STR_ESCAPE_JSON) {
         ctx = log->format.ctx;
         va_start(args, fmt);
@@ -1217,6 +1229,7 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
 
         return ctx->curr;
     }
+#endif
 
     /* default plain text log */
     if (prop->type == NGX_LOG_PT_STR) {
@@ -1242,6 +1255,8 @@ ngx_log_property(ngx_log_t *log, u_char *buf, u_char *last,
 }
 
 
+#if (NGX_JSON)
+
 static ngx_log_property_t *
 ngx_log_get_property(ngx_log_t *log, ngx_log_property_key_t pkey)
 {
@@ -1259,16 +1274,22 @@ ngx_log_get_property(ngx_log_t *log, ngx_log_property_key_t pkey)
     return prop;
 }
 
+#endif
+
+
 u_char *
 ngx_log_object(ngx_log_t *log, u_char *buf, u_char *last,
     ngx_log_property_key_t key, ngx_log_ext_handler_pt handler, void *data)
 {
+#if (NGX_JSON)
     u_char              *p, *start;
     ngx_json_escape_t    ctx, *root;
     ngx_log_property_t  *prop;
+#endif
 
     switch (log->format.type) {
 
+#if (NGX_JSON)
     case NGX_STR_ESCAPE_JSON:
 
         root = log->format.ctx;
@@ -1317,6 +1338,7 @@ ngx_log_object(ngx_log_t *log, u_char *buf, u_char *last,
         root->curr = p;
 
         return p;
+#endif
 
     default:
 
@@ -1324,6 +1346,8 @@ ngx_log_object(ngx_log_t *log, u_char *buf, u_char *last,
     }
 }
 
+
+#if (NGX_JSON)
 
 /*
  * this is a separate function to avoid creating extra buffer on stack on
@@ -1523,6 +1547,8 @@ ngx_log_json_errno(ngx_json_escape_t *root, ngx_err_t err)
 
     return NGX_OK;
 }
+
+#endif
 
 
 static char *
@@ -1772,12 +1798,19 @@ ngx_log_set_format(ngx_conf_t *cf, ngx_log_t *log, ngx_str_t *value)
     }
 
     if (ngx_strcmp(value->data, "json") == 0) {
+#if (NGX_JSON)
         log->format.type = NGX_STR_ESCAPE_JSON;
 
         log->format.ctx = ngx_pcalloc(cf->pool, sizeof(ngx_json_escape_t));
         if (log->format.ctx == NULL) {
             return NGX_CONF_ERROR;
         }
+#else
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "Angie was built without support for JSON");
+        return NGX_CONF_ERROR;
+
+#endif
 
     } else if (ngx_strcmp(value->data, "default") == 0) {
         log->format.ctx = NULL;

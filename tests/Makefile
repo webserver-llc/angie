@@ -45,12 +45,14 @@ else
           http_resolver_conf.t
 endif
 
-
-RUNCMD=
+ANGIE_BIN:=$(shell $(TENV) $(TENV_ADD) sh -c 'echo $${TEST_ANGIE_BINARY:-../objs/angie}')
+RUNCMD=$(TENV) $(TENV_ADD) $(PROVE) $(PROVE_OPTS) $(PROVE_ADD_OPTS) -j $(JOBS) $(TESTS)
 
 test:
-	@$(TENV) $(TENV_ADD) $(PROVE) \
-            $(PROVE_OPTS) $(PROVE_ADD_OPTS) -j $(JOBS) $(TESTS)
+	@echo "==> Testing binary: $(ANGIE_BIN)"
+	@$(TENV) $(TENV_ADD) $(ANGIE_BIN) -V
+	@echo "==> Running:" $(RUNCMD)
+	@$(RUNCMD)
 	@echo "Tests run completed successfuly"
 
 

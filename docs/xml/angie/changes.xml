@@ -7,6 +7,27 @@
 
 <changes ver="1.12.2" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании версии OpenSSL без встроенной поддержки HTTP/3 (3.5.0 или
+более ранней), если сервер по умолчанию для адреса, принявшего обычный
+HTTPS-запрос, также использовал HTTP/3 (директиву "listen ... quic", в том
+числе на другом порту), а по имени домена (SNI) выбирался блок "server" без
+HTTP/3, то могло происходить ограниченное повреждение памяти рабочего процесса
+или его падение (CVE-2026-90439);
+исправление портировано из nginx 1.31.6.
+</para>
+<para lang="en">
+when using an OpenSSL version without native HTTP/3 support (3.5.0 or earlier),
+if the default server for the address that accepted a regular HTTPS request
+also used HTTP/3 (the "listen ... quic" directive, possibly on a different
+port), while a "server" block without HTTP/3 was selected by domain name (SNI),
+limited worker process memory corruption or a worker process crash could occur
+(CVE-2026-90439);
+the fix was ported from nginx 1.31.6.
+</para>
+</change>
+
 </changes>
 
 

@@ -7,6 +7,20 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+директива "proxy_ssl_keylog_file" при работе по HTTP/3 с проксируемым
+сервером и версией OpenSSL без встроенной поддержки QUIC могла
+приводить к невозможности установить соединение с проксируемым
+сервером.
+</para>
+<para lang="en">
+the "proxy_ssl_keylog_file" directive could prevent establishing an
+HTTP/3 connection to a proxied server when using an OpenSSL version
+without native QUIC support.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 возможность задавать в директиве "acme_dns_ttl" значения времени,

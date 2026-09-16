@@ -6032,6 +6032,10 @@ ngx_http_proxy_set_ssl(ngx_conf_t *cf, ngx_http_proxy_loc_conf_t *plcf)
         SSL_CTX_set_keylog_callback(ssl->ctx, ngx_ssl_keylogger);
     }
 
+#if (NGX_HTTP_V3 && NGX_QUIC_OPENSSL_COMPAT)
+    ngx_quic_compat_keylog_init(plcf->upstream.ssl->ctx);
+#endif
+
     return NGX_OK;
 }
 

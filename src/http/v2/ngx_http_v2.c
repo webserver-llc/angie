@@ -3108,6 +3108,8 @@ ngx_http_v2_create_stream(ngx_http_v2_connection_t *h2c)
 
     h2c->priority_limit += h2scf->concurrent_streams;
 
+    ngx_reusable_connection(h2c->connection, 0);
+
     if (h2c->connection->read->timer_set) {
         ngx_del_timer(h2c->connection->read);
     }

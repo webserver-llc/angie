@@ -1,4 +1,15 @@
 
+Changes with Angie 1.12.2                                        17 Sep 2026
+
+    *) Security: when using an OpenSSL version without native HTTP/3 support
+       (3.5.0 or earlier), if the default server for the address that
+       accepted a regular HTTPS request also used HTTP/3 (the "listen ...
+       quic" directive, possibly on a different port), while a "server"
+       block without HTTP/3 was selected by domain name (SNI), limited
+       worker process memory corruption or a worker process crash could
+       occur (CVE-2026-90439); the fix was ported from nginx 1.31.6.
+
+
 Changes with Angie 1.12.1                                        17 Jul 2026
 
     *) Security: when evaluating a string expression in which unnamed

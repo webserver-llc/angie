@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http proxy rewrite upstream_keepalive/)
-	->plan(12);
+	->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -167,7 +167,10 @@ like(http_post('/'), qr/X-IP: (\S+)\x0d?$/m, 'post');
 # failure
 
 unlike(http_get('/404'), qr/X-IP: (\S+), \1.*SEE-THIS/s, 'get 404');
-unlike(http_post('/404'), qr/X-IP: (\S++)(?! ).*SEE-THIS/s, 'post 404');
+
+my $r = http_post('/404');
+like($r, qr/404 Not Found/, 'post 404 status');
+unlike($r, qr/X-IP: (\S++)(?! ).*SEE-THIS/s, 'post 404 body');
 
 # with "proxy_next_upstream non_idempotent" there is no
 # difference between idempotent and non-idempotent requests,

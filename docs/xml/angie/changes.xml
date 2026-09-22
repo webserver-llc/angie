@@ -21,6 +21,26 @@ without native QUIC support.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+если проксируемый сервер возвращал статус, указанный в директиве
+"proxy_next_upstream" (или аналогичной), в ответ на уже отправленный ему запрос
+с методом POST, LOCK или PATCH, а параметр "non_idempotent" в этой директиве
+указан не был, запрос зависал до срабатывания тайм-аута чтения и завершался с
+кодом 504 вместо фактического кода, полученного от проксируемого сервера;
+ошибка появилась в 1.11.0.
+</para>
+<para lang="en">
+if the proxied server returned a status specified in the "proxy_next_upstream"
+directive (or a similar directive) in response to a POST, LOCK, or PATCH request
+that had already been sent to it, and the "non_idempotent" parameter was not
+specified in that directive, the request would hang until the read timeout fired
+and finish with code 504 instead of the actual code returned by the proxied
+server;
+the bug had appeared in 1.11.0.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 возможность задавать в директиве "acme_dns_ttl" значения времени,

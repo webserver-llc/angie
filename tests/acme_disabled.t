@@ -161,6 +161,8 @@ $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 
 $t->plan(4);
 
+$t->skip_stderr_check('ACME client "test\d" is defined but not used');
+
 like(http_get('/a', SSL => 1, PeerAddr => '127.0.0.1:' . port(8443)),
 	qr/SECURED 1/, 'client disabled but certificate accessible');
 like(http_get('/b', SSL => 1, PeerAddr => '127.0.0.1:' . port(8543)),

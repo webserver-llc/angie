@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/trim :re/;
+use Test::Utils qw/:re/;
 
 ###############################################################################
 
@@ -26,7 +26,7 @@ select STDOUT; $| = 1;
 use constant ERROR_LOG_BUFFER_SIZE => 2048;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_return http rewrite/)
-	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -71,7 +71,7 @@ http {
 EOF
 
 
-$t->run();
+$t->try_run('Angie was built without support for JSON')->plan(6);
 
 like(http_get('/'), qr/HTTP/, 'prepare');
 
@@ -81,7 +81,7 @@ $t->stop();
 
 my $with_debug = $t->has_module('debug');
 
-my @raw_lines = get_lines($t->testdir() . '/stream_error_log_info.json');
+my @raw_lines = $t->get_file_lines('stream_error_log_info.json');
 
 verify_stream_json_lines(\@raw_lines);
 
@@ -158,18 +158,3 @@ sub verify_json_log_entry {
 
 ###############################################################################
 
-sub get_lines {
-	my ($file) = @_;
-
-	open my $fh, '<', $file or return "$!";
-
-	my @lines;
-	for my $line (<$fh>) {
-		$line = trim($line);
-		push @lines, $line;
-	}
-
-	return @lines;
-}
-
-###############################################################################

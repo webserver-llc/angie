@@ -85,11 +85,6 @@ http {
 
 EOF
 
-open OLDERR, ">&", \*STDERR;
-open STDERR, '>', $t->testdir() . '/stderr' or die "Can't reopen STDERR: $!";
-open my $stderr, '<', $t->testdir() . '/stderr'
-	or die "Can't open stderr file: $!";
-
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
 $t->run_daemon(\&syslog_daemon, port(8981), $t, 's_glob.log');
 $t->run_daemon(\&syslog_daemon, port(8982), $t, 's_info.log');
@@ -98,9 +93,10 @@ $t->waitforsocket('127.0.0.1:' . port(8144));
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_info.log');
 
-$t->run();
+$t->run()->skip_stderr_check();
 
-open STDERR, ">&", \*OLDERR;
+open my $stderr, '<', $t->testdir() . '/stderr'
+	or die "Can't open stderr file: $!";
 
 ###############################################################################
 

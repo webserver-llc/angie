@@ -120,9 +120,7 @@ exec("echo localhost > $d/password_fifo") if $p == 0;
 # we need to distinguish ssl_password_file support vs its brokenness
 
 eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
 	$t->run();
-	open STDERR, ">&", \*OLDERR;
 };
 kill 'INT', $p if $@;
 

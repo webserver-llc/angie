@@ -71,11 +71,6 @@ stream {
 
 EOF
 
-open OLDERR, ">&", \*STDERR;
-open STDERR, '>', $t->testdir() . '/stderr' or die "Can't reopen STDERR: $!";
-open my $stderr, '<', $t->testdir() . '/stderr'
-	or die "Can't open stderr file: $!";
-
 $t->run_daemon(\&stream_daemon);
 $t->run_daemon(\&syslog_daemon, port(8983), $t, 's_glob.log');
 $t->run_daemon(\&syslog_daemon, port(8984), $t, 's_stream.log');
@@ -84,9 +79,10 @@ $t->waitforsocket('127.0.0.1:' . port(8081));
 $t->waitforfile($t->testdir . '/s_glob.log');
 $t->waitforfile($t->testdir . '/s_stream.log');
 
-$t->run();
+$t->run()->skip_stderr_check();
 
-open STDERR, ">&", \*OLDERR;
+open my $stderr, '<', $t->testdir() . '/stderr'
+	or die "Can't open stderr file: $!";
 
 ###############################################################################
 

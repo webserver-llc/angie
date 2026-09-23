@@ -146,6 +146,8 @@ local $TODO = 'OpenSSL too old'
 
 is($cert_ht, $exp, 'cert compression on');
 
+$t->skip_stderr_check('"ssl_certificate_compression" is not supported '
+	. 'on this platform, ignored');
 }
 
 SKIP: {

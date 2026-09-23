@@ -19,7 +19,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::IMAP;
-use Test::Utils qw/trim :re/;
+use Test::Utils qw/:re/;
 
 ###############################################################################
 
@@ -30,7 +30,7 @@ local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()->has(qw/mail imap http rewrite/);
 
-$t->plan(8)->write_file_expand('nginx.conf', <<'EOF');
+$t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -89,15 +89,13 @@ http {
 
 EOF
 
-my $d = $t->testdir();
-
 my $with_debug = $t->has_module('debug');
 
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
 
 $t->waitforsocket('127.0.0.1:' . port(8144));
 
-$t->run();
+$t->try_run('Angie was built without support for JSON')->plan(8);
 
 ###############################################################################
 
@@ -118,8 +116,8 @@ $s->check(qr/BAD/, 'triggered error on srv3');
 
 $t->stop();
 
-my @raw_lines1 = get_lines("$d/filtered_usertag1.json");
-my @raw_lines2 = get_lines("$d/filtered_usertag2.json");
+my @raw_lines1 = $t->get_file_lines('filtered_usertag1.json');
+my @raw_lines2 = $t->get_file_lines('filtered_usertag2.json');
 
 verify_mail_json_lines(\@raw_lines1, 'srv1');
 verify_mail_json_lines(\@raw_lines2, 'srv2');
@@ -174,22 +172,6 @@ sub verify_json_log_entry {
 
 	cmp_deeply($json, $expected, $msg)
 		or diag $line;
-}
-
-###############################################################################
-
-sub get_lines {
-	my ($file) = @_;
-
-	open my $fh, '<', $file or return "$!";
-
-	my @lines;
-	for my $line (<$fh>) {
-		$line = trim($line);
-		push @lines, $line;
-	}
-
-	return @lines;
 }
 
 ###############################################################################

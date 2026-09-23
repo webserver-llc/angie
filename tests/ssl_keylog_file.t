@@ -15,7 +15,6 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/trim/;
 
 ###############################################################################
 
@@ -163,18 +162,16 @@ sub check_secret {
 sub check_file {
 	my ($t, $fname) = @_;
 
-	my $d = $t->testdir();
+	my @lines = $t->get_file_lines($fname);
 
-	my $lines = get_lines("$d/$fname");
-
-	if (@$lines == 0) {
+	if (@lines == 0) {
 		fail("file $fname has some lines");
 		return;
 	}
 
 	my $n = 1;
 
-	for my $line (@$lines) {
+	for my $line (@lines) {
 
 		if ($line =~ /^#.*/) {
 			# file may contain comments
@@ -208,24 +205,5 @@ sub check_file {
 	}
 
 	pass("file $fname has correct format");
-}
-
-sub get_lines {
-	my ($file) = @_;
-
-	my $fh;
-
-	open $fh, '<', $file or do {
-		warn "Cannot open $file: $!";
-		return [];
-	};
-
-	my @lines;
-	for my $line (<$fh>) {
-		$line = trim($line);
-		push @lines, $line;
-	}
-
-	return \@lines;
 }
 

@@ -122,6 +122,30 @@ sub DESTROY {
 		my $errors = join "\n",
 			$self->find_in_file('error.log', qr/.+Sanitizer.+/);
 		Test::More::is($errors, '', 'no sanitizer errors');
+
+		SKIP: {
+			Test::More::skip('do not check stderr', 1)
+				if $self->{_skip_stderr_check};
+
+			my @stderr_lines;
+			if (-e $self->{_testdir} . '/stderr') {
+				@stderr_lines = $self->get_file_lines('stderr');
+			}
+
+			my $errors_re = join('|',
+				@{ $self->{_errors_to_skip}{stderr} // [] });
+
+			my $ok;
+			if (length $errors_re) {
+				$ok = Test::More::ok(
+					! (grep { $_ !~ qr/$errors_re/ } @stderr_lines),
+					'no unexpected records in stderr');
+			} else {
+				$ok = Test::More::is(@stderr_lines, 0, 'stderr is empty');
+			}
+			Test::More::diag('all stderr records: '
+				. join("\n", @stderr_lines)) unless $ok;
+		}
 	}
 
 	if ($do_log_check && $ENV{TEST_ANGIE_VALGRIND}) {
@@ -424,12 +448,12 @@ sub try_run {
 	my ($self, @messages) = @_;
 
 	eval {
-		open OLDERR, ">&", \*STDERR; close STDERR;
 		$self->run();
 	};
-	open STDERR, ">&", \*OLDERR;
 
 	return $self unless $@;
+
+	$self->{_skip_stderr_check} = 1;
 
 	if ($ENV{TEST_ANGIE_VERBOSE}) {
 		open F, '<', $self->{_testdir} . '/error.log'
@@ -446,6 +470,14 @@ sub try_run {
 		}
 	}
 
+	my $stderr = $self->read_file('stderr');
+	foreach my $message (@messages) {
+		if ($stderr =~ quotemeta($message)) {
+			Test::More::plan(skip_all => $message);
+			return $self;
+		}
+	}
+
 	die $@;
 }
 
@@ -454,12 +486,11 @@ sub retry_run($$) {
 
 	for my $k (1 .. $attempts) {
 		eval {
-			open OLDERR, ">&", \*STDERR; close STDERR;
 			$self->run();
-			open STDERR, ">&", \*OLDERR;
 		};
 
 		unless ($@) {
+			$self->{_skip_stderr_check} = 1;
 			undef $self->{_setup_failed};
 			return $self;
 		}
@@ -475,7 +506,7 @@ sub plan($) {
 
 	$plan += 1 if $ENV{TEST_ANGIE_VALGRIND};
 
-	Test::More::plan(tests => $plan + 5);
+	Test::More::plan(tests => $plan + 6);
 
 	return $self;
 }
@@ -485,6 +516,18 @@ sub skip_errors_check {
 
 	$self->{_errors_to_skip}{$level} //= [];
 	push @{ $self->{_errors_to_skip}{$level} }, @pattern;
+
+	return $self;
+}
+
+sub skip_stderr_check {
+	my ($self, @pattern) = @_;
+
+	if (@pattern) {
+		$self->skip_errors_check('stderr', @pattern);
+	} else {
+		$self->{_skip_stderr_check} = 1;
+	}
 
 	return $self;
 }
@@ -514,6 +557,10 @@ sub run(;$) {
 	my $pid = fork();
 	die "Unable to fork(): $!\n" unless defined $pid;
 
+	open OLDERR, ">&", \*STDERR;
+	open STDERR, '>>', "$testdir/stderr"
+		or die "Can't reopen STDERR: $!";
+
 	if ($pid == 0) {
 		# nginx main process and its workers will have the same process group
 		# this will give us the ability to kill them simultaneously
@@ -541,8 +588,13 @@ sub run(;$) {
 		# try to kill pid to prevent tests from hanging
 		stop_pid($pid, 1);
 
+		open STDERR, '>&', \*OLDERR;
+
 		die "Can't start nginx" . (($@) ? ": $@" : '');
 	}
+
+	open STDERR, '>&', \*OLDERR;
+	close OLDERR;
 
 	$self->{_started} = 1;
 	return $self;
@@ -910,6 +962,21 @@ sub read_file($) {
 	close F;
 
 	return $content;
+}
+
+sub get_file_lines {
+	my ($self, $name) = @_;
+
+	open my $fh, '<', $self->{_testdir} . '/' . $name
+		or die "Can't open $name: $!";
+
+	my @lines;
+	for my $line (<$fh>) {
+		$line = trim($line);
+		push @lines, $line;
+	}
+
+	return @lines;
 }
 
 sub grep_file($$) {

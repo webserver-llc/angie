@@ -17,7 +17,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/trim :re/;
+use Test::Utils qw/:re/;
 
 ###############################################################################
 
@@ -27,7 +27,7 @@ select STDOUT; $| = 1;
 use constant ERROR_LOG_BUFFER_SIZE => 2048;
 
 my $t = Test::Nginx->new()->has(qw/http limit_req/)
-	->plan(5)->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -107,16 +107,9 @@ http {
 
 EOF
 
-my $d = $t->testdir();
-
-open OLDERR, '>&', \*STDERR;
-open STDERR, '>', $d . '/stderr' or die "Can't reopen STDERR: $!";
-open my $stderr, '<', $d . '/stderr'
-	or die "Can't open stderr file: $!";
-
-$t->run();
-
-open STDERR, '>&', \*OLDERR;
+$t->try_run('Angie was built without support for JSON')
+	->plan(5)
+	->skip_stderr_check();
 
 my $with_debug = $t->has_module('debug');
 
@@ -160,6 +153,8 @@ $t->stop();
 ###############################################################################
 
 subtest 'loglevels' => sub {
+	# read stderr once, then filter on different patterns
+	my @stderr_raw_lines = $t->get_file_lines('stderr');
 
 	SKIP: {
 		skip 'no --with-debug', 9 unless $with_debug;
@@ -169,16 +164,13 @@ subtest 'loglevels' => sub {
 		is($t->find_in_file('e_debug_info.log', qr/\[debug\]/), 0,
 			'no debug messages in debug_info log');
 
-		# read stderr once, filter twice on different patterns
-		my @raw_lines = get_lines("$d/stderr");
-
-		my @flines = filter_lines(\@raw_lines, '[debug]');
+		my @flines = filter_lines(\@stderr_raw_lines, '[debug]');
 		isnt(@flines, 0, 'some debug messages in stderr');
 
-		@flines = filter_lines(\@raw_lines, '"level":"debug"');
+		@flines = filter_lines(\@stderr_raw_lines, '"level":"debug"');
 		isnt(@flines, 0, 'some json debug messages in stderr');
 
-		@raw_lines = $t->find_in_file('e_debug_debug.json',
+		my @raw_lines = $t->find_in_file('e_debug_debug.json',
 			quotemeta('"level":"debug"'));
 
 		# actually, 70+ of them, but don't rely on count of debug messages
@@ -204,14 +196,13 @@ subtest 'loglevels' => sub {
 		'file info notice');
 
 	# non-escaped pattern is NOT there
-	my @raw_lines = get_lines("$d/stderr");
-	my @flines = filter_lines(\@raw_lines, '[info]');
+	my @flines = filter_lines(\@stderr_raw_lines, '[info]');
 	isnt(@flines, 0, 'stderr info');
 
-	@flines = filter_lines(\@raw_lines, '"level":"info"');
+	@flines = filter_lines(\@stderr_raw_lines, '"level":"info"');
 	isnt(@flines, 0, 'stderr json info');
 
-	@raw_lines = get_lines("$d/e_info_debug.json");
+	my @raw_lines = $t->get_file_lines('e_info_debug.json');
 
 	SKIP: {
 		skip 'no --with-debug', 1 unless $with_debug;
@@ -231,7 +222,7 @@ subtest 'loglevels' => sub {
 };
 
 subtest 'errno' => sub {
-	my @raw_lines = get_lines("$d/errno.log");
+	my @raw_lines = $t->get_file_lines('errno.log');
 	is(@raw_lines, 1, 'single line in errno.log');
 
 	my $extra = {
@@ -246,7 +237,7 @@ subtest 'errno' => sub {
 };
 
 subtest 'tag_escape' => sub {
-	my @raw_lines = get_lines("$d/tesc.log");
+	my @raw_lines = $t->get_file_lines('tesc.log');
 
 	verify_json_log_http_entry($raw_lines[0], 'error', '},broken"', undef,
 		'tag value escaped ok');
@@ -261,7 +252,7 @@ subtest 'truncation' => sub {
 
 	my $j = JSON->new();
 
-	my @raw_lines = get_lines("$d/trunc.log");
+	my @raw_lines = $t->get_file_lines('trunc.log');
 
 	my $good_line = $raw_lines[1];
 
@@ -414,18 +405,3 @@ sub filter_lines {
 	return @outlines;
 }
 
-sub get_lines {
-	my ($file) = @_;
-
-	open my $fh, '<', $file or return "$!";
-
-	my @lines;
-	for my $line (<$fh>) {
-		$line = trim($line);
-		push @lines, $line;
-	}
-
-	return @lines;
-}
-
-###############################################################################

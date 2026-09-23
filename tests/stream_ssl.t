@@ -115,9 +115,7 @@ exec("echo localhost > $d/password_fifo") if $p == 0;
 $t->run_daemon(\&http_daemon);
 
 eval {
-	open OLDERR, ">&", \*STDERR; close STDERR;
 	$t->run();
-	open STDERR, ">&", \*OLDERR;
 };
 kill 'INT', $p if $@;
 

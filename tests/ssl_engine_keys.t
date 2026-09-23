@@ -244,6 +244,8 @@ if ($t->{_configure_args} =~ /tongsuo/
 $t->plan(2);
 $t->write_file('index.html', '');
 
+$t->skip_stderr_check('Workaround for .+ enabled', 'no such engine:id=rdrand');
+
 ###############################################################################
 
 like(http_get('/proxy'), qr/200 OK/, 'ssl engine keys');

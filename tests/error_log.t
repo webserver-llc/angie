@@ -106,14 +106,10 @@ http {
 
 EOF
 
-open OLDERR, ">&", \*STDERR;
-open STDERR, '>', $t->testdir() . '/stderr' or die "Can't reopen STDERR: $!";
+$t->run()->skip_stderr_check();
+
 open my $stderr, '<', $t->testdir() . '/stderr'
 	or die "Can't open stderr file: $!";
-
-$t->run();
-
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

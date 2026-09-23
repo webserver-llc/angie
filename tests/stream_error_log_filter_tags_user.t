@@ -21,9 +21,8 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-
 my $t = Test::Nginx->new()->has(qw/stream/)
-	->plan(8)->write_file_expand('nginx.conf', <<'EOF');
+	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -61,7 +60,7 @@ stream {
 
         error_log %%TESTDIR%%/filtered_usertag-all.log;
 
-		# XXXX
+        # XXXX
         error_log %%TESTDIR%%/all.json format=json;
     }
 }
@@ -69,7 +68,7 @@ stream {
 EOF
 
 
-$t->run();
+$t->try_run('Angie was built without support for JSON')->plan(8);
 
 is(get(port(8080)), undef, 'query with non-matching user tags');
 is(get(port(8081)), undef, 'query with tag1');

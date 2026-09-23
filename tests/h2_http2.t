@@ -90,6 +90,8 @@ http {
 
 EOF
 
+$t->skip_stderr_check('the "listen ... http2" directive is deprecated');
+
 $t->write_file('openssl.conf', <<EOF);
 [ req ]
 default_bits = 2048
@@ -110,11 +112,7 @@ foreach my $name ('localhost') {
 
 $t->write_file('index.html', '');
 
-# suppress deprecation warning
-
-open OLDERR, ">&", \*STDERR; close STDERR;
 $t->run();
-open STDERR, ">&", \*OLDERR;
 
 ###############################################################################
 

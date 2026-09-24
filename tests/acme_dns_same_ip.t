@@ -54,6 +54,9 @@ select STDOUT; $| = 1;
 plan(skip_all => 'listen on wildcard address')
 	unless $ENV{TEST_ANGIE_UNSAFE};
 
+plan(skip_all => '127.0.0.2 local address required')
+	unless defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
+
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl/)
 	->has(qw/stream stream_return udp/)
 	->has_daemon('openssl');

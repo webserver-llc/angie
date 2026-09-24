@@ -5,6 +5,10 @@
 # The test verifies that requests sent to a socket dedicated exclusively
 # to ACME challenges are handled correctly.
 
+# The rejection check requires a 127.0.0.2 local address; without it the
+# connection would fail in the kernel and tell us nothing about how the
+# request was handled, so the check is skipped.
+
 # This script requires pebble and pebble-challtestsrv
 # (see Test::Nginx::ACME for details)
 
@@ -26,6 +30,8 @@ use Test::Nginx::ACME;
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
+
+my $second_addr = defined IO::Socket::INET->new( LocalAddr => '127.0.0.2' );
 
 my $t = Test::Nginx->new()->has(qw/acme http_ssl socket_ssl rewrite/)
 	->has_daemon('openssl');
@@ -95,7 +101,7 @@ $acme_helper->start_pebble({
 $t->try_run('variables in "ssl_certificate" and "ssl_certificate_key" '
 	. 'directives are not supported on this platform');
 
-$t->plan(3);
+$t->plan(2 + ($second_addr ? 1 : 0));
 
 my $cert_file = $t->testdir() . "/acme_client/test/certificate.pem";
 
@@ -134,7 +140,7 @@ for (;;) {
 		$count++;
 	}
 
-	if ($unexpected) {
+	if ($unexpected && $second_addr) {
 		# These requests should be rejected, even though they are sent to
 		# an address matching the pattern specified in the acme_http_port
 		# directive.
@@ -153,7 +159,9 @@ $expected = ($expected > 0);
 
 ok($expected, 'handled all expected requests');
 
-$unexpected = ($unexpected > 0);
+if ($second_addr) {
+	$unexpected = ($unexpected > 0);
 
-ok($unexpected, 'handled all unexpected requests');
+	ok($unexpected, 'handled all unexpected requests');
+}
 

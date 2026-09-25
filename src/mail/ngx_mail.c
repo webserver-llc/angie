@@ -371,7 +371,7 @@ ngx_mail_optimize_servers(ngx_conf_t *cf, ngx_array_t *ports)
             ls->handler = ngx_mail_init_connection;
             ls->pool_size = 256;
 
-            cscf = addr->opt.ctx->srv_conf[ngx_mail_core_module.ctx_index];
+            cscf = addr[i].opt.ctx->srv_conf[ngx_mail_core_module.ctx_index];
 
             ls->logp = cscf->error_log;
             ls->log.data = &ls->addr_text;

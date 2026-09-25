@@ -166,6 +166,23 @@ the bug had appeared in 1.11.0.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+если на одном порту почтового прокси-сервера слушали несколько блоков "server",
+при этом один из них — на wildcard-адресе (например, "listen 143;"
+или "listen *:143;"), сообщения об ошибках при приёме соединений на этом
+порту, например об ошибках accept(), могли записываться в "error_log"
+другого блока "server".
+</para>
+<para lang="en">
+if several "server" blocks in the mail proxy listened on the same port,
+one of them on a wildcard address (for example, "listen 143;"
+or "listen *:143;"), error messages logged while accepting connections on
+that port, such as accept() errors, could be written to the
+"error_log" of another "server" block.
+</para>
+</change>
+
 </changes>
 
 

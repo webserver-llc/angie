@@ -21,9 +21,9 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $bad_msg = 'invalid URL prefix in \"http://\", client: \"127.0.0.1\",'
-	. ' server: \"localhost\", request_line: \"GET /bad HTTP/1.0\",'
-	. ' host: \"localhost\"';
+my $bad_msg = 'invalid URL prefix in "http://", client: "127.0.0.1",'
+	. ' server: "localhost", request_line: "GET /bad HTTP/1.0",'
+	. ' host: "localhost"';
 
 my $t = Test::Nginx->new()->has(qw/http realip rewrite proxy/)
 	->plan(18)->write_file_expand('nginx.conf', <<"EOF");
@@ -36,7 +36,7 @@ events {
 }
 
 error_log default.log;
-error_log filtered_exact.log "filter=logline:=$bad_msg";
+error_log filtered_exact.log 'filter=logline:=$bad_msg';
 error_log filtered_substring.log filter=logline:127.0.0.3;
 error_log filtered_regex.log filter=logline:~127\.0\.0\.4;
 

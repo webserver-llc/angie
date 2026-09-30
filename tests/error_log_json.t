@@ -80,6 +80,13 @@ http {
             error_log stderr info  format=json;
         }
 
+        location /order { # error_log order matters
+            limit_req zone=one;
+
+            error_log %%TESTDIR%%/e_order_error.json error format=json;
+            error_log %%TESTDIR%%/e_order_warn.json  warn  format=json;
+        }
+
         location /errno {
             error_log_user_tag "$arg_tag1";
             error_log_user_tag "$arg_tag2";
@@ -108,7 +115,7 @@ http {
 EOF
 
 $t->try_run('Angie was built without support for JSON')
-	->plan(5)
+	->plan(6)
 	->skip_stderr_check();
 
 my $with_debug = $t->has_module('debug');
@@ -119,12 +126,10 @@ subtest 'prepare' => sub {
 
 	# charge limit_req
 	http_get('/info');
-	SKIP: {
-		skip 'no --with-debug', 8 unless $with_debug;
-		http_get('/debug');
-	}
-
+	http_get('/order');
+	http_get('/debug');
 	http_get('/info');
+	http_get('/order');
 
 	# errno
 	like(http_get('/errno/404?tag1=bar'), qr/404/, '404 from missing file');
@@ -154,71 +159,116 @@ $t->stop();
 
 subtest 'loglevels' => sub {
 	# read stderr once, then filter on different patterns
-	my @stderr_raw_lines = $t->get_file_lines('stderr');
+	my @stderr_lines = $t->get_file_lines('stderr');
 
-	SKIP: {
-		skip 'no --with-debug', 9 unless $with_debug;
+	my @e_debug_info_log_lines  = $t->get_file_lines('e_debug_info.log');
+	my @e_debug_info_json_lines = $t->get_file_lines('e_debug_info.json');
 
-		isnt($t->find_in_file('e_debug_debug.log', qr/\[debug\]/), 0,
+	if ($with_debug) {
+		isnt($t->find_in_file('e_debug_debug.log', '[debug]'), 0,
 			'some debug messages in debug_debug log');
-		is($t->find_in_file('e_debug_info.log', qr/\[debug\]/), 0,
-			'no debug messages in debug_info log');
 
-		my @flines = filter_lines(\@stderr_raw_lines, '[debug]');
-		isnt(@flines, 0, 'some debug messages in stderr');
+		isnt(filter_lines(\@stderr_lines, '[debug]'), 0,
+			'some debug messages in stderr');
 
-		@flines = filter_lines(\@stderr_raw_lines, '"level":"debug"');
-		isnt(@flines, 0, 'some json debug messages in stderr');
+		isnt(filter_lines(\@stderr_lines, '"level":"debug"'), 0,
+			'some json debug messages in stderr');
+	} else {
+		is($t->find_in_file('e_debug_debug.log', '[debug]'), 0,
+			'no debug messages in debug_debug log');
 
-		my @raw_lines = $t->find_in_file('e_debug_debug.json',
-			quotemeta('"level":"debug"'));
+		is(filter_lines(\@stderr_lines, '[debug]'), 0,
+			'no debug messages in stderr');
 
-		# actually, 70+ of them, but don't rely on count of debug messages
-		ok(@raw_lines > 20, 'multiple basic json lines');
-
-		my $nfails = verify_json_basic_lines(\@raw_lines, 'debug');
-		is($nfails, 0, 'basic json logs');
-
-		@raw_lines = $t->find_in_file('e_debug_debug.json',
-			'limiting request');
-		is(@raw_lines, 1, 'single http json line');
-
-		$nfails = verify_json_http_lines(\@raw_lines, 'error');
-		is($nfails, 0, 'http json debug logs');
-
-		is($t->find_in_file('e_info_debug.log', qr/\[info\]/), 1,
-			'file info debug');
+		is(filter_lines(\@stderr_lines, '"level":"debug"'), 0,
+			'no json debug messages in stderr');
 	}
 
-	is($t->find_in_file('e_info_info.log', qr/\[info\]/), 1,
-		'file info info');
-	is($t->find_in_file('e_info_notice.log', qr/\[info\]/), 0,
-		'file info notice');
+	my @e_debug_debug_json_lines = $t->get_file_lines('e_debug_debug.json');
+	my @e_debug_debug_json_flines = filter_lines(\@e_debug_debug_json_lines,
+		'"level":"debug"');
 
-	# non-escaped pattern is NOT there
-	my @flines = filter_lines(\@stderr_raw_lines, '[info]');
-	isnt(@flines, 0, 'stderr info');
+	verify_json_basic_lines(\@e_debug_debug_json_flines, 'debug',
+			'no bad lines in basic json logs');
 
-	@flines = filter_lines(\@stderr_raw_lines, '"level":"info"');
-	isnt(@flines, 0, 'stderr json info');
+	if ($with_debug) {
+		# actually, 70+ of them, but don't rely on count of debug messages
+		ok(@e_debug_debug_json_flines > 20, 'multiple basic json lines');
+	} else {
+		is(@e_debug_debug_json_flines, 0, 'no basic json lines');
+	}
+
+	my @flines = filter_lines(\@e_debug_debug_json_lines, 'limiting request');
+	is(@flines, 1, 'single http json line');
+	verify_json_http_lines(\@flines, 'error', 'http json debug logs');
+
+	is(filter_lines(\@e_debug_info_log_lines, '[debug]'), 0,
+		'no debug messages in debug_info log');
+
+	is(filter_lines(\@e_debug_info_json_lines, '"level":"debug"'), 0,
+		'no debug messages in debug_info json log');
+
+	is(filter_lines(\@e_debug_info_log_lines, prepare_log_re('error')), 1,
+		'error messages in debug_info log');
+
+	is(@e_debug_info_json_lines, 1,
+		'single error message om debug_info json log');
+	verify_json_http_lines(\@e_debug_info_json_lines, 'error',
+		'error messages in debug_info json log');
+
+	my $log_re = prepare_log_re('info');
+	is($t->find_in_file('e_info_debug.log', $log_re), 1, 'file info debug');
+	is($t->find_in_file('e_info_info.log', $log_re), 1, 'file info info');
+	is($t->find_in_file('e_info_notice.log', $log_re), 0, 'file info notice');
+
+	isnt(filter_lines(\@stderr_lines, $log_re), 0, 'stderr info');
+
+	isnt(filter_lines(\@stderr_lines, '"level":"info"'), 0,
+		'stderr json info');
 
 	my @raw_lines = $t->get_file_lines('e_info_debug.json');
 
-	SKIP: {
-		skip 'no --with-debug', 1 unless $with_debug;
-
-		@flines = filter_lines(\@raw_lines, '"level":"debug"');
+	@flines = filter_lines(\@raw_lines, '"level":"debug"');
+	if ($with_debug) {
 		isnt(@flines, 0, 'debug json messages in e_info_debug.json');
+	} else {
+		is(@flines, 0, 'no debug json messages in e_info_debug.json');
 	}
 
-	@flines = filter_lines(\@raw_lines, '"level":"info"');
-	is(@flines, 1, 'info json messages in e_info_debug.json');
+	is(filter_lines(\@raw_lines, '"level":"info"'), 1,
+		'info json messages in e_info_debug.json');
 
 	@flines = filter_lines(\@raw_lines, 'limiting request');
 	is(@flines, 1, 'single json error line');
+	verify_json_http_lines(\@flines, 'info', 'http json info log');
 
-	my $nfails = verify_json_http_lines(\@flines, 'info');
-	is($nfails, 0, 'http json info log');
+	@raw_lines = $t->get_file_lines('e_info_info.json');
+
+	is(filter_lines(\@raw_lines, '"level":"debug"'), 0,
+		'no debug json messages in e_info_info.json');
+
+	is(filter_lines(\@raw_lines, '"level":"info"'), 1,
+		'info json messages in e_info_info.json');
+
+	@flines = filter_lines(\@raw_lines, 'limiting request');
+	is(@flines, 1, 'single json error line');
+	verify_json_http_lines(\@flines, 'info', 'http json info log');
+
+	@raw_lines = $t->get_file_lines('e_info_notice.json');
+
+	is(filter_lines(\@raw_lines, '"level":"debug"'), 0,
+		'no debug json messages in e_info_notice.json');
+
+	is(filter_lines(\@raw_lines, '"level":"info"'), 0,
+		'no info json messages in e_info_notice.json');
+};
+
+subtest 'error_log order matters' => sub {
+	for my $f (qw(e_order_error.json e_order_warn.json)) {
+		my @lines = $t->get_file_lines($f);
+		verify_json_http_lines(\@lines, 'error', "no bad lines in $f log");
+		is(@lines, 2, "2 lines in $f log");
+	}
 };
 
 subtest 'errno' => sub {
@@ -309,8 +359,30 @@ subtest 'truncation' => sub {
 
 ###############################################################################
 
+sub prepare_log_re {
+	my $level = shift;
+
+	return qr/
+		^
+		\d{4}\/\d{2}\/\d{2} \s \d{2}:\d{2}:\d{2} # datetime
+		\s+
+		\[ $level \]
+		\s+
+		\d+ \# \d+ :                             # pid#tid
+		\s+
+		\* \d+                                   # connection_id
+		\s+
+		limiting \s requests, \s excess: \s [\d.]+ \s+ by \s zone \s "one" ,
+		\s+ client: \s "127\.0\.0\.1" ,
+		\s+ server: \s "localhost" ,
+		\s+ request_line: \s "[^"]+" ,
+		\s+ host: \s "localhost"
+		$
+	/x;
+}
+
 sub verify_json_basic_lines {
-	my ($lines, $level) = @_;
+	my ($lines, $level, $msg) = @_;
 
 	my $fails = 0;
 
@@ -320,11 +392,11 @@ sub verify_json_basic_lines {
 		$fails++ unless $ok;
 	}
 
-	return $fails;
+	is($fails, 0, $msg);
 }
 
 sub verify_json_http_lines {
-	my ($lines, $level) = @_;
+	my ($lines, $level, $msg) = @_;
 
 	my $fails = 0;
 
@@ -334,7 +406,7 @@ sub verify_json_http_lines {
 		$fails++ unless $ok;
 	}
 
-	return $fails;
+	is($fails, 0, $msg);
 }
 
 sub verify_json_log_basic_entry {
@@ -378,7 +450,7 @@ sub verify_json_log_http_entry {
 		level      => $level,
 		connection => $NUM_RE,
 		message    => re(qr/.*/),
-		http => {
+		http       => {
 			client  => '127.0.0.1',
 			request => {
 				server       => 'localhost',
@@ -386,7 +458,7 @@ sub verify_json_log_http_entry {
 				host         => 'localhost'
 			},
 		},
-		tags => \@tags,
+		tags       => \@tags,
 		%{ $extra // {}}
 	};
 	$expected->{src} = re(qr/.*/)
@@ -401,7 +473,10 @@ sub verify_json_log_http_entry {
 
 sub filter_lines {
 	my ($inlines, $pattern) = @_;
-	my @outlines = grep { /\Q$pattern\E/ } @{ $inlines };
+
+	$pattern = qr/\Q$pattern\E/ if ref($pattern) eq '';
+	my @outlines = grep { /$pattern/ } @{ $inlines };
+
 	return @outlines;
 }
 

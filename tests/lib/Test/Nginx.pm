@@ -995,6 +995,8 @@ sub find_in_file {
 	open F, '<', $self->{_testdir} . '/' . $name
 		or die "Can't open $name: $!";
 
+	$pattern = qr/\Q$pattern\E/ if ref($pattern) eq '';
+
 	my @found;
 	while (my $line = <F>) {
 		next unless $line =~ $pattern;
@@ -1042,10 +1044,10 @@ sub write_file($$) {
 	return $self;
 }
 
-sub write_file_expand($$) {
-	my ($self, $name, $content) = @_;
+sub write_file_expand {
+	my ($self, $name, $content, $no_error_log) = @_;
 
-	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals()/gmse;
+	$content =~ s/%%TEST_GLOBALS%%/$self->test_globals($no_error_log)/gmse;
 
 	# evaluate possible value of the corresponding environment variable
 	my $events = $self->test_globals_events();
@@ -1147,8 +1149,8 @@ EOF
 	}
 }
 
-sub test_globals() {
-	my ($self) = @_;
+sub test_globals {
+	my ($self, $no_error_log) = @_;
 
 	return $self->{_test_globals}
 		if defined $self->{_test_globals};
@@ -1156,7 +1158,8 @@ sub test_globals() {
 	my $s = '';
 
 	$s .= "pid $self->{_testdir}/nginx.pid;\n";
-	$s .= "error_log $self->{_testdir}/error.log debug;\n";
+	$s .= "error_log $self->{_testdir}/error.log debug;\n"
+		unless $no_error_log;
 
 	$s .= $ENV{TEST_ANGIE_GLOBALS}
 		if $ENV{TEST_ANGIE_GLOBALS};

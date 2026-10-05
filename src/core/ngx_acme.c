@@ -264,7 +264,10 @@ ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain)
 
             if (domain->len > wclen
                 && ngx_strncasecmp(domain->data + domain->len - wclen,
-                                   s->data + 1, wclen) == 0)
+                                   s->data + 1, wclen) == 0
+                && ngx_strlchr(domain->data,
+                               domain->data + domain->len - wclen, '.')
+                   == NULL)
             {
                 /*
                  * We are adding a non-wildcard domain that matches a wildcard
@@ -278,7 +281,9 @@ ngx_acme_add_domain(ngx_acme_client_t *cli, ngx_str_t *domain)
 
             if (s->len > wclen
                 && ngx_strncasecmp(s->data + s->len - wclen,
-                                   domain->data + 1, wclen) == 0)
+                                   domain->data + 1, wclen) == 0
+                && ngx_strlchr(s->data, s->data + s->len - wclen, '.')
+                   == NULL)
             {
                 /*
                  * We are adding a wildcard domain that matches a non-wildcard

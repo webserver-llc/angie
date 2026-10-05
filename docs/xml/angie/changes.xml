@@ -9,6 +9,21 @@
 
 <change type="bugfix">
 <para lang="ru">
+если в списке доменов ACME-клиента был wildcard-домен, например
+"*.example.com", то домены более глубокого уровня, например
+"test.sub.example.com", ошибочно считались покрытыми этим wildcard-доменом
+и не попадали в сертификат.
+</para>
+<para lang="en">
+if the domain list of an ACME client had a wildcard domain, such as
+"*.example.com", then domains at deeper levels, such as
+"test.sub.example.com", were wrongly treated as covered by the wildcard
+domain and were not included in the certificate.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 директива "proxy_ssl_keylog_file" при работе по HTTP/3 с проксируемым
 сервером и версией OpenSSL без встроенной поддержки QUIC могла
 приводить к невозможности установить соединение с проксируемым

@@ -636,7 +636,7 @@ ngx_stream_log_error(ngx_log_t *log, u_char *buf, size_t len)
 
     cscf = ngx_stream_get_module_srv_conf(s, ngx_stream_core_module);
 
-    if (cscf->error_log_user_tags) {
+    if (cscf->error_log_user_tags && s->variables) {
 
         ucv = cscf->error_log_user_tags->elts;
 

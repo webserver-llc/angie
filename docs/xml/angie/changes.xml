@@ -198,6 +198,19 @@ that port, such as accept() errors, could be written to the
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+использование директивы "error_log_user_tag" в модуле "stream" могло приводить
+к падению рабочего процесса, если было включено логирование уровня "info"
+и подробнее, а запись в лог выполнялась на ранней стадии;
+</para>
+<para lang="en">
+the "error_log_user_tag" directive in the "stream" module could result
+in a worker process crash if logging at the "info" level or lower was
+enabled and the logging occurred at an early stage;
+</para>
+</change>
+
 </changes>
 
 

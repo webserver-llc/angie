@@ -50,7 +50,7 @@ stream {
         error_log_user_tag "$connection";
         error_log_user_tag "$server_port";
 
-        error_log %%TESTDIR%%/filtered_usertag1.log
+        error_log %%TESTDIR%%/filtered_usertag1.log info
                   filter=tag:3
                   filter=tag:%%PORT_8081%%;
 

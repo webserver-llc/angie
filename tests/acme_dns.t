@@ -27,6 +27,16 @@
 # one. A non-DNS datagram answered by each stream server confirms the passing
 # through.
 
+# Wildcard coverage check
+#
+# A wildcard name covers only one DNS label: "*.example.com" covers
+# "a.example.com", but not "a.b.example.com". Next to each wildcard name, the
+# "server_name" directive also lists a one-label name and a two-label name
+# under it. The ACME client must drop the one-label name and keep the
+# two-label name. In the first server, these names come after the wildcard
+# name; in the second server, they come before it. The test checks the DNS
+# names in each issued certificate.
+
 # This script requires pebble
 # (see Test::Nginx::ACME for details)
 
@@ -87,20 +97,32 @@ for (1 .. 2) {
 
 	my $srv = {
 		domains => [],
+		expected => [],
 		clients => [],
 	};
 
 	for (1 .. 2) {
 		push @{ $srv->{domains} }, "angie-test${domain_count}.com";
+		push @{ $srv->{expected} }, "angie-test${domain_count}.com";
 		$domain_count++;
 	}
 
 	# The dns-01 validation method allows wildcard domain names.
-	push @{ $srv->{domains} }, "*.angie-test${domain_count}.com";
+	# A wildcard covers only one label, so "a.*" is dropped
+	# and "a.b.*" is kept.
+	my $wildcard = "*.angie-test${domain_count}.com";
+	my @under = ("a.angie-test${domain_count}.com",
+		"a.b.angie-test${domain_count}.com");
+
+	push @{ $srv->{domains} },
+		$n == 1 ? ($wildcard, @under) : (@under, $wildcard);
+	push @{ $srv->{expected} }, $wildcard, $under[1];
 	$domain_count++;
 
 	# ".example.com" is equivalent to "example.com *.example.com".
 	push @{ $srv->{domains} }, ".angie-test${domain_count}.com";
+	push @{ $srv->{expected} }, "angie-test${domain_count}.com",
+		"*.angie-test${domain_count}.com";
 	$domain_count++;
 
 	for my $key (@keys) {
@@ -109,6 +131,7 @@ for (1 .. 2) {
 			key_type => $key->{type},
 			key_bits => $key->{bits},
 			challenge => 'dns',
+			expected => $srv->{expected},
 			renewed => 0,
 			enddate => "n/a",
 		};
@@ -201,7 +224,7 @@ $t->waitforfile("$d/$angie_dns_port");
 
 $acme_helper->start_pebble({pebble_port => $pebble_port});
 
-$t->run()->plan(scalar @clients + 2 + ($second_addr ? 1 : 0));
+$t->run()->plan(2 * @clients + 2 + ($second_addr ? 1 : 0));
 
 my $renewed_count = 0;
 my $loop_start = time();
@@ -244,6 +267,17 @@ for (1 .. 360 * @clients) {
 for my $cli (@clients) {
 	ok($cli->{renewed}, "$cli->{name} renewed certificate " .
 		"(challenge: $cli->{challenge}; enddate: $cli->{enddate})");
+}
+
+for my $cli (@clients) {
+	my $cert_file = "$d/acme_client/$cli->{name}/certificate.pem";
+	my $text = `openssl x509 -in $cert_file -noout -text 2>/dev/null`;
+
+	my ($san) = $text =~ /Subject Alternative Name:.*\n\s*(.*)/;
+	my @names = sort (($san // '') =~ /DNS:([^,\s]+)/g);
+	my @expected = sort @{ $cli->{expected} };
+
+	is("@names", "@expected", "$cli->{name} certificate names");
 }
 
 my $ttl_ok = -e "$d/ttl_match" && ! -e "$d/ttl_mismatch";

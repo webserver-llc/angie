@@ -7,55 +7,6 @@
 
 <changes ver="1.13.0" date="">
 
-<change type="bugfix">
-<para lang="ru">
-если в списке доменов ACME-клиента был wildcard-домен, например
-"*.example.com", то домены более глубокого уровня, например
-"test.sub.example.com", ошибочно считались покрытыми этим wildcard-доменом
-и не попадали в сертификат.
-</para>
-<para lang="en">
-if the domain list of an ACME client had a wildcard domain, such as
-"*.example.com", then domains at deeper levels, such as
-"test.sub.example.com", were wrongly treated as covered by the wildcard
-domain and were not included in the certificate.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-директива "proxy_ssl_keylog_file" при работе по HTTP/3 с проксируемым
-сервером и версией OpenSSL без встроенной поддержки QUIC могла
-приводить к невозможности установить соединение с проксируемым
-сервером.
-</para>
-<para lang="en">
-the "proxy_ssl_keylog_file" directive could prevent establishing an
-HTTP/3 connection to a proxied server when using an OpenSSL version
-without native QUIC support.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-если проксируемый сервер возвращал статус, указанный в директиве
-"proxy_next_upstream" (или аналогичной), в ответ на уже отправленный ему запрос
-с методом POST, LOCK или PATCH, а параметр "non_idempotent" в этой директиве
-указан не был, запрос зависал до срабатывания тайм-аута чтения и завершался с
-кодом 504 вместо фактического кода, полученного от проксируемого сервера;
-ошибка появилась в 1.11.0.
-</para>
-<para lang="en">
-if the proxied server returned a status specified in the "proxy_next_upstream"
-directive (or a similar directive) in response to a POST, LOCK, or PATCH request
-that had already been sent to it, and the "non_idempotent" parameter was not
-specified in that directive, the request would hang until the read timeout fired
-and finish with code 504 instead of the actual code returned by the proxied
-server;
-the bug had appeared in 1.11.0.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 возможность задавать в директиве "acme_dns_ttl" значения времени,
@@ -87,19 +38,6 @@ the "acme_http_port" directive received the same change in version 1.11.1.
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-Let's Encrypt завершал ACME ALPN-верификацию для IP-адресов с сообщением об
-ошибке "Incorrect validation certificate for tls-alpn-01 challenge ... wrong
-number of identifiers".
-</para>
-<para lang="en">
-Let's Encrypt failed the TLS-ALPN-01 challenge for an IP address identifier
-with the error message: "Incorrect validation certificate for tls-alpn-01
-challenge ... wrong number of identifiers".
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 вся функциональность nginx 1.31.3.
@@ -109,59 +47,179 @@ all functionality of nginx 1.31.3.
 </para>
 </change>
 
+</changes>
+
+
+<changes ver="1.12.3" date="2026-10-13">
+
 <change type="bugfix">
 <para lang="ru">
-при использовании нескольких директив "error_log", если последующая
-директива имела более высокий уровень логирования, а также при
-отсутствии в конфигурации директив "error_log" с записью в файл,
-имена полей в записях лога могли заменяться на "unknown";
+использование переменных в директиве "error_log_user_tag" в stream-модуле
+могло приводить к падению рабочего процесса, если сообщение записывалось
+в лог на ранней стадии обработки соединения при включённом логировании
+уровня "info" или подробнее.
+</para>
+<para lang="en">
+using variables in the "error_log_user_tag" directive in the stream module
+could cause a worker process crash if a message was logged at an early
+stage of connection processing with logging enabled at the "info" level
+or a more verbose level.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при использовании нескольких директив "error_log", если очередная директива
+задавала более высокий (подробный) уровень логирования, чем предыдущие,
+а также при отсутствии в конфигурации директив "error_log" с записью в файл
+имена полей в записях лога могли выводиться как "unknown";
 проблема появилась в 1.12.0.
 </para>
 <para lang="en">
 when several "error_log" directives were used and a subsequent directive
-had a higher logging level, as well as when there were no "error_log"
-directives logging to a file in the configuration, field names in log
-records could be replaced with "unknown";
+specified a higher (more verbose) logging level than the previous ones,
+as well as when there were no "error_log" directives logging to a file,
+field names in log records could be output as "unknown";
 the bug had appeared in 1.12.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-статистика "ssl" директивы "status_zone" модуля http не учитывала неудачные
-SSL-рукопожатия для соединений HTTP/3.
+неудачные SSL-рукопожатия для HTTP/3-соединений не учитывались
+в статистике по SSL, собираемой директивой "status_zone" в HTTP-модуле;
 проблема появилась в 1.11.0.
 </para>
 <para lang="en">
-the "ssl" statistics of the "status_zone" directive in the HTTP module did
-not count failed SSL handshakes for HTTP/3 connections.
+failed SSL handshakes for HTTP/3 connections were not counted in the SSL
+statistics collected with the "status_zone" directive in the HTTP module;
 the bug had appeared in 1.11.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
-статистика "ssl" директивы "status_zone" модуля http не учитывала
-прерванные по таймауту SSL-рукопожатия для соединений HTTP/3.
+SSL-рукопожатия для HTTP/3-соединений, прерванные по таймауту,
+не учитывались в статистике по SSL, собираемой директивой "status_zone"
+в HTTP-модуле.
+</para>
+<para lang="en">
+SSL handshakes for HTTP/3 connections that timed out were not counted
+in the SSL statistics collected with the "status_zone" directive in the
+HTTP module.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если проксируемый сервер возвращал статус, указанный в директиве
+"proxy_next_upstream" (или аналогичной), в ответ на уже отправленный ему запрос
+с методом POST, LOCK или PATCH, а параметр "non_idempotent" в этой директиве
+указан не был, запрос зависал до срабатывания таймаута чтения и завершался с
+кодом 504 вместо фактического кода, полученного от проксируемого сервера;
+проблема появилась в 1.11.0.
+</para>
+<para lang="en">
+if the proxied server returned a status specified in the "proxy_next_upstream"
+directive (or a similar directive) in response to a POST, LOCK, or PATCH request
+that had already been sent to it, and the "non_idempotent" parameter was not
+specified in that directive, the request would hang until the read timeout fired
+and finish with code 504 instead of the actual code returned by the proxied
+server;
+the bug had appeared in 1.11.0.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если ACME-клиент запрашивал сертификат для IP-адреса с использованием
+ALPN-верификации, Let's Encrypt отклонял проверку с ошибкой "Incorrect
+validation certificate for tls-alpn-01 challenge ... wrong number of
+identifiers", и сертификат не выпускался.
+</para>
+<para lang="en">
+if an ACME client requested a certificate for an IP address using ALPN
+validation, Let's Encrypt rejected the challenge with the error "Incorrect
+validation certificate for tls-alpn-01 challenge ... wrong number of
+identifiers", and the certificate was not issued.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если в списке доменов ACME-клиента был wildcard-домен, например
+"*.example.com", то домены более глубокого уровня, например
+"test.sub.example.com", ошибочно считались покрытыми этим wildcard-доменом
+и не попадали в сертификат.
+</para>
+<para lang="en">
+if the domain list of an ACME client had a wildcard domain, such as
+"*.example.com", then domains at deeper levels, such as
+"test.sub.example.com", were wrongly treated as covered by the wildcard
+domain and were not included in the certificate.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при совместном использовании директив "keepalive" и "zone" в блоке
+"upstream" удаление проксируемого сервера (например, во время обновления
+DNS при использовании опции "resolve") могло приводить к повреждению
+данных в разделяемой памяти; в результате закэшированное соединение могло
+быть ошибочно использовано для другого проксируемого сервера;
 проблема появилась в 1.8.0.
 </para>
 <para lang="en">
-the "ssl" statistics of the "status_zone" directive in the HTTP module did
-not count timed out SSL handshakes for HTTP/3 connections.
+when the "keepalive" and "zone" directives were used together in the
+"upstream" block, removing a proxied server (for example, during a DNS update
+when the "resolve" option is used) could corrupt data in shared memory; as a
+result, a cached connection could be mistakenly reused for a different
+proxied server;
 the bug had appeared in 1.8.0.
 </para>
 </change>
 
 <change type="bugfix">
 <para lang="ru">
+при использовании версии OpenSSL без встроенной поддержки QUIC директива
+"proxy_ssl_keylog_file" могла препятствовать установке HTTP/3-соединения с
+проксируемым сервером.
+</para>
+<para lang="en">
+when using an OpenSSL version without native QUIC support, the
+"proxy_ssl_keylog_file" directive could prevent establishing an HTTP/3
+connection to a proxied server.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если на одном порту почтового прокси-сервера слушали несколько блоков
+"server" и один из них — на wildcard-адресе (например, "listen 143;"
+или "listen *:143;"), то сообщения об ошибках при приёме соединений
+на этом порту могли ошибочно записываться в "error_log" не того блока
+"server".
+</para>
+<para lang="en">
+if several "server" blocks in the mail proxy listened on the same port
+and one of them on a wildcard address (for example, "listen 143;"
+or "listen *:143;"), error messages logged while accepting connections on
+that port could be mistakenly written to the "error_log" of the wrong
+"server" block.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 сборка завершалась ошибкой при отключённой поддержке JSON, например
-с опцией "./configure --without-http" или при отключённых модулях api,
-metric, docker и acme; проблема появилась в 1.12.0.
+с опцией "./configure --without-http" или если модули API, Metric,
+Docker и ACME были отключены;
+проблема появилась в 1.12.0.
 </para>
 <para lang="en">
 the build failed when the JSON support was disabled, e.g. with the
-"./configure --without-http" option or when the api, metric, docker,
-and acme modules were all disabled;
+"./configure --without-http" option or when the API, Metric, Docker,
+and ACME modules were all disabled;
 the bug had appeared in 1.12.0.
 </para>
 </change>
@@ -181,53 +239,6 @@ the bug had appeared in 1.11.0.
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-если на одном порту почтового прокси-сервера слушали несколько блоков "server",
-при этом один из них — на wildcard-адресе (например, "listen 143;"
-или "listen *:143;"), сообщения об ошибках при приёме соединений на этом
-порту, например об ошибках accept(), могли записываться в "error_log"
-другого блока "server".
-</para>
-<para lang="en">
-if several "server" blocks in the mail proxy listened on the same port,
-one of them on a wildcard address (for example, "listen 143;"
-or "listen *:143;"), error messages logged while accepting connections on
-that port, such as accept() errors, could be written to the
-"error_log" of another "server" block.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-использование директивы "error_log_user_tag" в модуле "stream" могло приводить
-к падению рабочего процесса, если было включено логирование уровня "info"
-и подробнее, а запись в лог выполнялась на ранней стадии;
-</para>
-<para lang="en">
-the "error_log_user_tag" directive in the "stream" module could result
-in a worker process crash if logging at the "info" level or lower was
-enabled and the logging occurred at an early stage;
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при совместном использовании директив "keepalive" и "zone" в блоке "upstream"
-могло происходить использование освобождённой разделяемой памяти, если
-проксируемый сервер удалялся в момент возврата его соединения в кэш keepalive;
-в результате соединение из кэша могло использоваться для другого сервера;
-проблема появилась в 1.8.0.
-</para>
-<para lang="en">
-when the "keepalive" and "zone" directives were used together in the "upstream"
-block, a use-after-free could occur if a proxied server was removed while its
-connection was being returned to the keepalive cache; the cached connection
-could then be reused for the wrong server;
-The bug had appeared in 1.8.0.
-</para>
-</change>
-
 </changes>
 
 
@@ -235,7 +246,7 @@ The bug had appeared in 1.8.0.
 
 <change type="security">
 <para lang="ru">
-при использовании версии OpenSSL без встроенной поддержки HTTP/3 (3.5.0 или
+при использовании версии OpenSSL без встроенной поддержки QUIC (3.5.0 или
 более ранней), если сервер по умолчанию для адреса, принявшего обычный
 HTTPS-запрос, также использовал HTTP/3 (директиву "listen ... quic", в том
 числе на другом порту), а по имени домена (SNI) выбирался блок "server" без
@@ -244,7 +255,7 @@ HTTP/3, то могло происходить ограниченное повр
 исправление портировано из nginx 1.31.6.
 </para>
 <para lang="en">
-when using an OpenSSL version without native HTTP/3 support (3.5.0 or earlier),
+when using an OpenSSL version without native QUIC support (3.5.0 or earlier),
 if the default server for the address that accepted a regular HTTPS request
 also used HTTP/3 (the "listen ... quic" directive, possibly on a different
 port), while a "server" block without HTTP/3 was selected by domain name (SNI),

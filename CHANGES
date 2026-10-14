@@ -1,7 +1,74 @@
 
+Changes with Angie 1.12.3                                        13 Oct 2026
+
+    *) Bugfix: using variables in the "error_log_user_tag" directive in the
+       stream module could cause a worker process crash if a message was
+       logged at an early stage of connection processing with logging
+       enabled at the "info" level or a more verbose level.
+
+    *) Bugfix: when several "error_log" directives were used and a
+       subsequent directive specified a higher (more verbose) logging level
+       than the previous ones, as well as when there were no "error_log"
+       directives logging to a file, field names in log records could be
+       output as "unknown"; the bug had appeared in 1.12.0.
+
+    *) Bugfix: failed SSL handshakes for HTTP/3 connections were not counted
+       in the SSL statistics collected with the "status_zone" directive in
+       the HTTP module; the bug had appeared in 1.11.0.
+
+    *) Bugfix: SSL handshakes for HTTP/3 connections that timed out were not
+       counted in the SSL statistics collected with the "status_zone"
+       directive in the HTTP module.
+
+    *) Bugfix: if the proxied server returned a status specified in the
+       "proxy_next_upstream" directive (or a similar directive) in response
+       to a POST, LOCK, or PATCH request that had already been sent to it,
+       and the "non_idempotent" parameter was not specified in that
+       directive, the request would hang until the read timeout fired and
+       finish with code 504 instead of the actual code returned by the
+       proxied server; the bug had appeared in 1.11.0.
+
+    *) Bugfix: if an ACME client requested a certificate for an IP address
+       using ALPN validation, Let's Encrypt rejected the challenge with the
+       error "Incorrect validation certificate for tls-alpn-01 challenge ...
+       wrong number of identifiers", and the certificate was not issued.
+
+    *) Bugfix: if the domain list of an ACME client had a wildcard domain,
+       such as "*.example.com", then domains at deeper levels, such as
+       "test.sub.example.com", were wrongly treated as covered by the
+       wildcard domain and were not included in the certificate.
+
+    *) Bugfix: when the "keepalive" and "zone" directives were used together
+       in the "upstream" block, removing a proxied server (for example,
+       during a DNS update when the "resolve" option is used) could corrupt
+       data in shared memory; as a result, a cached connection could be
+       mistakenly reused for a different proxied server; the bug had
+       appeared in 1.8.0.
+
+    *) Bugfix: when using an OpenSSL version without native QUIC support,
+       the "proxy_ssl_keylog_file" directive could prevent establishing an
+       HTTP/3 connection to a proxied server.
+
+    *) Bugfix: if several "server" blocks in the mail proxy listened on the
+       same port and one of them on a wildcard address (for example, "listen
+       143;" or "listen *:143;"), error messages logged while accepting
+       connections on that port could be mistakenly written to the
+       "error_log" of the wrong "server" block.
+
+    *) Bugfix: the build failed when the JSON support was disabled, e.g.
+       with the "./configure --without-http" option or when the API, Metric,
+       Docker, and ACME modules were all disabled; the bug had appeared in
+       1.12.0.
+
+    *) Bugfix: in a minimal configuration, e.g. with the "./configure
+       --without-http" option, the build could fail at the link stage with
+       an error like "undefined reference to `ceil'"; the bug had appeared
+       in 1.11.0.
+
+
 Changes with Angie 1.12.2                                        17 Sep 2026
 
-    *) Security: when using an OpenSSL version without native HTTP/3 support
+    *) Security: when using an OpenSSL version without native QUIC support
        (3.5.0 or earlier), if the default server for the address that
        accepted a regular HTTPS request also used HTTP/3 (the "listen ...
        quic" directive, possibly on a different port), while a "server"

@@ -7,6 +7,86 @@
 
 <changes ver="1.12.4" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании переменных в директивах "root" или "log_format"
+могло происходить повреждение памяти рабочего процесса или его падение
+(CVE-2026-93479);
+исправление портировано из nginx 1.31.7.
+</para>
+<para lang="en">
+when variables were used in the "root" or "log_format" directives,
+worker process memory corruption or a worker process crash could occur
+(CVE-2026-93479);
+the fix was ported from nginx 1.31.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "ssl_session_cache" с параметром "shared"
+без директивы "ssl_session_ticket_key" атакующий мог подделать TLS-сессию
+и обойти проверку клиентского сертификата (CVE-2026-97629);
+исправление портировано из nginx 1.31.7.
+</para>
+<para lang="en">
+when using the "ssl_session_cache" directive with the "shared" parameter
+without the "ssl_session_ticket_key" directive, an attacker could forge
+a TLS session and bypass client certificate verification (CVE-2026-97629);
+the fix was ported from nginx 1.31.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при проксировании по HTTP/3 часть неизвестного фрейма могла быть обработана
+как тело запроса, что могло приводить к обходу ограничения, заданного
+директивой "client_max_body_size", или к вставке данных в проксируемый
+запрос (CVE-2026-95101);
+исправление портировано из nginx 1.31.7.
+</para>
+<para lang="en">
+when proxying over HTTP/3, a part of an unknown frame might be treated as
+the request body, which might result in bypassing the "client_max_body_size"
+limit or injecting data into the proxied request (CVE-2026-95101);
+the fix was ported from nginx 1.31.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "alias", если URI запроса изменялся директивой
+"rewrite" и после этого вычислялась переменная "$request_filename", могло
+происходить повреждение памяти рабочего процесса или его падение
+(CVE-2026-15176);
+исправление портировано из nginx 1.31.7.
+</para>
+<para lang="en">
+when using the "alias" directive, if the request URI was changed by the
+"rewrite" directive and the "$request_filename" variable was evaluated
+afterwards, worker process memory corruption or a worker process crash
+could occur (CVE-2026-15176);
+the fix was ported from nginx 1.31.7.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании асинхронного файлового ввода-вывода (AIO) в некоторых
+конфигурациях, если на SSI-странице использовались команды
+"include virtual", могло происходить повреждение памяти рабочего процесса
+или его падение (CVE-2026-97205);
+исправление портировано из nginx 1.31.7.
+</para>
+<para lang="en">
+when using asynchronous file I/O (AIO) in certain configurations,
+if the SSI page has "include virtual" commands,
+worker process memory corruption or a worker process crash could occur
+(CVE-2026-97205);
+the fix was ported from nginx 1.31.7.
+</para>
+</change>
+
 </changes>
 
 

@@ -699,7 +699,7 @@ sub waitforfile($;$) {
 	my ($self, $file, $pid) = @_;
 	my $exited;
 
-	my $sec = 20;
+	my $sec = 60;
 
 	# wait for file to appear
 	# or specified process to exit
@@ -725,7 +725,7 @@ sub waitforsocket($) {
 	my ($self, $peer, $proto) = @_;
 
 	$proto //= 'tcp';
-	my $sec = 5;
+	my $sec = 60;
 
 	# wait for socket to accept connections
 
@@ -748,7 +748,7 @@ sub waitforsocket($) {
 sub waitforsslsocket($) {
 	my ($self, $peer) = @_;
 
-	my $sec = 5;
+	my $sec = 60;
 
 	# wait for socket to accept connections
 

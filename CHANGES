@@ -1,4 +1,33 @@
 
+Changes with Angie 1.12.4                                        16 Oct 2026
+
+    *) Security: when variables were used in the "root" or "log_format"
+       directives, worker process memory corruption or a worker process
+       crash could occur (CVE-2026-93479); the fix was ported from nginx
+       1.31.7.
+
+    *) Security: when using the "ssl_session_cache" directive with the
+       "shared" parameter without the "ssl_session_ticket_key" directive, an
+       attacker could forge a TLS session and bypass client certificate
+       verification (CVE-2026-97629); the fix was ported from nginx 1.31.7.
+
+    *) Security: when proxying over HTTP/3, a part of an unknown frame might
+       be treated as the request body, which might result in bypassing the
+       "client_max_body_size" limit or injecting data into the proxied
+       request (CVE-2026-95101); the fix was ported from nginx 1.31.7.
+
+    *) Security: when using the "alias" directive, if the request URI was
+       changed by the "rewrite" directive and the "$request_filename"
+       variable was evaluated afterwards, worker process memory corruption
+       or a worker process crash could occur (CVE-2026-15176); the fix was
+       ported from nginx 1.31.7.
+
+    *) Security: when using asynchronous file I/O (AIO) in certain
+       configurations, if the SSI page has "include virtual" commands,
+       worker process memory corruption or a worker process crash could
+       occur (CVE-2026-97205); the fix was ported from nginx 1.31.7.
+
+
 Changes with Angie 1.12.3                                        13 Oct 2026
 
     *) Bugfix: using variables in the "error_log_user_tag" directive in the

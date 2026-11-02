@@ -11,14 +11,16 @@ use strict;
 
 use Exporter qw/import/;
 BEGIN {
-	our @EXPORT_OK = qw/ get_json put_json delete_json patch_json annotate
-		getconn hash_like stream_daemon
+	our @EXPORT_OK = qw/ get_json get_json_stable put_json delete_json
+		patch_json annotate getconn hash_like stream_daemon
 		socket_read trim log2i log2o log2c
 		$TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num get_caller
 		wait_for get_primary_user_group /;
 
 	our %EXPORT_TAGS = (
-		json => [ qw/ get_json put_json delete_json patch_json / ],
+		json => [
+			qw/ get_json get_json_stable put_json delete_json patch_json /
+		],
 		log  => [ qw/ log2i log2o log2c / ],
 		re   => [ qw/ $TIME_RE $NUM_RE $POSITIVE_NUM is_positive_num / ],
 	);
@@ -28,7 +30,7 @@ use IO::Select;
 use IO::Socket qw/ SHUT_WR TCP_MAXSEG TCP_NODELAY IPPROTO_TCP /;
 use List::Util qw/ sum0 /;
 use Test::More;
-use Test::Deep qw/ re code /;
+use Test::Deep qw/ re code eq_deeply cmp_deeply /;
 
 use Test::Nginx qw/ http http_get log_in log_out port /;
 
@@ -73,6 +75,21 @@ sub get_json {
 
 	my $res = _parse_response(http_get($uri, %extra));
 	return $res->{j};
+}
+
+# poll the $url until it returns the expected values
+sub get_json_stable {
+	my ($url, $want, $name) = @_;
+
+	my $j;
+	for (1 .. 50) {
+		$j = get_json($url);
+		last if eq_deeply($j, $want);
+		select undef, undef, undef, 0.02;
+	}
+	cmp_deeply($j, $want, $name);
+
+	return $j;
 }
 
 sub put_json {

@@ -16,7 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
-use Test::Utils qw/get_json :re/;
+use Test::Utils qw/get_json get_json_stable :re/;
 
 ###############################################################################
 
@@ -266,16 +266,14 @@ subtest 'verify peer fails' => sub {
 	is($b1->{health}{unavailable}, 1, 'b1 unavailable incremented');
 	cmp_deeply($b1->{health}{downstart}, $TIME_RE, 'b1 defined downstart');
 
-	# wait a bit to get downtime incremented
-	# TODO: avoid delay
-	select undef, undef, undef, 0.5;
+	# downtime accumulates while the peer is down
+	get_json_stable(
+		"/status/upstreams/f/peers/127.0.0.1:$port1/health/downtime",
+		$POSITIVE_NUM,
+		'b1 nonzero downtime');
 
-	$j = get_json('/status/upstreams/f/peers');
-	ok($j->{"127.0.0.1:$port1"}{health}{downtime} > 0, 'b1 nonzero downtime');
-
-	# wait for peer to become ready to probe again
-	# TODO: avoid delay
-	select undef, undef, undef, 1.5;
+	# wait till fail_timeout passes
+	select undef, undef, undef, 3;
 
 	http_get('/f/') for 1..2;
 

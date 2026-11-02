@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,7 +23,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http proxy upstream_keepalive/)->plan(8);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -79,16 +80,30 @@ $t->run();
 
 ###############################################################################
 
-my ($body, $t1, $t2) = get('/');
+# The rate limit is checked through the time it takes to transfer the body,
+# but the time is only compared against the guarantees it gives: with
+# proxy_limit_rate 20000 a 40k body takes about two seconds, so the header
+# and the trailer stamps are at least a second apart whatever the load is.
+#
+# Conversely, with proxy_limit_rate 0 the transfer must merely be much
+# faster than the limit would impose; the best of several attempts is used,
+# so a transient stall cannot produce a false failure.  Note that neither
+# check compares the stamps for equality with a wall-clock boundary: the
+# old is($t2 - $t1, 0) failed whenever the response crossed an integer
+# second, even for a healthy unlimited response that took milliseconds.
 
-cmp_ok($t2 - $t1, '>=', 1, 'proxy_limit_rate');
+my ($body, $delta) = get('/');
+
+ok(defined $delta, 'proxy_limit_rate: msec stamps parsed');
+cmp_ok($delta // 0, '>=', 1, 'proxy_limit_rate');
 is($body, 'X' x 40000, 'response body');
 
 # unlimited
 
-($body, $t1, $t2) = get('/unlimited');
+($body, $delta) = get_min('/unlimited', 3);
 
-is($t2 - $t1, 0, 'proxy_limit_rate unlimited');
+ok(defined $delta, 'unlimited: msec stamps parsed');
+cmp_ok($delta // 9, '<', 1, 'proxy_limit_rate unlimited');
 is($body, 'X' x 40000, 'response body unlimited');
 
 # in case keepalive connection was saved with the delayed flag,
@@ -108,7 +123,31 @@ Connection: close
 
 EOF
 
-	http_content($r), $r =~ /X-Msec: (\d+)/g;
+	# return the body and the full-precision time it took to transfer it
+
+	my @msec = $r =~ /X-Msec:\s*(\d+(?:\.\d+)?)/g;
+
+	http_content($r), @msec == 2 ? $msec[1] - $msec[0] : undef;
+}
+
+# transfer the given uri several times and keep the fastest response
+
+sub get_min {
+	my ($uri, $tries) = @_;
+
+	my ($body, $min);
+
+	for (1 .. $tries) {
+		my ($b, $d) = get($uri);
+		next unless defined $d;
+
+		if (!defined $min || $d < $min) {
+			$min = $d;
+			$body = $b;
+		}
+	}
+
+	$body, $min;
 }
 
 ###############################################################################

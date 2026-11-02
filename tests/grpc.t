@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -803,7 +804,7 @@ reused:
 
 		return $s->read(all => [{ type => 'RST_STREAM' }])
 			if $extra{grpc_filter_goaway};
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{http_pres} = sub {
 		my (%extra) = @_;
@@ -845,7 +846,7 @@ reused:
 				mode => 2, huff => 1 },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{http_err_rst} = sub {
 		$c->start_chain();
@@ -859,7 +860,7 @@ reused:
 		$c->h2_rst($sid, 0);
 		$c->send_chain();
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{http_err2} = sub {
 		my %extra = @_;
@@ -902,7 +903,7 @@ reused:
 				mode => 2, huff => 1 },
 		]});
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{field_len} = sub {
 		my ($len) = @_;
@@ -921,7 +922,7 @@ reused:
 				mode => 2, huff => 1 },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{field_bad} = sub {
 		my (%extra) = @_;
@@ -933,7 +934,7 @@ reused:
 			{ name => $n, value => $v, mode => $m },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	$f->{discard} = sub {
 		my (%extra) = @_;
@@ -961,7 +962,7 @@ reused:
 		$c->h2_rst($sid, 8) if $uri eq '/Discard_CNL';
 		$c->send_chain();
 
-		return $s->read(all => [{ fin => 1 }], wait => 2)
+		return $s->read(all => [{ sid => $csid, fin => 1 }], wait => 2)
 			if $uri eq '/Discard_WU' || $uri eq '/Discard_NE';
 		return $s->read(all => [{ type => 'RST_STREAM' }]);
 	};

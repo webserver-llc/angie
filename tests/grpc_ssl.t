@@ -238,7 +238,7 @@ is($frame->{headers}{'x-connection'}, $c, 'keepalive - connection reuse');
 ###############################################################################
 
 sub grpc {
-	my ($server, $client, $f, $s, $c, $sid, $uri);
+	my ($server, $client, $f, $s, $c, $sid, $csid, $uri);
 
 	$server = IO::Socket::INET->new(
 		Proto => 'tcp',
@@ -253,7 +253,7 @@ sub grpc {
 		($uri, my %extra) = @_;
 		my $body_more = 1 if $uri !~ /LongHeader/;
 		$s = Test::Nginx::HTTP2->new() if !defined $s;
-		$s->new_stream({ body_more => $body_more, headers => [
+		$csid = $s->new_stream({ body_more => $body_more, headers => [
 			{ name => ':method', value => 'POST', mode => 0 },
 			{ name => ':scheme', value => 'http', mode => 0 },
 			{ name => ':path', value => $uri, },
@@ -326,7 +326,7 @@ sub grpc {
 				mode => 2, huff => 1 },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	return $f;
 }

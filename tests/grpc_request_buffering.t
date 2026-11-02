@@ -109,7 +109,7 @@ is(eval(join '+', map { $_->{length} } grep { $_->{type} eq "DATA" } @$frames),
 ###############################################################################
 
 sub grpc {
-	my ($server, $client, $f, $s, $c, $sid, $uri);
+	my ($server, $client, $f, $s, $c, $sid, $csid, $uri);
 
 	$server = IO::Socket::INET->new(
 		Proto => 'tcp',
@@ -124,7 +124,7 @@ sub grpc {
 		($uri, my %extra) = @_;
 		$s = Test::Nginx::HTTP2->new() if !defined $s;
 		my ($body) = $uri eq '/proxy' ? 'Hello' x 13200 : 'Hello';
-		$s->new_stream({ body => $body, headers => [
+		$csid = $s->new_stream({ body => $body, headers => [
 			{ name => ':method', value => 'POST', mode => 0 },
 			{ name => ':scheme', value => 'http', mode => 0 },
 			{ name => ':path', value => $uri },
@@ -187,7 +187,7 @@ sub grpc {
 			{ name => 'grpc-message', value => '', mode => 2 },
 		]}, $sid);
 
-		return $s->read(all => [{ fin => 1 }]);
+		return $s->read(all => [{ sid => $csid, fin => 1 }]);
 	};
 	return $f;
 }

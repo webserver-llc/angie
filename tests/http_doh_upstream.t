@@ -51,7 +51,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream tcp_retry_upstream {
-        server 127.0.0.1:8090;
+        server unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
         server 127.0.0.1:8081;
     }
 
@@ -62,7 +62,7 @@ http {
 
     upstream slow_retry_upstream {
         server 127.0.0.1:8082;
-        server 127.0.0.1:8090;
+        server unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
     }
 
     upstream tc_fb_upstream {

@@ -54,7 +54,7 @@ http {
     }
 
     upstream uc {
-        server 127.0.0.1:%%PORT_8998_UDP%% max_fails=0;  # nobody should listen on it
+        server unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
         server 127.0.0.1:%%PORT_8999_UDP%% max_fails=0;
     }
 

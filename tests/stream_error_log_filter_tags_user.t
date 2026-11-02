@@ -44,7 +44,7 @@ stream {
         listen       127.0.0.1:8082;
 
         # dead upstream
-        proxy_pass 127.0.0.1:8083;
+        proxy_pass unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
         proxy_connect_timeout 1ms;
 
         error_log_user_tag "$connection";

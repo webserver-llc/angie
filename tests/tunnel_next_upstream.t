@@ -37,7 +37,11 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream err.example.net {
-        server 127.0.0.1:8092;
+        # A non-existent unix socket: connect() fails right away with
+        # ENOENT, with no connect timer armed, so the error cannot race
+        # a timeout; and a socket path in the test directory cannot be
+        # taken by another process, unlike a bare TCP port.
+        server unix:%%TESTDIR%%/no-such.sock;
         server 127.0.0.1:8086;
     }
 
@@ -83,6 +87,11 @@ http {
 
         tunnel_pass err.example.net;
         tunnel_next_upstream error;
+
+        # the first upstream fails immediately and the second answers at
+        # once, so no timeout needs to fire here; keep generous margins
+        tunnel_connect_timeout 30s;
+        tunnel_read_timeout 30s;
     }
 
     server {

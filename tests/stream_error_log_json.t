@@ -10,7 +10,7 @@ use warnings;
 use strict;
 
 use Test::More;
-use Test::Deep qw/cmp_deeply re/;
+use Test::Deep qw/cmp_deeply re any/;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
@@ -42,7 +42,7 @@ stream {
     error_log %%TESTDIR%%/stream_error_log_info.log info;
 
     upstream u {
-        server 127.0.0.1:8083; # dead
+        server unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
         server 127.0.0.1:8081;
     }
 
@@ -126,7 +126,10 @@ sub verify_json_log_entry {
 	my $tags = \@stream_tags;
 
 	my $expected_session = {
-		upstream            => re(qr/127\.0\.0\.1:\d+/),
+		upstream            => any(
+			re(qr/127\.0\.0\.1:\d+/),
+			re(qr/unix:.+no-such\.sock/)
+		),
 		bytes_from_client   => $NUM_RE,
 		bytes_to_client     => $NUM_RE,
 		bytes_from_upstream => $NUM_RE,

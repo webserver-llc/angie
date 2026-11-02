@@ -35,7 +35,7 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     upstream u1 {
-        server 127.0.0.1:8099; # dead
+        server unix:%%TESTDIR%%/no-such.sock; # nobody should listen on it
         server 127.0.0.1:8082;
     }
 

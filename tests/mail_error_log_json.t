@@ -42,7 +42,7 @@ events {
 mail {
     proxy_timeout  15s;
     # dead
-    auth_http  http://127.0.0.1:8142/mail/auth;
+    auth_http  unix:%%TESTDIR%%/no-such.sock:/mail/auth;
 
     server {
         error_log_user_tag "srv1";

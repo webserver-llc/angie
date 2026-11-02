@@ -54,8 +54,8 @@ http {
             doh_read_timeout 5s;
         }
 
-        location /dns-query-refused {
-            doh_pass 127.0.0.1:8084;
+        location /dns-query-enoent {
+            doh_pass unix:%%TESTDIR%%/no-such.sock;
             doh_transport tcp;
         }
 
@@ -281,8 +281,8 @@ subtest 'max_size' => sub {
 like(doh_post('/dns-query-timeout', $query), qr/HTTP\/1\.. 504/,
 	'Upstream timeout - 504');
 
-like(doh_post('/dns-query-refused', $query), qr/HTTP\/1\.. 502/,
-	'Upstream connection refused - 502');
+like(doh_post('/dns-query-enoent', $query), qr/HTTP\/1\.. 502/,
+	'Upstream connection ENOENT - 502');
 
 # NXDOMAIN -> 200 + RCODE=3 + Cache-Control from SOA (subtest)
 subtest 'NXDOMAIN response' => sub {

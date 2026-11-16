@@ -6777,7 +6777,7 @@ static ngx_int_t
 ngx_http_v3_proxy_body_length(ngx_http_request_t *r,
     ngx_http_v3_proxy_ctx_t *v3c)
 {
-    size_t                        body_len, n;
+    size_t                        body_len;
     ngx_http_proxy_ctx_t         *ctx;
     ngx_http_script_engine_t     *le;
     ngx_http_proxy_loc_conf_t    *plcf;
@@ -6787,8 +6787,6 @@ ngx_http_v3_proxy_body_length(ngx_http_request_t *r,
     ctx = ngx_http_get_module_ctx(r, ngx_http_proxy_module);
 
     le = &v3c->le;
-
-    n = 0;
 
     if (plcf->body_lengths) {
         le->ip = plcf->body_lengths->elts;
@@ -6802,7 +6800,6 @@ ngx_http_v3_proxy_body_length(ngx_http_request_t *r,
         }
 
         ctx->internal_body_length = body_len;
-        n += body_len;
 
     } else if (r->headers_in.chunked && r->reading_body) {
         ctx->internal_body_length = -1;
@@ -6810,10 +6807,8 @@ ngx_http_v3_proxy_body_length(ngx_http_request_t *r,
 
     } else {
         ctx->internal_body_length = r->headers_in.content_length_n;
-        n = r->headers_in.content_length_n;
     }
 
-    v3c->n += n;
 
     return NGX_OK;
 }
@@ -6857,14 +6852,26 @@ ngx_http_v3_proxy_encode_body(ngx_http_request_t *r,
 
         e->ip = plcf->body_values->elts;
         e->pos = b->last;
+        e->end = b->end;
         e->skip = 0;
 
         while (*(uintptr_t *) e->ip) {
             code = *(ngx_http_script_code_pt *) e->ip;
             code((ngx_http_script_engine_t *) e);
+
+            if (e->status) {
+                return NGX_CHAIN_ERROR;
+            }
         }
 
         b->last = e->pos;
+
+        if (b->last - b->pos != ctx->internal_body_length) {
+            ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                          "evaluated v3 body does not match expected length");
+
+            return NGX_CHAIN_ERROR;
+        }
 
         return cl;
     }
@@ -7157,6 +7164,7 @@ ngx_http_v3_proxy_encode_headers(ngx_http_request_t *r,
 
     e->ip = headers->values->elts;
     e->pos = p;
+    e->end = p + max_head;
     e->request = r;
     e->flushed = 1;
 
@@ -7184,6 +7192,10 @@ ngx_http_v3_proxy_encode_headers(ngx_http_request_t *r,
             while (*(uintptr_t *) e->ip) {
                 code = *(ngx_http_script_code_pt *) e->ip;
                 code((ngx_http_script_engine_t *) e);
+
+                if (e->status) {
+                    return NGX_ERROR;
+                }
             }
             e->ip += sizeof(uintptr_t);
 
@@ -7195,16 +7207,32 @@ ngx_http_v3_proxy_encode_headers(ngx_http_request_t *r,
         code = *(ngx_http_script_code_pt *) e->ip;
         code((ngx_http_script_engine_t *) e);
 
+        if (e->status) {
+            return NGX_ERROR;
+        }
+
         tmp.len = e->pos - tmp.data;
         tmpv.data = e->pos;
 
         while (*(uintptr_t *) e->ip) {
             code = *(ngx_http_script_code_pt *) e->ip;
             code((ngx_http_script_engine_t *) e);
+
+            if (e->status) {
+                return NGX_ERROR;
+            }
         }
         e->ip += sizeof(uintptr_t);
 
         tmpv.len = e->pos - tmpv.data;
+
+        hlen = ngx_http_v3_encode_field_l(NULL, &tmp, &tmpv);
+
+        if ((b->end - b->last) < (ssize_t) hlen) {
+            ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                          "no buffer space in v3 request buffer");
+            return NGX_ERROR;
+        }
 
         b->last = (u_char *) ngx_http_v3_encode_field_l(b->last, &tmp, &tmpv);
 
@@ -7236,6 +7264,15 @@ ngx_http_v3_proxy_encode_headers(ngx_http_request_t *r,
                               header[i].lowcase_key, header[i].key.len))
             {
                 continue;
+            }
+
+            hlen = ngx_http_v3_encode_field_l(NULL, &header[i].key,
+                                              &header[i].value);
+
+            if ((b->end - b->last) < (ssize_t) hlen) {
+                ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                              "no buffer space in v3 request buffer");
+                return NGX_ERROR;
             }
 
             b->last = (u_char *) ngx_http_v3_encode_field_l(b->last,

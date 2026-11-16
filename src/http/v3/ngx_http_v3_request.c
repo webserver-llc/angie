@@ -187,8 +187,8 @@ ngx_http_v3_shutdown(ngx_connection_t *c)
         return;
     }
 
-    if (!h3c->goaway) {
-        h3c->goaway = 1;
+    if (!h3c->goaway_sent) {
+        h3c->goaway_sent = 1;
 
         if (!h3c->hq) {
             (void) ngx_http_v3_send_goaway(c, h3c->next_request_id);
@@ -232,7 +232,7 @@ ngx_http_v3_init_request_stream(ngx_connection_t *c)
 
     h3c = ngx_http_v3_get_session(c);
 
-    if (h3c->goaway) {
+    if (h3c->goaway_sent) {
         c->close = 1;
         ngx_http_close_connection(c);
         return;
@@ -243,7 +243,7 @@ ngx_http_v3_init_request_stream(ngx_connection_t *c)
     if (n + 1 == clcf->keepalive_requests
         || ngx_current_msec - c->start_time > clcf->keepalive_time)
     {
-        h3c->goaway = 1;
+        h3c->goaway_sent = 1;
 
         if (!h3c->hq) {
             if (ngx_http_v3_send_goaway(c, h3c->next_request_id) != NGX_OK) {

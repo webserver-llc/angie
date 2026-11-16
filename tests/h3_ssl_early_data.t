@@ -18,14 +18,15 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::HTTP3;
+use Test::Utils qw/get_json/;
 
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v3 cryptx/)
-	->has_daemon('openssl')->plan(13)
+my $t = Test::Nginx->new()->has(qw/http http_api http_v3 cryptx/)
+	->has_daemon('openssl')->plan(19)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -45,8 +46,17 @@ http {
     add_header X-Early   $ssl_early_data     always;
 
     server {
+        listen      127.0.0.1:8080;
+
+        location /status/ {
+            api /status/;
+        }
+    }
+
+    server {
         listen       127.0.0.1:%%PORT_8980_UDP%% quic;
         server_name  localhost;
+        status_zone  ssl_early_data_on;
 
         ssl_early_data on;
     }
@@ -54,6 +64,7 @@ http {
     server {
         listen       127.0.0.1:%%PORT_8981_UDP%% quic;
         server_name  localhost;
+        status_zone  ssl_early_data_off;
 
         ssl_early_data off;
     }
@@ -67,6 +78,8 @@ $t->run();
 ###############################################################################
 
 # ssl_early_data: on
+
+my $before1 = get_ssl_stats('ssl_early_data_on');
 
 my $s = Test::Nginx::HTTP3->new(8980);
 my $frames = $s->read(all => [{ sid => $s->new_stream(), fin => 1 }]);
@@ -118,7 +131,24 @@ is($frame->{headers}->{'x-session'}, 'r', 'reused session 1rtt');
 
 is($frame->{headers}->{'x-early'}, undef, 'reused session not early');
 
+my $after1 = get_ssl_stats('ssl_early_data_on');
+
+is($after1->{handshaked} - $before1->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (on)');
+
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL');
+
+is($after1->{reuses} - $before1->{reuses}, 1,
+	'stats: 1 session reuse counted (on, via early data)');
+}
+
+is($after1->{failed}, $before1->{failed}, 'stats: no failed handshakes (on)');
+
 # ssl_early_data: off
+
+my $before2 = get_ssl_stats('ssl_early_data_off');
 
 my $s2 = Test::Nginx::HTTP3->new(8981);
 my $frames2 = $s2->read(all => [{ sid => $s2->new_stream(), fin => 1 }]);
@@ -157,5 +187,26 @@ is($frame2->{headers}->{'x-session'}, 'r', 'off: reused session 1rtt');
 }
 
 is($frame2->{headers}->{'x-early'}, undef, 'off: reused session not early');
+
+my $after2 = get_ssl_stats('ssl_early_data_off');
+
+is($after2->{handshaked} - $before2->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (off)');
+
+TODO: {
+local $TODO = 'no TLSv1.3 sessions in LibreSSL'
+	if $t->has_module('LibreSSL');
+is($after2->{reuses} - $before2->{reuses}, 1,
+	'stats: 1 session reuse counted (off, via regular 1-RTT)');
+}
+
+is($after2->{failed}, $before2->{failed}, 'stats: no failed handshakes (off)');
+
+###############################################################################
+
+sub get_ssl_stats {
+	my ($zone) = @_;
+	return get_json("/status/http/server_zones/$zone/ssl");
+}
 
 ###############################################################################

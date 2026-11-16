@@ -15,6 +15,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib 'lib';
 use Test::Nginx;
+use Test::Utils qw/get_json/;
 
 use IPC::Open3;
 
@@ -23,13 +24,13 @@ use IPC::Open3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_ssl rewrite/)
+my $t = Test::Nginx->new()->has(qw/http http_api http_ssl rewrite/)
 	->has_daemon('openssl');
 
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
 	if $t->has_module('LibreSSL');
 
-$t->plan(12)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(18)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -50,10 +51,19 @@ http {
     add_header X-Session $ssl_session_reused always;
     add_header X-Early   $ssl_early_data     always;
 
+    server {
+        listen      127.0.0.1:8080;
+
+        location /status/ {
+            api /status/;
+        }
+    }
+
     # testcase 1: enabled early data
     server {
         listen      127.0.0.1:8081 ssl;
         server_name localhost;
+        status_zone ssl_early_data_on;
 
         ssl_early_data on;
 
@@ -64,6 +74,7 @@ http {
     server {
         listen      127.0.0.1:8082 ssl;
         server_name localhost;
+        status_zone ssl_early_data_off;
 
         ssl_early_data off;
 
@@ -95,6 +106,8 @@ $t->write_file("req.txt", $req);
 
 # server 1: ssl_early_data on
 
+my $before1 = get_ssl_stats('ssl_early_data_on');
+
 # first connection: establish session (no early data)
 my $r1 = early_get($p1, "-no_ticket -sess_out $sess1", $req);
 like($r1, qr/200 OK/, "initial handshake on $p1");
@@ -111,7 +124,17 @@ TODO: {
 	like($r2, qr/^x-early: 1/im, "x-early header set for $p1");
 }
 
+my $after1 = get_ssl_stats('ssl_early_data_on');
+
+is($after1->{handshaked} - $before1->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (on)');
+is($after1->{reuses} - $before1->{reuses}, 1,
+	'stats: 1 session reuse counted (on, via early data)');
+is($after1->{failed}, $before1->{failed}, 'stats: no failed handshakes (on)');
+
 # server 2: ssl_early_data off
+
+my $before2 = get_ssl_stats('ssl_early_data_off');
 
 my $r3 = early_get($p2, "-no_ticket -sess_out $sess2", $req);
 like($r3, qr/200 OK/, "initial handshake on $p2");
@@ -122,6 +145,14 @@ my $r4 = early_get($p2, "-early_data $req_file -sess_in $sess2", $req);
 like($r4, qr/200 OK/, "resumed handshake, early data ignored on $p2");
 like($r4, qr/^x-session: r\s?$/im, "session reused (via regular 1-RTT) on $p2");
 unlike($r4, qr/^x-early: 1/im, "x-early header not set for $p2");
+
+my $after2 = get_ssl_stats('ssl_early_data_off');
+
+is($after2->{handshaked} - $before2->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (off)');
+is($after2->{reuses} - $before2->{reuses}, 1,
+	'stats: 1 session reuse counted (off, via regular 1-RTT)');
+is($after2->{failed}, $before2->{failed}, 'stats: no failed handshakes (off)');
 
 ###############################################################################
 
@@ -141,6 +172,11 @@ sub early_get {
 	waitpid($pid, 0);
 
 	return $r;
+}
+
+sub get_ssl_stats {
+	my ($zone) = @_;
+	return get_json("/status/http/server_zones/$zone/ssl");
 }
 
 ###############################################################################

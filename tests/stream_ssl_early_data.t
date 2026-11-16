@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 use lib 'lib';
 use Test::Nginx;
 use Test::Nginx::Stream qw/ stream /;
+use Test::Utils qw/get_json/;
 
 use IPC::Open3;
 
@@ -25,13 +26,13 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/stream stream_ssl socket_ssl/)
-	->has(qw/http rewrite/)
+	->has(qw/http http_api rewrite/)
 	->has_daemon('openssl');
 
 plan(skip_all => 'no TLSv1.3 sessions in LibreSSL')
 	if $t->has_module('LibreSSL');
 
-$t->plan(6)->write_file_expand('nginx.conf', <<'EOF');
+$t->plan(12)->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
 
@@ -57,6 +58,7 @@ stream {
     server {
         listen      127.0.0.1:8082 ssl;
         proxy_pass  127.0.0.1:8081;
+        status_zone ssl_early_data_on;
 
         ssl_early_data on;
 
@@ -67,6 +69,7 @@ stream {
     server {
         listen      127.0.0.1:8083 ssl;
         proxy_pass  127.0.0.1:8081;
+        status_zone ssl_early_data_off;
 
         ssl_early_data off;
         access_log %%TESTDIR%%/s2.log ed;
@@ -79,6 +82,14 @@ http {
     %%TEST_GLOBALS_HTTP%%
 
     access_log %%TESTDIR%%/back.log;
+
+    server {
+        listen      127.0.0.1:8080;
+
+        location /status/ {
+            api /status/;
+        }
+    }
 
     server {
         listen 127.0.0.1:8081;
@@ -128,6 +139,10 @@ my $req_early = "GET /early HTTP/1.0\r\n\r\n";
 my $req_regular = "GET /regular HTTP/1.0\r\n\r\n";
 $t->write_file("req.txt", $req_early);
 
+# server 1: ssl_early_data on
+
+my $before1 = get_ssl_stats('ssl_early_data_on');
+
 # 1st request: establish session and save it
 like(early_get($p2, "-no_ticket -sess_out $sess1", $req_regular),
 	qr/REGULAR/, "initial response from $p2");
@@ -135,19 +150,39 @@ like(early_get($p2, "-no_ticket -sess_out $sess1", $req_regular),
 like(early_get($p2, "-early_data $early -sess_in $sess1", ""),
 	qr/EARLY/, "resume and early data $p2");
 
+my $after1 = get_ssl_stats('ssl_early_data_on');
+
+is($after1->{handshaked} - $before1->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (on)');
+is($after1->{reuses} - $before1->{reuses}, 1,
+	'stats: 1 session reuse counted (on, via early data)');
+is($after1->{failed}, $before1->{failed}, 'stats: no failed handshakes (on)');
+
+# server 2: ssl_early_data off
+
+my $before2 = get_ssl_stats('ssl_early_data_off');
+
 # 3rd request: establish session to server with early_data disabled
 like(early_get($p3, "-no_ticket -sess_out $sess2", $req_regular),
 	qr/REGULAR/, "initial response from $p3");
-# 4th request: try to resume session and use early data - shoudl not succeed
+# 4th request: try to resume session and use early data - should not succeed
 like(early_get($p3, "-early_data $early -sess_in $sess2", $req_regular),
 	qr/REGULAR/, "response from $p3 no early");
+
+my $after2 = get_ssl_stats('ssl_early_data_off');
+
+is($after2->{handshaked} - $before2->{handshaked}, 2,
+	'stats: 2 successful handshakes counted (off)');
+is($after2->{reuses} - $before2->{reuses}, 1,
+	'stats: 1 session reuse counted (off, via regular 1-RTT)');
+is($after2->{failed}, $before2->{failed}, 'stats: no failed handshakes (off)');
 
 # now verify all other logs
 $t->stop();
 
 # check that we have variables with proper values logged
-like($t->read_file('s1.log'), qr/r/, 'session reused in test1');
-like($t->read_file('s2.log'), qr/r/, 'session reused in test2');
+like($t->read_file('s1.log'), qr/^r$/m, 'session reused in test1');
+like($t->read_file('s2.log'), qr/^r$/m, 'session reused in test2');
 
 ###############################################################################
 
@@ -167,6 +202,11 @@ sub early_get {
 	waitpid($pid, 0);
 
 	return $r;
+}
+
+sub get_ssl_stats {
+	my ($zone) = @_;
+	return get_json("/status/stream/server_zones/$zone/ssl");
 }
 
 ###############################################################################

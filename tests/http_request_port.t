@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http/);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(5);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -49,7 +50,7 @@ http {
 EOF
 
 $t->write_file('index.html', '');
-$t->try_run('no request_port')->plan(5);
+$t->run();
 
 ###############################################################################
 

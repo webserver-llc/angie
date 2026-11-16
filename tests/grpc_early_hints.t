@@ -26,7 +26,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 http_v3 cryptx grpc/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(14);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -86,7 +87,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no early_hints')->plan(14);
+$t->run();
 
 ###############################################################################
 

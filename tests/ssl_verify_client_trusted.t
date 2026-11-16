@@ -26,7 +26,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl sni socket_ssl_sni/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -80,7 +81,7 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 
 $t->write_file('t', 'SEE-THIS');
 
-$t->try_run('wants ssl_client_certificate')->plan(3);
+$t->run();
 
 ###############################################################################
 

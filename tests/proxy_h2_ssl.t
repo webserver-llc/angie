@@ -85,7 +85,7 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', 'SEE-THIS');
-$t->try_run('no proxy_http_version 2')->plan(1);
+$t->plan(1)->run();
 
 ###############################################################################
 

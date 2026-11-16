@@ -24,7 +24,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl openssl:3.5 socket_ssl/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -85,7 +86,7 @@ $t->write_file('bundle.crt', $t->read_file('ec.crt') .
 
 $t->write_file('index.html', '');
 
-$t->try_run('no ssl_sigalg')->plan(6);
+$t->run();
 
 ###############################################################################
 

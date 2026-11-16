@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Nginx, Inc.
 
 # Tests for loading external entities in the nginx xslt filter module.
@@ -21,7 +22,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http xslt/);
+my $t = Test::Nginx->new()->has(qw/http xslt/)->plan(7);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -110,7 +111,7 @@ $t->write_file('predefined',
 
 $t->write_file('normal', '<root><data>hello</data></root>');
 
-$t->try_run('no xml_external_entities')->plan(7);
+$t->run();
 
 ###############################################################################
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -23,7 +24,7 @@ use Test::Nginx::HTTP2;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy/)->plan(9);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -75,7 +76,7 @@ http {
 EOF
 
 $t->write_file('index.html', 'SEE-THIS');
-$t->try_run('no proxy_http_version 2')->plan(9);
+$t->run();
 
 ###############################################################################
 

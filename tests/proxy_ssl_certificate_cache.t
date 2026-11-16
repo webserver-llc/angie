@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -24,7 +25,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_ssl proxy openssl:1.0.2/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(20);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -164,7 +166,7 @@ update($t, 'eb.example.com', 'e.example.com');
 $t->write_file('password', 'e.example.com');
 $t->write_file('index.html', '');
 
-$t->try_run('no proxy_ssl_certificate_cache')->plan(20);
+$t->run();
 
 ###############################################################################
 

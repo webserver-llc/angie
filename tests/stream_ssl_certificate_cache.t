@@ -25,7 +25,8 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/stream stream_ssl openssl:1.0.2 socket_ssl_sni/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(14);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -88,7 +89,7 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com',
 
 update($t, '4b.example.com', '4.example.com');
 
-$t->try_run('no ssl_certificate_cache')->plan(14);
+$t->run();
 
 ###############################################################################
 

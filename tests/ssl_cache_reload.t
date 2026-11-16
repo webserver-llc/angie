@@ -24,7 +24,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl reload/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(5);
 
 $t->write_file_expand('nginx.conf', << 'EOF');
 
@@ -77,7 +78,7 @@ foreach my $name ('1.example.com', '2.example.com', '3.example.com') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no ssl_object_cache_inheritable')->plan(5);
+$t->run();
 
 ###############################################################################
 

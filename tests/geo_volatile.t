@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -22,7 +23,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http rewrite geo/);
+my $t = Test::Nginx->new()->has(qw/http rewrite geo/)->plan(2);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -72,7 +73,7 @@ http {
 
 EOF
 
-$t->try_run('no geo volatile')->plan(2);
+$t->run();
 
 ###############################################################################
 

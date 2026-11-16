@@ -25,7 +25,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy upstream_sticky/);
+my $t = Test::Nginx->new()->has(qw/http proxy upstream_sticky/)->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -95,7 +95,7 @@ http {
 EOF
 
 $t->write_file('long', 'x' x 40000);
-$t->try_run('unknown sticky mode "learn"')->plan(3);
+$t->run();
 
 ###############################################################################
 

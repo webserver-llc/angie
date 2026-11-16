@@ -27,7 +27,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone/);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone/)->plan(11);
 
 $t->skip_errors_check('crit',
 	qr/connect\(\) to \[fe80::1\]:\d{4,} failed/,
@@ -76,7 +76,7 @@ port(8084);
 
 $t->run_daemon(\&dns_daemon, port(8983), $t);
 $t->waitforfile($t->testdir . '/' . port(8983));
-$t->try_run('no resolve in upstream server')->plan(11);
+$t->run();
 
 ###############################################################################
 

@@ -23,7 +23,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy/);
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan(6);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -59,7 +59,7 @@ http {
 EOF
 
 $t->write_file('data', 'X' x 40000);
-$t->try_run('no proxy_limit_rate variables')->plan(6);
+$t->run();
 
 ###############################################################################
 

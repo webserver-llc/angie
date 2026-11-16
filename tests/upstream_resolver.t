@@ -25,7 +25,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy upstream_zone/);
+my $t = Test::Nginx->new()->has(qw/http proxy upstream_zone/)->plan(6);
 
 $t->skip_errors_check('crit', "Can't assign requested address")
 	if $^O eq 'freebsd';
@@ -81,7 +81,7 @@ EOF
 $t->run_daemon(\&dns_daemon, $t, port($_), port($_ - 500)) for (8980 .. 8982);
 $t->waitforfile($t->testdir . '/' . port($_)) for (8980 .. 8982);
 
-$t->try_run('no resolver in upstream')->plan(6);
+$t->run();
 
 ###############################################################################
 

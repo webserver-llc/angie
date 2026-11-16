@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for mail module, XOAUTH2 and OAUTHBEARER authentication.
@@ -30,6 +31,7 @@ select STDOUT; $| = 1;
 local $SIG{PIPE} = 'IGNORE';
 
 my $t = Test::Nginx->new()->has(qw/mail imap pop3 smtp http map rewrite/)
+	->plan(48)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -108,7 +110,7 @@ EOF
 $t->run_daemon(\&Test::Nginx::IMAP::imap_test_daemon);
 $t->run_daemon(\&Test::Nginx::POP3::pop3_test_daemon);
 $t->run_daemon(\&Test::Nginx::SMTP::smtp_test_daemon);
-$t->try_run('no oauth support')->plan(48);
+$t->run();
 
 $t->waitforsocket('127.0.0.1:' . port(8144));
 $t->waitforsocket('127.0.0.1:' . port(8111));

@@ -241,7 +241,7 @@ $t->write_file('ec-end-int.crt',
 	$t->read_file('ec-end.crt') . $t->read_file('int.crt'));
 
 $t->run_daemon(\&http_daemon, $t);
-$t->try_run('no ssl_stapling')->plan(9);
+$t->plan(9)->run();
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 

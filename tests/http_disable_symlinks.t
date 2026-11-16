@@ -166,7 +166,7 @@ my ($extfile) = grep { -f && !-l && $uid != (stat())[4] }
 plan(skip_all => 'no external file found')
 	if !defined $extfile;
 
-$t->try_run('no disable_symlinks')->plan(28);
+$t->plan(28)->run();
 
 my $d = $t->testdir();
 

@@ -24,7 +24,7 @@ use Test::Nginx;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/);
+my $t = Test::Nginx->new()->has(qw/http http_v2 proxy rewrite/)->plan(3);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -109,7 +109,7 @@ http {
 
 EOF
 
-$t->try_run('no proxy_http_version 2')->plan(3);
+$t->run();
 
 ###############################################################################
 

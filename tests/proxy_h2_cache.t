@@ -26,6 +26,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_v2 proxy cache gzip upstream_keepalive/)
+	->plan(18)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -97,7 +98,7 @@ $t->write_file('t2.html', 'SEE-THIS');
 $t->write_file('empty.html', '');
 $t->write_file('big.html', 'x' x 1024);
 
-$t->try_run('no proxy_http_version 2')->plan(18);
+$t->run();
 
 ###############################################################################
 

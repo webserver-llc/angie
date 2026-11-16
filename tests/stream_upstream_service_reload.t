@@ -27,7 +27,8 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone reload/);
+my $t = Test::Nginx->new()->has(qw/stream stream_upstream_zone reload/)
+	->plan(7);
 
 $t->skip_errors_check('crit', "Can't assign requested address")
 	if $^O eq 'freebsd';
@@ -70,7 +71,7 @@ my $p = port(8081);
 
 $t->run_daemon(\&dns_daemon, $t);
 $t->waitforfile($t->testdir . '/' . port(8980));
-$t->try_run('no resolve in upstream server')->plan(7);
+$t->run();
 
 ###############################################################################
 

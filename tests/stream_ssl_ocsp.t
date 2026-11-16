@@ -287,7 +287,7 @@ $t->start_resolver(5961, \%addrs);
 $t->run_daemon(\&http_daemon, $t, port(8081));
 $t->run_daemon(\&http_daemon, $t, port(8082));
 $t->run_daemon(\&http_daemon, $t, port(8083));
-$t->try_run('no ssl_ocsp')->plan(19);
+$t->plan(19)->run();
 
 $t->waitforsocket("127.0.0.1:" . port(8081));
 $t->waitforsocket("127.0.0.1:" . port(8082));

@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -25,7 +26,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 http_v3 cryptx proxy/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(11);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -82,7 +84,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no early_hints')->plan(11);
+$t->run();
 
 $t->run_daemon(\&http_daemon);
 $t->waitforsocket('127.0.0.1:' . port(8081));

@@ -158,7 +158,7 @@ if ((`$openssl ech -help 2>&1` || '') =~ m/-public_name/) {
 	plan(skip_all => 'no openssl ech or bssl generate-ech')
 }
 
-$t->try_run('no ssl_encrypted_hello_key')->plan(8);
+$t->plan(8)->run();
 
 ###############################################################################
 

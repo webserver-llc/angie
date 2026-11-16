@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Sergey Kandaurov
 # (C) Nginx, Inc.
 
@@ -25,7 +26,8 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_v2 http_v3 cryptx proxy/)
-	->has_daemon('openssl');
+	->has_daemon('openssl')
+	->plan(13);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 
@@ -97,7 +99,7 @@ foreach my $name ('localhost') {
 }
 
 $t->write_file('index.html', 'SEE-THIS');
-$t->try_run('no proxy_pass_trailers')->plan(13);
+$t->run();
 
 ###############################################################################
 

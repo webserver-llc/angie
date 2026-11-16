@@ -26,6 +26,11 @@ select STDOUT; $| = 1;
 my $t = Test::Nginx->new()->has(qw/http http_ssl socket_ssl/)
 	->has_daemon('openssl');
 
+plan(skip_all => 'no set_msg_callback, old IO::Socket::SSL')
+	if $IO::Socket::SSL::VERSION < 2.081;
+plan(skip_all => 'no support for msg callback, old Net::SSLeay')
+	if $Net::SSLeay::VERSION < 1.91;
+
 $t->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -106,14 +111,10 @@ foreach my $name ('ec', 'repl', 'rsa') {
 
 $t->write_file('index.html', '');
 
-$t->try_run('no ssl_certificate_compression');
+$t->run();
 
 plan(skip_all => 'no ssl_certificate_compression support')
 	if $t->read_file('error.log') =~ /SSL_CTX_compress_certs/;
-plan(skip_all => 'no set_msg_callback, old IO::Socket::SSL')
-	if $IO::Socket::SSL::VERSION < 2.081;
-plan(skip_all => 'no support for msg callback, old Net::SSLeay')
-	if $Net::SSLeay::VERSION < 1.91;
 
 $t->plan(8);
 

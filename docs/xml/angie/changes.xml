@@ -9,6 +9,18 @@
 
 <change type="bugfix">
 <para lang="ru">
+HTTP/3-прокси мог вернуть ошибку 500 при повторном использовании соединения
+с проксируемым сервером, лимит потоков которого был исчерпан, вместо создания
+нового upstream-соединения.
+</para>
+<para lang="en">
+HTTP/3 proxy could return 500 when reusing a cached upstream connection whose
+stream limit was exhausted, instead of establishing a new upstream connection.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
 могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
 за время жизни и далее не переиспользовалось.

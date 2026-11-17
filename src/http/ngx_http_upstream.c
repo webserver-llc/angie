@@ -1806,7 +1806,32 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
 
     /* this is cached main quic connection with completed handshake */
     if (u->peer.cached && c->type == SOCK_DGRAM) {
-        if (ngx_http_v3_upstream_reuse_connection(r, u, c) != NGX_OK) {
+
+        rc = ngx_http_v3_upstream_reuse_connection(r, u, c);
+
+        if (rc == NGX_DECLINED) {
+            /*
+             * we failed to open a new stream on this connection: consider
+             * connection no longer usable;
+             * but it is not the failure of the upstream server
+             */
+
+            u->state->status = NGX_HTTP_BAD_GATEWAY;
+
+            u->peer.connected = 1;
+            u->peer.closed = c->read->eof;
+
+#if (NGX_API && NGX_HTTP_UPSTREAM_ZONE)
+            if (u->upstream != NULL && u->upstream->shm_zone != NULL) {
+                ngx_http_upstream_stat(&u->peer, 0);
+            }
+#endif
+
+            ngx_http_upstream_close_peer_connection(r, u, 1);
+
+            ngx_http_upstream_connect(r, u);
+
+        } else if (rc != NGX_OK) {
             ngx_http_upstream_finalize_request(r, u,
                                                NGX_HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -8013,7 +8038,7 @@ ngx_http_v3_upstream_reuse_connection(ngx_http_request_t *r,
 
     sc = ngx_quic_open_stream(c, 1);
     if (sc == NULL) {
-        return NGX_ERROR;
+        return NGX_DECLINED;
     }
 
     sc->data = r;

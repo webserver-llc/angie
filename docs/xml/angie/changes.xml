@@ -9,6 +9,19 @@
 
 <change type="bugfix">
 <para lang="ru">
+при проксировании по HTTP/3, если проксируемый сервер не отправлял
+TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
+могли зависать и завершаться по таймауту.
+</para>
+<para lang="en">
+when proxying over HTTP/3, if the proxied server did not send TLS session
+tickets (for example, when using LibreSSL), requests to it could hang and
+time out.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 HTTP/3-прокси мог вернуть ошибку 500 при повторном использовании соединения
 с проксируемым сервером, лимит потоков которого был исчерпан, вместо создания
 нового upstream-соединения.

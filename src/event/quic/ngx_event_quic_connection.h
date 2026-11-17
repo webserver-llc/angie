@@ -329,6 +329,7 @@ struct ngx_quic_connection_s {
     unsigned                          write_level:2;
 #endif
     unsigned                          post_hs_done:1;
+    unsigned                          hs_done:1;
 };
 
 

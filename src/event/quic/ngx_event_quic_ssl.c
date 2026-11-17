@@ -59,7 +59,7 @@ static int ngx_quic_send_alert(ngx_ssl_conn_t *ssl_conn,
 
 #endif
 
-static ngx_int_t ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level);
+static ngx_int_t ngx_quic_handshake(ngx_connection_t *c);
 static ngx_int_t ngx_quic_ssl_handshake(ngx_connection_t *c);
 static ngx_int_t ngx_quic_crypto_provide(ngx_connection_t *c, ngx_uint_t level);
 
@@ -704,12 +704,12 @@ ngx_quic_handle_crypto_frame(ngx_connection_t *c, ngx_quic_header_t *pkt,
     }
 
 
-    return ngx_quic_handshake(c, pkt->level);
+    return ngx_quic_handshake(c);
 }
 
 
 static ngx_int_t
-ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
+ngx_quic_handshake(ngx_connection_t *c)
 {
     ngx_int_t               rc;
     ngx_quic_frame_t       *frame;
@@ -738,17 +738,13 @@ ngx_quic_handshake(ngx_connection_t *c, ngx_uint_t level)
         return NGX_ERROR;
     }
 
-    if (qc->client) {
-        if (level != NGX_QUIC_ENCRYPTION_APPLICATION) {
-            /*
-             * Server sends TLS Handshake Finished twice:
-             * in handshake and application level packets;
-             *
-             * perform h/s complete actions only once, when app received
-             */
+    if (qc->hs_done) {
+        return NGX_OK;
+    }
 
-            return NGX_OK;
-        }
+    qc->hs_done = 1;
+
+    if (qc->client) {
 
         /* flush output: need to ack with previous keys */
         if (ngx_quic_output(c) != NGX_OK) {

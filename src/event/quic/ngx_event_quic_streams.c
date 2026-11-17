@@ -68,7 +68,7 @@ ngx_quic_open_stream(ngx_connection_t *c, ngx_uint_t bidi)
     ngx_quic_stream_t       *qs;
     ngx_quic_connection_t   *qc;
     ngx_quic_stream_ctl_t   *sctl;
-    ngx_quic_stream_peer_t  *peer;
+    ngx_quic_stream_peer_t  *self;
 
     pc = c->quic ? c->quic->parent : c;
     qc = ngx_quic_get_connection(pc);
@@ -79,8 +79,8 @@ ngx_quic_open_stream(ngx_connection_t *c, ngx_uint_t bidi)
         return NULL;
     }
 
-    peer = qc->client ? &qc->streams.client : &qc->streams.server;
-    sctl = bidi ? &peer->bidi : &peer->uni;
+    self = qc->client ? &qc->streams.client : &qc->streams.server;
+    sctl = bidi ? &self->bidi : &self->uni;
 
     if (sctl->count >= sctl->max) {
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, c->log, 0,
@@ -415,7 +415,7 @@ ngx_quic_get_stream(ngx_connection_t *c, uint64_t id)
     ngx_quic_stream_t       *qs;
     ngx_quic_connection_t   *qc;
     ngx_quic_stream_ctl_t   *sctl;
-    ngx_quic_stream_peer_t  *peer;
+    ngx_quic_stream_peer_t  *self, *peer;
 
     qc = ngx_quic_get_connection(c);
 
@@ -435,9 +435,9 @@ ngx_quic_get_stream(ngx_connection_t *c, uint64_t id)
     if (ngx_quic_out_stream(qc, id)) {
         /* stream is initiated by us, but peer is trying to use it */
 
-        peer = qc->client ? &qc->streams.client : &qc->streams.server;
+        self = qc->client ? &qc->streams.client : &qc->streams.server;
 
-        sctl = ngx_quic_uni_stream(id) ? &peer->uni : &peer->bidi;
+        sctl = ngx_quic_uni_stream(id) ? &self->uni : &self->bidi;
 
         if ((id >> 2) < sctl->count) {
             return NGX_QUIC_STREAM_GONE;
@@ -1799,12 +1799,15 @@ ngx_int_t
 ngx_quic_handle_max_streams_frame(ngx_connection_t *c,
     ngx_quic_header_t *pkt, ngx_quic_max_streams_frame_t *f)
 {
-    ngx_quic_stream_ctl_t  *sctl;
-    ngx_quic_connection_t  *qc;
+    ngx_quic_stream_ctl_t   *sctl;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_peer_t  *self;
 
     qc = ngx_quic_get_connection(c);
 
-    sctl = f->bidi ? &qc->streams.server.bidi : &qc->streams.server.uni;
+    self = qc->client ? &qc->streams.client : &qc->streams.server;
+
+    sctl = f->bidi ? &self->bidi : &self->uni;
 
     if (sctl->max < f->limit) {
         sctl->max = f->limit;

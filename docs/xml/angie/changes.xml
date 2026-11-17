@@ -7,6 +7,19 @@
 
 <changes ver="1.12.6" date="">
 
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
+могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
+за время жизни и далее не переиспользовалось.
+</para>
+<para lang="en">
+when proxying over HTTP/3, an upstream keepalive connection could
+serve at most "proxy_http3_max_concurrent_streams" requests during
+its lifetime and was not reused after that.
+</para>
+</change>
+
 </changes>
 
 

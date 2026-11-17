@@ -131,8 +131,9 @@ ngx_quic_connstate_dbg(ngx_connection_t *c)
 ngx_int_t
 ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
 {
-    ngx_str_t               scid;
-    ngx_quic_connection_t  *qc;
+    ngx_str_t                scid;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_peer_t  *self;
 
     qc = ngx_quic_get_connection(c);
 
@@ -194,8 +195,10 @@ ngx_quic_apply_transport_params(ngx_connection_t *c, ngx_quic_tp_t *peer_tp)
         qc->tp.max_idle_timeout = peer_tp->max_idle_timeout;
     }
 
-    qc->streams.server.bidi.max = peer_tp->initial_max_streams_bidi;
-    qc->streams.server.uni.max = peer_tp->initial_max_streams_uni;
+    self = qc->client ? &qc->streams.client : &qc->streams.server;
+
+    self->bidi.max = peer_tp->initial_max_streams_bidi;
+    self->uni.max = peer_tp->initial_max_streams_uni;
 
     if (qc->client) {
         ngx_memcpy(qc->path->cid->sr_token,
@@ -522,10 +525,11 @@ static ngx_quic_connection_t *
 ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     ngx_quic_header_t *pkt)
 {
-    ngx_str_t               dcid;
-    ngx_uint_t              i;
-    ngx_quic_tp_t          *peer_tp;
-    ngx_quic_connection_t  *qc;
+    ngx_str_t                dcid;
+    ngx_uint_t               i;
+    ngx_quic_tp_t           *peer_tp;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_peer_t  *peer;
 
     qc = ngx_pcalloc(c->pool, sizeof(ngx_quic_connection_t));
     if (qc == NULL) {
@@ -606,8 +610,16 @@ ngx_quic_new_connection(ngx_connection_t *c, ngx_quic_conf_t *conf,
     qc->streams.recv_max_data = qc->tp.initial_max_data;
     qc->streams.recv_window = qc->streams.recv_max_data;
 
-    qc->streams.client.uni.max = qc->tp.initial_max_streams_uni;
-    qc->streams.client.bidi.max = qc->tp.initial_max_streams_bidi;
+    peer = qc->client ? &qc->streams.server : &qc->streams.client;
+
+    peer->uni.max = qc->tp.initial_max_streams_uni;
+    peer->bidi.max = qc->tp.initial_max_streams_bidi;
+
+    if (qc->client) {
+        /* client needs this in advance to open streams early */
+        qc->streams.client.uni.max = qc->tp.initial_max_streams_uni;
+        qc->streams.client.bidi.max = qc->tp.initial_max_streams_bidi;
+    }
 
     ngx_quic_congestion_reset(qc);
 

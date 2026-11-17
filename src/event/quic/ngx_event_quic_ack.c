@@ -786,11 +786,12 @@ ngx_quic_oldest_sent_packet(ngx_connection_t *c)
 void
 ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
 {
-    uint64_t                pnum;
-    ngx_queue_t            *q;
-    ngx_quic_frame_t       *f, *start;
-    ngx_quic_stream_t      *qs;
-    ngx_quic_connection_t  *qc;
+    uint64_t                 pnum;
+    ngx_queue_t             *q;
+    ngx_quic_frame_t        *f, *start;
+    ngx_quic_stream_t       *qs;
+    ngx_quic_connection_t   *qc;
+    ngx_quic_stream_peer_t  *peer;
 
     qc = ngx_quic_get_connection(c);
     q = ngx_queue_head(&ctx->sent);
@@ -838,9 +839,13 @@ ngx_quic_resend_frames(ngx_connection_t *c, ngx_quic_send_ctx_t *ctx)
 
         case NGX_QUIC_FT_MAX_STREAMS:
         case NGX_QUIC_FT_MAX_STREAMS2:
+
+            peer = qc->client ? &qc->streams.server : &qc->streams.client;
+
             f->u.max_streams.limit = f->u.max_streams.bidi
-                                     ? qc->streams.client.bidi.max
-                                     : qc->streams.client.uni.max;
+                                     ? peer->bidi.max
+                                     : peer->uni.max;
+
             ngx_quic_queue_frame(qc, f);
             break;
 

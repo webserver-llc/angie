@@ -24,6 +24,19 @@ memory corruption or a worker process crash could occur.
 </para>
 </change>
 
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
+могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
+за время жизни и далее не переиспользовалось.
+</para>
+<para lang="en">
+when proxying over HTTP/3, an upstream keepalive connection could
+serve at most "proxy_http3_max_concurrent_streams" requests during
+its lifetime and was not reused after that.
+</para>
+</change>
+
 <change type="feature">
 <para lang="ru">
 возможность задавать в директиве "acme_dns_ttl" значения времени,

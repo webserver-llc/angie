@@ -52,7 +52,6 @@ static void ngx_quic_copy_chain_data(ngx_chain_t *dst_chain,
 static ngx_int_t ngx_quic_stream_flush(ngx_quic_stream_t *qs);
 static void ngx_quic_stream_cleanup_handler(void *data);
 static ngx_int_t ngx_quic_close_stream(ngx_quic_stream_t *qs);
-static ngx_int_t ngx_quic_can_shutdown(ngx_connection_t *c);
 static ngx_int_t ngx_quic_control_flow(ngx_quic_stream_t *qs, uint64_t last);
 static ngx_int_t ngx_quic_update_flow(ngx_quic_stream_t *qs, uint64_t last);
 static ngx_int_t ngx_quic_update_max_stream_data(ngx_quic_stream_t *qs);
@@ -73,9 +72,10 @@ ngx_quic_open_stream(ngx_connection_t *c, ngx_uint_t bidi)
     pc = c->quic ? c->quic->parent : c;
     qc = ngx_quic_get_connection(pc);
 
-    if (qc->closing) {
+    if (qc->closing || (qc->shutdown && bidi)) {
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
-                       "quic open stream failed: already closing");
+                       "quic open stream failed: already closing "
+                       "or shutting down");
         return NULL;
     }
 
@@ -1430,7 +1430,7 @@ ngx_quic_close_stream(ngx_quic_stream_t *qs)
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_quic_can_shutdown(ngx_connection_t *c)
 {
     ngx_rbtree_t           *tree;

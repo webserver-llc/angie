@@ -36,6 +36,21 @@ upstream headers if a HEADERS frame spanned multiple reads.
 
 <change type="bugfix">
 <para lang="ru">
+проксируемое по HTTP/3 соединение могло сохраняться в keepalive-кэш даже
+после получения от проксируемого сервера сигнала на закрытие (GOAWAY),
+что далее, при повторном использовании, приводило к завершению запроса
+с ошибкой; теперь такое соединение закрывается и не используется повторно.
+</para>
+<para lang="en">
+an HTTP/3 proxied connection could remain in the keepalive cache even
+after receiving a close signal (GOAWAY) from the proxied server,
+which later led to request failure when the connection was reused;
+now such a connection is closed and not reused.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 при проксировании по HTTP/3, если проксируемый сервер не отправлял
 TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
 могли зависать и завершаться по таймауту.

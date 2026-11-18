@@ -255,6 +255,16 @@ ngx_http_v3_uni_read_handler(ngx_event_t *rev)
         }
     }
 
+    h3c = ngx_http_v3_get_session(c);
+
+    if (h3c && h3c->goaway_recvd && !h3c->goaway_shutdown) {
+        h3c->goaway_shutdown = 1;
+
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                       "http3 goaway received, shutting down");
+        ngx_http_v3_shutdown(c);
+    }
+
     if (ngx_handle_read_event(rev, 0) != NGX_OK) {
         rc = NGX_HTTP_V3_ERR_INTERNAL_ERROR;
         goto failed;

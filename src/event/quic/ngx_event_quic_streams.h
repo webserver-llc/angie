@@ -41,6 +41,7 @@ void ngx_quic_rbtree_insert_stream(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
 ngx_quic_stream_t *ngx_quic_find_stream(ngx_rbtree_t *rbtree,
     uint64_t id);
+ngx_int_t ngx_quic_can_shutdown(ngx_connection_t *c);
 ngx_int_t ngx_quic_close_streams(ngx_connection_t *c,
     ngx_quic_connection_t *qc);
 

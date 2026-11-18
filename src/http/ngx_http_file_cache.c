@@ -276,6 +276,13 @@ ngx_http_file_cache_init(ngx_shm_zone_t *shm_zone, void *data)
         /* if zone was restored, slab was re-created, restore zero */
         cache->shpool->log_nomem = 0;
 
+        /*
+         * if the zone was saved while it was being loaded, it holds the
+         * pid of a cache loader that is no longer running; reset it to
+         * let the loader finish loading the zone
+         */
+        cache->sh->loading = 0;
+
         return NGX_OK;
     }
 

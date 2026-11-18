@@ -9,6 +9,17 @@
 
 <change type="bugfix">
 <para lang="ru">
+загрузчик кэша не работал для зон, восстановленных из файла состояния,
+если ранее тот был сохранен до окончания загрузки кэша.
+</para>
+<para lang="en">
+cache loader did not work for zones restored from a state file,
+if the file was saved before the cache was finally loaded.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
 в "error_log" могли записываться ложные сообщения вида
 "[alert] recv() failed (5: Input/output error)";

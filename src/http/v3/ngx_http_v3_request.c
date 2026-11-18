@@ -432,12 +432,16 @@ ngx_http_v3_wait_request_handler(ngx_event_t *rev)
 void
 ngx_http_v3_reset_stream(ngx_connection_t *c)
 {
+    ngx_uint_t              index;
     ngx_http_v3_session_t  *h3c;
 
     h3c = ngx_http_v3_get_session(c);
 
+    index = h3c->client ? NGX_HTTP_V3_STREAM_CLIENT_DECODER
+                        : NGX_HTTP_V3_STREAM_SERVER_DECODER;
+
     if (!c->read->eof && !h3c->hq
-        && h3c->known_streams[NGX_HTTP_V3_STREAM_SERVER_DECODER]
+        && h3c->known_streams[index]
         && (c->quic->id & NGX_QUIC_STREAM_UNIDIRECTIONAL) == 0)
     {
         (void) ngx_http_v3_send_cancel_stream(c, c->quic->id);

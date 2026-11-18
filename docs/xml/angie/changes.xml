@@ -9,6 +9,21 @@
 
 <change type="bugfix">
 <para lang="ru">
+если для экспорта метрик использовался штатный файл "prometheus_all.conf",
+метрики "angie_http_acme_clients_state" и "angie_http_acme_certs_state"
+отсутствовали в выдаче, так как шаблоны преобразования значений этих
+метрик были перепутаны местами.
+</para>
+<para lang="en">
+if the bundled "prometheus_all.conf" file was used to export metrics, the
+"angie_http_acme_clients_state" and "angie_http_acme_certs_state" metrics
+were missing from the output, because the value mapping templates of
+these metrics were swapped with each other.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 при проксировании по HTTP/3 в ответе клиенту могли отсутствовать уже
 обработанные заголовки от проксируемого сервера, если фрейм HEADERS был
 получен не за одно чтение.

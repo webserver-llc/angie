@@ -9,6 +9,18 @@
 
 <change type="bugfix">
 <para lang="ru">
+при проксировании по HTTP/3 в ответе клиенту могли отсутствовать уже
+обработанные заголовки от проксируемого сервера, если фрейм HEADERS был
+получен не за одно чтение.
+</para>
+<para lang="en">
+when proxying over HTTP/3, the client response might lack previously parsed
+upstream headers if a HEADERS frame spanned multiple reads.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 при проксировании по HTTP/3, если проксируемый сервер не отправлял
 TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
 могли зависать и завершаться по таймауту.

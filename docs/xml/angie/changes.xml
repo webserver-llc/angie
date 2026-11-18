@@ -9,6 +9,21 @@
 
 <change type="bugfix">
 <para lang="ru">
+при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
+в "error_log" могли записываться ложные сообщения вида
+"[alert] recv() failed (5: Input/output error)";
+исправление портировано из nginx 1.31.8.
+</para>
+<para lang="en">
+when closing SSL connections with kernel TLS (Linux, OpenSSL 3.2.0 and later),
+spurious messages such as "[alert] recv() failed (5: Input/output error)"
+could be logged to "error_log";
+the fix was ported from nginx 1.31.8.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
 если для экспорта метрик использовался штатный файл "prometheus_all.conf",
 метрики "angie_http_acme_clients_state" и "angie_http_acme_certs_state"
 отсутствовали в выдаче, так как шаблоны преобразования значений этих

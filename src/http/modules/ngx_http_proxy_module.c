@@ -1192,6 +1192,8 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
         if (ctx->v3_parse == NULL) {
             return NGX_ERROR;
         }
+
+        ctx->v3_parse->header_limit = u->conf->bufs.size * u->conf->bufs.num;
     }
 #endif
 
@@ -7292,6 +7294,7 @@ ngx_http_v3_proxy_encode_headers(ngx_http_request_t *r,
 static ngx_int_t
 ngx_http_v3_proxy_reinit_request(ngx_http_request_t *r)
 {
+    ngx_http_upstream_t   *u;
     ngx_http_proxy_ctx_t  *ctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_proxy_module);
@@ -7300,12 +7303,16 @@ ngx_http_v3_proxy_reinit_request(ngx_http_request_t *r)
         return NGX_OK;
     }
 
-    r->upstream->process_header = ngx_http_v3_proxy_process_status_line;
-    r->upstream->pipe->input_filter = ngx_http_v3_proxy_copy_filter;
-    r->upstream->input_filter = ngx_http_v3_proxy_non_buffered_copy_filter;
+    u = r->upstream;
+
+    u->process_header = ngx_http_v3_proxy_process_status_line;
+    u->pipe->input_filter = ngx_http_v3_proxy_copy_filter;
+    u->input_filter = ngx_http_v3_proxy_non_buffered_copy_filter;
 
     r->state = 0;
     ngx_memzero(ctx->v3_parse, sizeof(ngx_http_v3_parse_t));
+
+    ctx->v3_parse->header_limit = u->conf->bufs.size * u->conf->bufs.num;
 
     return NGX_OK;
 }
@@ -7365,15 +7372,6 @@ ngx_http_v3_proxy_process_status_line(ngx_http_request_t *r)
 #endif
 
     h3c = ngx_http_v3_get_session(c);
-
-    if (ngx_list_init(&u->headers_in.headers, r->pool, 20,
-                      sizeof(ngx_table_elt_t))
-        != NGX_OK)
-    {
-        return NGX_ERROR;
-    }
-
-    ctx->v3_parse->header_limit = u->conf->bufs.size * u->conf->bufs.num;
 
     st = &ctx->v3_parse->headers;
     b = &u->buffer;

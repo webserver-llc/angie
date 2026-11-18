@@ -2038,7 +2038,7 @@ ngx_quic_shutdown_quic(ngx_connection_t *c)
 {
     ngx_quic_connection_t  *qc;
 
-    if (c->reusable) {
+    if (c->reusable || ngx_quic_can_shutdown(c) == NGX_OK) {
         qc = ngx_quic_get_connection(c);
         ngx_quic_finalize_connection(c, qc->shutdown_code, qc->shutdown_reason);
     }

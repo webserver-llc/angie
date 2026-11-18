@@ -187,6 +187,12 @@ ngx_http_v3_shutdown(ngx_connection_t *c)
         return;
     }
 
+    if (h3c->goaway_recvd) {
+        ngx_http_v3_shutdown_connection(c, NGX_HTTP_V3_ERR_NO_ERROR,
+                                        "connection shutdown on goaway");
+        return;
+    }
+
     if (!h3c->goaway_sent) {
         h3c->goaway_sent = 1;
 

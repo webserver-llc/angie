@@ -5271,8 +5271,16 @@ ngx_http_upstream_close_peer_connection(ngx_http_request_t *r,
         ngx_http_v3_upstream_close_request_stream(sc, 1);
 
         if (u->h3_started && !u->hq) {
-            /* HTTP/3 was initialized on this stream, close gracefully */
+
+            /* HTTP/3 was initialized on this stream, close gracefully;
+             * main connection will be closed after shutdown
+             */
             ngx_http_v3_shutdown(c);
+
+            u->peer.cached = 0;
+            u->peer.connection = NULL;
+
+            return;
         }
     }
 

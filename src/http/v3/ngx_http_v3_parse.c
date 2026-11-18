@@ -1181,8 +1181,9 @@ static ngx_int_t
 ngx_http_v3_parse_control(ngx_connection_t *c, ngx_http_v3_parse_control_t *st,
     ngx_buf_t *b)
 {
-    ngx_buf_t  loc;
-    ngx_int_t  rc;
+    ngx_buf_t               loc;
+    ngx_int_t               rc;
+    ngx_http_v3_session_t  *h3c;
     enum {
         sw_start = 0,
         sw_first_type,
@@ -1257,11 +1258,30 @@ ngx_http_v3_parse_control(ngx_connection_t *c, ngx_http_v3_parse_control_t *st,
 
             st->length = st->vlint.value;
             if (st->length == 0) {
+
+                if (st->type == NGX_HTTP_V3_FRAME_GOAWAY) {
+                    return NGX_HTTP_V3_ERR_FRAME_ERROR;
+                }
+
                 st->state = sw_type;
                 break;
             }
 
             switch (st->type) {
+
+            case NGX_HTTP_V3_FRAME_GOAWAY:
+
+                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                               "http3 parse control: GOAWAY");
+
+                h3c = ngx_http_v3_get_session(c);
+
+                if (h3c != NULL && h3c->client) {
+                    h3c->goaway_recvd = 1;
+                }
+
+                st->state = sw_skip;
+                break;
 
             case NGX_HTTP_V3_FRAME_SETTINGS:
                 st->state = sw_settings;

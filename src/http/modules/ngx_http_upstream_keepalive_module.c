@@ -48,6 +48,10 @@ static ngx_int_t ngx_http_upstream_connect_keepalive_peer(
     ngx_peer_connection_t *pc, void *data);
 static void ngx_http_upstream_close_keepalive_peer(ngx_peer_connection_t *pc,
     void *data, ngx_uint_t state);
+#if (NGX_HTTP_V3)
+static ngx_inline ngx_int_t ngx_http_upstream_keepalive_v3_gone(
+    ngx_connection_t *c);
+#endif
 
 static void ngx_http_upstream_keepalive_dummy_handler(ngx_event_t *ev);
 static void ngx_http_upstream_keepalive_close_handler(ngx_event_t *ev);
@@ -199,7 +203,7 @@ ngx_http_upstream_connect_keepalive_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_keepalive_cache_t     *item;
     ngx_http_upstream_keepalive_srv_conf_t  *kcf;
 
-    ngx_queue_t       *q, *cache;
+    ngx_queue_t       *q, *cache, *next;
     ngx_connection_t  *c;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
@@ -216,8 +220,10 @@ ngx_http_upstream_connect_keepalive_peer(ngx_peer_connection_t *pc, void *data)
 
     for (q = ngx_queue_head(cache);
          q != ngx_queue_sentinel(cache);
-         q = ngx_queue_next(q))
+         q = next)
     {
+        next = ngx_queue_next(q);
+
         item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t, queue);
         c = item->connection;
 
@@ -232,6 +238,16 @@ ngx_http_upstream_connect_keepalive_peer(ngx_peer_connection_t *pc, void *data)
             if (item->rr_peers) {
                 (void) ngx_atomic_fetch_add(&item->rr_peers->stats.keepalive,
                                             -1);
+            }
+#endif
+
+#if (NGX_HTTP_V3)
+            if (ngx_http_upstream_keepalive_v3_gone(c)) {
+                ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                               "keepalive upstream sent GOAWAY, "
+                               "closing connection");
+                ngx_http_upstream_keepalive_close(c);
+                continue;
             }
 #endif
 
@@ -325,7 +341,16 @@ ngx_http_upstream_close_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     }
 
 #if (NGX_HTTP_V3)
-    requests = c->quic ? c->quic->parent->requests : c->requests;
+    if (c->quic) {
+        if (ngx_http_upstream_keepalive_v3_gone(c)) {
+            return;
+        }
+
+        requests = c->quic->parent->requests;
+
+    } else {
+        requests = c->requests;
+    }
 #else
     requests = c->requests;
 #endif
@@ -416,6 +441,29 @@ ngx_http_upstream_close_keepalive_peer(ngx_peer_connection_t *pc, void *data,
         ngx_http_upstream_keepalive_close_handler(c->read);
     }
 }
+
+
+#if (NGX_HTTP_V3)
+
+static ngx_inline ngx_int_t
+ngx_http_upstream_keepalive_v3_gone(ngx_connection_t *c)
+{
+    ngx_http_v3_session_t  *h3c;
+
+    if (!c->quic) {
+        return 0;
+    }
+
+    h3c = ngx_http_v3_get_session(c);
+
+    if (h3c == NULL || !h3c->goaway_recvd) {
+        return 0;
+    }
+
+    return 1;
+}
+
+#endif
 
 
 static void

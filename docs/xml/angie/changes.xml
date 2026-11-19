@@ -164,18 +164,20 @@ the fix was ported from nginx 1.31.9.
 
 <change type="security">
 <para lang="ru">
-при проксировании по HTTP/3, при вычислении строковых выражений с
+при проксировании по HTTP/3, во время вычисления строковых выражений с
 безымянными переменными-захватами ($1, $2 и т.д.) в директивах
-"proxy_set_header" и "proxy_set_body" вместе с переменной директивы "map",
-значение которой определяется регулярным выражением, могло произойти
-повреждение памяти рабочего процесса или его падение.
+"proxy_set_header" и "proxy_set_body" вместе с переменной, заданной
+директивой "map", значение которой определяется регулярным выражением,
+могло произойти повреждение памяти рабочего процесса или его падение.<br/>
+Спасибо Ярославу Макарову за сообщение об уязвимости.
 </para>
 <para lang="en">
-when proxying over HTTP/3, when evaluating string expressions with
+while proxying over HTTP/3, when evaluating string expressions with
 unnamed capture variables ($1, $2, etc.) in the "proxy_set_header"
-and "proxy_set_body" directives together with a "map" directive variable
-whose value is determined by a regular expression, worker process
-memory corruption or a worker process crash could occur.
+and "proxy_set_body" directives together with a variable defined by
+the "map" directive whose value is determined by a regular expression,
+memory corruption or a crash of a worker process could occur.<br/>
+Thanks to Iaroslav Makarov for the vulnerability report.
 </para>
 </change>
 

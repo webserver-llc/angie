@@ -7,6 +7,161 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании директивы "try_files" со значениями, содержащими
+переменные, в "location" с директивой "alias", в некоторых конфигурациях
+могло произойти переполнение буфера, что позволяло атакующему повредить
+память рабочего процесса или вызвать его падение (CVE-2026-125283);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when the "try_files" directive with values containing variables was used
+in a "location" with the "alias" directive, a buffer overflow might occur
+in certain configurations, allowing an attacker to corrupt the worker
+process memory or cause its crash (CVE-2026-125283);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании HTTP/2 обработка специально созданных сообщений клиента
+во время передачи ему ответа могла приводить к повреждению памяти рабочего
+процесса, его падению, а также потенциально могла иметь другие последствия
+(CVE-2026-123007);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when HTTP/2 was used, processing of specially crafted messages from a client
+while a response was being sent to it might result in worker process memory
+corruption or a worker process crash, or might have potential other impact
+(CVE-2026-123007);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании HTTP/2, если обработка запроса требовала исходящего
+соединения (например, с проксируемым сервером), а свободных соединений
+(директива "worker_connections") не хватало, HTTP/2-соединение могло
+ошибочно закрываться, хотя запрос в нём ещё обрабатывался; в результате
+могло происходить повреждение памяти рабочего процесса или его падение
+(CVE-2026-123633);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when HTTP/2 was used, if processing a request required an outgoing
+connection (for example, to a proxied server) and free connections (the
+"worker_connections" directive) were not enough, an HTTP/2 connection
+could be mistakenly closed while a request was still being processed in
+it; as a result, worker process memory corruption or a worker process
+crash could occur (CVE-2026-123633);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании HTTP/3, если обработка запроса требовала исходящего
+соединения (например, с проксируемым сервером), а свободных соединений
+(директива "worker_connections") не хватало, QUIC-соединение могло
+ошибочно закрываться, хотя запрос в нём ещё обрабатывался; в результате
+могло происходить повреждение памяти рабочего процесса или его падение
+(CVE-2026-121810);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when HTTP/3 was used, if processing a request required an outgoing
+connection (for example, to a proxied server) and free connections (the
+"worker_connections" directive) were not enough, a QUIC connection could
+be mistakenly closed while a request was still being processed in it; as
+a result, worker process memory corruption or a worker process crash
+could occur (CVE-2026-121810);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "resolver" для разрешения имён проксируемых
+серверов во время обработки запроса, если то же имя одновременно
+разрешалось и в подзапросе, атакующий, способный инициировать разрешение
+имён, мог повредить память рабочего процесса или вызвать его падение;
+возможны и другие последствия (CVE-2026-123634);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when the "resolver" directive was used to resolve proxied server names
+while processing a request, and the same name was simultaneously resolved
+in a subrequest, an attacker able to trigger name resolution might corrupt
+worker process memory or cause a worker process crash; the issue might also
+have potential other impact (CVE-2026-123634);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+в почтовом прокси-сервере завершение соединения или запись данных клиентом
+во время подключения к проксируемому серверу (директива "proxy on"),
+разрешения имени клиента либо ожидания ответа сервера аутентификации
+(директива "auth_http") могли приводить к повреждению памяти рабочего
+процесса или его падению (CVE-2026-113425);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+in the Mail proxy module, closing the connection or writing data by
+a client while the server was connecting to a proxied server (the
+"proxy on" directive), resolving a client name, or waiting for a response
+from the authentication server (the "auth_http" directive) could lead to
+worker process memory corruption or a worker process crash
+(CVE-2026-113425);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+в stream-модуле, если виртуальные серверы выбирались по SNI и проверка
+клиентских SSL-сертификатов (директивы "ssl_verify_client",
+"ssl_client_certificate" и "ssl_trusted_certificate") была настроена
+строже в выбранном по SNI сервере, чем в сервере по умолчанию, такая
+проверка могла выполняться с настройками сервера по умолчанию, что
+позволяло атакующему её обойти (CVE-2026-120967);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+in the stream module, if virtual servers were selected by SNI and client SSL
+certificate verification (the "ssl_verify_client",
+"ssl_client_certificate" and "ssl_trusted_certificate" directives) was
+configured more strictly in the server selected by SNI than in the default
+server, the verification could be performed using the configuration of the
+default server, allowing an attacker to bypass it (CVE-2026-120967);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "ssl_preread" некорректные сообщения
+ClientHello могли интерпретироваться иначе, чем в других реализациях TLS,
+что могло приводить к обходу ограничений безопасности, основанных на
+значениях переменных "$ssl_preread_server_name" и
+"$ssl_preread_alpn_protocols" (CVE-2026-123640);
+исправление портировано из nginx 1.31.9.
+</para>
+<para lang="en">
+when the "ssl_preread" directive was used, malformed ClientHello messages
+might be interpreted differently than in other TLS implementations, which
+might result in bypassing security restrictions based on the
+"$ssl_preread_server_name" and "$ssl_preread_alpn_protocols" variables
+(CVE-2026-123640);
+the fix was ported from nginx 1.31.9.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 загрузчик кэша не работал для зон, восстановленных из файла состояния,

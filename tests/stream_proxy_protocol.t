@@ -26,7 +26,7 @@ use Test::Nginx::Stream qw/ stream /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/stream/)->plan(2)
+my $t = Test::Nginx->new()->has(qw/stream unix/)->plan(3)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 %%TEST_GLOBALS%%
@@ -51,6 +51,17 @@ stream {
         proxy_pass      127.0.0.1:8081;
         proxy_protocol  off;
     }
+
+    server {
+        listen          127.0.0.1:8083;
+        proxy_pass      unix:%%TESTDIR%%/unix.sock;
+        proxy_protocol  off;
+    }
+
+    server {
+        listen          unix:%%TESTDIR%%/unix.sock;
+        proxy_pass      127.0.0.1:8081;
+    }
 }
 
 EOF
@@ -68,6 +79,9 @@ my $sp = $s->sockport();
 is($data, "PROXY TCP4 127.0.0.1 127.0.0.1 $sp $dp${CRLF}close", 'protocol on');
 
 is(stream('127.0.0.1:' . port(8082))->io('close'), 'close', 'protocol off');
+
+is(stream('127.0.0.1:' . port(8083))->io('close'), "PROXY UNKNOWN${CRLF}close",
+	'protocol on unix');
 
 ###############################################################################
 

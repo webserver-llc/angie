@@ -383,8 +383,9 @@ ngx_proxy_protocol_write(ngx_connection_t *c, ngx_proxy_protocol_conf_t *conf,
 #endif
 
     default:
-        return ngx_cpymem(pos, "PROXY UNKNOWN" CRLF,
-                          sizeof("PROXY UNKNOWN" CRLF) - 1);
+        *last = ngx_cpymem(pos, "PROXY UNKNOWN" CRLF,
+                           sizeof("PROXY UNKNOWN" CRLF) - 1);
+        return buf;
     }
 
     pos += ngx_sock_ntop(c->sockaddr, c->socklen, pos, end - pos, 0);

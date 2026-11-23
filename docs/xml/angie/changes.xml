@@ -163,6 +163,15 @@ the fix was ported from nginx 1.31.9.
 </change>
 
 <change type="bugfix">
+<para lang="en">
+when the PROXY protocol version 1 was used for connections to a proxied
+server in the stream and mail modules, if a client was connected over
+a UNIX-domain socket, the protocol header was built incorrectly and the
+connection was closed; the bug had appeared in 1.11.0.
+</para>
+</change>
+
+<change type="bugfix">
 <para lang="ru">
 загрузчик кэша не работал для зон, восстановленных из файла состояния,
 если ранее тот был сохранен до окончания загрузки кэша.

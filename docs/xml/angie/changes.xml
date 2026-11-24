@@ -7,6 +7,157 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="bugfix">
+<para lang="ru">
+загрузчик кэша не работал для зон, восстановленных из файла состояния,
+если ранее тот был сохранен до окончания загрузки кэша.
+</para>
+<para lang="en">
+cache loader did not work for zones restored from a state file,
+if the file was saved before the cache was finally loaded.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
+в "error_log" могли записываться ложные сообщения вида
+"[alert] recv() failed (5: Input/output error)";
+исправление портировано из nginx 1.31.8.
+</para>
+<para lang="en">
+when closing SSL connections with kernel TLS (Linux, OpenSSL 3.2.0 and later),
+spurious messages such as "[alert] recv() failed (5: Input/output error)"
+could be logged to "error_log";
+the fix was ported from nginx 1.31.8.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+если для экспорта метрик использовался штатный файл "prometheus_all.conf",
+метрики "angie_http_acme_clients_state" и "angie_http_acme_certs_state"
+отсутствовали в выдаче, так как шаблоны преобразования значений этих
+метрик были перепутаны местами.
+</para>
+<para lang="en">
+if the bundled "prometheus_all.conf" file was used to export metrics, the
+"angie_http_acme_clients_state" and "angie_http_acme_certs_state" metrics
+were missing from the output, because the value mapping templates of
+these metrics were swapped with each other.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 в ответе клиенту могли отсутствовать уже
+обработанные заголовки от проксируемого сервера, если фрейм HEADERS был
+получен не за одно чтение.
+</para>
+<para lang="en">
+when proxying over HTTP/3, the client response might lack previously parsed
+upstream headers if a HEADERS frame spanned multiple reads.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+проксируемое по HTTP/3 соединение могло сохраняться в keepalive-кэш даже
+после получения от проксируемого сервера сигнала на закрытие (GOAWAY),
+что далее, при повторном использовании, приводило к завершению запроса
+с ошибкой; теперь такое соединение закрывается и не используется повторно.
+</para>
+<para lang="en">
+an HTTP/3 proxied connection could remain in the keepalive cache even
+after receiving a close signal (GOAWAY) from the proxied server,
+which later led to request failure when the connection was reused;
+now such a connection is closed and not reused.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3, если проксируемый сервер не отправлял
+TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
+могли зависать и завершаться по таймауту.
+</para>
+<para lang="en">
+when proxying over HTTP/3, if the proxied server did not send TLS session
+tickets (for example, when using LibreSSL), requests to it could hang and
+time out.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+HTTP/3-прокси мог вернуть ошибку 500 при повторном использовании соединения
+с проксируемым сервером, лимит потоков которого был исчерпан, вместо создания
+нового upstream-соединения.
+</para>
+<para lang="en">
+HTTP/3 proxy could return 500 when reusing a cached upstream connection whose
+stream limit was exhausted, instead of establishing a new upstream connection.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
+могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
+за время жизни и далее не переиспользовалось.
+</para>
+<para lang="en">
+when proxying over HTTP/3, an upstream keepalive connection could
+serve at most "proxy_http3_max_concurrent_streams" requests during
+its lifetime and was not reused after that.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+возможность задавать в директиве "acme_dns_ttl" значения времени,
+например "1h" вместо "3600".
+</para>
+<para lang="en">
+support for time values in the "acme_dns_ttl" directive;
+a value can now be specified as "1h" instead of "3600".
+</para>
+</change>
+
+<change type="change">
+<para lang="ru">
+теперь логика директивы "acme_dns_port" аналогична логике "acme_http_port":
+если в директиве указан только порт без IP и есть слушающие на этом порту
+блоки "server", то обработка соединений для заданного порта в ACME работает
+только на указанных IP-адресах в директивах "listen" данных блоков; попытки
+слушать на всех остальных IP, как было раньше, не производится;
+логика директивы "acme_http_port" изменилась в версии 1.11.1.
+</para>
+<para lang="en">
+now the logic of the "acme_dns_port" directive is similar to that of
+"acme_http_port": if only a port, without an IP address, is specified in
+the directive, and there are "server" blocks listening on that port,
+ACME handles connections to that port only on the IP addresses configured
+in the "listen" directives of those blocks; it no longer attempts to listen
+on all IP addresses, as it did before;
+the "acme_http_port" directive received the same change in version 1.11.1.
+</para>
+</change>
+
+<change type="feature">
+<para lang="ru">
+вся функциональность nginx 1.31.3.
+</para>
+<para lang="en">
+all functionality of nginx 1.31.3.
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.12.5" date="2026-11-20">
+
 <change type="security">
 <para lang="ru">
 при использовании директивы "try_files" со значениями, содержащими
@@ -162,166 +313,22 @@ the fix was ported from nginx 1.31.9.
 </para>
 </change>
 
-<change type="bugfix">
-<para lang="ru">
-загрузчик кэша не работал для зон, восстановленных из файла состояния,
-если ранее тот был сохранен до окончания загрузки кэша.
-</para>
-<para lang="en">
-cache loader did not work for zones restored from a state file,
-if the file was saved before the cache was finally loaded.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
-в "error_log" могли записываться ложные сообщения вида
-"[alert] recv() failed (5: Input/output error)";
-исправление портировано из nginx 1.31.8.
-</para>
-<para lang="en">
-when closing SSL connections with kernel TLS (Linux, OpenSSL 3.2.0 and later),
-spurious messages such as "[alert] recv() failed (5: Input/output error)"
-could be logged to "error_log";
-the fix was ported from nginx 1.31.8.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-если для экспорта метрик использовался штатный файл "prometheus_all.conf",
-метрики "angie_http_acme_clients_state" и "angie_http_acme_certs_state"
-отсутствовали в выдаче, так как шаблоны преобразования значений этих
-метрик были перепутаны местами.
-</para>
-<para lang="en">
-if the bundled "prometheus_all.conf" file was used to export metrics, the
-"angie_http_acme_clients_state" and "angie_http_acme_certs_state" metrics
-were missing from the output, because the value mapping templates of
-these metrics were swapped with each other.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3 в ответе клиенту могли отсутствовать уже
-обработанные заголовки от проксируемого сервера, если фрейм HEADERS был
-получен не за одно чтение.
-</para>
-<para lang="en">
-when proxying over HTTP/3, the client response might lack previously parsed
-upstream headers if a HEADERS frame spanned multiple reads.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-проксируемое по HTTP/3 соединение могло сохраняться в keepalive-кэш даже
-после получения от проксируемого сервера сигнала на закрытие (GOAWAY),
-что далее, при повторном использовании, приводило к завершению запроса
-с ошибкой; теперь такое соединение закрывается и не используется повторно.
-</para>
-<para lang="en">
-an HTTP/3 proxied connection could remain in the keepalive cache even
-after receiving a close signal (GOAWAY) from the proxied server,
-which later led to request failure when the connection was reused;
-now such a connection is closed and not reused.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3, если проксируемый сервер не отправлял
-TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
-могли зависать и завершаться по таймауту.
-</para>
-<para lang="en">
-when proxying over HTTP/3, if the proxied server did not send TLS session
-tickets (for example, when using LibreSSL), requests to it could hang and
-time out.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-HTTP/3-прокси мог вернуть ошибку 500 при повторном использовании соединения
-с проксируемым сервером, лимит потоков которого был исчерпан, вместо создания
-нового upstream-соединения.
-</para>
-<para lang="en">
-HTTP/3 proxy could return 500 when reusing a cached upstream connection whose
-stream limit was exhausted, instead of establishing a new upstream connection.
-</para>
-</change>
-
 <change type="security">
 <para lang="ru">
-при проксировании по HTTP/3, при вычислении строковых выражений с
+при проксировании по HTTP/3, во время вычисления строковых выражений с
 безымянными переменными-захватами ($1, $2 и т.д.) в директивах
-"proxy_set_header" и "proxy_set_body" вместе с переменной директивы "map",
-значение которой определяется регулярным выражением, могло произойти
-повреждение памяти рабочего процесса или его падение.
+"proxy_set_header" и "proxy_set_body" вместе с переменной, заданной
+директивой "map", значение которой определяется регулярным выражением,
+могло произойти повреждение памяти рабочего процесса или его падение.<br/>
+Спасибо Ярославу Макарову за сообщение об уязвимости.
 </para>
 <para lang="en">
-when proxying over HTTP/3, when evaluating string expressions with
+while proxying over HTTP/3, when evaluating string expressions with
 unnamed capture variables ($1, $2, etc.) in the "proxy_set_header"
-and "proxy_set_body" directives together with a "map" directive variable
-whose value is determined by a regular expression, worker process
-memory corruption or a worker process crash could occur.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
-могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
-за время жизни и далее не переиспользовалось.
-</para>
-<para lang="en">
-when proxying over HTTP/3, an upstream keepalive connection could
-serve at most "proxy_http3_max_concurrent_streams" requests during
-its lifetime and was not reused after that.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-возможность задавать в директиве "acme_dns_ttl" значения времени,
-например "1h" вместо "3600".
-</para>
-<para lang="en">
-support for time values in the "acme_dns_ttl" directive;
-a value can now be specified as "1h" instead of "3600".
-</para>
-</change>
-
-<change type="change">
-<para lang="ru">
-теперь логика директивы "acme_dns_port" аналогична логике "acme_http_port":
-если в директиве указан только порт без IP и есть слушающие на этом порту
-блоки "server", то обработка соединений для заданного порта в ACME работает
-только на указанных IP-адресах в директивах "listen" данных блоков; попытки
-слушать на всех остальных IP, как было раньше, не производится;
-логика директивы "acme_http_port" изменилась в версии 1.11.1.
-</para>
-<para lang="en">
-now the logic of the "acme_dns_port" directive is similar to that of
-"acme_http_port": if only a port, without an IP address, is specified in
-the directive, and there are "server" blocks listening on that port,
-ACME handles connections to that port only on the IP addresses configured
-in the "listen" directives of those blocks; it no longer attempts to listen
-on all IP addresses, as it did before;
-the "acme_http_port" directive received the same change in version 1.11.1.
-</para>
-</change>
-
-<change type="feature">
-<para lang="ru">
-вся функциональность nginx 1.31.3.
-</para>
-<para lang="en">
-all functionality of nginx 1.31.3.
+and "proxy_set_body" directives together with a variable defined by
+the "map" directive whose value is determined by a regular expression,
+memory corruption or a crash of a worker process could occur.<br/>
+Thanks to Iaroslav Makarov for the vulnerability report.
 </para>
 </change>
 

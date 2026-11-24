@@ -7,6 +7,33 @@
 
 <changes ver="1.13.0" date="">
 
+<change type="security">
+<para lang="ru">
+при использовании директивы "ssl_early_data" в HTTP-модуле клиент мог
+вызвать чрезмерное потребление ресурсов процессора (CVE-2026-132779);
+исправление портировано из nginx 1.31.10.
+</para>
+<para lang="en">
+when the "ssl_early_data" directive was used in the HTTP module, a
+client might cause excessive CPU usage (CVE-2026-132779);
+the fix was ported from nginx 1.31.10.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+в HTTP-модуле при использовании SSL-соединений с проксируемыми серверами
+в некоторых случаях могло наблюдаться чрезмерное потребление ресурсов
+процессора;
+исправление портировано из nginx 1.31.10.
+</para>
+<para lang="en">
+in the HTTP module, excessive CPU usage might be observed in some cases
+when SSL connections to proxied servers were used;
+the fix was ported from nginx 1.31.10.
+</para>
+</change>
+
 <change type="bugfix">
 <para lang="ru">
 загрузчик кэша не работал для зон, восстановленных из файла состояния,

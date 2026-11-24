@@ -25,6 +25,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
 	->has(qw/http http_api proxy upstream_zone upstream_hash rewrite/)
+	->has(qw/upstream_keepalive/)
 	->plan(6)->write_file_expand('nginx.conf', <<'EOF');
 %%TEST_GLOBALS%%
 

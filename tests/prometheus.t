@@ -22,7 +22,7 @@ select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()
-	->has(qw/http http_api prometheus rewrite/)->plan(21);
+	->has(qw/http http_api prometheus rewrite upstream_zone/)->plan(21);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

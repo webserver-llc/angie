@@ -22,7 +22,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache ssi/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache ssi limit_req/)
 	->has_daemon("openssl");
 
 $t->has(qw/http_v3/);

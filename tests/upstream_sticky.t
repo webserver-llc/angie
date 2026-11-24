@@ -24,7 +24,7 @@ select STDOUT; $| = 1;
 
 my $t = Test::Nginx->new()->has(qw/http http_ssl proxy rewrite map/)
 	->has(qw/upstream_least_conn upstream_ip_hash upstream_hash/)
-	->has(qw/upstream_random upstream_sticky/)
+	->has(qw/upstream_random upstream_sticky upstream_keepalive/)
 	->has_daemon('openssl')->plan(115);
 
 $t->write_file_expand('nginx.conf', <<'EOF');

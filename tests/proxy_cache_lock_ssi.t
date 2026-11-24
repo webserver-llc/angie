@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+# (C) 2026 Web Server LLC
 # (C) Maxim Dounin
 
 # Tests for http proxy cache lock with subrequests.
@@ -21,7 +22,7 @@ use Test::Nginx qw/ :DEFAULT http_end /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy cache ssi/)
+my $t = Test::Nginx->new()->has(qw/http proxy cache ssi limit_req/)
 	->write_file_expand('nginx.conf', <<'EOF')->plan(2);
 
 %%TEST_GLOBALS%%

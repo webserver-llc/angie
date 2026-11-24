@@ -25,7 +25,8 @@ use Test::Nginx::HTTP3;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_v2 http_v3 cryptx grpc/)
+my $t = Test::Nginx->new()
+	->has(qw/http http_v2 http_v3 cryptx grpc upstream_keepalive/)
 	->has_daemon('openssl')
 	->plan(14);
 

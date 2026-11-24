@@ -26,8 +26,10 @@ use Test::Utils qw/ stream_daemon :json :re/;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http http_api rewrite stream/)
-	->has(qw/upstream_zone stream_upstream_zone/);
+my $t = Test::Nginx->new()
+	->has(qw/http http_api cache proxy rewrite limit_conn limit_req stream/)
+	->has(qw/upstream_zone stream_upstream_zone upstream_sticky/)
+	->has(qw/stream_upstream_sticky upstream_keepalive/);
 
 $t->write_file_expand('nginx.conf', <<'EOF');
 

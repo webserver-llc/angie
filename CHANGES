@@ -1,4 +1,58 @@
 
+Changes with Angie 1.12.6                                        26 Nov 2026
+
+    *) Security: when the "ssl_early_data" directive was used in the HTTP
+       module, a client might cause excessive CPU usage (CVE-2026-132779);
+       the fix was ported from nginx 1.31.10.
+
+    *) Bugfix: in the HTTP module, excessive CPU usage might be observed
+       when proxying over an SSL connection to a proxied server, if, while
+       data was being sent, the proxied server initiated a TLS handshake
+       continuation (for example, a renegotiation or a request for a client
+       certificate); the fix was ported from nginx 1.31.10.
+
+    *) Bugfix: the cache loader did not work for zones restored from a state
+       file, if the file was saved before the cache was fully loaded; in the
+       "/status/http/caches/" statistics API section such a zone kept the
+       "cold" field with the value "true".
+
+    *) Bugfix: when proxying over HTTP/3, a client request could fail with
+       error 500 instead of a new connection being established if no new
+       stream could be opened on a cached keepalive connection to a proxied
+       server (for example, when the proxied server had used up the number
+       of streams it allows in that connection).
+
+    *) Bugfix: when proxying over HTTP/3, a connection to a proxied server
+       could stay in the connections cache (the "keepalive" directive in the
+       "upstream" block) even after the server sent a GOAWAY frame to start
+       closing the connection gracefully and accept no more requests in it;
+       a request sent over such a reused connection could fail.
+
+    *) Bugfix: when proxying over HTTP/3, some headers of a proxied server's
+       response could be missing from the response to the client if a
+       HEADERS frame arrived in more than one read (for example, with a
+       large number of headers).
+
+    *) Bugfix: when proxying over HTTP/3, if the proxied server did not send
+       TLS session tickets (for example, when using LibreSSL), requests to
+       it could hang and time out.
+
+    *) Bugfix: when proxying over HTTP/3, a keepalive connection to a
+       proxied server could serve no more than
+       "proxy_http3_max_concurrent_streams" requests during its lifetime,
+       even though the proxied server allowed more.
+
+    *) Bugfix: when closing SSL connections with kernel TLS (Linux, OpenSSL
+       3.2.0 and later), spurious messages such as "[alert] recv() failed
+       (5: Input/output error)" could be logged to "error_log"; the fix was
+       ported from nginx 1.31.8.
+
+    *) Bugfix: when the standard "prometheus_all.conf" template was used,
+       the "angie_http_acme_clients_state" and "angie_http_acme_certs_state"
+       metrics were missing from the output, because their value mapping
+       templates were swapped with each other.
+
+
 Changes with Angie 1.12.5                                        20 Nov 2026
 
     *) Security: when the "try_files" directive with values containing

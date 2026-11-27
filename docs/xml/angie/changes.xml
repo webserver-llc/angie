@@ -7,139 +7,6 @@
 
 <changes ver="1.13.0" date="">
 
-<change type="security">
-<para lang="ru">
-при использовании директивы "ssl_early_data" в HTTP-модуле клиент мог
-вызвать чрезмерное потребление ресурсов процессора (CVE-2026-132779);
-исправление портировано из nginx 1.31.10.
-</para>
-<para lang="en">
-when the "ssl_early_data" directive was used in the HTTP module, a
-client might cause excessive CPU usage (CVE-2026-132779);
-the fix was ported from nginx 1.31.10.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-в HTTP-модуле при использовании SSL-соединений с проксируемыми серверами
-в некоторых случаях могло наблюдаться чрезмерное потребление ресурсов
-процессора;
-исправление портировано из nginx 1.31.10.
-</para>
-<para lang="en">
-in the HTTP module, excessive CPU usage might be observed in some cases
-when SSL connections to proxied servers were used;
-the fix was ported from nginx 1.31.10.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-загрузчик кэша не работал для зон, восстановленных из файла состояния,
-если ранее тот был сохранен до окончания загрузки кэша.
-</para>
-<para lang="en">
-cache loader did not work for zones restored from a state file,
-if the file was saved before the cache was finally loaded.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
-в "error_log" могли записываться ложные сообщения вида
-"[alert] recv() failed (5: Input/output error)";
-исправление портировано из nginx 1.31.8.
-</para>
-<para lang="en">
-when closing SSL connections with kernel TLS (Linux, OpenSSL 3.2.0 and later),
-spurious messages such as "[alert] recv() failed (5: Input/output error)"
-could be logged to "error_log";
-the fix was ported from nginx 1.31.8.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-если для экспорта метрик использовался штатный файл "prometheus_all.conf",
-метрики "angie_http_acme_clients_state" и "angie_http_acme_certs_state"
-отсутствовали в выдаче, так как шаблоны преобразования значений этих
-метрик были перепутаны местами.
-</para>
-<para lang="en">
-if the bundled "prometheus_all.conf" file was used to export metrics, the
-"angie_http_acme_clients_state" and "angie_http_acme_certs_state" metrics
-were missing from the output, because the value mapping templates of
-these metrics were swapped with each other.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3 в ответе клиенту могли отсутствовать уже
-обработанные заголовки от проксируемого сервера, если фрейм HEADERS был
-получен не за одно чтение.
-</para>
-<para lang="en">
-when proxying over HTTP/3, the client response might lack previously parsed
-upstream headers if a HEADERS frame spanned multiple reads.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-проксируемое по HTTP/3 соединение могло сохраняться в keepalive-кэш даже
-после получения от проксируемого сервера сигнала на закрытие (GOAWAY),
-что далее, при повторном использовании, приводило к завершению запроса
-с ошибкой; теперь такое соединение закрывается и не используется повторно.
-</para>
-<para lang="en">
-an HTTP/3 proxied connection could remain in the keepalive cache even
-after receiving a close signal (GOAWAY) from the proxied server,
-which later led to request failure when the connection was reused;
-now such a connection is closed and not reused.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3, если проксируемый сервер не отправлял
-TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
-могли зависать и завершаться по таймауту.
-</para>
-<para lang="en">
-when proxying over HTTP/3, if the proxied server did not send TLS session
-tickets (for example, when using LibreSSL), requests to it could hang and
-time out.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-HTTP/3-прокси мог вернуть ошибку 500 при повторном использовании соединения
-с проксируемым сервером, лимит потоков которого был исчерпан, вместо создания
-нового upstream-соединения.
-</para>
-<para lang="en">
-HTTP/3 proxy could return 500 when reusing a cached upstream connection whose
-stream limit was exhausted, instead of establishing a new upstream connection.
-</para>
-</change>
-
-<change type="bugfix">
-<para lang="ru">
-при проксировании по HTTP/3 keepalive-соединение с upstream-сервером
-могло обслужить не более "proxy_http3_max_concurrent_streams" запросов
-за время жизни и далее не переиспользовалось.
-</para>
-<para lang="en">
-when proxying over HTTP/3, an upstream keepalive connection could
-serve at most "proxy_http3_max_concurrent_streams" requests during
-its lifetime and was not reused after that.
-</para>
-</change>
-
 <change type="feature">
 <para lang="ru">
 возможность задавать в директиве "acme_dns_ttl" значения времени,
@@ -177,6 +44,162 @@ the "acme_http_port" directive received the same change in version 1.11.1.
 </para>
 <para lang="en">
 all functionality of nginx 1.31.3.
+</para>
+</change>
+
+</changes>
+
+
+<changes ver="1.12.6" date="2026-11-26">
+
+<change type="security">
+<para lang="ru">
+при использовании директивы "ssl_early_data" в HTTP-модуле клиент мог
+вызвать чрезмерное потребление ресурсов процессора (CVE-2026-132779);
+исправление портировано из nginx 1.31.10.
+</para>
+<para lang="en">
+when the "ssl_early_data" directive was used in the HTTP module, a
+client might cause excessive CPU usage (CVE-2026-132779);
+the fix was ported from nginx 1.31.10.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+в HTTP-модуле при проксировании по SSL-соединению с проксируемым сервером
+могло наблюдаться чрезмерное потребление ресурсов процессора, если во
+время отправки данных проксируемый сервер инициировал продолжение
+TLS-рукопожатия (например, пересогласование или запрос клиентского
+сертификата);
+исправление портировано из nginx 1.31.10.
+</para>
+<para lang="en">
+in the HTTP module, excessive CPU usage might be observed when proxying
+over an SSL connection to a proxied server, if, while data was being sent,
+the proxied server initiated a TLS handshake continuation (for example,
+a renegotiation or a request for a client certificate);
+the fix was ported from nginx 1.31.10.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+загрузчик кэша не работал для зон, восстановленных из файла состояния,
+если ранее тот был сохранён до окончания загрузки кэша; в разделе
+"/status/http/caches/" API статистики такая зона сохраняла значение
+"true" поля "cold".
+</para>
+<para lang="en">
+the cache loader did not work for zones restored from a state file, if
+the file was saved before the cache was fully loaded; in the
+"/status/http/caches/" statistics API section such a zone kept the
+"cold" field with the value "true".
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 запрос клиента мог завершаться ошибкой
+500 вместо создания нового соединения, если на keepalive-соединении с
+проксируемым сервером больше нельзя было открыть новый поток
+(например, когда проксируемый сервер исчерпал разрешённое им число
+потоков в этом соединении).
+</para>
+<para lang="en">
+when proxying over HTTP/3, a client request could fail with error 500
+instead of a new connection being established if no new stream could be
+opened on a cached keepalive connection to a proxied server (for
+example, when the proxied server had used up the number of streams it
+allows in that connection).
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 соединение с проксируемым сервером могло
+оставаться в кэше соединений (директива "keepalive" в блоке
+"upstream") и после получения от проксируемого сервера фрейма
+GOAWAY, которым сервер начинает завершать это соединение и новых
+запросов в нём не принимает; запрос, повторно отправленный по такому
+соединению, мог завершиться ошибкой.
+</para>
+<para lang="en">
+when proxying over HTTP/3, a connection to a proxied server could stay
+in the connections cache (the "keepalive" directive in the "upstream"
+block) even after the server sent a GOAWAY frame to start closing the
+connection gracefully and accept no more requests in it; a request
+sent over such a reused connection could fail.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 часть заголовков ответа проксируемого сервера
+могла не попасть в ответ клиенту, если фрейм HEADERS поступал не за одно
+чтение (например, при большом числе заголовков).
+</para>
+<para lang="en">
+when proxying over HTTP/3, some headers of a proxied server's response
+could be missing from the response to the client if a HEADERS frame
+arrived in more than one read (for example, with a large number of
+headers).
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3, если проксируемый сервер не отправлял
+TLS-тикеты сессии (например, при использовании LibreSSL), запросы к нему
+могли зависать и завершаться по таймауту.
+</para>
+<para lang="en">
+when proxying over HTTP/3, if the proxied server did not send TLS session
+tickets (for example, when using LibreSSL), requests to it could hang and
+time out.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при проксировании по HTTP/3 keepalive-соединение с проксируемым сервером
+могло обслужить не более "proxy_http3_max_concurrent_streams" запросов за
+всё время жизни, хотя проксируемый сервер разрешал больше.
+</para>
+<para lang="en">
+when proxying over HTTP/3, a keepalive connection to a proxied server
+could serve no more than "proxy_http3_max_concurrent_streams" requests
+during its lifetime, even though the proxied server allowed more.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при закрытии SSL-соединений с kernel TLS (Linux, OpenSSL 3.2.0 и новее)
+в "error_log" могли записываться ложные сообщения вида
+"[alert] recv() failed (5: Input/output error)";
+исправление портировано из nginx 1.31.8.
+</para>
+<para lang="en">
+when closing SSL connections with kernel TLS (Linux, OpenSSL 3.2.0 and later),
+spurious messages such as "[alert] recv() failed (5: Input/output error)"
+could be logged to "error_log";
+the fix was ported from nginx 1.31.8.
+</para>
+</change>
+
+<change type="bugfix">
+<para lang="ru">
+при использовании стандартного шаблона "prometheus_all.conf" метрики
+"angie_http_acme_clients_state" и "angie_http_acme_certs_state"
+отсутствовали в выдаче, так как шаблоны преобразования их значений
+были перепутаны местами.
+</para>
+<para lang="en">
+when the standard "prometheus_all.conf" template was used, the
+"angie_http_acme_clients_state" and "angie_http_acme_certs_state"
+metrics were missing from the output, because their value mapping
+templates were swapped with each other.
 </para>
 </change>
 
